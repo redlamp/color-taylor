@@ -1,11 +1,11 @@
-import { useRef, useEffect, useCallback } from 'react';
+import { useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Minus, Plus } from 'lucide-react';
+import useDrag from '../hooks/useDrag';
 
 export default function ColorSlider({ label, value, max, gradient, suffix, wrap, onChange }) {
   const trackRef = useRef(null);
-  const dragging = useRef(false);
 
   const clamp = (v) => Math.max(0, Math.min(max, v));
 
@@ -14,7 +14,6 @@ export default function ColorSlider({ label, value, max, gradient, suffix, wrap,
     const rawX = clientX - rect.left;
 
     if (wrap) {
-      // Modulo wrap: going past either edge loops to the other side
       const wrapped = ((rawX % rect.width) + rect.width) % rect.width;
       const newValue = Math.round((wrapped / rect.width) * max);
       onChange(Math.min(newValue, max));
@@ -25,25 +24,9 @@ export default function ColorSlider({ label, value, max, gradient, suffix, wrap,
     }
   }, [max, wrap, onChange]);
 
-  useEffect(() => {
-    const onMouseMove = (e) => {
-      if (dragging.current) updateValue(e.clientX);
-    };
-    const onMouseUp = () => {
-      dragging.current = false;
-    };
-    const onMouseLeave = () => {
-      dragging.current = false;
-    };
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseup', onMouseUp);
-    document.documentElement.addEventListener('mouseleave', onMouseLeave);
-    return () => {
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseup', onMouseUp);
-      document.documentElement.removeEventListener('mouseleave', onMouseLeave);
-    };
-  }, [updateValue]);
+  const { dragging, startDrag } = useDrag(useCallback((e) => {
+    updateValue(e.clientX);
+  }, [updateValue]));
 
   const handleInputChange = (e) => {
     const raw = e.target.value;
@@ -56,7 +39,6 @@ export default function ColorSlider({ label, value, max, gradient, suffix, wrap,
   };
 
   const pct = (value / max) * 100;
-
   const sliderId = `slider-${label.toLowerCase()}`;
 
   return (
@@ -73,7 +55,7 @@ export default function ColorSlider({ label, value, max, gradient, suffix, wrap,
           className="h-4 w-full rounded cursor-pointer select-none"
           style={{ background: gradient, boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.1)' }}
           onMouseDown={(e) => {
-            dragging.current = true;
+            startDrag();
             updateValue(e.clientX);
           }}
         />
@@ -83,7 +65,7 @@ export default function ColorSlider({ label, value, max, gradient, suffix, wrap,
           style={{ left: `${pct}%` }}
           onMouseDown={(e) => {
             e.preventDefault();
-            dragging.current = true;
+            startDrag();
           }}
         >
           <div

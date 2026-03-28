@@ -1,8 +1,8 @@
-import { useRef, useEffect, useCallback } from 'react';
+import { useRef, useCallback } from 'react';
+import useDrag from '../hooks/useDrag';
 
 export default function HSlider({ hue, onChange }) {
   const ref = useRef(null);
-  const dragging = useRef(false);
 
   const update = useCallback((clientY) => {
     const rect = ref.current.getBoundingClientRect();
@@ -12,25 +12,9 @@ export default function HSlider({ hue, onChange }) {
     onChange(Math.min(h, 360));
   }, [onChange]);
 
-  useEffect(() => {
-    const onMouseMove = (e) => {
-      if (dragging.current) update(e.clientY);
-    };
-    const onMouseUp = () => {
-      dragging.current = false;
-    };
-    const onMouseLeave = () => {
-      dragging.current = false;
-    };
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseup', onMouseUp);
-    document.documentElement.addEventListener('mouseleave', onMouseLeave);
-    return () => {
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseup', onMouseUp);
-      document.documentElement.removeEventListener('mouseleave', onMouseLeave);
-    };
-  }, [update]);
+  const { startDrag } = useDrag(useCallback((e) => {
+    update(e.clientY);
+  }, [update]));
 
   const pct = (hue / 360) * 100;
 
@@ -42,7 +26,7 @@ export default function HSlider({ hue, onChange }) {
         style={{ top: `${pct}%`, left: -10 }}
         onMouseDown={(e) => {
           e.preventDefault();
-          dragging.current = true;
+          startDrag();
         }}
       >
         <div
@@ -63,7 +47,7 @@ export default function HSlider({ hue, onChange }) {
           boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.1)',
         }}
         onMouseDown={(e) => {
-          dragging.current = true;
+          startDrag();
           update(e.clientY);
         }}
       />

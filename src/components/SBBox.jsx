@@ -1,8 +1,8 @@
-import { useRef, useEffect, useCallback } from 'react';
+import { useRef, useCallback } from 'react';
+import useDrag from '../hooks/useDrag';
 
 export default function SBBox({ hue, saturation, brightness, onChange }) {
   const ref = useRef(null);
-  const dragging = useRef(false);
 
   const update = useCallback((clientX, clientY) => {
     const rect = ref.current.getBoundingClientRect();
@@ -13,20 +13,9 @@ export default function SBBox({ hue, saturation, brightness, onChange }) {
     onChange(s, b);
   }, [onChange]);
 
-  useEffect(() => {
-    const onMouseMove = (e) => {
-      if (dragging.current) update(e.clientX, e.clientY);
-    };
-    const onMouseUp = () => {
-      dragging.current = false;
-    };
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseup', onMouseUp);
-    return () => {
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseup', onMouseUp);
-    };
-  }, [update]);
+  const { startDrag } = useDrag(useCallback((e) => {
+    update(e.clientX, e.clientY);
+  }, [update]));
 
   const hueColor = `hsl(${hue}, 100%, 50%)`;
 
@@ -37,7 +26,7 @@ export default function SBBox({ hue, saturation, brightness, onChange }) {
       ref={ref}
       style={{ backgroundColor: hueColor }}
       onMouseDown={(e) => {
-        dragging.current = true;
+        startDrag();
         update(e.clientX, e.clientY);
       }}
     >
