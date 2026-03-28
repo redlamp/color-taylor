@@ -269,38 +269,42 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   }, [hueFromMouse, handleDotDrag, handleHexSurfaceDrag, getBLValueFromClientY, applyBLValue, animateBLToValue, getSvgCoords, getHsbFromCanvas, onAnimateToHsb, onHsbChange]);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    const imageData = ctx.createImageData(SIZE, SIZE);
-    const data = imageData.data;
+    const rafId = requestAnimationFrame(() => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const imageData = ctx.createImageData(HEX_SIZE, HEX_SIZE);
+      const data = imageData.data;
 
-    for (let py = 0; py < SIZE; py++) {
-      for (let px = 0; px < SIZE; px++) {
-        const dx = px - CENTER;
-        const dy = py - CENTER;
-        const dist = Math.sqrt(dx * dx + dy * dy);
+      for (let py = 0; py < HEX_SIZE; py++) {
+        for (let px = 0; px < HEX_SIZE; px++) {
+          const dx = px - CENTER;
+          const dy = py - CENTER;
+          const dist = Math.sqrt(dx * dx + dy * dy);
 
-        if (dist > RADIUS) continue;
+          if (dist > RADIUS) continue;
 
-        const angle = Math.atan2(-dy, dx);
-        const edgeDist = hexEdgeDist(angle, RADIUS);
+          const angle = Math.atan2(-dy, dx);
+          const edgeDist = hexEdgeDist(angle, RADIUS);
 
-        if (dist > edgeDist) continue;
+          if (dist > edgeDist) continue;
 
-        let h = (angle * 180) / PI;
-        if (h < 0) h += 360;
-        const s = (dist / edgeDist) * 100;
-        const color = hsbToRgb(h, s, brightness);
+          let h = (angle * 180) / PI;
+          if (h < 0) h += 360;
+          const s = (dist / edgeDist) * 100;
+          const color = hsbToRgb(h, s, brightness);
 
-        const idx = (py * SIZE + px) * 4;
-        data[idx] = color.r;
-        data[idx + 1] = color.g;
-        data[idx + 2] = color.b;
-        data[idx + 3] = 255;
+          const idx = (py * HEX_SIZE + px) * 4;
+          data[idx] = color.r;
+          data[idx + 1] = color.g;
+          data[idx + 2] = color.b;
+          data[idx + 3] = 255;
+        }
       }
-    }
 
-    ctx.putImageData(imageData, 0, 0);
+      ctx.putImageData(imageData, 0, 0);
+    });
+    return () => cancelAnimationFrame(rafId);
   }, [brightness]);
 
   const dotColors = useMemo(() => points.map((p) => {
