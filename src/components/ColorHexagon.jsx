@@ -2,6 +2,7 @@ import { useRef, useEffect, useCallback, useState, useMemo } from 'react';
 import { hsbToRgb, rgbToHsb, rgbToHex } from '../utils/colorConversions';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { useTheme } from '../hooks/useTheme';
 
 const HEX_SIZE = 640;
 const BL_BAR_WIDTH = 24;
@@ -64,6 +65,7 @@ function getOrder(mode, rgb) {
 }
 
 export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange }) {
+  const { isDark } = useTheme();
   const [vectorMode, setVectorMode] = useState('rgb');
   const [dragMode, setDragMode] = useState('free');
   const draggingBL = useRef(false);
@@ -638,7 +640,6 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           { label: 'B', name: 'Blue', deg: 240, color: '#0000ff', lightColor: '#0000e0' },
           { label: 'M', name: 'Magenta', deg: 300, color: '#ff00ff', lightColor: '#d000d0' },
         ].map(({ label, name, deg, color, lightColor }) => {
-          const isDark = document.documentElement.classList.contains('dark');
           const displayColor = isDark ? color : lightColor;
           const rad = (deg * PI) / 180;
           const offset = RADIUS + 20;

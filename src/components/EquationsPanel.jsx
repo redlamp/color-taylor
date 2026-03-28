@@ -1,15 +1,15 @@
 import { rgbToHex } from '../utils/colorConversions';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { useTheme } from '../hooks/useTheme';
 
 export default function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }) {
+  const { isDark } = useTheme();
   const maxVal = Math.max(rgb.r, rgb.g, rgb.b);
   const minVal = Math.min(rgb.r, rgb.g, rgb.b);
   const delta = maxVal - minVal;
   const maxChKey = maxVal === rgb.r ? 'r' : maxVal === rgb.g ? 'g' : 'b';
   const minChKey = minVal === rgb.r ? 'r' : minVal === rgb.g ? 'g' : 'b';
   const l = (maxVal + minVal) / 2;
-
-  const isDark = document.documentElement.classList.contains('dark');
   const rc = isDark ? '#ff4444' : '#dd0000';
   const gc = isDark ? '#44ee44' : '#009900';
   const bc = 'rgb(96, 96, 255)';
