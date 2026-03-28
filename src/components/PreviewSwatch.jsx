@@ -13,7 +13,7 @@ export default function PreviewSwatch({ hex }) {
       id="preview-swatch"
       role="button"
       aria-label={`Color swatch ${hex.toUpperCase()}. Click to copy.`}
-      className="w-12 shrink-0 self-stretch cursor-pointer select-none"
+      className="w-12 shrink-0 self-stretch cursor-pointer select-none rounded-md"
       style={{ backgroundColor: hex, boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.1)' }}
       onClick={handleClick}
     />

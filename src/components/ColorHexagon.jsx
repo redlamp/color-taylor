@@ -1,5 +1,5 @@
 import { useRef, useEffect, useCallback, useState, useMemo } from 'react';
-import { hsbToRgb, rgbToHsb, rgbToHex } from '../utils/colorConversions';
+import { hsbToRgb, rgbToHsb, rgbToHex, rgbToHsl, hslToRgb } from '../utils/colorConversions';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTheme } from '../hooks/useTheme';
 import {
@@ -11,11 +11,14 @@ import HexCanvas from './hex/HexCanvas';
 import BrightnessBar from './hex/BrightnessBar';
 import ColorLabels from './hex/ColorLabels';
 import HueHandle from './hex/HueHandle';
+import BrightnessHandle from './hex/BrightnessHandle';
 
 export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange }) {
   const { isDark } = useTheme();
   const [vectorMode, setVectorMode] = useState('rgb');
   const [dragMode, setDragMode] = useState('free');
+  const [recentColors, setRecentColors] = useState([]);
+  const lastHex = useRef(null);
   const draggingBL = useRef(false);
   const svgRef = useRef(null);
   const draggingHue = useRef(false);
@@ -94,6 +97,21 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
 
   const showHueLine = saturation > 0;
 
+  // Track recent colors — add to history when color settles for 500ms
+  const currentHex = rgbToHex(rgb.r, rgb.g, rgb.b);
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (currentHex !== lastHex.current) {
+        lastHex.current = currentHex;
+        setRecentColors((prev) => {
+          const filtered = prev.filter((c) => c !== currentHex);
+          return [currentHex, ...filtered].slice(0, 8);
+        });
+      }
+    }, 500);
+    return () => clearTimeout(timeout);
+  }, [currentHex]);
+
   // Drag handlers
   const handleDotDrag = useCallback((e) => {
     if (draggingDot.current && onRgbChange) {
@@ -142,10 +160,14 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     if (!onAnimateToHsb) return;
     if (blMode === 'brightness') {
       onAnimateToHsb({ h: hue, s: saturation, b: targetValue });
-    } else if (onHslChange) {
-      onHslChange('l', targetValue);
+    } else {
+      // Convert target lightness to HSB via RGB for tweening
+      const currentHsl = rgbToHsl(...Object.values(hsbToRgb(hue, saturation, brightness)));
+      const targetRgb = hslToRgb(currentHsl.h, currentHsl.s, targetValue);
+      const targetHsb = rgbToHsb(targetRgb.r, targetRgb.g, targetRgb.b);
+      onAnimateToHsb(targetHsb);
     }
-  }, [blMode, onAnimateToHsb, onHslChange, hue, saturation]);
+  }, [blMode, onAnimateToHsb, hue, saturation, brightness]);
 
   const handleHexSurfaceDrag = useCallback((e) => {
     if (!hexPointerDown.current || !onHsbChange) return;
@@ -328,7 +350,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
         </Tabs>
       </div>
 
-      <div className="relative" style={{ width: SIZE, height: HEX_SIZE }}>
+      <div className="relative" style={{ width: SIZE, height: HEX_SIZE, marginLeft: -20 }}>
         <HexCanvas brightness={brightness} />
         <svg
           id="hex-svg"
@@ -392,6 +414,47 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
 
         <ColorLabels onColorClick={handleColorLabelClick} />
         {showHueLine && <HueHandle hue={hue} hueLabel={hueLabel} onMouseDown={handleHueDragStart} />}
+        <BrightnessHandle
+          hue={hue}
+          saturation={saturation}
+          brightness={brightness}
+          hsl={hsl}
+          blMode={blMode}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            draggingBL.current = true;
+          }}
+        />
+      </div>
+
+      {/* Recent Colors */}
+      <div className="w-full mt-2">
+        <span className="text-xs font-semibold text-muted-foreground">Recent Colors</span>
+        <div className="flex gap-1.5 mt-1">
+          {Array.from({ length: 8 }, (_, i) => {
+            const color = recentColors[i];
+            return (
+              <button
+                key={i}
+                className="rounded-md border border-input cursor-pointer shrink-0"
+                style={{ width: 48, height: 64, backgroundColor: color || 'transparent' }}
+                disabled={!color}
+                aria-label={color ? `Select ${color}` : 'Empty slot'}
+                onClick={() => {
+                  if (color && onAnimateToHsb) {
+                    const parsed = rgbToHsb(
+                      parseInt(color.slice(1, 3), 16),
+                      parseInt(color.slice(3, 5), 16),
+                      parseInt(color.slice(5, 7), 16),
+                    );
+                    onAnimateToHsb(parsed);
+                  }
+                }}
+              />
+            );
+          })}
+        </div>
       </div>
     </div>
   );

@@ -96,7 +96,7 @@ export default function ColorPicker() {
     <div id="color-picker-root" className="mx-auto max-w-[1400px] p-6">
       <h1 id="color-picker-title" className="text-2xl font-semibold tracking-tight text-primary mb-4">Wright Colors</h1>
 
-      <div className="flex gap-4 items-stretch">
+      <div className="flex gap-4 items-start">
         {/* Left column: Color Hexagon */}
         <div className="shrink-0">
           <ColorHexagon
@@ -116,20 +116,25 @@ export default function ColorPicker() {
         </div>
 
         {/* Right column: Controls */}
-        <div id="picker-layout" className="flex-1 min-w-0 border border-input rounded-lg p-3">
+        <div id="picker-layout" className="w-[420px] shrink-0 border border-input rounded-lg p-3">
         <CollapsibleSection id="sliders-group" title="Sliders" level="h2">
           <div className="flex flex-col gap-4">
           {/* Hex input */}
           <CollapsibleSection id="hex-group" title="Hex">
-          <HexInput
-            hex={hex}
-            onChange={(parsed) => setHsb(rgbToHsb(parsed.r, parsed.g, parsed.b))}
-          />
+          <div className="flex gap-3 items-stretch">
+            <PreviewSwatch hex={hex} />
+            <div className="flex-1 min-w-0">
+              <HexInput
+                hex={hex}
+                onChange={(parsed) => setHsb(rgbToHsb(parsed.r, parsed.g, parsed.b))}
+              />
+            </div>
+          </div>
         </CollapsibleSection>
 
         {/* Color Editor: Swatch + SB Box + H Slider */}
         <CollapsibleSection id="color-editor-group" title="Color Editor">
-          <div id="sb-wrapper" className="flex gap-3 min-w-0">
+          <div id="sb-wrapper" className="flex gap-3 min-w-0 overflow-hidden">
             <PreviewSwatch hex={hex} />
             <SBBox
               hue={hsb.h}

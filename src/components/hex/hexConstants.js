@@ -2,9 +2,9 @@ import { hsbToRgb } from '../../utils/colorConversions';
 
 export const HEX_SIZE = 640;
 export const BL_BAR_WIDTH = 24;
-export const BL_BAR_GAP = 6;
+export const BL_BAR_GAP = -6;
 export const BL_ARROW_SIZE = 8;
-export const BL_LABEL_SPACE = 30;
+export const BL_LABEL_SPACE = 45;
 export const SIZE = HEX_SIZE + BL_BAR_GAP + BL_BAR_WIDTH + BL_ARROW_SIZE + BL_LABEL_SPACE;
 export const CENTER = HEX_SIZE / 2;
 export const RADIUS = 250;

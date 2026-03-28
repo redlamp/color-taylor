@@ -48,7 +48,7 @@ export default function ColorSlider({ label, value, max, gradient, suffix, wrap,
       </span>
 
       {/* Track + arrow */}
-      <div id={`${sliderId}-body`} className="flex-1 min-w-0 pb-3 relative">
+      <div id={`${sliderId}-body`} className="w-[255px] shrink-0 pb-3 relative">
         <div
           id={`${sliderId}-track`}
           ref={trackRef}
