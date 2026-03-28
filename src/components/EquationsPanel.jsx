@@ -98,20 +98,29 @@ export default function EquationsPanel({ rgb, hue, saturation, brightness, hsl, 
   );
 
   return (
-    <div className="grid gap-4 w-full text-sm font-mono text-muted-foreground" style={{ gridTemplateColumns: '1fr 1.35fr 1fr 0.8fr' }}>
+    <div className="grid gap-4 w-full text-sm font-mono text-muted-foreground" style={{ gridTemplateColumns: '0.9fr 1.35fr 1fr 0.8fr' }}>
       <div className="flex flex-col gap-1 border border-input rounded-lg p-2.5">
         <span className="text-sm font-semibold font-sans text-foreground">Variables</span>
         <hr className="border-input" />
-        <span><span
-          className="rounded px-1.5 py-0.5"
-          style={{
-            backgroundColor: rgbToHex(rgb.r, rgb.g, rgb.b),
-            color: (rgb.r * 0.299 + rgb.g * 0.587 + rgb.b * 0.114) > 150 ? '#000' : '#fff',
-          }}
-        >Color</span> = rgb({rv}, {gv}, {bv})</span>
-        <span><T color={mc} title="Maximum RGB value">max</T> = max({maxMinList(true)})</span>
-        <span><T color={cc} title="Minimum RGB value">min</T> = min({maxMinList(false)})</span>
-        <span>{chr} = {maxT(pad(maxVal))} - {minT(pad(minVal))} = {chrT(pad(delta))}</span>
+        <div className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-1">
+          <span className="text-right"><span
+            className="rounded px-1.5 py-0.5"
+            style={{
+              backgroundColor: rgbToHex(rgb.r, rgb.g, rgb.b),
+              color: (rgb.r * 0.299 + rgb.g * 0.587 + rgb.b * 0.114) > 150 ? '#000' : '#fff',
+            }}
+          >Color</span> =</span>
+          <span>rgb({rv}, {gv}, {bv})</span>
+
+          <span className="text-right"><T color={mc} title="Maximum RGB value">max</T> =</span>
+          <span>max({maxMinList(true)})</span>
+
+          <span className="text-right"><T color={cc} title="Minimum RGB value">min</T> =</span>
+          <span>min({maxMinList(false)})</span>
+
+          <span className="text-right">{chr} =</span>
+          <span>{maxT(pad(maxVal))} - {minT(pad(minVal))} = {chrT(pad(delta))}</span>
+        </div>
       </div>
       <div className="flex flex-col gap-1 border border-input rounded-lg p-2.5">
         <Row

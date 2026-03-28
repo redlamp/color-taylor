@@ -3,6 +3,7 @@ import { hsbToRgb, rgbToHsb, rgbToHex, rgbToHsl, hslToRgb } from '../utils/color
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTheme } from '../hooks/useTheme';
 import NamedColorMatch from './NamedColorMatch';
+import CollapsibleSection from './CollapsibleSection';
 import {
   HEX_SIZE, SIZE, CENTER, RADIUS, PI, DIRS,
   BL_BAR_X, BL_BAR_TOP, BL_BAR_HEIGHT, BL_ARROW_SIZE,
@@ -23,6 +24,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   const [selectedRecentIdx, setSelectedRecentIdx] = useState(0);
   const lastHex = useRef(initialHex);
   const skipNextRecent = useRef(false);
+  const [hoverMatchRgb, setHoverMatchRgb] = useState(null);
   const draggingBL = useRef(false);
   const svgRef = useRef(null);
   const draggingHue = useRef(false);
@@ -98,6 +100,19 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       },
     };
   }, [hue]);
+
+  const hoverDot = useMemo(() => {
+    if (!hoverMatchRgb) return null;
+    const hsb = rgbToHsb(hoverMatchRgb.r, hoverMatchRgb.g, hoverMatchRgb.b);
+    const rad = (hsb.h * PI) / 180;
+    const edgeDist = hexEdgeDist(rad, RADIUS);
+    const dist = (hsb.s / 100) * edgeDist;
+    return {
+      x: CENTER + dist * Math.cos(rad),
+      y: CENTER - dist * Math.sin(rad),
+      hex: rgbToHex(hoverMatchRgb.r, hoverMatchRgb.g, hoverMatchRgb.b),
+    };
+  }, [hoverMatchRgb]);
 
   const showHueLine = saturation > 0;
 
@@ -431,6 +446,21 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             );
           })}
 
+          {/* Hover preview dot for named color match */}
+          {hoverDot && (
+            <circle
+              cx={hoverDot.x}
+              cy={hoverDot.y}
+              r={10}
+              fill={hoverDot.hex}
+              stroke="white"
+              strokeWidth={2}
+              strokeDasharray="3 3"
+              className="pointer-events-none"
+              style={{ filter: 'drop-shadow(0 0 4px rgba(0,0,0,0.5))' }}
+            />
+          )}
+
           <BrightnessBar
             hue={hue} saturation={saturation} brightness={brightness} hsl={hsl}
             blMode={blMode} blPointerDown={blPointerDown} draggingBL={draggingBL}
@@ -455,10 +485,11 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       </div>
 
       {/* Recent Colors + Named Color Match */}
-      <div className="w-full mt-2 flex items-end justify-between gap-4">
-        <div>
-          <span className="text-xs font-semibold text-muted-foreground">Recent Colors</span>
-          <div className="flex gap-1.5 mt-1">
+      <div className="w-full mt-2 flex items-stretch gap-4">
+        <div id="recent-colors" className="border border-input rounded-lg p-2.5 flex flex-col gap-1.5">
+          <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Recent Colors</h3>
+          <hr className="border-input" />
+          <div className="flex gap-1.5">
             {Array.from({ length: 8 }, (_, i) => {
               const color = recentColors[i];
               return (
@@ -491,7 +522,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             })}
           </div>
         </div>
-        <NamedColorMatch rgb={rgb} />
+        <NamedColorMatch rgb={rgb} onAnimateToHsb={onAnimateToHsb} onHoverMatch={setHoverMatchRgb} />
       </div>
     </div>
   );
