@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useMemo } from 'react';
 import { hsbToRgb, rgbToHsb, rgbToHex, rgbToHsl, hslToRgb } from '../utils/colorConversions';
 import {
   hueGradient,
@@ -67,20 +67,27 @@ export default function ColorPicker() {
 
     animRef.current = requestAnimationFrame(tick);
   }, []);
-  const rgb = hsbToRgb(hsb.h, hsb.s, hsb.b);
-  const hex = rgbToHex(rgb.r, rgb.g, rgb.b);
-  const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
+  const rgb = useMemo(() => hsbToRgb(hsb.h, hsb.s, hsb.b), [hsb.h, hsb.s, hsb.b]);
+  const hex = useMemo(() => rgbToHex(rgb.r, rgb.g, rgb.b), [rgb.r, rgb.g, rgb.b]);
+  const hsl = useMemo(() => rgbToHsl(rgb.r, rgb.g, rgb.b), [rgb.r, rgb.g, rgb.b]);
 
-  const handleRgbChange = (channel, value) => {
-    const newRgb = { ...rgb, [channel]: value };
-    setHsb(rgbToHsb(newRgb.r, newRgb.g, newRgb.b));
-  };
+  const handleRgbChange = useCallback((channel, value) => {
+    setHsb((prev) => {
+      const currentRgb = hsbToRgb(prev.h, prev.s, prev.b);
+      const newRgb = { ...currentRgb, [channel]: value };
+      return rgbToHsb(newRgb.r, newRgb.g, newRgb.b);
+    });
+  }, []);
 
-  const handleHslChange = (channel, value) => {
-    const newHsl = { ...hsl, [channel]: value };
-    const newRgb = hslToRgb(newHsl.h, newHsl.s, newHsl.l);
-    setHsb(rgbToHsb(newRgb.r, newRgb.g, newRgb.b));
-  };
+  const handleHslChange = useCallback((channel, value) => {
+    setHsb((prev) => {
+      const currentRgb = hsbToRgb(prev.h, prev.s, prev.b);
+      const currentHsl = rgbToHsl(currentRgb.r, currentRgb.g, currentRgb.b);
+      const newHsl = { ...currentHsl, [channel]: value };
+      const newRgb = hslToRgb(newHsl.h, newHsl.s, newHsl.l);
+      return rgbToHsb(newRgb.r, newRgb.g, newRgb.b);
+    });
+  }, []);
 
   const showHsb = hslMode === 'hsb' || hslMode === 'both';
   const showHsl = hslMode === 'hsl' || hslMode === 'both';
