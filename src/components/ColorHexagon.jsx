@@ -63,10 +63,9 @@ function getOrder(mode, rgb) {
   return ['r', 'g', 'b'];
 }
 
-export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb }) {
+export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange }) {
   const [vectorMode, setVectorMode] = useState('rgb');
   const [dragMode, setDragMode] = useState('free');
-  const [blMode, setBlMode] = useState('brightness'); // 'brightness' | 'lightness'
   const draggingBL = useRef(false);
   const canvasRef = useRef(null);
   const svgRef = useRef(null);
@@ -366,7 +365,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   }, [onAnimateToHsb, brightness]);
 
   return (
-    <div id="color-hexagon" className="flex flex-col items-center gap-2 border border-input rounded-lg p-3 h-full justify-center">
+    <div id="color-hexagon" className="flex flex-col items-center gap-1 border border-input rounded-lg p-3">
       <h2 className="text-lg font-semibold tracking-tight text-foreground self-start">Color Hexagon</h2>
       <div className="flex items-center gap-3">
         <Tabs value={vectorMode} onValueChange={setVectorMode}>
@@ -390,7 +389,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             <TabsTrigger value="channel" className="w-16">Channel</TabsTrigger>
           </TabsList>
         </Tabs>
-        <Tabs value={blMode} onValueChange={setBlMode}>
+        <Tabs value={blMode} onValueChange={onBlModeChange}>
           <TabsList>
             <TabsTrigger value="brightness" className="w-16">Bright</TabsTrigger>
             <TabsTrigger value="lightness" className="w-16">Light</TabsTrigger>
@@ -698,6 +697,8 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
         )}
 
       </div>
+
     </div>
   );
 }
+

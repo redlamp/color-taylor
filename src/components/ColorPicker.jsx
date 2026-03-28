@@ -20,6 +20,7 @@ import ColorHexagon from './ColorHexagon';
 import SBBox from './SBBox';
 import HSlider from './HSlider';
 import HexInput from './HexInput';
+import EquationsPanel from './EquationsPanel';
 import PreviewSwatch from './PreviewSwatch';
 import CollapsibleSection from './CollapsibleSection';
 
@@ -27,6 +28,7 @@ export default function ColorPicker() {
   const [hsb, setHsb] = useState({ h: 200, s: 70, b: 90 });
   const [hslMode, setHslMode] = useState('hsb');
   const [rgbGradientMode, setRgbGradientMode] = useState('mixed');
+  const [blMode, setBlMode] = useState('brightness');
   const animRef = useRef(null);
   const hsbRef = useRef(hsb);
   hsbRef.current = hsb;
@@ -87,7 +89,7 @@ export default function ColorPicker() {
     <div id="color-picker-root" className="mx-auto max-w-[1400px] p-6">
       <h1 id="color-picker-title" className="text-2xl font-semibold tracking-tight text-primary mb-4">Wright Colors</h1>
 
-      <div className="flex gap-8 items-stretch">
+      <div className="flex gap-4 items-stretch">
         {/* Left column: Color Hexagon */}
         <div className="shrink-0">
           <ColorHexagon
@@ -101,11 +103,13 @@ export default function ColorPicker() {
             onHsbChange={(newHsb) => setHsb((prev) => ({ ...prev, ...newHsb }))}
             onHslChange={handleHslChange}
             onAnimateToHsb={animateToHsb}
+            blMode={blMode}
+            onBlModeChange={setBlMode}
           />
         </div>
 
         {/* Right column: Controls */}
-        <div id="picker-layout" className="w-[340px] shrink-0 border border-input rounded-lg p-3">
+        <div id="picker-layout" className="flex-1 min-w-0 border border-input rounded-lg p-3">
         <CollapsibleSection id="sliders-group" title="Sliders" level="h2">
           <div className="flex flex-col gap-4">
           {/* Hex input */}
@@ -140,9 +144,9 @@ export default function ColorPicker() {
           headerRight={
             <Tabs value={hslMode} onValueChange={setHslMode}>
               <TabsList>
-                <TabsTrigger value="hsb" className="w-16">HSB</TabsTrigger>
-                <TabsTrigger value="hsl" className="w-16">HSL</TabsTrigger>
-                <TabsTrigger value="both" className="w-16">Both</TabsTrigger>
+                <TabsTrigger value="hsb" className="w-12">HSB</TabsTrigger>
+                <TabsTrigger value="hsl" className="w-12">HSL</TabsTrigger>
+                <TabsTrigger value="both" className="w-12">Both</TabsTrigger>
               </TabsList>
             </Tabs>
           }
@@ -249,6 +253,20 @@ export default function ColorPicker() {
           </div>
         </CollapsibleSection>
       </div>
+      </div>
+
+      {/* Equations panel */}
+      <div className="mt-4 border border-input rounded-lg p-3 w-full">
+        <CollapsibleSection id="equations-group" title="Equations" level="h2">
+          <EquationsPanel
+            rgb={rgb}
+            hue={hsb.h}
+            saturation={hsb.s}
+            brightness={hsb.b}
+            hsl={hsl}
+            blMode={blMode}
+          />
+        </CollapsibleSection>
       </div>
     </div>
   );
