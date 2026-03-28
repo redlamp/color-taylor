@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback, useState } from 'react';
+import { useRef, useEffect, useCallback, useState, useMemo } from 'react';
 import { hsbToRgb, rgbToHsb, rgbToHex } from '../utils/colorConversions';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
@@ -101,22 +101,25 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   }, [onHueChange, getSvgCoords]);
 
   // Build vector chain (needed for dot drag calculations too)
-  const order = getOrder(vectorMode, rgb);
+  const order = useMemo(() => getOrder(vectorMode, rgb), [vectorMode, rgb.r, rgb.g, rgb.b]);
   const scale = RADIUS / 255;
-  const p0 = { x: CENTER, y: CENTER };
-  const points = [p0];
-  const dotNames = ['origin'];
-  let current = p0;
-  for (const ch of order) {
-    const dir = DIRS[ch];
-    const value = rgb[ch];
-    current = {
-      x: current.x + value * scale * dir.x,
-      y: current.y + value * scale * dir.y,
-    };
-    points.push(current);
-    dotNames.push(ch === 'r' ? 'red' : ch === 'g' ? 'green' : 'blue');
-  }
+  const { points, dotNames } = useMemo(() => {
+    const p0 = { x: CENTER, y: CENTER };
+    const pts = [p0];
+    const names = ['origin'];
+    let current = p0;
+    for (const ch of order) {
+      const dir = DIRS[ch];
+      const value = rgb[ch];
+      current = {
+        x: current.x + value * scale * dir.x,
+        y: current.y + value * scale * dir.y,
+      };
+      pts.push(current);
+      names.push(ch === 'r' ? 'red' : ch === 'g' ? 'green' : 'blue');
+    }
+    return { points: pts, dotNames: names };
+  }, [order, rgb.r, rgb.g, rgb.b, scale]);
 
   const handleDotDrag = useCallback((e) => {
     if (draggingDot.current && onRgbChange) {
@@ -298,22 +301,25 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     ctx.putImageData(imageData, 0, 0);
   }, [brightness]);
 
-  const dotColors = points.map((p) => {
+  const dotColors = useMemo(() => points.map((p) => {
     const c = colorAtPoint(p.x, p.y, brightness);
     return rgbToHex(c.r, c.g, c.b);
-  });
+  }), [points, brightness]);
 
-  const hueRad = (hue * PI) / 180;
-  const hueEnd = {
-    x: CENTER + RADIUS * Math.cos(hueRad),
-    y: CENTER - RADIUS * Math.sin(hueRad),
-  };
-
-  const labelOffset = RADIUS + 28;
-  const hueLabel = {
-    x: CENTER + labelOffset * Math.cos(hueRad),
-    y: CENTER - labelOffset * Math.sin(hueRad),
-  };
+  const { hueRad, hueEnd, hueLabel } = useMemo(() => {
+    const rad = (hue * PI) / 180;
+    return {
+      hueRad: rad,
+      hueEnd: {
+        x: CENTER + RADIUS * Math.cos(rad),
+        y: CENTER - RADIUS * Math.sin(rad),
+      },
+      hueLabel: {
+        x: CENTER + (RADIUS + 28) * Math.cos(rad),
+        y: CENTER - (RADIUS + 28) * Math.sin(rad),
+      },
+    };
+  }, [hue]);
 
   const showHueLine = saturation > 0;
 
