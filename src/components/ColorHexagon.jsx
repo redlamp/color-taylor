@@ -17,8 +17,11 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   const { isDark } = useTheme();
   const [vectorMode, setVectorMode] = useState('rgb');
   const [dragMode, setDragMode] = useState('free');
-  const [recentColors, setRecentColors] = useState([]);
-  const lastHex = useRef(null);
+  const initialHex = useMemo(() => rgbToHex(rgb.r, rgb.g, rgb.b), []);
+  const [recentColors, setRecentColors] = useState([initialHex]);
+  const [selectedRecentIdx, setSelectedRecentIdx] = useState(0);
+  const lastHex = useRef(initialHex);
+  const skipNextRecent = useRef(false);
   const draggingBL = useRef(false);
   const svgRef = useRef(null);
   const draggingHue = useRef(false);
@@ -101,16 +104,32 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   const currentHex = rgbToHex(rgb.r, rgb.g, rgb.b);
   useEffect(() => {
     const timeout = setTimeout(() => {
+      if (skipNextRecent.current) {
+        skipNextRecent.current = false;
+        lastHex.current = currentHex;
+        return;
+      }
       if (currentHex !== lastHex.current) {
         lastHex.current = currentHex;
         setRecentColors((prev) => {
           const filtered = prev.filter((c) => c !== currentHex);
           return [currentHex, ...filtered].slice(0, 8);
         });
+        setSelectedRecentIdx(0);
       }
     }, 500);
     return () => clearTimeout(timeout);
   }, [currentHex]);
+
+  const addToRecent = useCallback((hex) => {
+    skipNextRecent.current = true;
+    lastHex.current = hex;
+    setRecentColors((prev) => {
+      const filtered = prev.filter((c) => c !== hex);
+      return [hex, ...filtered].slice(0, 8);
+    });
+    setSelectedRecentIdx(0);
+  }, []);
 
   // Drag handlers
   const handleDotDrag = useCallback((e) => {
@@ -226,7 +245,11 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
         if (elapsed <= clickMaxDuration && onAnimateToHsb) {
           const { x, y } = getSvgCoords(e);
           const picked = getHsbFromCanvas(x, y);
-          if (picked) onAnimateToHsb(picked);
+          if (picked) {
+            const targetRgb = hsbToRgb(picked.h, picked.s, picked.b);
+            addToRecent(rgbToHex(targetRgb.r, targetRgb.g, targetRgb.b));
+            onAnimateToHsb(picked);
+          }
         }
       }
       if (blPointerDown.current && !blPointerDown.current.isDragging) {
@@ -247,7 +270,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       window.removeEventListener('mouseup', onMouseUp);
       document.documentElement.removeEventListener('mouseleave', onMouseLeave);
     };
-  }, [hueFromMouse, handleDotDrag, handleHexSurfaceDrag, getBLValueFromClientY, applyBLValue, animateBLToValue, getSvgCoords, getHsbFromCanvas, onAnimateToHsb, onHsbChange]);
+  }, [hueFromMouse, handleDotDrag, handleHexSurfaceDrag, getBLValueFromClientY, applyBLValue, animateBLToValue, getSvgCoords, getHsbFromCanvas, onAnimateToHsb, onHsbChange, addToRecent]);
 
   const handleHueDragStart = (e) => {
     e.preventDefault();
@@ -290,8 +313,10 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
 
   const handleColorLabelClick = useCallback((deg) => {
     if (!onAnimateToHsb) return;
+    const targetRgb = hsbToRgb(deg, 100, brightness);
+    addToRecent(rgbToHex(targetRgb.r, targetRgb.g, targetRgb.b));
     onAnimateToHsb({ h: deg, s: 100, b: brightness });
-  }, [onAnimateToHsb, brightness]);
+  }, [onAnimateToHsb, brightness, addToRecent]);
 
   // Brightness limit hex
   const limitHex = useMemo(() => {
@@ -437,12 +462,20 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             return (
               <button
                 key={i}
-                className="rounded-md border border-input cursor-pointer shrink-0"
-                style={{ width: 48, height: 64, backgroundColor: color || 'transparent' }}
+                className="rounded-md cursor-pointer shrink-0 transition-shadow duration-200 ease-in-out"
+                style={{
+                  width: 48,
+                  height: 64,
+                  backgroundColor: color || 'transparent',
+                  boxShadow: i === selectedRecentIdx && color ? '0 0 0 2px white' : 'none',
+                  border: i === selectedRecentIdx && color ? '2px solid transparent' : '1px solid var(--input)',
+                }}
                 disabled={!color}
                 aria-label={color ? `Select ${color}` : 'Empty slot'}
                 onClick={() => {
                   if (color && onAnimateToHsb) {
+                    skipNextRecent.current = true;
+                    setSelectedRecentIdx(i);
                     const parsed = rgbToHsb(
                       parseInt(color.slice(1, 3), 16),
                       parseInt(color.slice(3, 5), 16),
