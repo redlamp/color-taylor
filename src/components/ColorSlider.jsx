@@ -79,7 +79,7 @@ export default function ColorSlider({ label, value, max, gradient, suffix, wrap,
         />
         <div
           id={`${sliderId}-arrow`}
-          className="absolute top-4 -translate-x-1/2 cursor-grab active:cursor-grabbing px-1 py-0.5"
+          className="absolute top-4 -translate-x-1/2 cursor-pointer px-1 py-0.5"
           style={{ left: `${pct}%` }}
           onMouseDown={(e) => {
             e.preventDefault();
@@ -99,11 +99,12 @@ export default function ColorSlider({ label, value, max, gradient, suffix, wrap,
 
       {/* Stepper */}
       <div id={`${sliderId}-stepper`} className="flex items-center h-6 shrink-0">
-        <div className="flex items-center border border-input rounded-md overflow-hidden h-6 w-[72px]">
+        <div className="flex items-center border border-input rounded-md overflow-hidden h-6 w-[84px]">
           <Button
             variant="ghost"
             size="icon-xs"
             className="h-6 w-5 rounded-none border-none"
+            tabIndex={-1}
             onClick={() => onChange(clamp(value - 1))}
             aria-label={`Decrease ${label}`}
           >
@@ -120,6 +121,7 @@ export default function ColorSlider({ label, value, max, gradient, suffix, wrap,
             variant="ghost"
             size="icon-xs"
             className="h-6 w-5 rounded-none border-none"
+            tabIndex={-1}
             onClick={() => onChange(clamp(value + 1))}
             aria-label={`Increase ${label}`}
           >

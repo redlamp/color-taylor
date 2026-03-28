@@ -38,7 +38,7 @@ export default function HSlider({ hue, onChange }) {
     <div id="hue-bar-wrapper" className="relative w-8 shrink-0 self-stretch">
       <div
         id="hue-bar-arrow"
-        className="absolute -translate-y-1/2 cursor-grab active:cursor-grabbing py-0.5 px-0.5"
+        className="absolute -translate-y-1/2 cursor-pointer py-0.5 px-0.5"
         style={{ top: `${pct}%`, left: -10 }}
         onMouseDown={(e) => {
           e.preventDefault();

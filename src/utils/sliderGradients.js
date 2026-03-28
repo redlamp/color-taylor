@@ -43,6 +43,11 @@ export function blueGradient(r, g) {
   return `linear-gradient(to right, ${rgb(r, g, 0)}, ${rgb(r, g, 255)})`;
 }
 
+/** Pure channel gradients (black to full channel color) */
+export const redChannelGradient = 'linear-gradient(to right, #000, #f00)';
+export const greenChannelGradient = 'linear-gradient(to right, #000, #0f0)';
+export const blueChannelGradient = 'linear-gradient(to right, #000, #00f)';
+
 /** HSL Hue slider: varies H 0-360, keeps current S and L */
 export function hslHueGradient(s, l) {
   const stops = [0, 60, 120, 180, 240, 300, 360];
