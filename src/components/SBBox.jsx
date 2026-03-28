@@ -22,6 +22,9 @@ export default function SBBox({ hue, saturation, brightness, onChange }) {
   return (
     <div
       id="sb-area"
+      role="slider"
+      aria-label="Saturation and brightness"
+      aria-valuetext={`Saturation ${saturation}%, Brightness ${brightness}%`}
       className="relative flex-1 aspect-square overflow-hidden cursor-crosshair select-none"
       ref={ref}
       style={{ backgroundColor: hueColor }}

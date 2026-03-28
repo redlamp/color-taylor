@@ -19,7 +19,7 @@ export default function HSlider({ hue, onChange }) {
   const pct = (hue / 360) * 100;
 
   return (
-    <div id="hue-bar-wrapper" className="relative w-8 shrink-0 self-stretch">
+    <div id="hue-bar-wrapper" role="slider" aria-label="Hue" aria-valuemin={0} aria-valuemax={360} aria-valuenow={hue} className="relative w-8 shrink-0 self-stretch">
       <div
         id="hue-bar-arrow"
         className="absolute -translate-y-1/2 cursor-pointer py-0.5 px-0.5"

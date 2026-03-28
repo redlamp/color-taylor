@@ -52,6 +52,11 @@ export default function ColorSlider({ label, value, max, gradient, suffix, wrap,
         <div
           id={`${sliderId}-track`}
           ref={trackRef}
+          role="slider"
+          aria-label={`${label} channel`}
+          aria-valuemin={0}
+          aria-valuemax={max}
+          aria-valuenow={value}
           className="h-4 w-full rounded cursor-pointer select-none"
           style={{ background: gradient, boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.1)' }}
           onMouseDown={(e) => {

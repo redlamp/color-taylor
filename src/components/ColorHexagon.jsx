@@ -335,6 +335,8 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           ref={svgRef}
           width={SIZE}
           height={HEX_SIZE}
+          role="img"
+          aria-label="Color hexagon with RGB vector visualization"
           className="absolute inset-0"
           onMouseDown={handleHexMouseDown}
         >
