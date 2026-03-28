@@ -2,6 +2,7 @@ import { useRef, useEffect, useCallback, useState, useMemo } from 'react';
 import { hsbToRgb, rgbToHsb, rgbToHex, rgbToHsl, hslToRgb } from '../utils/colorConversions';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTheme } from '../hooks/useTheme';
+import NamedColorMatch from './NamedColorMatch';
 import {
   HEX_SIZE, SIZE, CENTER, RADIUS, PI, DIRS,
   BL_BAR_X, BL_BAR_TOP, BL_BAR_HEIGHT, BL_ARROW_SIZE,
@@ -453,41 +454,44 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
         />
       </div>
 
-      {/* Recent Colors */}
-      <div className="w-full mt-2">
-        <span className="text-xs font-semibold text-muted-foreground">Recent Colors</span>
-        <div className="flex gap-1.5 mt-1">
-          {Array.from({ length: 8 }, (_, i) => {
-            const color = recentColors[i];
-            return (
-              <button
-                key={i}
-                className="rounded-md cursor-pointer shrink-0 transition-shadow duration-200 ease-in-out"
-                style={{
-                  width: 48,
-                  height: 64,
-                  backgroundColor: color || 'transparent',
-                  boxShadow: i === selectedRecentIdx && color ? '0 0 0 2px white' : 'none',
-                  border: i === selectedRecentIdx && color ? '2px solid transparent' : '1px solid var(--input)',
-                }}
-                disabled={!color}
-                aria-label={color ? `Select ${color}` : 'Empty slot'}
-                onClick={() => {
-                  if (color && onAnimateToHsb) {
-                    skipNextRecent.current = true;
-                    setSelectedRecentIdx(i);
-                    const parsed = rgbToHsb(
-                      parseInt(color.slice(1, 3), 16),
-                      parseInt(color.slice(3, 5), 16),
-                      parseInt(color.slice(5, 7), 16),
-                    );
-                    onAnimateToHsb(parsed);
-                  }
-                }}
-              />
-            );
-          })}
+      {/* Recent Colors + Named Color Match */}
+      <div className="w-full mt-2 flex items-end justify-between gap-4">
+        <div>
+          <span className="text-xs font-semibold text-muted-foreground">Recent Colors</span>
+          <div className="flex gap-1.5 mt-1">
+            {Array.from({ length: 8 }, (_, i) => {
+              const color = recentColors[i];
+              return (
+                <button
+                  key={i}
+                  className="rounded-md cursor-pointer shrink-0 transition-shadow duration-200 ease-in-out"
+                  style={{
+                    width: 48,
+                    height: 64,
+                    backgroundColor: color || 'transparent',
+                    boxShadow: i === selectedRecentIdx && color ? '0 0 0 2px white' : 'none',
+                    border: i === selectedRecentIdx && color ? '2px solid transparent' : '1px solid var(--input)',
+                  }}
+                  disabled={!color}
+                  aria-label={color ? `Select ${color}` : 'Empty slot'}
+                  onClick={() => {
+                    if (color && onAnimateToHsb) {
+                      skipNextRecent.current = true;
+                      setSelectedRecentIdx(i);
+                      const parsed = rgbToHsb(
+                        parseInt(color.slice(1, 3), 16),
+                        parseInt(color.slice(3, 5), 16),
+                        parseInt(color.slice(5, 7), 16),
+                      );
+                      onAnimateToHsb(parsed);
+                    }
+                  }}
+                />
+              );
+            })}
+          </div>
         </div>
+        <NamedColorMatch rgb={rgb} />
       </div>
     </div>
   );
