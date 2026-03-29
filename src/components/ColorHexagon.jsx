@@ -487,7 +487,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           height={HEX_SIZE}
           role="img"
           aria-label="Color hexagon with RGB vector visualization"
-          className="absolute inset-0"
+          className="absolute inset-0 z-[5]"
           onMouseDown={handleHexMouseDown}
         >
           <circle id="hex-circumscribe" cx={CENTER} cy={CENTER} r={RADIUS} fill="none" stroke="var(--input)" strokeWidth={1.5} />

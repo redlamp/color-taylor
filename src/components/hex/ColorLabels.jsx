@@ -24,7 +24,7 @@ export default function ColorLabels({ onColorClick }) {
     return (
       <div
         key={label}
-        className="absolute -translate-x-1/2 -translate-y-1/2"
+        className="absolute -translate-x-1/2 -translate-y-1/2 z-[1]"
         style={{ left: x, top: y }}
       >
         <Tooltip>
