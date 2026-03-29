@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { findNearestNamedColor } from '../utils/namedColors';
 import { rgbToHex, rgbToHsb } from '../utils/colorConversions';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,7 @@ export default function NamedColorMatch({ rgb, onAnimateToHsb, onHoverMatch }) {
   const textColor = (match.r * 0.299 + match.g * 0.587 + match.b * 0.114) > 150 ? '#000' : '#fff';
 
   const clamp = (v) => Math.max(0, Math.min(100, v));
+  const [hovering, setHovering] = useState(false);
 
   const handleClick = () => {
     if (isMatch && onAnimateToHsb) {
@@ -41,8 +42,14 @@ export default function NamedColorMatch({ rgb, onAnimateToHsb, onHoverMatch }) {
               minHeight: 32,
             }}
             onClick={isMatch ? handleClick : undefined}
-            onMouseEnter={isMatch ? () => onHoverMatch?.({ r: match.r, g: match.g, b: match.b }) : undefined}
-            onMouseLeave={() => onHoverMatch?.(null)}
+            onMouseEnter={() => {
+              setHovering(true);
+              if (isMatch) onHoverMatch?.({ r: match.r, g: match.g, b: match.b });
+            }}
+            onMouseLeave={() => {
+              setHovering(false);
+              onHoverMatch?.(null);
+            }}
           >
             <span className={`text-sm ${isMatch ? 'font-semibold' : 'italic text-xs'}`}>
               {isMatch ? match.name : 'No match'}
@@ -52,7 +59,7 @@ export default function NamedColorMatch({ rgb, onAnimateToHsb, onHoverMatch }) {
             )}
           </button>
         </TooltipTrigger>
-        {isMatch && (
+        {isMatch && hovering && (
           <TooltipContent
             side="bottom"
             sideOffset={8}

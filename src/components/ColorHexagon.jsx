@@ -327,10 +327,17 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
 
   const handleColorLabelClick = useCallback((deg) => {
     if (!onAnimateToHsb) return;
-    const targetRgb = hsbToRgb(deg, 100, brightness);
-    addToRecent(rgbToHex(targetRgb.r, targetRgb.g, targetRgb.b));
-    onAnimateToHsb({ h: deg, s: 100, b: brightness });
-  }, [onAnimateToHsb, brightness, addToRecent]);
+    let target;
+    if (blMode === 'brightness') {
+      target = { h: deg, s: 100, b: 100 };
+    } else {
+      const targetRgb = hslToRgb(deg, 100, 50);
+      target = rgbToHsb(targetRgb.r, targetRgb.g, targetRgb.b);
+    }
+    const rgb = hsbToRgb(target.h, target.s, target.b);
+    addToRecent(rgbToHex(rgb.r, rgb.g, rgb.b));
+    onAnimateToHsb(target);
+  }, [onAnimateToHsb, blMode, addToRecent]);
 
   // Brightness limit hex
   const limitHex = useMemo(() => {
