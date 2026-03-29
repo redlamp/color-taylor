@@ -1,4 +1,17 @@
 /**
+ * sRGB gamma: linearize (remove gamma) and delinearize (apply gamma)
+ */
+export function srgbToLinear(c) {
+  const s = c / 255;
+  return s <= 0.04045 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+}
+
+export function linearToSrgb(c) {
+  const s = c <= 0.0031308 ? c * 12.92 : 1.055 * Math.pow(c, 1 / 2.4) - 0.055;
+  return Math.round(Math.max(0, Math.min(255, s * 255)));
+}
+
+/**
  * Convert HSB/HSV to RGB.
  * h: 0-360, s: 0-100, b: 0-100
  * Returns { r, g, b } each 0-255

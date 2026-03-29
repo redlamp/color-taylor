@@ -1,7 +1,23 @@
-import { hsbToRgb, rgbToHex } from '../../utils/colorConversions';
+import { hsbToRgb, rgbToHex, linearToSrgb } from '../../utils/colorConversions';
 import { RADIUS, CENTER, BL_BAR_X, BL_BAR_TOP, BL_BAR_HEIGHT, BL_BAR_WIDTH, BL_ARROW_SIZE } from './hexConstants';
 
-export default function BrightnessBar({ hue, saturation, brightness, hsl, blMode, blPointerDown, draggingBL, animateBLToValue }) {
+function hsbToDisplayHex(h, s, b, colorSpace) {
+  if (colorSpace === 'linear') {
+    const sN = s / 100, bN = b / 100;
+    const c = bN * sN, x = c * (1 - Math.abs(((h / 60) % 2) - 1)), m = bN - c;
+    let r1, g1, b1;
+    if (h < 60) [r1, g1, b1] = [c, x, 0];
+    else if (h < 120) [r1, g1, b1] = [x, c, 0];
+    else if (h < 180) [r1, g1, b1] = [0, c, x];
+    else if (h < 240) [r1, g1, b1] = [0, x, c];
+    else if (h < 300) [r1, g1, b1] = [x, 0, c];
+    else [r1, g1, b1] = [c, 0, x];
+    return rgbToHex(linearToSrgb(r1 + m), linearToSrgb(g1 + m), linearToSrgb(b1 + m));
+  }
+  return rgbToHex(...Object.values(hsbToRgb(h, s, b)));
+}
+
+export default function BrightnessBar({ hue, saturation, brightness, hsl, blMode, blPointerDown, draggingBL, animateBLToValue, colorSpace }) {
   const blValue = blMode === 'brightness' ? brightness : (hsl?.l ?? 50);
   const arrowY = BL_BAR_TOP + (1 - blValue / 100) * BL_BAR_HEIGHT;
 
@@ -11,13 +27,13 @@ export default function BrightnessBar({ hue, saturation, brightness, hsl, blMode
         <linearGradient id="bl-gradient" x1="0" y1="0" x2="0" y2="1">
           {blMode === 'brightness' ? (
             <>
-              <stop offset="0%" stopColor={rgbToHex(...Object.values(hsbToRgb(hue, saturation, 100)))} />
+              <stop offset="0%" stopColor={hsbToDisplayHex(hue, saturation, 100, colorSpace)} />
               <stop offset="100%" stopColor="#000" />
             </>
           ) : (
             <>
               <stop offset="0%" stopColor="#fff" />
-              <stop offset="50%" stopColor={rgbToHex(...Object.values(hsbToRgb(hue, 100, 100)))} />
+              <stop offset="50%" stopColor={hsbToDisplayHex(hue, 100, 100, colorSpace)} />
               <stop offset="100%" stopColor="#000" />
             </>
           )}

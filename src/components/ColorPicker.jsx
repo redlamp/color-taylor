@@ -30,6 +30,7 @@ export default function ColorPicker() {
   const [hslMode, setHslMode] = useState('hsb');
   const [rgbGradientMode, setRgbGradientMode] = useState('mixed');
   const [blMode, setBlMode] = useState('brightness');
+  const [colorSpace, setColorSpace] = useState('srgb');
   const [hoverMatchRgb, setHoverMatchRgb] = useState(null);
   const animRef = useRef(null);
   const hsbRef = useRef(hsb);
@@ -125,6 +126,8 @@ export default function ColorPicker() {
             onAnimateToHsb={animateToHsb}
             blMode={blMode}
             onBlModeChange={setBlMode}
+            colorSpace={colorSpace}
+            onColorSpaceChange={setColorSpace}
             hoverMatchRgb={hoverMatchRgb}
           />
         </div>
@@ -193,21 +196,21 @@ export default function ColorPicker() {
                   value={hsb.h}
                   max={360}
                   wrap
-                  gradient={hueGradient(hsb.s, hsb.b)}
+                  gradient={hueGradient(hsb.s, hsb.b, colorSpace)}
                   onChange={(v) => { rgbOverride.current = null; setHsb((prev) => ({ ...prev, h: v })); }}
                 />
                 <ColorSlider
                   label="S"
                   value={hsb.s}
                   max={100}
-                  gradient={saturationGradient(hsb.h, hsb.b)}
+                  gradient={saturationGradient(hsb.h, hsb.b, colorSpace)}
                   onChange={(v) => { rgbOverride.current = null; setHsb((prev) => ({ ...prev, s: v })); }}
                 />
                 <ColorSlider
                   label="B"
                   value={hsb.b}
                   max={100}
-                  gradient={brightnessGradient(hsb.h, hsb.s)}
+                  gradient={brightnessGradient(hsb.h, hsb.s, colorSpace)}
                   onChange={(v) => { rgbOverride.current = null; setHsb((prev) => ({ ...prev, b: v })); }}
                 />
               </div>
@@ -222,21 +225,21 @@ export default function ColorPicker() {
                   value={hsl.h}
                   max={360}
                   wrap
-                  gradient={hslHueGradient(hsl.s, hsl.l)}
+                  gradient={hslHueGradient(hsl.s, hsl.l, colorSpace)}
                   onChange={(v) => handleHslChange('h', v)}
                 />
                 <ColorSlider
                   label="S"
                   value={hsl.s}
                   max={100}
-                  gradient={hslSaturationGradient(hsl.h, hsl.l)}
+                  gradient={hslSaturationGradient(hsl.h, hsl.l, colorSpace)}
                   onChange={(v) => handleHslChange('s', v)}
                 />
                 <ColorSlider
                   label="L"
                   value={hsl.l}
                   max={100}
-                  gradient={lightnessGradient(hsl.h, hsl.s)}
+                  gradient={lightnessGradient(hsl.h, hsl.s, colorSpace)}
                   onChange={(v) => handleHslChange('l', v)}
                 />
               </div>

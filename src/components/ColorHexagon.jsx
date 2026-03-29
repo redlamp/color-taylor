@@ -15,7 +15,7 @@ import ColorLabels from './hex/ColorLabels';
 import HueHandle from './hex/HueHandle';
 import BrightnessHandle from './hex/BrightnessHandle';
 
-export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, hoverMatchRgb }) {
+export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, onColorSpaceChange, hoverMatchRgb }) {
   const { isDark } = useTheme();
   const [vectorMode, setVectorMode] = useState('rgb');
   const [dragMode, setDragMode] = useState('free');
@@ -439,6 +439,25 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           </Tabs>
         </div>
         <div className="flex flex-col items-center gap-0.5">
+          <span className="text-[10px] text-muted-foreground">Color Space</span>
+          <Tabs value={colorSpace} onValueChange={onColorSpaceChange}>
+            <TabsList>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span><TabsTrigger value="srgb" className="w-16">sRGB</TabsTrigger></span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" sideOffset={8} className="text-xs font-semibold">Standard RGB (gamma corrected)</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span><TabsTrigger value="linear" className="w-16">Linear</TabsTrigger></span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" sideOffset={8} className="text-xs font-semibold">Linear RGB (physically accurate)</TooltipContent>
+              </Tooltip>
+            </TabsList>
+          </Tabs>
+        </div>
+        <div className="flex flex-col items-center gap-0.5">
           <span className="text-[10px] text-muted-foreground">Luminance</span>
           <Tabs value={blMode} onValueChange={onBlModeChange}>
             <TabsList>
@@ -460,7 +479,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       </div>
 
       <div className="relative" style={{ width: SIZE, height: HEX_SIZE, marginLeft: -20 }}>
-        <HexCanvas brightness={brightness} />
+        <HexCanvas brightness={brightness} colorSpace={colorSpace} />
         <svg
           id="hex-svg"
           ref={svgRef}
@@ -563,7 +582,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           <BrightnessBar
             hue={hue} saturation={saturation} brightness={brightness} hsl={hsl}
             blMode={blMode} blPointerDown={blPointerDown} draggingBL={draggingBL}
-            animateBLToValue={animateBLToValue}
+            animateBLToValue={animateBLToValue} colorSpace={colorSpace}
           />
         </svg>
 
