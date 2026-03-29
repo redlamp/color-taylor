@@ -2,6 +2,7 @@ import { useRef, useEffect, useCallback, useState, useMemo } from 'react';
 import { hsbToRgb, rgbToHsb, rgbToHex, rgbToHsl, hslToRgb } from '../utils/colorConversions';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTheme } from '../hooks/useTheme';
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import CollapsibleSection from './CollapsibleSection';
 import {
   HEX_SIZE, SIZE, CENTER, RADIUS, PI, DIRS,
@@ -19,8 +20,10 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   const [vectorMode, setVectorMode] = useState('rgb');
   const [dragMode, setDragMode] = useState('free');
   const initialHex = useMemo(() => rgbToHex(rgb.r, rgb.g, rgb.b), []);
-  const [recentColors, setRecentColors] = useState([initialHex]);
-  const [selectedRecentIdx, setSelectedRecentIdx] = useState(0);
+  const [recentColors, setRecentColors] = useState([
+    '#0decaf', '#ff0000', '#ffff00', '#00ff00', '#00ffff', '#0000ff', '#ff00ff', '#ffffff', '#808080', '#000000',
+  ]);
+  const [selectedRecentIdx, setSelectedRecentIdx] = useState(null);
   const lastHex = useRef(initialHex);
   const skipNextRecent = useRef(false);
   const draggingBL = useRef(false);
@@ -30,6 +33,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   const draggingFree = useRef(false);
   const hexPointerDown = useRef(null);
   const blPointerDown = useRef(null);
+  const [hoveredDot, setHoveredDot] = useState(null); // index of hovered dot
 
   const dragTriggerDistance = 4;
   const clickMaxDuration = 200;
@@ -39,8 +43,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     return { x: e.clientX - rect.left, y: e.clientY - rect.top };
   }, []);
 
-  const getHsbFromCanvas = useCallback((svgX, svgY) => {
-    const c = colorAtPoint(svgX, svgY, brightness);
+  const getHsbFromPosition = useCallback((svgX, svgY) => {
     if (svgX < 0 || svgX >= HEX_SIZE || svgY < 0 || svgY >= HEX_SIZE) return null;
     const dx = svgX - CENTER;
     const dy = svgY - CENTER;
@@ -48,8 +51,18 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     const angle = Math.atan2(-dy, dx);
     const edgeDist = hexEdgeDist(angle, RADIUS);
     if (dist > edgeDist) return null;
-    return rgbToHsb(c.r, c.g, c.b);
-  }, [brightness]);
+    let h = (angle * 180) / PI;
+    if (h < 0) h += 360;
+    const s = Math.round(Math.min((dist / edgeDist) * 100, 100));
+    // Set full brightness/lightness so hex gives vivid colors
+    if (blMode === 'brightness') {
+      return { h: Math.round(h), s, b: 100 };
+    } else {
+      // HSL: S=current, L=50 gives most vivid, convert to HSB
+      const targetRgb = hslToRgb(Math.round(h), s, 50);
+      return rgbToHsb(targetRgb.r, targetRgb.g, targetRgb.b);
+    }
+  }, [blMode]);
 
   const hueFromMouse = useCallback((e) => {
     const { x, y } = getSvgCoords(e);
@@ -168,10 +181,10 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     }
     if (draggingFree.current && onHsbChange) {
       const { x, y } = getSvgCoords(e);
-      const picked = getHsbFromCanvas(x, y);
+      const picked = getHsbFromPosition(x, y);
       if (picked) onHsbChange(picked);
     }
-  }, [getSvgCoords, onRgbChange, onHsbChange, points, scale, getHsbFromCanvas]);
+  }, [getSvgCoords, onRgbChange, onHsbChange, points, scale, getHsbFromPosition]);
 
   const getBLValueFromClientY = useCallback((clientY) => {
     if (!svgRef.current) return null;
@@ -205,9 +218,9 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   const handleHexSurfaceDrag = useCallback((e) => {
     if (!hexPointerDown.current || !onHsbChange) return;
     const { x, y } = getSvgCoords(e);
-    const picked = getHsbFromCanvas(x, y);
+    const picked = getHsbFromPosition(x, y);
     if (picked) onHsbChange(picked);
-  }, [getSvgCoords, getHsbFromCanvas, onHsbChange]);
+  }, [getSvgCoords, getHsbFromPosition, onHsbChange]);
 
   // Global mouse listeners
   useEffect(() => {
@@ -218,6 +231,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       draggingBL.current = false;
       hexPointerDown.current = null;
       blPointerDown.current = null;
+      setHoveredDot(null);
     };
     const onMouseMove = (e) => {
       if (draggingHue.current) hueFromMouse(e);
@@ -228,7 +242,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       }
       if (draggingFree.current) {
         const { x, y } = getSvgCoords(e);
-        const picked = getHsbFromCanvas(x, y);
+        const picked = getHsbFromPosition(x, y);
         if (picked) onHsbChange(picked);
       }
       if (hexPointerDown.current) {
@@ -258,7 +272,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
         const elapsed = Date.now() - hexPointerDown.current.time;
         if (elapsed <= clickMaxDuration && onAnimateToHsb) {
           const { x, y } = getSvgCoords(e);
-          const picked = getHsbFromCanvas(x, y);
+          const picked = getHsbFromPosition(x, y);
           if (picked) {
             const targetRgb = hsbToRgb(picked.h, picked.s, picked.b);
             addToRecent(rgbToHex(targetRgb.r, targetRgb.g, targetRgb.b));
@@ -284,7 +298,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       window.removeEventListener('mouseup', onMouseUp);
       document.documentElement.removeEventListener('mouseleave', onMouseLeave);
     };
-  }, [hueFromMouse, handleDotDrag, handleHexSurfaceDrag, getBLValueFromClientY, applyBLValue, animateBLToValue, getSvgCoords, getHsbFromCanvas, onAnimateToHsb, onHsbChange, addToRecent]);
+  }, [hueFromMouse, handleDotDrag, handleHexSurfaceDrag, getBLValueFromClientY, applyBLValue, animateBLToValue, getSvgCoords, getHsbFromPosition, onAnimateToHsb, onHsbChange, addToRecent]);
 
   const handleHueDragStart = (e) => {
     e.preventDefault();
@@ -296,6 +310,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     if (dotIndex === 0) return;
     e.preventDefault();
     e.stopPropagation();
+    setHoveredDot(dotIndex);
     if (dragMode === 'free') {
       draggingFree.current = true;
     } else {
@@ -366,34 +381,82 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   return (
     <div id="color-hexagon" className="flex flex-col items-center gap-1 border border-input rounded-lg p-3">
       <h2 className="text-lg font-semibold tracking-tight text-foreground self-start">Color Hexagon</h2>
-      <div className="flex items-center gap-3">
-        <Tabs value={vectorMode} onValueChange={setVectorMode}>
-          <TabsList>
-            <TabsTrigger value="rgb" className="w-16">RGB</TabsTrigger>
-            <TabsTrigger value="desc" className="w-16">
-              <svg width="14" height="12" viewBox="0 0 14 12" className="fill-current">
-                <polygon points="0,0 0,12 14,12" />
-              </svg>
-            </TabsTrigger>
-            <TabsTrigger value="asc" className="w-16">
-              <svg width="14" height="12" viewBox="0 0 14 12" className="fill-current">
-                <polygon points="0,12 14,12 14,0" />
-              </svg>
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
-        <Tabs value={dragMode} onValueChange={setDragMode}>
-          <TabsList>
-            <TabsTrigger value="free" className="w-16">Free</TabsTrigger>
-            <TabsTrigger value="channel" className="w-16">Channel</TabsTrigger>
-          </TabsList>
-        </Tabs>
-        <Tabs value={blMode} onValueChange={onBlModeChange}>
-          <TabsList>
-            <TabsTrigger value="brightness" className="w-16">Bright</TabsTrigger>
-            <TabsTrigger value="lightness" className="w-16">Light</TabsTrigger>
-          </TabsList>
-        </Tabs>
+      <div className="flex items-end gap-3">
+        <div className="flex flex-col items-center gap-0.5">
+          <span className="text-[10px] text-muted-foreground">Segment Order</span>
+          <Tabs value={vectorMode} onValueChange={setVectorMode}>
+            <TabsList>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span><TabsTrigger value="rgb" className="w-16">RGB</TabsTrigger></span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" sideOffset={8} className="text-xs font-semibold">Red, Green, Blue</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <TabsTrigger value="desc" className="w-16">
+                      <svg width="14" height="12" viewBox="0 0 14 12" className="fill-current">
+                        <polygon points="0,0 0,12 14,12" />
+                      </svg>
+                    </TabsTrigger>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" sideOffset={8} className="text-xs font-semibold">Big to Small</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <TabsTrigger value="asc" className="w-16">
+                      <svg width="14" height="12" viewBox="0 0 14 12" className="fill-current">
+                        <polygon points="0,12 14,12 14,0" />
+                      </svg>
+                    </TabsTrigger>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" sideOffset={8} className="text-xs font-semibold">Small to Big</TooltipContent>
+              </Tooltip>
+            </TabsList>
+          </Tabs>
+        </div>
+        <div className="flex flex-col items-center gap-0.5">
+          <span className="text-[10px] text-muted-foreground">Handles</span>
+          <Tabs value={dragMode} onValueChange={setDragMode}>
+            <TabsList>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span><TabsTrigger value="free" className="w-16">Free</TabsTrigger></span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" sideOffset={8} className="text-xs font-semibold">Set color</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span><TabsTrigger value="channel" className="w-16">Channel</TabsTrigger></span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" sideOffset={8} className="text-xs font-semibold">Set a color channel</TooltipContent>
+              </Tooltip>
+            </TabsList>
+          </Tabs>
+        </div>
+        <div className="flex flex-col items-center gap-0.5">
+          <span className="text-[10px] text-muted-foreground">Luminance</span>
+          <Tabs value={blMode} onValueChange={onBlModeChange}>
+            <TabsList>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span><TabsTrigger value="brightness" className="w-16">Bright</TabsTrigger></span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" sideOffset={8} className="text-xs font-semibold">HSB</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span><TabsTrigger value="lightness" className="w-16">Light</TabsTrigger></span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" sideOffset={8} className="text-xs font-semibold">HSL</TooltipContent>
+              </Tooltip>
+            </TabsList>
+          </Tabs>
+        </div>
       </div>
 
       <div className="relative" style={{ width: SIZE, height: HEX_SIZE, marginLeft: -20 }}>
@@ -431,22 +494,53 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             />
           )}
 
-          {/* Vector lines */}
-          <polyline id="rgb-vectors" points={points.map((p) => `${p.x},${p.y}`).join(' ')}
-            fill="none" stroke="white" strokeWidth={1.5} strokeLinejoin="round"
-          />
+          {/* Vector line segments */}
+          {points.slice(1).map((p, i) => {
+            const prev = points[i];
+            const ch = order[i];
+            const segColor = ch === 'r' ? 'rgba(255,0,0,0.5)' : ch === 'g' ? 'rgba(0,255,0,0.5)' : 'rgba(0,0,255,0.5)';
+            const isHighlighted = hoveredDot !== null && (
+              dragMode === 'free'
+                ? true
+                : hoveredDot === i + 1
+            );
+            return (
+              <line
+                key={i}
+                x1={prev.x} y1={prev.y} x2={p.x} y2={p.y}
+                stroke={isHighlighted ? segColor : 'white'}
+                strokeWidth={isHighlighted ? 3 : 1.5}
+                strokeLinecap="round"
+              />
+            );
+          })}
 
           {/* Dots */}
           {points.map((p, i) => {
             const isLast = i === points.length - 1;
             const isDraggable = i > 0;
+            const ch = i > 0 ? order[i - 1] : null;
+            const chColor = ch === 'r' ? 'rgba(255,0,0,0.5)' : ch === 'g' ? 'rgba(0,255,0,0.5)' : ch === 'b' ? 'rgba(0,0,255,0.5)' : null;
+            const isHighlighted = isDraggable && hoveredDot !== null && (
+              dragMode === 'free'
+                ? true
+                : hoveredDot === i
+            );
+            const ringColor = isHighlighted && chColor
+              ? chColor.replace('0.5', '1')
+              : 'white';
             return (
               <circle
                 key={i} id={`rgb-dot-${dotNames[i]}`} cx={p.x} cy={p.y}
-                r={isLast ? 8 : 5} fill={dotColors[i]} stroke="white" strokeWidth={2}
+                r={isLast ? 8 : 5} fill={dotColors[i]}
+                stroke={ringColor} strokeWidth={isHighlighted ? 3 : 2}
                 className={isDraggable ? 'cursor-pointer' : ''}
                 style={isLast ? { filter: 'drop-shadow(0 0 1px rgba(0,0,0,0.3))' } : undefined}
                 onMouseDown={isDraggable ? (e) => handleDotMouseDown(e, i) : undefined}
+                onMouseEnter={isDraggable ? () => setHoveredDot(i) : undefined}
+                onMouseLeave={isDraggable ? () => {
+                  if (!draggingDot.current && !draggingFree.current) setHoveredDot(null);
+                } : undefined}
               />
             );
           })}

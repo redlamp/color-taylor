@@ -26,7 +26,7 @@ import CollapsibleSection from './CollapsibleSection';
 import NamedColorMatch from './NamedColorMatch';
 
 export default function ColorPicker() {
-  const [hsb, setHsb] = useState({ h: 200, s: 70, b: 90 });
+  const [hsb, setHsb] = useState({ h: 164, s: 94, b: 93 });
   const [hslMode, setHslMode] = useState('hsb');
   const [rgbGradientMode, setRgbGradientMode] = useState('mixed');
   const [blMode, setBlMode] = useState('brightness');
@@ -34,8 +34,15 @@ export default function ColorPicker() {
   const animRef = useRef(null);
   const hsbRef = useRef(hsb);
   hsbRef.current = hsb;
+  const rgbOverride = useRef(null);
+
+  const setHsbAndClearOverride = useCallback((valOrFn) => {
+    rgbOverride.current = null;
+    setHsb(valOrFn);
+  }, []);
 
   const animateToHsb = useCallback((target) => {
+    rgbOverride.current = null;
     if (animRef.current) cancelAnimationFrame(animRef.current);
     const duration = 1000;
     const from = { ...hsbRef.current };
@@ -58,6 +65,7 @@ export default function ColorPicker() {
       const s = Math.round(from.s + (target.s - from.s) * t);
       const b = Math.round(from.b + (target.b - from.b) * t);
 
+      rgbOverride.current = null;
       setHsb({ h, s, b });
 
       if (progress < 1) {
@@ -69,19 +77,22 @@ export default function ColorPicker() {
 
     animRef.current = requestAnimationFrame(tick);
   }, []);
-  const rgb = useMemo(() => hsbToRgb(hsb.h, hsb.s, hsb.b), [hsb.h, hsb.s, hsb.b]);
+  const rgbFromHsb = useMemo(() => hsbToRgb(hsb.h, hsb.s, hsb.b), [hsb.h, hsb.s, hsb.b]);
+  const rgb = rgbOverride.current || rgbFromHsb;
   const hex = useMemo(() => rgbToHex(rgb.r, rgb.g, rgb.b), [rgb.r, rgb.g, rgb.b]);
   const hsl = useMemo(() => rgbToHsl(rgb.r, rgb.g, rgb.b), [rgb.r, rgb.g, rgb.b]);
 
   const handleRgbChange = useCallback((channel, value) => {
     setHsb((prev) => {
-      const currentRgb = hsbToRgb(prev.h, prev.s, prev.b);
+      const currentRgb = rgbOverride.current || hsbToRgb(prev.h, prev.s, prev.b);
       const newRgb = { ...currentRgb, [channel]: value };
+      rgbOverride.current = newRgb;
       return rgbToHsb(newRgb.r, newRgb.g, newRgb.b);
     });
   }, []);
 
   const handleHslChange = useCallback((channel, value) => {
+    rgbOverride.current = null;
     setHsb((prev) => {
       const currentRgb = hsbToRgb(prev.h, prev.s, prev.b);
       const currentHsl = rgbToHsl(currentRgb.r, currentRgb.g, currentRgb.b);
@@ -107,9 +118,9 @@ export default function ColorPicker() {
             brightness={hsb.b}
             saturation={hsb.s}
             hsl={hsl}
-            onHueChange={(h) => setHsb((prev) => ({ ...prev, h }))}
+            onHueChange={(h) => { rgbOverride.current = null; setHsb((prev) => ({ ...prev, h })); }}
             onRgbChange={handleRgbChange}
-            onHsbChange={(newHsb) => setHsb((prev) => ({ ...prev, ...newHsb }))}
+            onHsbChange={(newHsb) => { rgbOverride.current = null; setHsb((prev) => ({ ...prev, ...newHsb })); }}
             onHslChange={handleHslChange}
             onAnimateToHsb={animateToHsb}
             blMode={blMode}
@@ -129,7 +140,7 @@ export default function ColorPicker() {
               <div className="flex-1 min-w-0 flex flex-col gap-1.5">
                 <HexInput
                   hex={hex}
-                  onChange={(parsed) => setHsb(rgbToHsb(parsed.r, parsed.g, parsed.b))}
+                  onChange={(parsed) => { rgbOverride.current = null; setHsb(rgbToHsb(parsed.r, parsed.g, parsed.b)); }}
                 />
                 <NamedColorMatch
                   rgb={rgb}
@@ -148,11 +159,11 @@ export default function ColorPicker() {
               hue={hsb.h}
               saturation={hsb.s}
               brightness={hsb.b}
-              onChange={(s, b) => setHsb((prev) => ({ ...prev, s, b }))}
+              onChange={(s, b) => { rgbOverride.current = null; setHsb((prev) => ({ ...prev, s, b })); }}
             />
             <HSlider
               hue={hsb.h}
-              onChange={(h) => setHsb((prev) => ({ ...prev, h }))}
+              onChange={(h) => { rgbOverride.current = null; setHsb((prev) => ({ ...prev, h })); }}
             />
           </div>
         </CollapsibleSection>
@@ -183,21 +194,21 @@ export default function ColorPicker() {
                   max={360}
                   wrap
                   gradient={hueGradient(hsb.s, hsb.b)}
-                  onChange={(v) => setHsb((prev) => ({ ...prev, h: v }))}
+                  onChange={(v) => { rgbOverride.current = null; setHsb((prev) => ({ ...prev, h: v })); }}
                 />
                 <ColorSlider
                   label="S"
                   value={hsb.s}
                   max={100}
                   gradient={saturationGradient(hsb.h, hsb.b)}
-                  onChange={(v) => setHsb((prev) => ({ ...prev, s: v }))}
+                  onChange={(v) => { rgbOverride.current = null; setHsb((prev) => ({ ...prev, s: v })); }}
                 />
                 <ColorSlider
                   label="B"
                   value={hsb.b}
                   max={100}
                   gradient={brightnessGradient(hsb.h, hsb.s)}
-                  onChange={(v) => setHsb((prev) => ({ ...prev, b: v }))}
+                  onChange={(v) => { rgbOverride.current = null; setHsb((prev) => ({ ...prev, b: v })); }}
                 />
               </div>
             )}
