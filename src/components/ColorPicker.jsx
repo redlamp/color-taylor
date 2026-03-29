@@ -23,12 +23,14 @@ import HexInput from './HexInput';
 import EquationsPanel from './EquationsPanel';
 import PreviewSwatch from './PreviewSwatch';
 import CollapsibleSection from './CollapsibleSection';
+import NamedColorMatch from './NamedColorMatch';
 
 export default function ColorPicker() {
   const [hsb, setHsb] = useState({ h: 200, s: 70, b: 90 });
   const [hslMode, setHslMode] = useState('hsb');
   const [rgbGradientMode, setRgbGradientMode] = useState('mixed');
   const [blMode, setBlMode] = useState('brightness');
+  const [hoverMatchRgb, setHoverMatchRgb] = useState(null);
   const animRef = useRef(null);
   const hsbRef = useRef(hsb);
   hsbRef.current = hsb;
@@ -112,6 +114,7 @@ export default function ColorPicker() {
             onAnimateToHsb={animateToHsb}
             blMode={blMode}
             onBlModeChange={setBlMode}
+            hoverMatchRgb={hoverMatchRgb}
           />
         </div>
 
@@ -119,18 +122,23 @@ export default function ColorPicker() {
         <div id="picker-layout" className="w-[420px] shrink-0 border border-input rounded-lg p-3">
         <CollapsibleSection id="sliders-group" title="Sliders" level="h2">
           <div className="flex flex-col gap-4">
-          {/* Hex input */}
+          {/* Hex + HTML Names */}
           <CollapsibleSection id="hex-group" title="Hex">
-          <div className="flex gap-3 items-stretch">
-            <PreviewSwatch hex={hex} />
-            <div className="flex-1 min-w-0">
-              <HexInput
-                hex={hex}
-                onChange={(parsed) => setHsb(rgbToHsb(parsed.r, parsed.g, parsed.b))}
-              />
+            <div className="flex gap-3 items-stretch">
+              <PreviewSwatch hex={hex} />
+              <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+                <HexInput
+                  hex={hex}
+                  onChange={(parsed) => setHsb(rgbToHsb(parsed.r, parsed.g, parsed.b))}
+                />
+                <NamedColorMatch
+                  rgb={rgb}
+                  onAnimateToHsb={animateToHsb}
+                  onHoverMatch={setHoverMatchRgb}
+                />
+              </div>
             </div>
-          </div>
-        </CollapsibleSection>
+          </CollapsibleSection>
 
         {/* Color Editor: Swatch + SB Box + H Slider */}
         <CollapsibleSection id="color-editor-group" title="Color Editor">

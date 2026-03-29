@@ -2,7 +2,6 @@ import { useRef, useEffect, useCallback, useState, useMemo } from 'react';
 import { hsbToRgb, rgbToHsb, rgbToHex, rgbToHsl, hslToRgb } from '../utils/colorConversions';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTheme } from '../hooks/useTheme';
-import NamedColorMatch from './NamedColorMatch';
 import CollapsibleSection from './CollapsibleSection';
 import {
   HEX_SIZE, SIZE, CENTER, RADIUS, PI, DIRS,
@@ -15,7 +14,7 @@ import ColorLabels from './hex/ColorLabels';
 import HueHandle from './hex/HueHandle';
 import BrightnessHandle from './hex/BrightnessHandle';
 
-export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange }) {
+export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, hoverMatchRgb }) {
   const { isDark } = useTheme();
   const [vectorMode, setVectorMode] = useState('rgb');
   const [dragMode, setDragMode] = useState('free');
@@ -24,7 +23,6 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   const [selectedRecentIdx, setSelectedRecentIdx] = useState(0);
   const lastHex = useRef(initialHex);
   const skipNextRecent = useRef(false);
-  const [hoverMatchRgb, setHoverMatchRgb] = useState(null);
   const draggingBL = useRef(false);
   const svgRef = useRef(null);
   const draggingHue = useRef(false);
@@ -129,7 +127,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
         lastHex.current = currentHex;
         setRecentColors((prev) => {
           const filtered = prev.filter((c) => c !== currentHex);
-          return [currentHex, ...filtered].slice(0, 8);
+          return [currentHex, ...filtered].slice(0, 12);
         });
         setSelectedRecentIdx(0);
       }
@@ -142,7 +140,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     lastHex.current = hex;
     setRecentColors((prev) => {
       const filtered = prev.filter((c) => c !== hex);
-      return [hex, ...filtered].slice(0, 8);
+      return [hex, ...filtered].slice(0, 12);
     });
     setSelectedRecentIdx(0);
   }, []);
@@ -485,20 +483,18 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       </div>
 
       {/* Recent Colors + Named Color Match */}
-      <div className="w-full mt-2 flex items-stretch gap-4">
-        <div id="recent-colors" className="border border-input rounded-lg p-2.5 flex flex-col gap-1.5">
-          <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Recent Colors</h3>
-          <hr className="border-input" />
-          <div className="flex gap-1.5">
-            {Array.from({ length: 8 }, (_, i) => {
+      <div className="w-full mt-2">
+        <CollapsibleSection id="recent-colors" title="Recent Colors">
+          <div className="flex gap-1.5 flex-wrap">
+            {Array.from({ length: 12 }, (_, i) => {
               const color = recentColors[i];
               return (
                 <button
                   key={i}
                   className="rounded-md cursor-pointer shrink-0 transition-shadow duration-200 ease-in-out"
                   style={{
-                    width: 48,
-                    height: 64,
+                    width: 50,
+                    height: 70,
                     backgroundColor: color || 'transparent',
                     boxShadow: i === selectedRecentIdx && color ? '0 0 0 2px white' : 'none',
                     border: i === selectedRecentIdx && color ? '2px solid transparent' : '1px solid var(--input)',
@@ -521,8 +517,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
               );
             })}
           </div>
-        </div>
-        <NamedColorMatch rgb={rgb} onAnimateToHsb={onAnimateToHsb} onHoverMatch={setHoverMatchRgb} />
+        </CollapsibleSection>
       </div>
     </div>
   );
