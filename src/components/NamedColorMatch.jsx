@@ -71,8 +71,8 @@ export default function NamedColorMatch({ rgb, onAnimateToHsb, onHoverMatch, hov
                       onMouseLeave={() => onHoverMatch?.(null)}
                     >
                       <div className="w-4 h-4 rounded-sm shrink-0" style={{ backgroundColor: hex }} />
-                      <span>{c.name}</span>
-                      <span className="ml-auto font-mono text-xs text-muted-foreground">{hex}</span>
+                      <span className="flex-1">{c.name}</span>
+                      <span className="font-mono text-xs text-muted-foreground text-right">{hex}</span>
                     </CommandItem>
                   );
                 })}
