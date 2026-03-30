@@ -32,6 +32,8 @@ export default function ColorPicker() {
   const [blMode, setBlMode] = useState('brightness');
   const [colorSpace, setColorSpace] = useState('srgb');
   const [hoverMatchRgb, setHoverMatchRgb] = useState(null);
+  const [showHtmlOnHex, setShowHtmlOnHex] = useState(false);
+  const [hoveredHtmlColor, setHoveredHtmlColor] = useState(null);
   const animRef = useRef(null);
   const hsbRef = useRef(hsb);
   hsbRef.current = hsb;
@@ -129,6 +131,8 @@ export default function ColorPicker() {
             colorSpace={colorSpace}
             onColorSpaceChange={setColorSpace}
             hoverMatchRgb={hoverMatchRgb}
+            showHtmlOnHex={showHtmlOnHex}
+            onHoverHtmlColor={setHoveredHtmlColor}
           />
         </div>
 
@@ -136,24 +140,6 @@ export default function ColorPicker() {
         <div id="picker-layout" className="w-[420px] shrink-0 border border-input rounded-lg p-3">
         <CollapsibleSection id="sliders-group" title="Sliders" level="h2">
           <div className="flex flex-col gap-4">
-          {/* Hex + HTML Names */}
-          <CollapsibleSection id="hex-group" title="Hex">
-            <div className="flex gap-3 items-stretch">
-              <PreviewSwatch hex={hex} />
-              <div className="flex-1 min-w-0 flex flex-col gap-1.5">
-                <HexInput
-                  hex={hex}
-                  onChange={(parsed) => { rgbOverride.current = null; setHsb(rgbToHsb(parsed.r, parsed.g, parsed.b)); }}
-                />
-                <NamedColorMatch
-                  rgb={rgb}
-                  onAnimateToHsb={animateToHsb}
-                  onHoverMatch={setHoverMatchRgb}
-                />
-              </div>
-            </div>
-          </CollapsibleSection>
-
         {/* Color Editor: Swatch + SB Box + H Slider */}
         <CollapsibleSection id="color-editor-group" title="Color Editor">
           <div id="sb-wrapper" className="flex gap-3 min-w-0 overflow-hidden">
@@ -283,6 +269,40 @@ export default function ColorPicker() {
               onChange={(v) => handleRgbChange('b', v)}
             />
           </div>
+        </CollapsibleSection>
+
+        {/* Hex */}
+        <CollapsibleSection id="hex-group" title="Hex">
+          <div className="flex gap-3 items-stretch">
+            <PreviewSwatch hex={hex} />
+            <div className="flex-1 min-w-0">
+              <HexInput
+                hex={hex}
+                onChange={(parsed) => { rgbOverride.current = null; setHsb(rgbToHsb(parsed.r, parsed.g, parsed.b)); }}
+              />
+            </div>
+          </div>
+        </CollapsibleSection>
+
+        {/* HTML Colors */}
+        <CollapsibleSection
+          id="html-colors-group"
+          title="HTML Colors"
+          headerRight={
+            <Tabs value={showHtmlOnHex ? 'show' : 'hide'} onValueChange={(v) => setShowHtmlOnHex(v === 'show')}>
+              <TabsList>
+                <TabsTrigger value="show" className="w-12">Show</TabsTrigger>
+                <TabsTrigger value="hide" className="w-12">Hide</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          }
+        >
+          <NamedColorMatch
+            rgb={rgb}
+            onAnimateToHsb={animateToHsb}
+            onHoverMatch={setHoverMatchRgb}
+            hoveredHtmlColor={hoveredHtmlColor}
+          />
         </CollapsibleSection>
           </div>
         </CollapsibleSection>
