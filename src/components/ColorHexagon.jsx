@@ -36,6 +36,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   const startingBrightness = useRef(null); // brightness at drag start for rubber-band
   const blPointerDown = useRef(null);
   const [hoveredDot, setHoveredDot] = useState(null); // index of hovered dot
+  const [isHexDragging, setIsHexDragging] = useState(false);
 
   const dragTriggerDistance = 4;
   const clickMaxDuration = 200;
@@ -45,14 +46,16 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     return { x: e.clientX - rect.left, y: e.clientY - rect.top };
   }, []);
 
-  const getHsbFromPosition = useCallback((svgX, svgY) => {
-    if (svgX < 0 || svgX >= HEX_SIZE || svgY < 0 || svgY >= HEX_SIZE) return null;
+  const getHsbFromPosition = useCallback((svgX, svgY, clampOnly = false) => {
     const dx = svgX - CENTER;
     const dy = svgY - CENTER;
     const dist = Math.sqrt(dx * dx + dy * dy);
     const angle = Math.atan2(-dy, dx);
     const edgeDist = hexEdgeDist(angle, RADIUS);
-    if (dist > edgeDist) return null;
+
+    // For initial clicks, reject if outside hex; for drags (clampOnly), clamp instead
+    if (!clampOnly && dist > edgeDist) return null;
+
     let h = (angle * 180) / PI;
     if (h < 0) h += 360;
     const s = Math.round(Math.min((dist / edgeDist) * 100, 100));
@@ -62,10 +65,8 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     const limitEdgeDist = hexEdgeDist(angle, RADIUS * base / 100);
     let b;
     if (dist <= limitEdgeDist) {
-      // Inside original brightness bounds — use starting brightness
       b = base;
     } else {
-      // Outside — increase B to minimum needed (S and B are proportional here)
       b = Math.min(100, Math.round((dist / edgeDist) * 100));
     }
     return { h: Math.round(h), s, b };
@@ -226,7 +227,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
         // Last dot (all 3 channels): set color from hex position
         if (isLast && onHsbChange) {
           startingBrightness.current = startingBrightness.current ?? brightness;
-          const picked = getHsbFromPosition(x, y);
+          const picked = getHsbFromPosition(x, y, true);
           if (picked) onHsbChange(picked);
           return;
         }
@@ -271,7 +272,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     }
     if (draggingFree.current && onHsbChange) {
       const { x, y } = getSvgCoords(e);
-      const picked = getHsbFromPosition(x, y);
+      const picked = getHsbFromPosition(x, y, true);
       if (picked) onHsbChange(picked);
     }
   }, [getSvgCoords, onRgbChange, onHsbChange, points, scale, getHsbFromPosition]);
@@ -308,7 +309,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   const handleHexSurfaceDrag = useCallback((e) => {
     if (!hexPointerDown.current || !onHsbChange) return;
     const { x, y } = getSvgCoords(e);
-    const picked = getHsbFromPosition(x, y);
+    const picked = getHsbFromPosition(x, y, true);
     if (picked) onHsbChange(picked);
   }, [getSvgCoords, getHsbFromPosition, onHsbChange]);
 
@@ -323,6 +324,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       blPointerDown.current = null;
       startingBrightness.current = null;
       setHoveredDot(null);
+      setIsHexDragging(false);
     };
     const onMouseMove = (e) => {
       if (draggingHue.current) hueFromMouse(e);
@@ -341,7 +343,10 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
         if (!pd.isDragging) {
           const dx = e.clientX - pd.clientX;
           const dy = e.clientY - pd.clientY;
-          if (Math.sqrt(dx * dx + dy * dy) >= dragTriggerDistance) pd.isDragging = true;
+          if (Math.sqrt(dx * dx + dy * dy) >= dragTriggerDistance) {
+            pd.isDragging = true;
+            setIsHexDragging(true);
+          }
         }
         if (pd.isDragging) handleHexSurfaceDrag(e);
       }
@@ -427,8 +432,6 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   };
 
   const handleHexMouseDown = useCallback((e) => {
-    // In channel mode, only dots/segments are interactive — hex surface is not
-    if (dragMode === 'channel') return;
     const { x, y } = getSvgCoords(e);
     const dx = x - CENTER;
     const dy = y - CENTER;
@@ -598,6 +601,26 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           aria-label="Color hexagon with RGB vector visualization"
           className="absolute inset-0 z-[5]"
           onMouseDown={handleHexMouseDown}
+          onWheel={(e) => {
+            e.preventDefault();
+            const step = Math.abs(e.deltaY) > 50 ? 2 : 1;
+            const delta = e.deltaY > 0 ? -step : step;
+            if (blMode === 'brightness') {
+              const target = Math.max(0, Math.min(100, brightness + delta));
+              onHsbChange({ b: target });
+            } else if (onHslChange) {
+              const currentL = hsl?.l ?? 50;
+              const target = Math.max(0, Math.min(100, currentL + delta));
+              // Force extremes to avoid rounding traps
+              if (target >= 99) {
+                onHsbChange({ h: hue, s: 0, b: 100 }); // white
+              } else if (target <= 1) {
+                onHsbChange({ h: hue, s: saturation, b: 0 }); // black
+              } else {
+                onHslChange('l', target);
+              }
+            }
+          }}
         >
           <circle id="hex-circumscribe" cx={CENTER} cy={CENTER} r={RADIUS} fill="none" stroke="var(--input)" strokeWidth={1.5} />
           <polygon id="hex-outline" points={hexPoints(CENTER, CENTER, RADIUS)} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth={1} />
@@ -628,6 +651,18 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
               className="cursor-pointer"
               onMouseEnter={() => onHoverHtmlColor?.(m)}
               onMouseLeave={() => onHoverHtmlColor?.(null)}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onAnimateToHsb) {
+                  const parsed = rgbToHsb(
+                    parseInt(m.hex.slice(1, 3), 16),
+                    parseInt(m.hex.slice(3, 5), 16),
+                    parseInt(m.hex.slice(5, 7), 16),
+                  );
+                  addToRecent(m.hex);
+                  onAnimateToHsb(parsed);
+                }
+              }}
             />
           ))}
 
@@ -642,6 +677,9 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           {points.slice(1).map((p, i) => {
             const prev = points[i];
             const ch = order[i];
+            const chValue = rgb[ch];
+            // Hide zero-value segments during hex surface drag
+            if (isHexDragging && chValue === 0 && ch !== 'r') return null;
             const bright = brightness > 50;
             const baseColor = bright
               ? (ch === 'r' ? 'rgba(220,50,50,0.8)' : ch === 'g' ? 'rgba(50,180,50,0.8)' : 'rgba(50,50,220,0.8)')
@@ -687,6 +725,8 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             const isLast = i === points.length - 1;
             const isDraggable = i > 0;
             const ch = i > 0 ? order[i - 1] : null;
+            // Hide zero-value dots during hex surface drag (except origin and red)
+            if (isHexDragging && ch && ch !== 'r' && rgb[ch] === 0) return null;
             const bright = brightness > 50;
             const baseRing = !ch ? 'white' : bright
               ? (ch === 'r' ? 'rgba(220,50,50,0.9)' : ch === 'g' ? 'rgba(50,180,50,0.9)' : 'rgba(50,50,220,0.9)')
@@ -702,11 +742,14 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             const ringColor = isDraggable
               ? (isHighlighted ? hoverRing : baseRing)
               : 'white';
+            const isOrigin = i === 0;
             return (
               <circle
                 key={i} id={`rgb-dot-${dotNames[i]}`} cx={p.x} cy={p.y}
-                r={isLast ? 8 : 5} fill={dotColors[i]}
-                stroke={ringColor} strokeWidth={isHighlighted ? 3 : 2}
+                r={isOrigin ? 3 : isLast ? 8 : 5}
+                fill={isOrigin ? '#ff0000' : dotColors[i]}
+                stroke={isOrigin ? 'none' : ringColor}
+                strokeWidth={isOrigin ? 0 : isHighlighted ? 3 : 2}
                 className={isDraggable ? 'cursor-pointer' : ''}
                 style={isLast ? { filter: 'drop-shadow(0 0 1px rgba(0,0,0,0.3))' } : undefined}
                 onMouseDown={isDraggable ? (e) => handleDotMouseDown(e, i) : undefined}
