@@ -110,7 +110,7 @@ export default function ColorPicker() {
 
   return (
     <div id="color-picker-root" className="mx-auto max-w-[1400px] p-6">
-      <h1 id="color-picker-title" className="text-2xl font-semibold tracking-tight text-primary mb-4">Wright Colors</h1>
+      <h1 id="color-picker-title" className="text-2xl font-semibold tracking-tight text-primary mb-4">Color Taylor 🧵</h1>
 
       <div className="flex gap-4 items-start">
         {/* Left column: Color Hexagon */}
