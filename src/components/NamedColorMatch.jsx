@@ -1,10 +1,13 @@
 import { useState, useMemo, useRef } from 'react';
 import { findNearestNamedColor } from '../utils/namedColors';
+import NAMED_COLORS from '../utils/namedColors';
 import { rgbToHex, rgbToHsb } from '../utils/colorConversions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
-import { Minus, Plus } from 'lucide-react';
+import { Minus, Plus, Search } from 'lucide-react';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import { Command, CommandInput, CommandList, CommandEmpty, CommandItem } from '@/components/ui/command';
 
 export default function NamedColorMatch({ rgb, onAnimateToHsb, onHoverMatch, hoveredHtmlColor }) {
   const [threshold, setThreshold] = useState(30);
@@ -29,6 +32,7 @@ export default function NamedColorMatch({ rgb, onAnimateToHsb, onHoverMatch, hov
 
   const clamp = (v) => Math.max(0, Math.min(100, v));
   const [hovering, setHovering] = useState(false);
+  const [comboOpen, setComboOpen] = useState(false);
 
   const handleClick = () => {
     if (isMatch && onAnimateToHsb) {
@@ -38,7 +42,44 @@ export default function NamedColorMatch({ rgb, onAnimateToHsb, onHoverMatch, hov
 
   return (
     <div className="flex flex-col gap-2">
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, alignItems: 'stretch' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: 8, alignItems: 'stretch' }}>
+        <Popover open={comboOpen} onOpenChange={setComboOpen}>
+          <PopoverTrigger>
+            <button className="flex items-center justify-center w-8 h-8 border border-input rounded-md bg-transparent text-muted-foreground cursor-pointer hover:text-foreground">
+              <Search className="!size-4" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-64 p-0" side="top" sideOffset={4} align="start">
+            <Command className="flex flex-col-reverse">
+              <CommandInput placeholder="Search colors..." className="text-sm" />
+              <CommandList>
+                <CommandEmpty>No color found.</CommandEmpty>
+                {NAMED_COLORS.map((c) => {
+                  const hex = rgbToHex(c.r, c.g, c.b);
+                  return (
+                    <CommandItem
+                      key={c.name}
+                      value={c.name}
+                      onSelect={() => {
+                        if (onAnimateToHsb) {
+                          onAnimateToHsb(rgbToHsb(c.r, c.g, c.b));
+                        }
+                        setComboOpen(false);
+                      }}
+                      className="flex items-center gap-2 text-sm cursor-pointer"
+                      onMouseEnter={() => onHoverMatch?.({ r: c.r, g: c.g, b: c.b })}
+                      onMouseLeave={() => onHoverMatch?.(null)}
+                    >
+                      <div className="w-4 h-4 rounded-sm shrink-0" style={{ backgroundColor: hex }} />
+                      <span>{c.name}</span>
+                      <span className="ml-auto font-mono text-xs text-muted-foreground">{hex}</span>
+                    </CommandItem>
+                  );
+                })}
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
         <Tooltip>
           <TooltipTrigger asChild>
             <button

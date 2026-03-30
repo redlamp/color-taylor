@@ -1,4 +1,4 @@
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Minus, Plus } from 'lucide-react';
@@ -27,6 +27,17 @@ export default function ColorSlider({ label, value, max, gradient, suffix, wrap,
   const { dragging, startDrag } = useDrag(useCallback((e) => {
     updateValue(e.clientX);
   }, [updateValue]));
+
+  // Stepper drag-to-adjust
+  const stepperDragStart = useRef(null);
+  const { startDrag: startStepperDrag } = useDrag(useCallback((e) => {
+    if (!stepperDragStart.current) return;
+    const dx = e.clientX - stepperDragStart.current.x;
+    const dy = stepperDragStart.current.y - e.clientY;
+    const delta = Math.round((dx + dy) / 2);
+    const newVal = Math.max(0, Math.min(max, stepperDragStart.current.value + delta));
+    onChange(newVal);
+  }, [max, onChange]));
 
   const handleInputChange = (e) => {
     const raw = e.target.value;
@@ -102,7 +113,12 @@ export default function ColorSlider({ label, value, max, gradient, suffix, wrap,
             inputMode="numeric"
             value={value}
             onChange={handleInputChange}
-            className="h-6 w-full border-none rounded-none text-right text-xs px-1 font-mono tabular-nums focus-visible:ring-0 focus-visible:border-transparent"
+            onFocus={(e) => e.target.select()}
+            onMouseDown={(e) => {
+              stepperDragStart.current = { x: e.clientX, y: e.clientY, value };
+              startStepperDrag();
+            }}
+            className="h-6 w-full border-none rounded-none text-right text-xs px-1 font-mono tabular-nums focus-visible:ring-0 focus-visible:border-transparent cursor-ew-resize"
           />
           <Button
             variant="ghost"

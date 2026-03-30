@@ -12,19 +12,16 @@ export default function CollapsibleSection({ id, title, level = 'h3', defaultOpe
 
   return (
     <div id={id} className={`flex flex-col gap-1.5 ${level === 'h3' ? 'border border-input rounded-lg p-2.5' : ''} ${extraClass || ''}`}>
-      <div className="flex items-center gap-1.5">
-        <button
-          type="button"
-          className="flex items-center gap-1.5 cursor-pointer select-none text-left"
-          onClick={() => setOpen((o) => !o)}
-        >
-          <ChevronRight
-            className={`!size-4 text-muted-foreground transition-transform duration-200 ${open ? 'rotate-90' : ''}`}
-          />
-          <Tag className={levelStyles[level]}>
-            {title}
-          </Tag>
-        </button>
+      <div
+        className="flex items-center gap-1.5 cursor-pointer select-none"
+        onClick={() => setOpen((o) => !o)}
+      >
+        <ChevronRight
+          className={`!size-4 text-muted-foreground transition-transform duration-200 ${open ? 'rotate-90' : ''}`}
+        />
+        <Tag className={levelStyles[level]}>
+          {title}
+        </Tag>
         {open && headerRight && (
           <div className="ml-auto" onClick={(e) => e.stopPropagation()}>
             {headerRight}

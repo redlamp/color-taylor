@@ -33,7 +33,7 @@ export default function ColorLabels({ onColorClick }) {
               className="flex items-center justify-center w-8 h-6 text-xs font-bold select-none cursor-pointer rounded-full"
               style={{
                 color: displayColor,
-                backgroundColor: 'var(--background)',
+                backgroundColor: 'transparent',
               }}
               onClick={() => onColorClick(deg)}
             >

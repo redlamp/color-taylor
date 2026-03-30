@@ -37,6 +37,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   const blPointerDown = useRef(null);
   const [hoveredDot, setHoveredDot] = useState(null); // index of hovered dot
   const [isHexDragging, setIsHexDragging] = useState(false);
+  const [hoveredMarker, setHoveredMarker] = useState(null); // { x, y, hex, name }
 
   const dragTriggerDistance = 4;
   const clickMaxDuration = 200;
@@ -143,7 +144,9 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       // Only show colors within ±15 brightness of current
       if (Math.abs(hsb.b - brightness) > 15) return null;
       const rad = (hsb.h * PI) / 180;
-      const edgeDist = hexEdgeDist(rad, RADIUS);
+      // Position at where it would be at the color's own brightness level
+      const colorLimitRadius = RADIUS * hsb.b / 100;
+      const edgeDist = hexEdgeDist(rad, colorLimitRadius);
       const dist = (hsb.s / 100) * edgeDist;
       return {
         x: CENTER + dist * Math.cos(rad),
@@ -396,6 +399,33 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     };
   }, [hueFromMouse, handleDotDrag, handleHexSurfaceDrag, getBLValueFromClientY, applyBLValue, animateBLToValue, getSvgCoords, getHsbFromPosition, onAnimateToHsb, onHsbChange, addToRecent]);
 
+  // Non-passive wheel listener to prevent page scroll
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const onWheel = (e) => {
+      e.preventDefault();
+      const step = Math.abs(e.deltaY) > 50 ? 2 : 1;
+      const delta = e.deltaY > 0 ? -step : step;
+      if (blMode === 'brightness') {
+        const target = Math.max(0, Math.min(100, brightness + delta));
+        onHsbChange({ b: target });
+      } else if (onHslChange) {
+        const currentL = hsl?.l ?? 50;
+        const target = Math.max(0, Math.min(100, currentL + delta));
+        if (target >= 99) {
+          onHsbChange({ h: hue, s: 0, b: 100 });
+        } else if (target <= 1) {
+          onHsbChange({ h: hue, s: saturation, b: 0 });
+        } else {
+          onHslChange('l', target);
+        }
+      }
+    };
+    svg.addEventListener('wheel', onWheel, { passive: false });
+    return () => svg.removeEventListener('wheel', onWheel);
+  }, [blMode, brightness, hsl?.l, hue, saturation, onHsbChange, onHslChange]);
+
   const handleHueDragStart = (e) => {
     e.preventDefault();
     draggingHue.current = true;
@@ -601,26 +631,6 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           aria-label="Color hexagon with RGB vector visualization"
           className="absolute inset-0 z-[5]"
           onMouseDown={handleHexMouseDown}
-          onWheel={(e) => {
-            e.preventDefault();
-            const step = Math.abs(e.deltaY) > 50 ? 2 : 1;
-            const delta = e.deltaY > 0 ? -step : step;
-            if (blMode === 'brightness') {
-              const target = Math.max(0, Math.min(100, brightness + delta));
-              onHsbChange({ b: target });
-            } else if (onHslChange) {
-              const currentL = hsl?.l ?? 50;
-              const target = Math.max(0, Math.min(100, currentL + delta));
-              // Force extremes to avoid rounding traps
-              if (target >= 99) {
-                onHsbChange({ h: hue, s: 0, b: 100 }); // white
-              } else if (target <= 1) {
-                onHsbChange({ h: hue, s: saturation, b: 0 }); // black
-              } else {
-                onHslChange('l', target);
-              }
-            }
-          }}
         >
           <circle id="hex-circumscribe" cx={CENTER} cy={CENTER} r={RADIUS} fill="none" stroke="var(--input)" strokeWidth={1.5} />
           <polygon id="hex-outline" points={hexPoints(CENTER, CENTER, RADIUS)} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth={1} />
@@ -649,8 +659,8 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
               stroke="rgba(255,255,255,0.5)"
               strokeWidth={1}
               className="cursor-pointer"
-              onMouseEnter={() => onHoverHtmlColor?.(m)}
-              onMouseLeave={() => onHoverHtmlColor?.(null)}
+              onMouseEnter={() => { setHoveredMarker(m); onHoverHtmlColor?.(m); }}
+              onMouseLeave={() => { setHoveredMarker(null); onHoverHtmlColor?.(null); }}
               onClick={(e) => {
                 e.stopPropagation();
                 if (onAnimateToHsb) {
@@ -784,6 +794,35 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
         </svg>
 
         <ColorLabels onColorClick={handleColorLabelClick} />
+
+        {/* HTML color marker tooltip */}
+        {hoveredMarker && (() => {
+          const mr = parseInt(hoveredMarker.hex.slice(1, 3), 16);
+          const mg = parseInt(hoveredMarker.hex.slice(3, 5), 16);
+          const mb = parseInt(hoveredMarker.hex.slice(5, 7), 16);
+          const tc = (mr * 0.299 + mg * 0.587 + mb * 0.114) > 150 ? '#000' : '#fff';
+          return (
+            <div
+              className="absolute z-[9] -translate-x-1/2 pointer-events-none"
+              style={{ left: hoveredMarker.x, top: hoveredMarker.y - 14 }}
+            >
+              <div
+                className="px-2 py-1 rounded-md text-xs font-semibold whitespace-nowrap shadow-md -translate-y-full"
+                style={{ backgroundColor: hoveredMarker.hex, color: tc }}
+              >
+                {hoveredMarker.name}
+                <div
+                  className="absolute left-1/2 -translate-x-1/2 -bottom-[5px] w-0 h-0"
+                  style={{
+                    borderLeft: '5px solid transparent',
+                    borderRight: '5px solid transparent',
+                    borderTop: `5px solid ${hoveredMarker.hex}`,
+                  }}
+                />
+              </div>
+            </div>
+          );
+        })()}
         {showHueLine && <HueHandle hue={hue} hueLabel={hueLabel} onMouseDown={handleHueDragStart} />}
         <BrightnessHandle
           hue={hue}

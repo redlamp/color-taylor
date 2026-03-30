@@ -311,7 +311,7 @@ export default function ColorPicker() {
 
       {/* Equations panel */}
       <div className="mt-4 border border-input rounded-lg p-3 w-full">
-        <CollapsibleSection id="equations-group" title="Equations" level="h2">
+        <CollapsibleSection id="equations-group" title="Equations" level="h2" defaultOpen={false}>
           <EquationsPanel
             rgb={rgb}
             hue={hsb.h}
