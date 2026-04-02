@@ -34,7 +34,7 @@ export default function ColorPicker() {
     return { h: 164, s: 94, b: 93 };
   });
   const [hslMode, setHslMode] = useState('hsb');
-  const [rgbGradientMode, setRgbGradientMode] = useState('mixed');
+  const [rgbGradientMode, setRgbGradientMode] = useState('channel');
   const [blMode, setBlMode] = useState('brightness');
   const [colorSpace, setColorSpace] = useState('srgb');
   const [hoverMatchRgb, setHoverMatchRgb] = useState(null);
@@ -288,8 +288,8 @@ export default function ColorPicker() {
           headerRight={
             <Tabs value={rgbGradientMode} onValueChange={setRgbGradientMode}>
               <TabsList>
-                <TabsTrigger value="mixed" className="w-16">Mixed</TabsTrigger>
                 <TabsTrigger value="channel" className="w-16">Channel</TabsTrigger>
+                <TabsTrigger value="mixed" className="w-16">Mixed</TabsTrigger>
               </TabsList>
             </Tabs>
           }

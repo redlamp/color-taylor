@@ -3,6 +3,7 @@ import { hsbToRgb, rgbToHsb, rgbToHex, rgbToHsl, hslToRgb } from '../utils/color
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTheme } from '../hooks/useTheme';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { ChevronRight } from 'lucide-react';
 import CollapsibleSection from './CollapsibleSection';
 import NAMED_COLORS from '../utils/namedColors';
 import {
@@ -16,8 +17,11 @@ import ColorLabels from './hex/ColorLabels';
 import HueHandle from './hex/HueHandle';
 import BrightnessHandle from './hex/BrightnessHandle';
 
+const DEFAULT_RECENT = ['#0decaf', '#ff0000', '#ffff00', '#00ff00', '#00ffff', '#0000ff', '#ff00ff', '#ffffff', '#808080', '#000000'];
+
 export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, onColorSpaceChange, hoverMatchRgb, showHtmlOnHex, onHoverHtmlColor }) {
   const { isDark } = useTheme();
+  const [hexOpen, setHexOpen] = useState(true);
   const [vectorMode, setVectorMode] = useState('rgb');
   const [dragMode, setDragMode] = useState('free');
   const initialHex = useMemo(() => rgbToHex(rgb.r, rgb.g, rgb.b), []);
@@ -26,7 +30,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       const saved = localStorage.getItem('color-taylor-recent');
       if (saved) return JSON.parse(saved);
     } catch {}
-    return ['#0decaf', '#ff0000', '#ffff00', '#00ff00', '#00ffff', '#0000ff', '#ff00ff', '#ffffff', '#808080', '#000000'];
+    return [...DEFAULT_RECENT];
   });
   const [selectedRecentIdx, setSelectedRecentIdx] = useState(null);
   const lastHex = useRef(initialHex);
@@ -526,9 +530,15 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   }, [blMode, brightness, hsl?.l]);
 
   return (
-    <div id="color-hexagon" className="flex flex-col items-center gap-1 border border-input rounded-lg p-3">
-      <h2 className="text-lg font-semibold tracking-tight text-foreground self-start">Color Hexagon</h2>
-      <div className="flex items-end gap-3">
+    <div id="color-hexagon" className="flex flex-col items-center gap-1 border border-input rounded-lg p-3" style={{ minWidth: SIZE + 40 }}>
+      <div
+        className="flex items-center gap-1.5 self-start cursor-pointer select-none"
+        onClick={() => setHexOpen((o) => !o)}
+      >
+        <ChevronRight className={`!size-4 text-muted-foreground transition-transform duration-200 ${hexOpen ? 'rotate-90' : ''}`} />
+        <h2 className="text-lg font-semibold tracking-tight text-foreground">Color Hexagon</h2>
+      </div>
+      {hexOpen && <><div className="flex items-end gap-3">
         {/* Segment Order tab - hidden for now, may bring back later
         <div className="flex flex-col items-center gap-0.5">
           <span className="text-[10px] text-muted-foreground">Segment Order</span>
@@ -857,7 +867,26 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
 
       {/* Recent Colors + Named Color Match */}
       <div className="w-full mt-2">
-        <CollapsibleSection id="recent-colors" title="Recent Colors">
+        <CollapsibleSection
+          id="recent-colors"
+          title="Recent Colors"
+          headerRight={
+            <div className="flex gap-1">
+              <button
+                className="px-2 py-0.5 text-xs rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none"
+                onClick={(e) => { e.stopPropagation(); setRecentColors([]); setSelectedRecentIdx(null); }}
+              >
+                Clear
+              </button>
+              <button
+                className="px-2 py-0.5 text-xs rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none"
+                onClick={(e) => { e.stopPropagation(); setRecentColors([...DEFAULT_RECENT]); setSelectedRecentIdx(null); }}
+              >
+                Defaults
+              </button>
+            </div>
+          }
+        >
           <div className="flex gap-1.5 flex-wrap">
             {Array.from({ length: 12 }, (_, i) => {
               const color = recentColors[i];
@@ -891,7 +920,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             })}
           </div>
         </CollapsibleSection>
-      </div>
+      </div></>}
     </div>
   );
 }
