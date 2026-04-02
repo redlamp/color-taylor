@@ -107,6 +107,71 @@ function staggeredFade(hexColor) {
   return `opacity ${FADE_DUR} ${EASING} ${delay.toFixed(3)}s`;
 }
 
+// ── Nearest-neighbor color matching ─────────────────────────────────
+
+function parseRgb(hex) {
+  const raw = hex.replace('#', '').replace(/:.*/, '');
+  const n = parseInt(raw, 16) || 0;
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+function colorDist(a, b) {
+  const [r1, g1, b1] = parseRgb(a);
+  const [r2, g2, b2] = parseRgb(b);
+  return Math.sqrt((r1 - r2) ** 2 + (g1 - g2) ** 2 + (b1 - b2) ** 2);
+}
+
+const MAX_MATCH_DIST = 80; // max RGB distance for nearest-neighbor pairing
+
+// Build transition pairs: exact matches, nearest-neighbor matches, and unmatched
+function buildPairs(fromLayout, toLayout) {
+  const fromMap = new Map(fromLayout.map(c => [c.id, c]));
+  const toMap = new Map(toLayout.map(c => [c.id, c]));
+
+  const pairs = [];      // { key, from, to }
+  const usedTo = new Set();
+
+  // 1. Exact ID matches
+  for (const [id, from] of fromMap) {
+    const to = toMap.get(id);
+    if (to) {
+      pairs.push({ key: id, from, to });
+      usedTo.add(id);
+    }
+  }
+
+  // 2. Nearest-neighbor matches for unmatched source cells
+  const unmatchedFrom = fromLayout.filter(c => !toMap.has(c.id));
+  const unmatchedTo = toLayout.filter(c => !fromMap.has(c.id) && !usedTo.has(c.id));
+
+  // Build candidates sorted by distance (greedy closest-first)
+  const candidates = [];
+  for (const from of unmatchedFrom) {
+    for (const to of unmatchedTo) {
+      candidates.push({ from, to, dist: colorDist(from.color, to.color) });
+    }
+  }
+  candidates.sort((a, b) => a.dist - b.dist);
+
+  const pairedFrom = new Set();
+  const pairedTo = new Set();
+  for (const c of candidates) {
+    if (pairedFrom.has(c.from.id) || pairedTo.has(c.to.id)) continue;
+    if (c.dist > MAX_MATCH_DIST) continue;
+    pairs.push({ key: `near:${c.from.id}`, from: c.from, to: c.to });
+    pairedFrom.add(c.from.id);
+    pairedTo.add(c.to.id);
+  }
+
+  // 3. Remaining unmatched
+  const removed = unmatchedFrom.filter(c => !pairedFrom.has(c.id));
+  const added = unmatchedTo.filter(c => !pairedTo.has(c.id));
+
+  return { pairs, removed, added };
+}
+
+// ── Component ───────────────────────────────────────────────────────
+
 export default function AnimatedGrid({ mode }) {
   const [cells, setCells] = useState(() =>
     getLayout(mode).map(c => ({ ...c, opacity: 1, z: 1, transition: 'none' }))
@@ -121,21 +186,10 @@ export default function AnimatedGrid({ mode }) {
     const toLayout = getLayout(mode);
     prevMode.current = mode;
 
-    const fromMap = new Map(fromLayout.map(c => [c.id, c]));
-    const toMap = new Map(toLayout.map(c => [c.id, c]));
-    const allIds = [...new Set([...fromMap.keys(), ...toMap.keys()])];
-
-    // Classify cells
-    const matched = [];
-    const added = [];
-    const removed = [];
-    for (const id of allIds) {
-      const from = fromMap.get(id);
-      const to = toMap.get(id);
-      if (from && to) matched.push(id);
-      else if (to) added.push(id);
-      else removed.push(id);
-    }
+    const { pairs, removed, added } = buildPairs(fromLayout, toLayout);
+    const matchedKeys = new Set(pairs.map(p => p.key));
+    const removedKeys = new Set(removed.map(c => c.id));
+    const addedKeys = new Set(added.map(c => c.id));
 
     // Clear previous timers
     timers.current.forEach(clearTimeout);
@@ -143,38 +197,40 @@ export default function AnimatedGrid({ mode }) {
 
     // Step 1: Set start positions — matched + removed visible (z:2), new hidden (z:1)
     setCells([
-      ...matched.map(id => {
-        const from = fromMap.get(id);
-        return { id, color: from.color, x: from.x, y: from.y, w: from.w, h: from.h, opacity: 1, z: 2, transition: 'none' };
-      }),
-      ...removed.map(id => {
-        const from = fromMap.get(id);
-        return { id, color: from.color, x: from.x, y: from.y, w: from.w, h: from.h, opacity: 1, z: 2, transition: 'none' };
-      }),
-      ...added.map(id => {
-        const to = toMap.get(id);
-        return { id, color: to.color, x: to.x, y: to.y, w: to.w, h: to.h, opacity: 0, z: 1, transition: 'none' };
-      }),
+      ...pairs.map(p => ({
+        id: p.key, color: p.from.color, x: p.from.x, y: p.from.y, w: p.from.w, h: p.from.h,
+        opacity: 1, z: 2, transition: 'none',
+      })),
+      ...removed.map(c => ({
+        id: c.id, color: c.color, x: c.x, y: c.y, w: c.w, h: c.h,
+        opacity: 1, z: 2, transition: 'none',
+      })),
+      ...added.map(c => ({
+        id: c.id, color: c.color, x: c.x, y: c.y, w: c.w, h: c.h,
+        opacity: 0, z: 1, transition: 'none',
+      })),
     ]);
 
-    // Step 2: After paint — matched cells tween to target, removed fade out
+    // Step 2: After paint — matched tween to target, removed fade out
     const raf = requestAnimationFrame(() => {
       requestAnimationFrame(() => {
+        const pairMap = new Map(pairs.map(p => [p.key, p.to]));
+
         setCells(prev => prev.map(cell => {
-          if (matched.includes(cell.id)) {
-            const to = toMap.get(cell.id);
+          if (matchedKeys.has(cell.id)) {
+            const to = pairMap.get(cell.id);
             return { ...cell, color: to.color, x: to.x, y: to.y, w: to.w, h: to.h, transition: MOVE_TRANS };
           }
-          if (removed.includes(cell.id)) {
+          if (removedKeys.has(cell.id)) {
             return { ...cell, opacity: 0, transition: FADEOUT_TRANS };
           }
           return cell; // added cells stay hidden
         }));
 
-        // Step 3: After matched cells arrive — fade in new cells with stagger
+        // Step 3: After matched cells arrive — staggered fade in for new cells
         timers.current.push(setTimeout(() => {
           setCells(prev => prev.map(cell => {
-            if (added.includes(cell.id)) {
+            if (addedKeys.has(cell.id)) {
               return { ...cell, opacity: 1, transition: staggeredFade(cell.color) };
             }
             return cell;
