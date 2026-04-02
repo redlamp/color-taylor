@@ -75,17 +75,24 @@ const THOUSANDS_ROWS = generateThousandsRows(64);
 const PANEL_W = 700;
 const PANEL_H = 320;
 
+// Standalone wrapper (used by slideComponents registry)
 export default function MonitorPanel({ mode }) {
   return (
     <div className="flex flex-col items-center">
       <div style={{ width: PANEL_W, height: PANEL_H, borderRadius: 6, overflow: 'hidden' }}>
-        {mode === 'bw' && <BWLayout />}
-        {mode === 'c16' && <SixteenLayout />}
-        {mode === 'c256' && <Grid256Layout />}
-        {mode === 'thousands' && <ThousandsLayout />}
+        <MonitorPanelContent mode={mode} />
       </div>
     </div>
   );
+}
+
+// Grid content only — used by PresentationStage inside the persistent panel
+export function MonitorPanelContent({ mode }) {
+  if (mode === 'bw') return <BWLayout />;
+  if (mode === 'c16') return <SixteenLayout />;
+  if (mode === 'c256') return <Grid256Layout />;
+  if (mode === 'thousands') return <ThousandsLayout />;
+  return null;
 }
 
 export { PANEL_W, PANEL_H };

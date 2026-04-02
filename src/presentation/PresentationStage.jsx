@@ -1,0 +1,235 @@
+import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
+import { hsbToRgb, rgbToHsb, rgbToHex, rgbToHsl } from '../utils/colorConversions';
+import {
+  hueGradient, saturationGradient, brightnessGradient,
+  redChannelGradient, greenChannelGradient, blueChannelGradient,
+} from '../utils/sliderGradients';
+import { PANEL_W, PANEL_H, MonitorPanelContent } from './slides/MonitorPanel';
+import ColorSlider from '../components/ColorSlider';
+import PreviewSwatch from '../components/PreviewSwatch';
+import HexInput from '../components/HexInput';
+import EquationsPanel from '../components/EquationsPanel';
+import ColorOperations from '../components/ColorOperations';
+import ColorHexagon from '../components/ColorHexagon';
+import NarrativeSlide from './slides/NarrativeSlide';
+
+export default function PresentationStage({ slide, slideIndex }) {
+  // ── Color state (persists across all slides) ──────────────────────
+  const [hsb, setHsb] = useState({ h: 0, s: 100, b: 100 });
+  const hsbRef = useRef(hsb);
+  hsbRef.current = hsb;
+  const animRef = useRef(null);
+  const rgbOverride = useRef(null);
+
+  const rgbFromHsb = useMemo(() => hsbToRgb(hsb.h, hsb.s, hsb.b), [hsb.h, hsb.s, hsb.b]);
+  const rgb = rgbOverride.current || rgbFromHsb;
+  const hex = useMemo(() => rgbToHex(rgb.r, rgb.g, rgb.b), [rgb.r, rgb.g, rgb.b]);
+  const hsl = useMemo(() => rgbToHsl(rgb.r, rgb.g, rgb.b), [rgb.r, rgb.g, rgb.b]);
+
+  const animateToHsb = useCallback((target) => {
+    rgbOverride.current = null;
+    if (animRef.current) cancelAnimationFrame(animRef.current);
+    const duration = 1000;
+    const from = { ...hsbRef.current };
+    let start = null;
+    const easeInOut = (t) => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+    const tick = (ts) => {
+      if (!start) start = ts;
+      const t = easeInOut(Math.min((ts - start) / duration, 1));
+      let dh = target.h - from.h;
+      if (dh > 180) dh -= 360;
+      if (dh < -180) dh += 360;
+      setHsb({
+        h: Math.round(((from.h + dh * t) % 360 + 360) % 360),
+        s: Math.round(from.s + (target.s - from.s) * t),
+        b: Math.round(from.b + (target.b - from.b) * t),
+      });
+      rgbOverride.current = null;
+      if ((ts - start) < duration) animRef.current = requestAnimationFrame(tick);
+      else animRef.current = null;
+    };
+    animRef.current = requestAnimationFrame(tick);
+  }, []);
+
+  const setHsbClear = useCallback((valOrFn) => {
+    rgbOverride.current = null;
+    setHsb(valOrFn);
+  }, []);
+
+  const handleRgbChange = useCallback((channel, value) => {
+    setHsb((prev) => {
+      const cur = rgbOverride.current || hsbToRgb(prev.h, prev.s, prev.b);
+      const next = { ...cur, [channel]: value };
+      rgbOverride.current = next;
+      return rgbToHsb(next.r, next.g, next.b);
+    });
+  }, []);
+
+  // ── Slide classification ──────────────────────────────────────────
+  const isStatic = slide.type === 'static';
+  const isNarrative = slide.type === 'narrative';
+  const panels = slide.props?.visiblePanels || [];
+  const has = (p) => panels.includes(p);
+  const hasLargePreview = has('large-preview');
+  const hasHexagon = has('hexagon');
+  const usesPanel = isStatic || hasLargePreview;
+  const locked = slide.props?.lockedChannels || [];
+  const hasSliders = has('rgb-sliders') || has('hsb-sliders') || has('hex-input') || has('equations') || has('conversions');
+
+  // ── Tween color when entering a new interactive slide ─────────────
+  const prevIdx = useRef(slideIndex);
+  useEffect(() => {
+    if (slideIndex !== prevIdx.current) {
+      prevIdx.current = slideIndex;
+      if (slide.props?.initialHsb) animateToHsb(slide.props.initialHsb);
+    }
+  }, [slideIndex, slide.props?.initialHsb, animateToHsb]);
+
+  // ── Entrance animation for sliders ────────────────────────────────
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    setVisible(false);
+    const id = requestAnimationFrame(() => requestAnimationFrame(() => setVisible(true)));
+    return () => cancelAnimationFrame(id);
+  }, [slideIndex]);
+
+  // ── Narrative slides ──────────────────────────────────────────────
+  if (isNarrative) return <NarrativeSlide {...(slide.props || {})} />;
+
+  // ── Hexagon slides (different layout entirely) ────────────────────
+  if (hasHexagon) {
+    return (
+      <div className="flex gap-6 items-start">
+        <div className="shrink-0">
+          <ColorHexagon
+            rgb={rgb} hue={hsb.h} brightness={hsb.b} saturation={hsb.s} hsl={hsl}
+            onHueChange={(h) => setHsbClear(p => ({ ...p, h }))}
+            onRgbChange={handleRgbChange}
+            onHsbChange={(v) => setHsbClear(p => ({ ...p, ...v }))}
+            onHslChange={() => {}} onAnimateToHsb={animateToHsb}
+            blMode="brightness" onBlModeChange={() => {}}
+            colorSpace="srgb" onColorSpaceChange={() => {}}
+            hoverMatchRgb={null} showHtmlOnHex={false} onHoverHtmlColor={() => {}}
+          />
+        </div>
+        {has('preview') && (
+          <div className="flex flex-col gap-4 min-w-[360px]">
+            <div className="flex gap-3 items-stretch">
+              <PreviewSwatch hex={hex} />
+              <div className="flex-1 font-mono text-lg flex items-center">{hex.toUpperCase()}</div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── Panel slides (static grids + interactive color swatch) ────────
+  const textColor = (rgb.r * 0.299 + rgb.g * 0.587 + rgb.b * 0.114) > 150 ? '#000' : '#fff';
+
+  return (
+    <div className="flex flex-col items-center">
+      {/* ── THE PERSISTENT PANEL ── */}
+      <div
+        style={{
+          width: PANEL_W,
+          height: PANEL_H,
+          backgroundColor: hex,
+          borderRadius: 6,
+          overflow: 'hidden',
+          position: 'relative',
+        }}
+      >
+        {/* Grid overlay — visible for static slides, fades to reveal color behind */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            opacity: isStatic ? 1 : 0,
+            transition: 'opacity 0.7s ease-in-out',
+            zIndex: 1,
+          }}
+        >
+          <MonitorPanelContent mode={slide.props?.mode || 'bw'} />
+        </div>
+
+        {/* Hex label inside swatch */}
+        {slide.props?.showHexInPreview && (
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              opacity: isStatic ? 0 : 1,
+              transition: 'opacity 0.7s ease-in-out',
+              zIndex: 2,
+              color: textColor,
+            }}
+          >
+            <span className="font-mono text-4xl font-bold tracking-wider">{hex.toUpperCase()}</span>
+          </div>
+        )}
+      </div>
+
+      {/* ── SLIDERS (tween in from below) ── */}
+      {hasSliders && (
+        <div
+          className="transition-all duration-700 ease-out"
+          style={{
+            width: PANEL_W,
+            opacity: visible ? 1 : 0,
+            transform: visible ? 'translateY(0)' : 'translateY(24px)',
+            marginTop: 12,
+          }}
+        >
+          <div className="grid grid-cols-2 gap-4">
+            {has('rgb-sliders') && (
+              <div className="border border-input rounded-lg p-3">
+                <h3 className="text-sm font-semibold mb-2">RGB</h3>
+                <div className="flex flex-col gap-2">
+                  <ColorSlider label="R" value={rgb.r} max={255} gradient={redChannelGradient} onChange={(v) => handleRgbChange('r', v)} />
+                  {!locked.includes('g') && <ColorSlider label="G" value={rgb.g} max={255} gradient={greenChannelGradient} onChange={(v) => handleRgbChange('g', v)} />}
+                  {!locked.includes('b') && <ColorSlider label="B" value={rgb.b} max={255} gradient={blueChannelGradient} onChange={(v) => handleRgbChange('b', v)} />}
+                </div>
+              </div>
+            )}
+            {has('hsb-sliders') && (
+              <div className="border border-input rounded-lg p-3">
+                <h3 className="text-sm font-semibold mb-2">HSB</h3>
+                <div className="flex flex-col gap-2">
+                  <ColorSlider label="H" value={hsb.h} max={360} wrap gradient={hueGradient(hsb.s, hsb.b, 'srgb')} onChange={(v) => setHsbClear(p => ({ ...p, h: v }))} />
+                  <ColorSlider label="S" value={hsb.s} max={100} gradient={saturationGradient(hsb.h, hsb.b, 'srgb')} onChange={(v) => setHsbClear(p => ({ ...p, s: v }))} />
+                  <ColorSlider label="B" value={hsb.b} max={100} gradient={brightnessGradient(hsb.h, hsb.s, 'srgb')} onChange={(v) => setHsbClear(p => ({ ...p, b: v }))} />
+                </div>
+              </div>
+            )}
+            {has('hex-input') && (
+              <div className="border border-input rounded-lg p-3">
+                <h3 className="text-sm font-semibold mb-2">Hex</h3>
+                <div className="flex gap-3 items-stretch">
+                  <PreviewSwatch hex={hex} />
+                  <div className="flex-1 min-w-0">
+                    <HexInput hex={hex} onChange={(parsed) => setHsbClear(rgbToHsb(parsed.r, parsed.g, parsed.b))} />
+                  </div>
+                </div>
+              </div>
+            )}
+            {has('equations') && (
+              <div className="border border-input rounded-lg p-3 col-span-2">
+                <h3 className="text-sm font-semibold mb-2">Equations</h3>
+                <EquationsPanel rgb={rgb} hue={hsb.h} saturation={hsb.s} brightness={hsb.b} hsl={hsl} blMode="brightness" />
+              </div>
+            )}
+            {has('conversions') && (
+              <div className="col-span-2">
+                <ColorOperations hsb={hsb} onAnimateToHsb={animateToHsb} />
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { slides } from './slides';
-import { slideComponents } from './slideComponents.jsx';
+import PresentationStage from './PresentationStage';
 
 export default function PresentationShell({ navigate }) {
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -40,8 +40,6 @@ export default function PresentationShell({ navigate }) {
     }
   }, [currentSlide]);
 
-  const SlideComponent = slideComponents[slide.component];
-
   return (
     <div className="fixed inset-0 bg-background flex flex-col select-none">
       {/* Top bar */}
@@ -63,13 +61,9 @@ export default function PresentationShell({ navigate }) {
         <h2 className="text-2xl font-bold">{slide.title}</h2>
       </div>
 
-      {/* Main content — fills remaining space, centered */}
+      {/* Main content — persistent stage handles all slide types */}
       <div className="flex-1 flex items-center justify-center px-6 overflow-auto relative">
-        {SlideComponent ? (
-          <SlideComponent {...(slide.props || {})} />
-        ) : (
-          <p className="text-muted-foreground">Unknown component: {slide.component}</p>
-        )}
+        <PresentationStage slide={slide} slideIndex={currentSlide} />
       </div>
 
       {/* Caption — absolute overlay, doesn't affect content centering */}
