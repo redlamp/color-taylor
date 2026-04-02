@@ -616,13 +616,21 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                 <TooltipTrigger asChild>
                   <span><TabsTrigger value="brightness" className="w-16">Bright</TabsTrigger></span>
                 </TooltipTrigger>
-                <TooltipContent side="bottom" sideOffset={8} className="text-xs font-semibold">HSB</TooltipContent>
+                <TooltipContent side="bottom" sideOffset={8} className="text-xs max-w-[200px]">
+                  <span className="font-semibold">HSB — Hue, Saturation, Brightness</span>
+                  <br />
+                  <span className="text-muted-foreground">0% = black, 100% = full color. Used in Photoshop, design tools. Intuitive for "how much light."</span>
+                </TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <span><TabsTrigger value="lightness" className="w-16">Light</TabsTrigger></span>
                 </TooltipTrigger>
-                <TooltipContent side="bottom" sideOffset={8} className="text-xs font-semibold">HSL</TooltipContent>
+                <TooltipContent side="bottom" sideOffset={8} className="text-xs max-w-[200px]">
+                  <span className="font-semibold">HSL — Hue, Saturation, Lightness</span>
+                  <br />
+                  <span className="text-muted-foreground">0% = black, 50% = full color, 100% = white. Used in CSS. Symmetric around mid-point.</span>
+                </TooltipContent>
               </Tooltip>
             </TabsList>
           </Tabs>
