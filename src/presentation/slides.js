@@ -40,7 +40,6 @@ export const slides = [
       visiblePanels: ['rgb-sliders', 'large-preview'],
       lockedChannels: ['g', 'b'],
       initialHsb: { h: 0, s: 100, b: 100 },
-      showRgbAnimate: true,
     },
     caption: 'Red is just a channel. Zero is black. 255 is full red. On its own, it\'s just a range.',
   },
