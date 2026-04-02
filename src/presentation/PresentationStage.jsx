@@ -132,7 +132,7 @@ export default function PresentationStage({ slide, slideIndex }) {
       const p = sinePeriodsRef.current;
       const h = Math.round(((elapsed % p.h) / p.h) * 360);
       const s = Math.round(((Math.sin(elapsed * 2 * Math.PI / p.s) + 1) / 2) * 100);
-      const b = Math.round(((Math.sin(elapsed * 2 * Math.PI / p.b) + 1) / 2) * 100);
+      const b = Math.round(Math.pow((Math.sin(elapsed * 2 * Math.PI / p.b) + 1) / 2, 0.4) * 100);
       rgbOverride.current = null;
       setHsb({ h, s, b });
       sineRaf.current = requestAnimationFrame(tick);
