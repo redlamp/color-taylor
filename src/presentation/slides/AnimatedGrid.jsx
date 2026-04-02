@@ -97,14 +97,13 @@ function getLayout(mode, swatchColor) {
 
 // ── Animated grid component ─────────────────────────────────────────
 
-const MOVE_DUR = '0.8s';
 const FADE_DUR = '0.6s';
 const STAGGER_MAX = 0.5; // seconds — max delay for the stagger wave
-const EASING = 'ease-in-out';
+const EASE = 'cubic-bezier(0.4, 0, 0.2, 1)'; // Material standard — quick start, smooth decel
 // All cell tweens: width/x first (400ms), then height/y (600ms after 400ms delay)
-const MOVE_TRANS = `left 0.4s ${EASING}, width 0.4s ${EASING}, top 0.6s ${EASING} 0.4s, height 0.6s ${EASING} 0.4s, background-color 1s ${EASING}`;
+const MOVE_TRANS = `left 0.4s ${EASE}, width 0.4s ${EASE}, top 0.6s ${EASE} 0.4s, height 0.6s ${EASE} 0.4s, background-color 1s ${EASE}`;
 const MOVE_TOTAL_MS = 1000; // 400ms + 600ms
-const FADEOUT_TRANS = `opacity 0.6s ${EASING}`;
+const FADEOUT_TRANS = `opacity 0.6s ${EASE}`;
 
 // Per-cell staggered fade: delay proportional to hex integer value
 // #000000 = 0 delay, #FFFFFF = STAGGER_MAX delay
@@ -112,7 +111,7 @@ function staggeredFade(hexColor) {
   const raw = hexColor.replace('#', '').replace(/:.*/, ''); // strip dup suffix
   const n = parseInt(raw, 16) || 0;
   const delay = (n / 0xFFFFFF) * STAGGER_MAX;
-  return `opacity ${FADE_DUR} ${EASING} ${delay.toFixed(3)}s`;
+  return `opacity ${FADE_DUR} ${EASE} ${delay.toFixed(3)}s`;
 }
 
 // ── Nearest-neighbor color matching ─────────────────────────────────
@@ -239,7 +238,7 @@ export default function AnimatedGrid({ mode, swatchColor }) {
         }));
 
         // Step 3: New cells start fading in at 50% of matched cell tween
-        const overlapMs = MOVE_TOTAL_MS * 0.5;
+        const overlapMs = MOVE_TOTAL_MS * 0.7;
         timers.current.push(setTimeout(() => {
           setCells(prev => prev.map(cell => {
             if (addedKeys.has(cell.id)) {
