@@ -47,8 +47,9 @@ const MAC_CLUT8 = [
 ];
 
 function generate256() {
+  const reversed = [...MAC_CLUT8].reverse();
   const grid = [];
-  for (let r = 0; r < 8; r++) grid.push(MAC_CLUT8.slice(r * 32, (r + 1) * 32));
+  for (let r = 0; r < 8; r++) grid.push(reversed.slice(r * 32, (r + 1) * 32));
   return grid;
 }
 

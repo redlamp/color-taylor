@@ -48,8 +48,9 @@ const MAC_CLUT8 = [
   '#AAAAAA','#888888','#777777','#555555','#444444','#222222','#111111','#000000',
 ];
 
+const GRID_256_REV = [...MAC_CLUT8].reverse();
 const GRID_256 = [];
-for (let r = 0; r < 8; r++) GRID_256.push(MAC_CLUT8.slice(r * 32, (r + 1) * 32));
+for (let r = 0; r < 8; r++) GRID_256.push(GRID_256_REV.slice(r * 32, (r + 1) * 32));
 
 // Thousands: 4 gradient rows — R, G, B channels + grayscale
 // Each row: 64 steps from black to full channel brightness
