@@ -532,7 +532,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   return (
     <div id="color-hexagon" className="flex flex-col items-center gap-1 border border-input rounded-lg p-3" style={{ minWidth: SIZE + 40 }}>
       <div
-        className="flex items-center gap-1.5 self-start cursor-pointer select-none"
+        className="flex items-center gap-1.5 w-full cursor-pointer select-none"
         onClick={() => setHexOpen((o) => !o)}
       >
         <ChevronRight className={`!size-4 text-muted-foreground transition-transform duration-200 ${hexOpen ? 'rotate-90' : ''}`} />
@@ -626,21 +626,13 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                 <TooltipTrigger asChild>
                   <span><TabsTrigger value="brightness" className="w-16">Bright</TabsTrigger></span>
                 </TooltipTrigger>
-                <TooltipContent side="bottom" sideOffset={8} className="text-xs max-w-[200px]">
-                  <span className="font-semibold">HSB — Hue, Saturation, Brightness</span>
-                  <br />
-                  <span className="text-muted-foreground">0% = black, 100% = full color. Used in Photoshop, design tools. Intuitive for "how much light."</span>
-                </TooltipContent>
+                <TooltipContent side="bottom" sideOffset={8} className="text-xs font-semibold">HSB</TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <span><TabsTrigger value="lightness" className="w-16">Light</TabsTrigger></span>
                 </TooltipTrigger>
-                <TooltipContent side="bottom" sideOffset={8} className="text-xs max-w-[200px]">
-                  <span className="font-semibold">HSL — Hue, Saturation, Lightness</span>
-                  <br />
-                  <span className="text-muted-foreground">0% = black, 50% = full color, 100% = white. Used in CSS. Symmetric around mid-point.</span>
-                </TooltipContent>
+                <TooltipContent side="bottom" sideOffset={8} className="text-xs font-semibold">HSL</TooltipContent>
               </Tooltip>
             </TabsList>
           </Tabs>
