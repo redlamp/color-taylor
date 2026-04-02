@@ -134,7 +134,7 @@ export default function PresentationStage({ slide, slideIndex }) {
         style={{
           width: PANEL_W,
           height: PANEL_H,
-          backgroundColor: hex,
+          backgroundColor: isStatic ? '#000' : hex,
           borderRadius: 6,
           overflow: 'hidden',
           position: 'relative',

@@ -71,8 +71,8 @@ const THOUSANDS_ROWS = generateThousandsRows(64);
 
 // --- Components ---
 
-// Consistent panel size across all monitor slides
-const PANEL_W = 700;
+// Match the chex panel width (SIZE + 40 from hexConstants)
+const PANEL_W = 726;
 const PANEL_H = 320;
 
 // Standalone wrapper (used by slideComponents registry)
@@ -136,7 +136,7 @@ function Grid256Layout() {
 
 function ThousandsLayout() {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%', height: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%' }}>
       {THOUSANDS_ROWS.map((row, ri) => (
         <div key={ri} style={{ display: 'flex', flex: 1 }}>
           {row.map((color, ci) => (
