@@ -114,6 +114,16 @@ export default function ColorSlider({ label, value, max, gradient, suffix, wrap,
             value={value}
             onChange={handleInputChange}
             onFocus={(e) => e.target.select()}
+            onKeyDown={(e) => {
+              const step = e.shiftKey ? 10 : 1;
+              if (e.key === 'ArrowUp' || e.key === 'ArrowRight') {
+                e.preventDefault();
+                onChange(clamp(value + step));
+              } else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') {
+                e.preventDefault();
+                onChange(clamp(value - step));
+              }
+            }}
             onMouseDown={(e) => {
               stepperDragStart.current = { x: e.clientX, y: e.clientY, value };
               startStepperDrag();
