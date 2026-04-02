@@ -171,16 +171,16 @@ export default function PresentationStage({ slide, slideIndex }) {
       : [
           { r: 0,   g: 0,   b: 0   }, // Black
           { r: 255, g: 0,   b: 0   }, // Red
-          { r: 0,   g: 255, b: 0   }, // Green
-          { r: 0,   g: 0,   b: 255 }, // Blue
           { r: 255, g: 255, b: 0   }, // Yellow
+          { r: 0,   g: 255, b: 0   }, // Green
           { r: 0,   g: 255, b: 255 }, // Cyan
+          { r: 0,   g: 0,   b: 255 }, // Blue
           { r: 255, g: 0,   b: 255 }, // Magenta
           { r: 255, g: 255, b: 255 }, // White
         ];
 
-    const TRANSITION_DUR = 800; // ms for sine transition between keyframes
-    const HOLD_DUR = 600;       // ms to hold at each keyframe
+    const TRANSITION_DUR = 1200; // ms for sine transition between keyframes
+    const HOLD_DUR = 800;       // ms to hold at each keyframe (total 16s for 8 frames)
     const STEP_DUR = TRANSITION_DUR + HOLD_DUR;
     const CYCLE_DUR = keyframes.length * STEP_DUR;
 
