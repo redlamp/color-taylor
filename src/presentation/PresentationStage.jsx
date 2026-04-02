@@ -108,6 +108,40 @@ export default function PresentationStage({ slide, slideIndex }) {
     return () => cancelAnimationFrame(id);
   }, [slideIndex]);
 
+  // ── Sine wave animation (Finding HSB slide) ───────────────────────
+  const [sineActive, setSineActive] = useState(false);
+  const sineRaf = useRef(null);
+
+  // Reset sine wave when leaving the slide
+  useEffect(() => {
+    if (!slide.props?.showSineWave) setSineActive(false);
+  }, [slideIndex, slide.props?.showSineWave]);
+
+  useEffect(() => {
+    if (!sineActive) {
+      if (sineRaf.current) cancelAnimationFrame(sineRaf.current);
+      sineRaf.current = null;
+      return;
+    }
+    const start = performance.now();
+    const tick = (ts) => {
+      const elapsed = ts - start;
+      // H: full 0-360 sine over 6000ms
+      const h = Math.round(((Math.sin(elapsed * 2 * Math.PI / 6000) + 1) / 2) * 360);
+      // S: 0-100 sine over 4000ms
+      const s = Math.round(((Math.sin(elapsed * 2 * Math.PI / 4000) + 1) / 2) * 100);
+      // B: 0-100 sine over 2000ms
+      const b = Math.round(((Math.sin(elapsed * 2 * Math.PI / 2000) + 1) / 2) * 100);
+      rgbOverride.current = null;
+      setHsb({ h, s, b });
+      sineRaf.current = requestAnimationFrame(tick);
+    };
+    sineRaf.current = requestAnimationFrame(tick);
+    return () => {
+      if (sineRaf.current) cancelAnimationFrame(sineRaf.current);
+    };
+  }, [sineActive]);
+
   // ── Narrative slides ──────────────────────────────────────────────
   if (isNarrative) return <NarrativeSlide {...(slide.props || {})} />;
 
@@ -248,6 +282,19 @@ export default function PresentationStage({ slide, slideIndex }) {
             </div>
           )}
         </div>
+        {slide.props?.showSineWave && (
+          <label className="flex items-center gap-2 mt-3 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={sineActive}
+              onChange={(e) => setSineActive(e.target.checked)}
+              className="w-4 h-4 rounded accent-current cursor-pointer"
+            />
+            <span className="text-sm text-muted-foreground">
+              Animate — H <span className="text-xs opacity-60">(6s)</span> S <span className="text-xs opacity-60">(4s)</span> B <span className="text-xs opacity-60">(2s)</span>
+            </span>
+          </label>
+        )}
       </div>
     </div>
   );

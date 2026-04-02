@@ -85,6 +85,7 @@ export const slides = [
     props: {
       visiblePanels: ['rgb-sliders', 'hsb-sliders', 'large-preview'],
       initialHsb: { h: 200, s: 80, b: 90 },
+      showSineWave: true,
     },
     caption: 'Then I found HSB. Hue, Saturation, Brightness. Suddenly I could think in terms of: what color is it? How rich is it? How bright is it?',
   },
