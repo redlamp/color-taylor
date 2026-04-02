@@ -11,34 +11,45 @@ const MAC_16 = [
   ['#02ABEA', '#0000D4', '#4600A5', '#F20884', '#DD0907', '#FF6403', '#FBF305', '#FFFFFF'],
 ];
 
-// 256: Mac CLUT8 — 6x6x6 RGB cube (R asc, G asc, B asc) + 40 grays
-// Arranged as 8 rows of 32, tiles wider than tall
-function generate256Grid() {
-  const hex = (r, g, b) => '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
-  const colors = [];
-  const steps = [0x00, 0x33, 0x66, 0x99, 0xCC, 0xFF];
-  // 6x6x6 cube: 216 entries
-  for (const r of steps) {
-    for (const g of steps) {
-      for (const b of steps) {
-        colors.push(hex(r, g, b));
-      }
-    }
-  }
-  // 40 grays (dark to light, filling indices 216-255)
-  for (let i = 0; i < 40; i++) {
-    const v = Math.round((i / 39) * 255);
-    colors.push(hex(v, v, v));
-  }
-  // Arrange as 8 rows of 32
-  const grid = [];
-  for (let r = 0; r < 8; r++) {
-    grid.push(colors.slice(r * 32, (r + 1) * 32));
-  }
-  return grid;
-}
+// Mac CLUT8: exact 256-color palette from clut resource ID 8.
+// Imported inline to avoid circular deps — same data as AnimatedGrid.
+const MAC_CLUT8 = [
+  '#FFFFFF','#FFFFCC','#FFFF99','#FFFF66','#FFFF33','#FFFF00','#FFCCFF','#FFCCCC',
+  '#FFCC99','#FFCC66','#FFCC33','#FFCC00','#FF99FF','#FF99CC','#FF9999','#FF9966',
+  '#FF9933','#FF9900','#FF66FF','#FF66CC','#FF6699','#FF6666','#FF6633','#FF6600',
+  '#FF33FF','#FF33CC','#FF3399','#FF3366','#FF3333','#FF3300','#FF00FF','#FF00CC',
+  '#FF0099','#FF0066','#FF0033','#FF0000','#CCFFFF','#CCFFCC','#CCFF99','#CCFF66',
+  '#CCFF33','#CCFF00','#CCCCFF','#CCCCCC','#CCCC99','#CCCC66','#CCCC33','#CCCC00',
+  '#CC99FF','#CC99CC','#CC9999','#CC9966','#CC9933','#CC9900','#CC66FF','#CC66CC',
+  '#CC6699','#CC6666','#CC6633','#CC6600','#CC33FF','#CC33CC','#CC3399','#CC3366',
+  '#CC3333','#CC3300','#CC00FF','#CC00CC','#CC0099','#CC0066','#CC0033','#CC0000',
+  '#99FFFF','#99FFCC','#99FF99','#99FF66','#99FF33','#99FF00','#99CCFF','#99CCCC',
+  '#99CC99','#99CC66','#99CC33','#99CC00','#9999FF','#9999CC','#999999','#999966',
+  '#999933','#999900','#9966FF','#9966CC','#996699','#996666','#996633','#996600',
+  '#9933FF','#9933CC','#993399','#993366','#993333','#993300','#9900FF','#9900CC',
+  '#990099','#990066','#990033','#990000','#66FFFF','#66FFCC','#66FF99','#66FF66',
+  '#66FF33','#66FF00','#66CCFF','#66CCCC','#66CC99','#66CC66','#66CC33','#66CC00',
+  '#6699FF','#6699CC','#669999','#669966','#669933','#669900','#6666FF','#6666CC',
+  '#666699','#666666','#666633','#666600','#6633FF','#6633CC','#663399','#663366',
+  '#663333','#663300','#6600FF','#6600CC','#660099','#660066','#660033','#660000',
+  '#33FFFF','#33FFCC','#33FF99','#33FF66','#33FF33','#33FF00','#33CCFF','#33CCCC',
+  '#33CC99','#33CC66','#33CC33','#33CC00','#3399FF','#3399CC','#339999','#339966',
+  '#339933','#339900','#3366FF','#3366CC','#336699','#336666','#336633','#336600',
+  '#3333FF','#3333CC','#333399','#333366','#333333','#333300','#3300FF','#3300CC',
+  '#330099','#330066','#330033','#330000','#00FFFF','#00FFCC','#00FF99','#00FF66',
+  '#00FF33','#00FF00','#00CCFF','#00CCCC','#00CC99','#00CC66','#00CC33','#00CC00',
+  '#0099FF','#0099CC','#009999','#009966','#009933','#009900','#0066FF','#0066CC',
+  '#006699','#006666','#006633','#006600','#0033FF','#0033CC','#003399','#003366',
+  '#003333','#003300','#0000FF','#0000CC','#000099','#000066','#000033','#EE0000',
+  '#DD0000','#BB0000','#AA0000','#880000','#770000','#550000','#440000','#220000',
+  '#110000','#00EE00','#00DD00','#00BB00','#00AA00','#008800','#007700','#005500',
+  '#004400','#002200','#001100','#0000EE','#0000DD','#0000BB','#0000AA','#000088',
+  '#000077','#000055','#000044','#000022','#000011','#EEEEEE','#DDDDDD','#BBBBBB',
+  '#AAAAAA','#888888','#777777','#555555','#444444','#222222','#111111','#000000',
+];
 
-const GRID_256 = generate256Grid();
+const GRID_256 = [];
+for (let r = 0; r < 8; r++) GRID_256.push(MAC_CLUT8.slice(r * 32, (r + 1) * 32));
 
 // Thousands: 4 gradient rows — R, G, B channels + grayscale
 // Each row: 64 steps from black to full channel brightness
