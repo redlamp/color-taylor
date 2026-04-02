@@ -21,12 +21,21 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   const [vectorMode, setVectorMode] = useState('rgb');
   const [dragMode, setDragMode] = useState('free');
   const initialHex = useMemo(() => rgbToHex(rgb.r, rgb.g, rgb.b), []);
-  const [recentColors, setRecentColors] = useState([
-    '#0decaf', '#ff0000', '#ffff00', '#00ff00', '#00ffff', '#0000ff', '#ff00ff', '#ffffff', '#808080', '#000000',
-  ]);
+  const [recentColors, setRecentColors] = useState(() => {
+    try {
+      const saved = localStorage.getItem('color-taylor-recent');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return ['#0decaf', '#ff0000', '#ffff00', '#00ff00', '#00ffff', '#0000ff', '#ff00ff', '#ffffff', '#808080', '#000000'];
+  });
   const [selectedRecentIdx, setSelectedRecentIdx] = useState(null);
   const lastHex = useRef(initialHex);
   const skipNextRecent = useRef(false);
+
+  // Persist recent colors
+  useEffect(() => {
+    localStorage.setItem('color-taylor-recent', JSON.stringify(recentColors));
+  }, [recentColors]);
   const draggingBL = useRef(false);
   const svgRef = useRef(null);
   const draggingHue = useRef(false);

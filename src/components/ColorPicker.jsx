@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useMemo } from 'react';
+import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import { hsbToRgb, rgbToHsb, rgbToHex, rgbToHsl, hslToRgb } from '../utils/colorConversions';
 import {
   hueGradient,
@@ -26,7 +26,13 @@ import CollapsibleSection from './CollapsibleSection';
 import NamedColorMatch from './NamedColorMatch';
 
 export default function ColorPicker() {
-  const [hsb, setHsb] = useState({ h: 164, s: 94, b: 93 });
+  const [hsb, setHsb] = useState(() => {
+    try {
+      const saved = localStorage.getItem('color-taylor-hsb');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return { h: 164, s: 94, b: 93 };
+  });
   const [hslMode, setHslMode] = useState('hsb');
   const [rgbGradientMode, setRgbGradientMode] = useState('mixed');
   const [blMode, setBlMode] = useState('brightness');
@@ -84,6 +90,11 @@ export default function ColorPicker() {
   const rgb = rgbOverride.current || rgbFromHsb;
   const hex = useMemo(() => rgbToHex(rgb.r, rgb.g, rgb.b), [rgb.r, rgb.g, rgb.b]);
   const hsl = useMemo(() => rgbToHsl(rgb.r, rgb.g, rgb.b), [rgb.r, rgb.g, rgb.b]);
+
+  // Persist HSB to localStorage
+  useEffect(() => {
+    localStorage.setItem('color-taylor-hsb', JSON.stringify(hsb));
+  }, [hsb.h, hsb.s, hsb.b]);
 
   const handleRgbChange = useCallback((channel, value) => {
     setHsb((prev) => {
