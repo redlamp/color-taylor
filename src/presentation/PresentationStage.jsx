@@ -4,7 +4,8 @@ import {
   hueGradient, saturationGradient, brightnessGradient,
   redChannelGradient, greenChannelGradient, blueChannelGradient,
 } from '../utils/sliderGradients';
-import { PANEL_W, PANEL_H, MonitorPanelContent } from './slides/MonitorPanel';
+import { PANEL_W, PANEL_H } from './slides/MonitorPanel';
+import AnimatedGrid from './slides/AnimatedGrid';
 import ColorSlider from '../components/ColorSlider';
 import PreviewSwatch from '../components/PreviewSwatch';
 import HexInput from '../components/HexInput';
@@ -142,9 +143,10 @@ export default function PresentationStage({ slide, slideIndex }) {
           borderRadius: 6,
           overflow: 'hidden',
           position: 'relative',
+          border: '2px solid magenta',
         }}
       >
-        {/* Grid overlay — visible for static slides, fades to reveal color behind */}
+        {/* Animated grid — cells with matching IDs tween between layouts */}
         <div
           style={{
             position: 'absolute',
@@ -154,7 +156,7 @@ export default function PresentationStage({ slide, slideIndex }) {
             zIndex: 1,
           }}
         >
-          <MonitorPanelContent mode={lastMode.current} />
+          <AnimatedGrid mode={lastMode.current} />
         </div>
 
         {/* Hex label inside swatch */}
