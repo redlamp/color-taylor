@@ -45,6 +45,55 @@ export default function ColorPicker() {
   hsbRef.current = hsb;
   const rgbOverride = useRef(null);
 
+  // Undo/redo history
+  const undoStack = useRef([]);
+  const redoStack = useRef([]);
+  const lastPushed = useRef(null);
+
+  // Push to undo stack (debounced — only if value changed significantly)
+  useEffect(() => {
+    const key = `${hsb.h},${hsb.s},${hsb.b}`;
+    if (key === lastPushed.current) return;
+    const timeout = setTimeout(() => {
+      if (lastPushed.current !== null) {
+        const [h, s, b] = lastPushed.current.split(',').map(Number);
+        undoStack.current.push({ h, s, b });
+        if (undoStack.current.length > 50) undoStack.current.shift();
+        redoStack.current = [];
+      }
+      lastPushed.current = key;
+    }, 500);
+    return () => clearTimeout(timeout);
+  }, [hsb.h, hsb.s, hsb.b]);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      const isMac = navigator.platform.includes('Mac');
+      const mod = isMac ? e.metaKey : e.ctrlKey;
+      if (mod && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        if (undoStack.current.length > 0) {
+          redoStack.current.push({ ...hsbRef.current });
+          const prev = undoStack.current.pop();
+          lastPushed.current = `${prev.h},${prev.s},${prev.b}`;
+          rgbOverride.current = null;
+          setHsb(prev);
+        }
+      } else if (mod && ((e.key === 'z' && e.shiftKey) || e.key === 'y')) {
+        e.preventDefault();
+        if (redoStack.current.length > 0) {
+          undoStack.current.push({ ...hsbRef.current });
+          const next = redoStack.current.pop();
+          lastPushed.current = `${next.h},${next.s},${next.b}`;
+          rgbOverride.current = null;
+          setHsb(next);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   const setHsbAndClearOverride = useCallback((valOrFn) => {
     rgbOverride.current = null;
     setHsb(valOrFn);
