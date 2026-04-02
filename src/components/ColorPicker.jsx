@@ -224,7 +224,7 @@ export default function ColorPicker() {
     <div id="color-picker-root" className="mx-auto max-w-[1400px] p-6">
       <h1 id="color-picker-title" className="text-2xl font-semibold tracking-tight text-primary mb-4">Color Taylor 🧵</h1>
 
-      <div className="inline-flex flex-col max-w-full">
+      <div className="flex flex-col w-fit">
       <div className="flex gap-4 items-start">
         {/* Left column: Color Hexagon */}
         <div className="shrink-0">
@@ -439,22 +439,22 @@ export default function ColorPicker() {
       {/* Learn section */}
       <div className="mt-4 border border-input rounded-lg p-3 w-full overflow-hidden">
         <CollapsibleSection id="learn-group" title="Learn" level="h2" defaultOpen={false}>
-          <div className="grid grid-cols-3 gap-4 text-sm text-muted-foreground min-w-0">
-            <div className="flex flex-col gap-2 border border-input rounded-lg p-2.5">
+          <div className="grid grid-cols-3 gap-3 text-sm text-muted-foreground" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
+            <div className="flex flex-col gap-2 border border-input rounded-lg p-2.5 min-w-0">
               <h3 className="text-sm font-semibold text-foreground">RGB Color Model</h3>
               <hr className="border-input" />
               <p>Colors are made by mixing <span className="text-red-500 font-semibold">Red</span>, <span className="text-green-500 font-semibold">Green</span>, and <span className="font-semibold" style={{color: 'rgb(96,96,255)'}}>Blue</span> light (0-255 each).</p>
               <p>The hexagon shows how these three channels combine as vectors, starting from the center and adding each channel's contribution.</p>
               <p className="text-xs">All three at 0 = black. All at 255 = white. Equal values = gray.</p>
             </div>
-            <div className="flex flex-col gap-2 border border-input rounded-lg p-2.5">
+            <div className="flex flex-col gap-2 border border-input rounded-lg p-2.5 min-w-0">
               <h3 className="text-sm font-semibold text-foreground">HSB vs HSL</h3>
               <hr className="border-input" />
               <p><span className="font-semibold">HSB</span> (Hue, Saturation, Brightness): Brightness controls how much light is emitted. B=0 is always black, B=100 is the brightest version of the color.</p>
               <p><span className="font-semibold">HSL</span> (Hue, Saturation, Lightness): Lightness is symmetric — L=0 is black, L=50 is the most vivid, L=100 is white.</p>
               <p className="text-xs">HSB is used in design tools (Photoshop, Figma). HSL is used in CSS.</p>
             </div>
-            <div className="flex flex-col gap-2 border border-input rounded-lg p-2.5">
+            <div className="flex flex-col gap-2 border border-input rounded-lg p-2.5 min-w-0">
               <h3 className="text-sm font-semibold text-foreground">The Color Hexagon</h3>
               <hr className="border-input" />
               <p><span className="font-semibold">Angle</span> = Hue (0-360°). Red at 0°, Green at 120°, Blue at 240°, with Yellow, Cyan, Magenta between.</p>
