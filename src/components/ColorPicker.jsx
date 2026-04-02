@@ -44,6 +44,17 @@ export default function ColorPicker() {
   const hsbRef = useRef(hsb);
   hsbRef.current = hsb;
   const rgbOverride = useRef(null);
+  const topRowRef = useRef(null);
+  const [topRowWidth, setTopRowWidth] = useState(null);
+
+  useEffect(() => {
+    if (!topRowRef.current) return;
+    const observer = new ResizeObserver(([entry]) => {
+      setTopRowWidth(entry.contentRect.width);
+    });
+    observer.observe(topRowRef.current);
+    return () => observer.disconnect();
+  }, []);
 
   // Undo/redo history
   const undoStack = useRef([]);
@@ -224,8 +235,8 @@ export default function ColorPicker() {
     <div id="color-picker-root" className="mx-auto max-w-[1400px] p-6">
       <h1 id="color-picker-title" className="text-2xl font-semibold tracking-tight text-primary mb-4">Color Taylor 🧵</h1>
 
-      <div className="flex flex-col w-fit">
-      <div className="flex gap-4 items-start">
+      <div className="flex flex-col">
+      <div ref={topRowRef} className="flex gap-4 items-start">
         {/* Left column: Color Hexagon */}
         <div className="shrink-0">
           <ColorHexagon
@@ -423,7 +434,7 @@ export default function ColorPicker() {
       </div>
 
       {/* Equations panel */}
-      <div className="mt-4 border border-input rounded-lg p-3 w-full">
+      <div className="mt-4 border border-input rounded-lg p-3" style={{ width: topRowWidth || 'auto' }}>
         <CollapsibleSection id="equations-group" title="Equations" level="h2" defaultOpen={false}>
           <EquationsPanel
             rgb={rgb}
@@ -437,7 +448,7 @@ export default function ColorPicker() {
       </div>
 
       {/* Learn section */}
-      <div className="mt-4 border border-input rounded-lg p-3 w-full overflow-hidden">
+      <div className="mt-4 border border-input rounded-lg p-3 overflow-hidden" style={{ width: topRowWidth || 'auto' }}>
         <CollapsibleSection id="learn-group" title="Learn" level="h2" defaultOpen={false}>
           <div className="grid grid-cols-3 gap-3 text-sm text-muted-foreground" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
             <div className="flex flex-col gap-2 border border-input rounded-lg p-2.5 min-w-0">
