@@ -101,9 +101,9 @@ const MOVE_DUR = '0.8s';
 const FADE_DUR = '0.6s';
 const STAGGER_MAX = 0.5; // seconds — max delay for the stagger wave
 const EASING = 'ease-in-out';
-// All cell tweens: width first (200ms), then height (400ms after 200ms delay)
-const MOVE_TRANS = `left 0.2s ${EASING}, width 0.2s ${EASING}, top 0.4s ${EASING} 0.2s, height 0.4s ${EASING} 0.2s, background-color 0.6s ${EASING}`;
-const MOVE_TOTAL_MS = 600; // 200ms + 400ms
+// All cell tweens: width/x first (400ms), then height/y (600ms after 400ms delay)
+const MOVE_TRANS = `left 0.4s ${EASING}, width 0.4s ${EASING}, top 0.6s ${EASING} 0.4s, height 0.6s ${EASING} 0.4s, background-color 1s ${EASING}`;
+const MOVE_TOTAL_MS = 1000; // 400ms + 600ms
 const FADEOUT_TRANS = `opacity 0.6s ${EASING}`;
 
 // Per-cell staggered fade: delay proportional to hex integer value
