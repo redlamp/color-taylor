@@ -110,6 +110,9 @@ export default function PresentationStage({ slide, slideIndex }) {
 
   // ── Sine wave animation (Finding HSB slide) ───────────────────────
   const [sineActive, setSineActive] = useState(false);
+  const [sinePeriods, setSinePeriods] = useState({ h: 6000, s: 4000, b: 2000 });
+  const sinePeriodsRef = useRef(sinePeriods);
+  sinePeriodsRef.current = sinePeriods;
   const sineRaf = useRef(null);
 
   // Reset sine wave when leaving the slide
@@ -126,12 +129,10 @@ export default function PresentationStage({ slide, slideIndex }) {
     const start = performance.now();
     const tick = (ts) => {
       const elapsed = ts - start;
-      // H: full 0-360 sine over 6000ms
-      const h = Math.round(((Math.sin(elapsed * 2 * Math.PI / 6000) + 1) / 2) * 360);
-      // S: 0-100 sine over 4000ms
-      const s = Math.round(((Math.sin(elapsed * 2 * Math.PI / 4000) + 1) / 2) * 100);
-      // B: 0-100 sine over 2000ms
-      const b = Math.round(((Math.sin(elapsed * 2 * Math.PI / 2000) + 1) / 2) * 100);
+      const p = sinePeriodsRef.current;
+      const h = Math.round(((Math.sin(elapsed * 2 * Math.PI / p.h) + 1) / 2) * 360);
+      const s = Math.round(((Math.sin(elapsed * 2 * Math.PI / p.s) + 1) / 2) * 100);
+      const b = Math.round(((Math.sin(elapsed * 2 * Math.PI / p.b) + 1) / 2) * 100);
       rgbOverride.current = null;
       setHsb({ h, s, b });
       sineRaf.current = requestAnimationFrame(tick);
@@ -283,17 +284,41 @@ export default function PresentationStage({ slide, slideIndex }) {
           )}
         </div>
         {slide.props?.showSineWave && (
-          <label className="flex items-center gap-2 mt-3 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={sineActive}
-              onChange={(e) => setSineActive(e.target.checked)}
-              className="w-4 h-4 rounded accent-current cursor-pointer"
-            />
-            <span className="text-sm text-muted-foreground">
-              Animate — H <span className="text-xs opacity-60">(6s)</span> S <span className="text-xs opacity-60">(4s)</span> B <span className="text-xs opacity-60">(2s)</span>
-            </span>
-          </label>
+          <div className="mt-3 flex flex-col gap-2">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={sineActive}
+                onChange={(e) => setSineActive(e.target.checked)}
+                className="w-4 h-4 rounded accent-current cursor-pointer"
+              />
+              <span className="text-sm text-muted-foreground">Animate HSB</span>
+            </label>
+            <div className="grid grid-cols-3 gap-4">
+              {[
+                { key: 'h', label: 'H', color: 'hsl(0,70%,60%)' },
+                { key: 's', label: 'S', color: 'hsl(120,70%,60%)' },
+                { key: 'b', label: 'B', color: 'hsl(240,70%,60%)' },
+              ].map(({ key, label, color }) => (
+                <div key={key} className="flex flex-col gap-1">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span className="font-semibold" style={{ color }}>{label}</span>
+                    <span className="tabular-nums">{(sinePeriods[key] / 1000).toFixed(1)}s</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={500}
+                    max={15000}
+                    step={100}
+                    value={sinePeriods[key]}
+                    onChange={(e) => setSinePeriods(p => ({ ...p, [key]: Number(e.target.value) }))}
+                    className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
+                    style={{ accentColor: color }}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
         )}
       </div>
     </div>
