@@ -77,14 +77,28 @@ export default function PresentationStage({ slide, slideIndex }) {
   const locked = slide.props?.lockedChannels || [];
   const hasSliders = has('rgb-sliders') || has('hsb-sliders') || has('hex-input') || has('equations') || has('conversions');
 
-  // ── Tween color when entering a new interactive slide ─────────────
+  // ── Set color when entering a new interactive slide ────────────────
   const prevIdx = useRef(slideIndex);
+  const prevWasStatic = useRef(isStatic);
   useEffect(() => {
     if (slideIndex !== prevIdx.current) {
+      const comingFromStatic = prevWasStatic.current;
       prevIdx.current = slideIndex;
-      if (slide.props?.initialHsb) animateToHsb(slide.props.initialHsb);
+      prevWasStatic.current = isStatic;
+      if (slide.props?.initialHsb) {
+        if (comingFromStatic) {
+          // Coming from a grid slide — set color instantly so the swatch
+          // expands with the correct color (no mid-animation color shift)
+          rgbOverride.current = null;
+          setHsb(slide.props.initialHsb);
+        } else {
+          animateToHsb(slide.props.initialHsb);
+        }
+      }
+    } else {
+      prevWasStatic.current = isStatic;
     }
-  }, [slideIndex, slide.props?.initialHsb, animateToHsb]);
+  }, [slideIndex, slide.props?.initialHsb, animateToHsb, isStatic]);
 
   // ── Entrance animation for sliders ────────────────────────────────
   const [visible, setVisible] = useState(false);
