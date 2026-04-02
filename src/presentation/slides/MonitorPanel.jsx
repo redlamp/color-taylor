@@ -71,20 +71,28 @@ const THOUSANDS_ROWS = generateThousandsRows(64);
 
 // --- Components ---
 
+// Consistent panel size across all monitor slides
+const PANEL_W = 700;
+const PANEL_H = 320;
+
 export default function MonitorPanel({ mode }) {
   return (
-    <div className="flex flex-col items-center w-full max-w-[700px] mx-auto">
-      {mode === 'bw' && <BWLayout />}
-      {mode === 'c16' && <SixteenLayout />}
-      {mode === 'c256' && <Grid256Layout />}
-      {mode === 'thousands' && <ThousandsLayout />}
+    <div className="flex flex-col items-center">
+      <div style={{ width: PANEL_W, height: PANEL_H, borderRadius: 6, overflow: 'hidden' }}>
+        {mode === 'bw' && <BWLayout />}
+        {mode === 'c16' && <SixteenLayout />}
+        {mode === 'c256' && <Grid256Layout />}
+        {mode === 'thousands' && <ThousandsLayout />}
+      </div>
     </div>
   );
 }
 
+export { PANEL_W, PANEL_H };
+
 function BWLayout() {
   return (
-    <div className="w-full" style={{ display: 'flex', height: 320, borderRadius: 6, overflow: 'hidden' }}>
+    <div style={{ display: 'flex', width: '100%', height: '100%' }}>
       <div style={{ flex: 1, background: '#000' }} />
       <div style={{ flex: 1, background: '#fff' }} />
     </div>
@@ -93,9 +101,9 @@ function BWLayout() {
 
 function SixteenLayout() {
   return (
-    <div className="w-full" style={{ borderRadius: 6, overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%' }}>
       {MAC_16.map((row, ri) => (
-        <div key={ri} style={{ display: 'flex', height: 160 }}>
+        <div key={ri} style={{ display: 'flex', flex: 1 }}>
           {row.map((color, ci) => (
             <div key={ci} style={{ flex: 1, background: color }} />
           ))}
@@ -107,9 +115,9 @@ function SixteenLayout() {
 
 function Grid256Layout() {
   return (
-    <div className="w-full" style={{ borderRadius: 6, overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%' }}>
       {GRID_256.map((row, ri) => (
-        <div key={ri} style={{ display: 'flex', height: 40 }}>
+        <div key={ri} style={{ display: 'flex', flex: 1 }}>
           {row.map((color, ci) => (
             <div key={ci} style={{ flex: 1, background: color }} />
           ))}
@@ -121,9 +129,9 @@ function Grid256Layout() {
 
 function ThousandsLayout() {
   return (
-    <div className="w-full flex flex-col gap-1" style={{ borderRadius: 6, overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%', height: '100%' }}>
       {THOUSANDS_ROWS.map((row, ri) => (
-        <div key={ri} style={{ display: 'flex', height: 72 }}>
+        <div key={ri} style={{ display: 'flex', flex: 1 }}>
           {row.map((color, ci) => (
             <div key={ci} style={{ flex: 1, background: color }} />
           ))}

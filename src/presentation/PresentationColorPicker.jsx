@@ -10,6 +10,7 @@ import PreviewSwatch from '../components/PreviewSwatch';
 import HexInput from '../components/HexInput';
 import EquationsPanel from '../components/EquationsPanel';
 import ColorOperations from '../components/ColorOperations';
+import { PANEL_W, PANEL_H } from './slides/MonitorPanel';
 
 export default function PresentationColorPicker({
   visiblePanels = [],
@@ -83,153 +84,175 @@ export default function PresentationColorPicker({
     return (rgb.r * 0.299 + rgb.g * 0.587 + rgb.b * 0.114) > 150 ? '#000' : '#fff';
   })();
 
-  return (
-    <div className="flex gap-6 items-start">
-      {/* Left: Hexagon */}
-      {has('hexagon') && (
-        <div className="shrink-0">
-          <ColorHexagon
-            rgb={rgb}
-            hue={hsb.h}
-            brightness={hsb.b}
-            saturation={hsb.s}
-            hsl={hsl}
-            onHueChange={(h) => setHsbAndClearOverride((prev) => ({ ...prev, h }))}
-            onRgbChange={handleRgbChange}
-            onHsbChange={(newHsb) => setHsbAndClearOverride((prev) => ({ ...prev, ...newHsb }))}
-            onHslChange={() => {}}
-            onAnimateToHsb={animateToHsb}
-            blMode="brightness"
-            onBlModeChange={() => {}}
-            colorSpace="srgb"
-            onColorSpaceChange={() => {}}
-            hoverMatchRgb={null}
-            showHtmlOnHex={false}
-            onHoverHtmlColor={() => {}}
-          />
-        </div>
-      )}
+  // Animate sliders in on mount
+  const [slidersVisible, setSlidersVisible] = useState(false);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setSlidersVisible(true));
+    return () => { cancelAnimationFrame(id); setSlidersVisible(false); };
+  }, [visiblePanels]);
 
-      {/* Large color preview */}
-      {has('large-preview') && (
+  const hasSliders = has('rgb-sliders') || has('hsb-sliders') || has('hex-input') || has('equations') || has('conversions');
+
+  return (
+    <div className="flex flex-col items-center">
+      {/* Top row: hexagon or large preview — same size as monitor panels */}
+      {has('hexagon') ? (
+        <div className="flex gap-6 items-start">
+          <div className="shrink-0">
+            <ColorHexagon
+              rgb={rgb}
+              hue={hsb.h}
+              brightness={hsb.b}
+              saturation={hsb.s}
+              hsl={hsl}
+              onHueChange={(h) => setHsbAndClearOverride((prev) => ({ ...prev, h }))}
+              onRgbChange={handleRgbChange}
+              onHsbChange={(newHsb) => setHsbAndClearOverride((prev) => ({ ...prev, ...newHsb }))}
+              onHslChange={() => {}}
+              onAnimateToHsb={animateToHsb}
+              blMode="brightness"
+              onBlModeChange={() => {}}
+              colorSpace="srgb"
+              onColorSpaceChange={() => {}}
+              hoverMatchRgb={null}
+              showHtmlOnHex={false}
+              onHoverHtmlColor={() => {}}
+            />
+          </div>
+          {has('preview') && (
+            <div className="flex flex-col gap-4 min-w-[360px]">
+              <div className="flex gap-3 items-stretch">
+                <PreviewSwatch hex={hex} />
+                <div className="flex-1 font-mono text-lg flex items-center">{hex.toUpperCase()}</div>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : has('large-preview') ? (
         <div
-          className="shrink-0 rounded-xl flex flex-col items-center justify-center transition-colors duration-200"
+          className="rounded-xl flex flex-col items-center justify-center transition-colors duration-200"
           style={{
-            width: 280,
-            height: 280,
+            width: PANEL_W,
+            height: PANEL_H,
             backgroundColor: hex,
             boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.1)',
             color: textColor,
           }}
         >
-          <span className="font-mono text-3xl font-bold tracking-wider">{hex.toUpperCase()}</span>
-          <span className="font-mono text-sm mt-1 opacity-60">
-            {rgb.r}, {rgb.g}, {rgb.b}
+          <span className="font-mono text-4xl font-bold tracking-wider">{hex.toUpperCase()}</span>
+          <span className="font-mono text-base mt-2 opacity-60">
+            R {rgb.r} &nbsp; G {rgb.g} &nbsp; B {rgb.b}
           </span>
         </div>
-      )}
+      ) : null}
 
-      {/* Right: Sliders and panels */}
-      <div className="flex flex-col gap-4 min-w-[360px]">
-        {/* Preview swatch */}
-        {has('preview') && (
-          <div className="flex gap-3 items-stretch">
-            <PreviewSwatch hex={hex} />
-            <div className="flex-1 font-mono text-lg flex items-center">{hex.toUpperCase()}</div>
-          </div>
-        )}
+      {/* Sliders — tween in from below, flush under the panel */}
+      {hasSliders && (
+        <div
+          className="transition-all duration-700 ease-out"
+          style={{
+            width: PANEL_W,
+            opacity: slidersVisible ? 1 : 0,
+            transform: slidersVisible ? 'translateY(0)' : 'translateY(24px)',
+            marginTop: 12,
+          }}
+        >
+          <div className="flex gap-4 flex-wrap">
+            {/* RGB sliders */}
+            {has('rgb-sliders') && (
+              <div className="border border-input rounded-lg p-3 flex-1 min-w-[340px]">
+                <h3 className="text-sm font-semibold mb-2">RGB</h3>
+                <div className="flex flex-col gap-2">
+                  <ColorSlider
+                    label="R" value={rgb.r} max={255}
+                    gradient={redChannelGradient}
+                    onChange={(v) => handleRgbChange('r', v)}
+                  />
+                  {!lockedChannels.includes('g') && (
+                    <ColorSlider
+                      label="G" value={rgb.g} max={255}
+                      gradient={greenChannelGradient}
+                      onChange={(v) => handleRgbChange('g', v)}
+                    />
+                  )}
+                  {!lockedChannels.includes('b') && (
+                    <ColorSlider
+                      label="B" value={rgb.b} max={255}
+                      gradient={blueChannelGradient}
+                      onChange={(v) => handleRgbChange('b', v)}
+                    />
+                  )}
+                </div>
+              </div>
+            )}
 
-        {/* RGB sliders */}
-        {has('rgb-sliders') && (
-          <div className="border border-input rounded-lg p-3">
-            <h3 className="text-sm font-semibold mb-2">RGB</h3>
-            <div className="flex flex-col gap-2">
-              <ColorSlider
-                label="R" value={rgb.r} max={255}
-                gradient={redChannelGradient}
-                onChange={(v) => handleRgbChange('r', v)}
-              />
-              {!lockedChannels.includes('g') && (
-                <ColorSlider
-                  label="G" value={rgb.g} max={255}
-                  gradient={greenChannelGradient}
-                  onChange={(v) => handleRgbChange('g', v)}
-                />
-              )}
-              {!lockedChannels.includes('b') && (
-                <ColorSlider
-                  label="B" value={rgb.b} max={255}
-                  gradient={blueChannelGradient}
-                  onChange={(v) => handleRgbChange('b', v)}
-                />
-              )}
-            </div>
-          </div>
-        )}
+            {/* HSB sliders */}
+            {has('hsb-sliders') && (
+              <div className="border border-input rounded-lg p-3 flex-1 min-w-[340px]">
+                <h3 className="text-sm font-semibold mb-2">HSB</h3>
+                <div className="flex flex-col gap-2">
+                  <ColorSlider
+                    label="H" value={hsb.h} max={360} wrap
+                    gradient={hueGradient(hsb.s, hsb.b, 'srgb')}
+                    onChange={(v) => setHsbAndClearOverride((prev) => ({ ...prev, h: v }))}
+                  />
+                  <ColorSlider
+                    label="S" value={hsb.s} max={100}
+                    gradient={saturationGradient(hsb.h, hsb.b, 'srgb')}
+                    onChange={(v) => setHsbAndClearOverride((prev) => ({ ...prev, s: v }))}
+                  />
+                  <ColorSlider
+                    label="B" value={hsb.b} max={100}
+                    gradient={brightnessGradient(hsb.h, hsb.s, 'srgb')}
+                    onChange={(v) => setHsbAndClearOverride((prev) => ({ ...prev, b: v }))}
+                  />
+                </div>
+              </div>
+            )}
 
-        {/* HSB sliders */}
-        {has('hsb-sliders') && (
-          <div className="border border-input rounded-lg p-3">
-            <h3 className="text-sm font-semibold mb-2">HSB</h3>
-            <div className="flex flex-col gap-2">
-              <ColorSlider
-                label="H" value={hsb.h} max={360} wrap
-                gradient={hueGradient(hsb.s, hsb.b, 'srgb')}
-                onChange={(v) => setHsbAndClearOverride((prev) => ({ ...prev, h: v }))}
-              />
-              <ColorSlider
-                label="S" value={hsb.s} max={100}
-                gradient={saturationGradient(hsb.h, hsb.b, 'srgb')}
-                onChange={(v) => setHsbAndClearOverride((prev) => ({ ...prev, s: v }))}
-              />
-              <ColorSlider
-                label="B" value={hsb.b} max={100}
-                gradient={brightnessGradient(hsb.h, hsb.s, 'srgb')}
-                onChange={(v) => setHsbAndClearOverride((prev) => ({ ...prev, b: v }))}
-              />
-            </div>
-          </div>
-        )}
+            {/* Hex input */}
+            {has('hex-input') && (
+              <div className="border border-input rounded-lg p-3 min-w-[200px]">
+                <h3 className="text-sm font-semibold mb-2">Hex</h3>
+                <div className="flex gap-3 items-stretch">
+                  <PreviewSwatch hex={hex} />
+                  <div className="flex-1 min-w-0">
+                    <HexInput
+                      hex={hex}
+                      onChange={(parsed) => setHsbAndClearOverride(rgbToHsb(parsed.r, parsed.g, parsed.b))}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
 
-        {/* Hex input */}
-        {has('hex-input') && (
-          <div className="border border-input rounded-lg p-3">
-            <h3 className="text-sm font-semibold mb-2">Hex</h3>
-            <div className="flex gap-3 items-stretch">
-              <PreviewSwatch hex={hex} />
-              <div className="flex-1 min-w-0">
-                <HexInput
-                  hex={hex}
-                  onChange={(parsed) => setHsbAndClearOverride(rgbToHsb(parsed.r, parsed.g, parsed.b))}
+            {/* Equations */}
+            {has('equations') && (
+              <div className="border border-input rounded-lg p-3 w-full">
+                <h3 className="text-sm font-semibold mb-2">Equations</h3>
+                <EquationsPanel
+                  rgb={rgb}
+                  hue={hsb.h}
+                  saturation={hsb.s}
+                  brightness={hsb.b}
+                  hsl={hsl}
+                  blMode="brightness"
                 />
               </div>
-            </div>
-          </div>
-        )}
+            )}
 
-        {/* Equations */}
-        {has('equations') && (
-          <div className="border border-input rounded-lg p-3">
-            <h3 className="text-sm font-semibold mb-2">Equations</h3>
-            <EquationsPanel
-              rgb={rgb}
-              hue={hsb.h}
-              saturation={hsb.s}
-              brightness={hsb.b}
-              hsl={hsl}
-              blMode="brightness"
-            />
+            {/* Conversions */}
+            {has('conversions') && (
+              <div className="w-full">
+                <ColorOperations
+                  hsb={hsb}
+                  onAnimateToHsb={animateToHsb}
+                />
+              </div>
+            )}
           </div>
-        )}
-
-        {/* Conversions */}
-        {has('conversions') && (
-          <ColorOperations
-            hsb={hsb}
-            onAnimateToHsb={animateToHsb}
-          />
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

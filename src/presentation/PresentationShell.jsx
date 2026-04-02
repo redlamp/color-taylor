@@ -45,7 +45,7 @@ export default function PresentationShell({ navigate }) {
   return (
     <div className="fixed inset-0 bg-background flex flex-col select-none">
       {/* Top bar */}
-      <div className="flex items-center justify-between px-6 py-3 border-b border-border/40">
+      <div className="flex items-center justify-between px-6 py-3 border-b border-border/40 shrink-0 z-10">
         <h1 className="text-sm font-semibold tracking-wide">Color Taylor</h1>
         <span className="text-xs text-muted-foreground tabular-nums">
           {currentSlide + 1} / {total}
@@ -59,12 +59,12 @@ export default function PresentationShell({ navigate }) {
       </div>
 
       {/* Slide title */}
-      <div className="px-6 pt-4 pb-2">
+      <div className="px-6 pt-4 pb-2 shrink-0 z-10">
         <h2 className="text-2xl font-bold">{slide.title}</h2>
       </div>
 
-      {/* Main content */}
-      <div className="flex-1 flex items-center justify-center px-6 overflow-auto">
+      {/* Main content — fills remaining space, centered */}
+      <div className="flex-1 flex items-center justify-center px-6 overflow-auto relative">
         {SlideComponent ? (
           <SlideComponent {...(slide.props || {})} />
         ) : (
@@ -72,13 +72,17 @@ export default function PresentationShell({ navigate }) {
         )}
       </div>
 
-      {/* Bottom bar: caption + nav */}
-      <div className="border-t border-border/40 px-6 py-4">
-        {slide.caption && (
-          <p className="text-sm text-muted-foreground mb-3 max-w-2xl mx-auto text-center leading-relaxed">
+      {/* Caption — absolute overlay, doesn't affect content centering */}
+      {slide.caption && (
+        <div className="absolute bottom-16 left-0 right-0 pointer-events-none z-10">
+          <p className="text-sm text-muted-foreground max-w-2xl mx-auto text-center leading-relaxed px-6">
             {slide.caption}
           </p>
-        )}
+        </div>
+      )}
+
+      {/* Bottom nav bar */}
+      <div className="border-t border-border/40 px-6 py-3 shrink-0 z-10">
         <div className="flex items-center justify-center gap-4">
           <button
             className="px-4 py-1.5 text-sm rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
@@ -87,7 +91,6 @@ export default function PresentationShell({ navigate }) {
           >
             Previous
           </button>
-          {/* Dot indicators */}
           <div className="flex items-center gap-1">
             {slides.map((_, i) => (
               <button
