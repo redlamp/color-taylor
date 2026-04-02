@@ -270,6 +270,44 @@ export default function ColorPicker() {
           </div>
         </CollapsibleSection>
 
+        {/* RGB sliders */}
+        <CollapsibleSection
+          id="rgb-group"
+          title="RGB"
+          headerRight={
+            <Tabs value={rgbGradientMode} onValueChange={setRgbGradientMode}>
+              <TabsList>
+                <TabsTrigger value="mixed" className="w-16">Mixed</TabsTrigger>
+                <TabsTrigger value="channel" className="w-16">Channel</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          }
+        >
+          <div className="flex flex-col gap-2">
+            <ColorSlider
+              label="R"
+              value={rgb.r}
+              max={255}
+              gradient={rgbGradientMode === 'mixed' ? redGradient(rgb.g, rgb.b) : redChannelGradient}
+              onChange={(v) => handleRgbChange('r', v)}
+            />
+            <ColorSlider
+              label="G"
+              value={rgb.g}
+              max={255}
+              gradient={rgbGradientMode === 'mixed' ? greenGradient(rgb.r, rgb.b) : greenChannelGradient}
+              onChange={(v) => handleRgbChange('g', v)}
+            />
+            <ColorSlider
+              label="B"
+              value={rgb.b}
+              max={255}
+              gradient={rgbGradientMode === 'mixed' ? blueGradient(rgb.r, rgb.g) : blueChannelGradient}
+              onChange={(v) => handleRgbChange('b', v)}
+            />
+          </div>
+        </CollapsibleSection>
+
         {/* HSB / HSL section with tabs */}
         <CollapsibleSection
           id="hsb-hsl-group"
@@ -346,44 +384,6 @@ export default function ColorPicker() {
           </div>
         </CollapsibleSection>
 
-        {/* RGB sliders */}
-        <CollapsibleSection
-          id="rgb-group"
-          title="RGB"
-          headerRight={
-            <Tabs value={rgbGradientMode} onValueChange={setRgbGradientMode}>
-              <TabsList>
-                <TabsTrigger value="mixed" className="w-16">Mixed</TabsTrigger>
-                <TabsTrigger value="channel" className="w-16">Channel</TabsTrigger>
-              </TabsList>
-            </Tabs>
-          }
-        >
-          <div className="flex flex-col gap-2">
-            <ColorSlider
-              label="R"
-              value={rgb.r}
-              max={255}
-              gradient={rgbGradientMode === 'mixed' ? redGradient(rgb.g, rgb.b) : redChannelGradient}
-              onChange={(v) => handleRgbChange('r', v)}
-            />
-            <ColorSlider
-              label="G"
-              value={rgb.g}
-              max={255}
-              gradient={rgbGradientMode === 'mixed' ? greenGradient(rgb.r, rgb.b) : greenChannelGradient}
-              onChange={(v) => handleRgbChange('g', v)}
-            />
-            <ColorSlider
-              label="B"
-              value={rgb.b}
-              max={255}
-              gradient={rgbGradientMode === 'mixed' ? blueGradient(rgb.r, rgb.g) : blueChannelGradient}
-              onChange={(v) => handleRgbChange('b', v)}
-            />
-          </div>
-        </CollapsibleSection>
-
         {/* Hex */}
         <CollapsibleSection id="hex-group" title="Hex">
           <div className="flex gap-3 items-stretch">
@@ -410,11 +410,6 @@ export default function ColorPicker() {
             </Tabs>
           }
         >
-          {showHtmlOnHex && (
-            <p className="text-xs text-muted-foreground italic">
-              💡 Colored dots on the hexagon show nearby CSS named colors. Hover to see their names, click to select.
-            </p>
-          )}
           <NamedColorMatch
             rgb={rgb}
             onAnimateToHsb={animateToHsb}

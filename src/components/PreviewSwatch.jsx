@@ -23,8 +23,8 @@ export default function PreviewSwatch({ hex }) {
           id="preview-swatch"
           role="button"
           aria-label={`Color swatch ${hex.toUpperCase()}. Click to copy.`}
-          className="shrink-0 self-stretch cursor-pointer select-none rounded-md"
-          style={{ width: 50, backgroundColor: hex, boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.1)' }}
+          className="shrink-0 cursor-pointer select-none rounded-md"
+          style={{ width: 50, minHeight: 32, height: '100%', backgroundColor: hex, boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.1)' }}
           onClick={handleClick}
         />
       </TooltipTrigger>
