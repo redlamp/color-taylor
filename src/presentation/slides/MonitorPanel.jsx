@@ -3,12 +3,12 @@ import { hsbToRgb, rgbToHex } from '../../utils/colorConversions';
 // --- Palette data matching the Mac Monitors screenshots ---
 
 // B&W: left half black, right half white
-// 16: 2 rows of 8, black top-left, white bottom-right
+// 16: Mac System 7 CLUT4 — 2 rows of 8, black top-left, green bottom-right
 const MAC_16 = [
-  // Row 1
-  ['#000000', '#404040', '#808080', '#C0C0C0', '#FFFFFF', '#90713A', '#562C05', '#006412'],
-  // Row 2
-  ['#02ABEA', '#0000D4', '#4700A5', '#F20884', '#DD0806', '#FF6502', '#FBFA00', '#1FB714'],
+  // Row 1: Black, Dark Gray, Gray, Light Gray, Tan, Brown, Dark Green, Green
+  ['#000000', '#404040', '#808080', '#C0C0C0', '#90713A', '#562C05', '#006412', '#1FB714'],
+  // Row 2: Cyan, Blue, Purple, Magenta, Red, Orange, Yellow, Bright Green
+  ['#02ABEA', '#0000D4', '#4600A5', '#F20884', '#DD0907', '#FF6403', '#FBF305', '#00FF00'],
 ];
 
 // 256: 16x16 grid (wider than tall tiles) — web-safe 216 + 40 grays
