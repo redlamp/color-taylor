@@ -11,12 +11,14 @@ const MAC_16 = [
 function generate256() {
   const hex = (r, g, b) => '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
   const colors = [];
-  for (const r of [0xFF, 0xCC, 0x99, 0x66, 0x33, 0x00])
-    for (const g of [0xFF, 0xCC, 0x99, 0x66, 0x33, 0x00])
-      for (const b of [0xFF, 0xCC, 0x99, 0x66, 0x33, 0x00])
+  // Mac CLUT8: 6x6x6 RGB cube ascending (R asc, G asc, B asc)
+  for (const r of [0x00, 0x33, 0x66, 0x99, 0xCC, 0xFF])
+    for (const g of [0x00, 0x33, 0x66, 0x99, 0xCC, 0xFF])
+      for (const b of [0x00, 0x33, 0x66, 0x99, 0xCC, 0xFF])
         colors.push(hex(r, g, b));
+  // Gray ramp (dark to light, indices 216-255)
   for (let i = 0; i < 40; i++) {
-    const v = Math.round(255 - (i / 39) * 255);
+    const v = Math.round((i / 39) * 255);
     colors.push(hex(v, v, v));
   }
   const grid = [];

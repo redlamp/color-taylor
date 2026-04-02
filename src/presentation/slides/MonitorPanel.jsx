@@ -11,12 +11,12 @@ const MAC_16 = [
   ['#02ABEA', '#0000D4', '#4600A5', '#F20884', '#DD0907', '#FF6403', '#FBF305', '#FFFFFF'],
 ];
 
-// 256: Mac CLUT8 — 6x6x6 RGB cube (R desc, G desc, B desc) + 40 grays
+// 256: Mac CLUT8 — 6x6x6 RGB cube (R asc, G asc, B asc) + 40 grays
 // Arranged as 8 rows of 32, tiles wider than tall
 function generate256Grid() {
   const hex = (r, g, b) => '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
   const colors = [];
-  const steps = [0xFF, 0xCC, 0x99, 0x66, 0x33, 0x00];
+  const steps = [0x00, 0x33, 0x66, 0x99, 0xCC, 0xFF];
   // 6x6x6 cube: 216 entries
   for (const r of steps) {
     for (const g of steps) {
@@ -25,9 +25,9 @@ function generate256Grid() {
       }
     }
   }
-  // 40 grays (bright to dark, filling indices 216-255)
+  // 40 grays (dark to light, filling indices 216-255)
   for (let i = 0; i < 40; i++) {
-    const v = Math.round(255 - (i / 39) * 255);
+    const v = Math.round((i / 39) * 255);
     colors.push(hex(v, v, v));
   }
   // Arrange as 8 rows of 32
