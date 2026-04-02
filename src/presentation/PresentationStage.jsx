@@ -227,7 +227,7 @@ export default function PresentationStage({ slide, slideIndex }) {
     return rgbToHex(result.r, result.g, result.b);
   }, [slide.props?.initialHsb]);
 
-  const textColor = (rgb.r * 0.299 + rgb.g * 0.587 + rgb.b * 0.114) > 150 ? '#000' : '#fff';
+  const textColor = (rgb.r * 0.299 + rgb.g * 0.587 + rgb.b * 0.114) > 130 ? '#000' : '#fff';
 
   // ── Narrative slides ──────────────────────────────────────────────
   if (isNarrative) return <NarrativeSlide {...(slide.props || {})} />;
@@ -291,6 +291,7 @@ export default function PresentationStage({ slide, slideIndex }) {
               position: 'absolute',
               inset: 0,
               display: 'flex',
+              flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
               opacity: isStatic ? 0 : 1,
@@ -300,6 +301,12 @@ export default function PresentationStage({ slide, slideIndex }) {
             }}
           >
             <span className="font-mono text-4xl font-bold tracking-wider">{hex.toUpperCase()}</span>
+            <span className="font-mono text-sm mt-2 opacity-70 tabular-nums">
+              rgb({String(rgb.r).padStart(3, '\u2007')}, {String(rgb.g).padStart(3, '\u2007')}, {String(rgb.b).padStart(3, '\u2007')})
+            </span>
+            <span className="font-mono text-sm opacity-50">
+              rgb({(rgb.r / 255).toFixed(3)}, {(rgb.g / 255).toFixed(3)}, {(rgb.b / 255).toFixed(3)})
+            </span>
           </div>
         )}
       </div>

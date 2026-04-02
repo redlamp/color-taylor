@@ -1,7 +1,7 @@
 export const slides = [
   {
     id: '01-1bit',
-    title: 'Black & White',
+    title: 'Black & White \u2014 1984, System 1.0',
     type: 'static',
     component: 'MonitorPanel',
     props: { mode: 'bw' },
@@ -9,7 +9,7 @@ export const slides = [
   },
   {
     id: '02-sixteen',
-    title: '16 Colors',
+    title: '16 Colors \u2014 1987, Macintosh II',
     type: 'static',
     component: 'MonitorPanel',
     props: { mode: 'c16' },
@@ -17,7 +17,7 @@ export const slides = [
   },
   {
     id: '03-256',
-    title: '256 Colors',
+    title: '256 Colors \u2014 1987, Macintosh II',
     type: 'static',
     component: 'MonitorPanel',
     props: { mode: 'c256' },
@@ -25,7 +25,7 @@ export const slides = [
   },
   {
     id: '04-thousands',
-    title: 'Thousands',
+    title: 'Thousands \u2014 1990, System 6',
     type: 'static',
     component: 'MonitorPanel',
     props: { mode: 'thousands' },
@@ -87,6 +87,7 @@ export const slides = [
     component: 'PresentationColorPicker',
     props: {
       visiblePanels: ['rgb-sliders', 'hsb-sliders', 'large-preview'],
+      showHexInPreview: true,
       initialHsb: { h: 200, s: 80, b: 90 },
       showRgbAnimate: true,
     },
