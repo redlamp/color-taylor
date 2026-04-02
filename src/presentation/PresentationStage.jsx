@@ -86,7 +86,10 @@ export default function PresentationStage({ slide, slideIndex }) {
       prevIdx.current = slideIndex;
       prevWasStatic.current = isStatic;
       if (slide.props?.initialHsb) {
-        if (comingFromStatic) {
+        // If RGB animation is running, keep the current color (continuous animation)
+        if (rgbAnimActive) {
+          // Don't reset — animation continues from current color
+        } else if (comingFromStatic) {
           // Coming from a grid slide — set color instantly so the swatch
           // expands with the correct color (no mid-animation color shift)
           rgbOverride.current = null;
@@ -152,6 +155,7 @@ export default function PresentationStage({ slide, slideIndex }) {
   useEffect(() => {
     if (!slide.props?.showRgbAnimate) setRgbAnimActive(false);
     else if (slide.props?.rgbAnimAutoStart) setRgbAnimActive(true);
+    // If already active and next slide also has showRgbAnimate, keep it running
   }, [slideIndex, slide.props?.showRgbAnimate, slide.props?.rgbAnimAutoStart]);
 
   useEffect(() => {
