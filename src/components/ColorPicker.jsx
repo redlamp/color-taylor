@@ -224,7 +224,7 @@ export default function ColorPicker() {
     <div id="color-picker-root" className="mx-auto max-w-[1400px] p-6">
       <h1 id="color-picker-title" className="text-2xl font-semibold tracking-tight text-primary mb-4">Color Taylor 🧵</h1>
 
-      <div className="inline-flex flex-col">
+      <div className="inline-flex flex-col max-w-full">
       <div className="flex gap-4 items-start">
         {/* Left column: Color Hexagon */}
         <div className="shrink-0">
@@ -437,9 +437,9 @@ export default function ColorPicker() {
       </div>
 
       {/* Learn section */}
-      <div className="mt-4 border border-input rounded-lg p-3 w-full">
+      <div className="mt-4 border border-input rounded-lg p-3 w-full overflow-hidden">
         <CollapsibleSection id="learn-group" title="Learn" level="h2" defaultOpen={false}>
-          <div className="grid grid-cols-3 gap-4 text-sm text-muted-foreground">
+          <div className="grid grid-cols-3 gap-4 text-sm text-muted-foreground min-w-0">
             <div className="flex flex-col gap-2 border border-input rounded-lg p-2.5">
               <h3 className="text-sm font-semibold text-foreground">RGB Color Model</h3>
               <hr className="border-input" />
