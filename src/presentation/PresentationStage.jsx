@@ -143,6 +143,59 @@ export default function PresentationStage({ slide, slideIndex }) {
     };
   }, [sineActive]);
 
+  // ── RGB sequenced animation (slides 4-7) ──────────────────────────
+  // 12 phases: R rise, R hold, G rise, G hold, B rise, B hold,
+  //            R fall, R hold, G fall, G hold, B fall, B hold → loop
+  const [rgbAnimActive, setRgbAnimActive] = useState(false);
+  const rgbAnimRaf = useRef(null);
+
+  useEffect(() => {
+    if (!slide.props?.showRgbAnimate) setRgbAnimActive(false);
+  }, [slideIndex, slide.props?.showRgbAnimate]);
+
+  useEffect(() => {
+    if (!rgbAnimActive) {
+      if (rgbAnimRaf.current) cancelAnimationFrame(rgbAnimRaf.current);
+      rgbAnimRaf.current = null;
+      return;
+    }
+
+    const PHASE_DUR = 800; // ms per phase
+    const TOTAL_PHASES = 12;
+    // Channel config: [riseStartPhase, fallStartPhase]
+    const CH = { r: [0, 6], g: [2, 8], b: [4, 10] };
+
+    function channelValue(phase, riseStart, fallStart) {
+      // Rise: quarter sine 0→1
+      if (phase >= riseStart && phase < riseStart + 1)
+        return Math.sin((phase - riseStart) * Math.PI / 2);
+      // Hold high
+      if (phase >= riseStart + 1 && phase < fallStart)
+        return 1;
+      // Fall: quarter cosine 1→0
+      if (phase >= fallStart && phase < fallStart + 1)
+        return Math.cos((phase - fallStart) * Math.PI / 2);
+      // Hold low
+      return 0;
+    }
+
+    const start = performance.now();
+    const tick = (ts) => {
+      const elapsed = ts - start;
+      const phase = (elapsed / PHASE_DUR) % TOTAL_PHASES;
+      const r = Math.round(channelValue(phase, CH.r[0], CH.r[1]) * 255);
+      const g = Math.round(channelValue(phase, CH.g[0], CH.g[1]) * 255);
+      const b = Math.round(channelValue(phase, CH.b[0], CH.b[1]) * 255);
+      rgbOverride.current = { r, g, b };
+      setHsb(rgbToHsb(r, g, b));
+      rgbAnimRaf.current = requestAnimationFrame(tick);
+    };
+    rgbAnimRaf.current = requestAnimationFrame(tick);
+    return () => {
+      if (rgbAnimRaf.current) cancelAnimationFrame(rgbAnimRaf.current);
+    };
+  }, [rgbAnimActive]);
+
   // ── Derived values (must be above early returns to keep hook order stable) ──
   const enterColor = useMemo(() => {
     if (!slide.props?.initialHsb) return null;
@@ -283,6 +336,17 @@ export default function PresentationStage({ slide, slideIndex }) {
             </div>
           )}
         </div>
+        {slide.props?.showRgbAnimate && (
+          <label className="flex items-center gap-2 mt-3 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={rgbAnimActive}
+              onChange={(e) => setRgbAnimActive(e.target.checked)}
+              className="w-4 h-4 rounded accent-current cursor-pointer"
+            />
+            <span className="text-sm text-muted-foreground">Animate Colors</span>
+          </label>
+        )}
         {slide.props?.showSineWave && (
           <div className="mt-3 flex flex-col gap-2">
             <label className="flex items-center gap-2 cursor-pointer select-none">
