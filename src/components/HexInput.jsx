@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
 import { hexToRgb } from '../utils/colorConversions';
 
@@ -6,12 +6,16 @@ export default function HexInput({ hex, onChange }) {
   const [text, setText] = useState(hex.toUpperCase());
   const [focused, setFocused] = useState(false);
 
-  // Sync from parent when not focused
   useEffect(() => {
     if (!focused) {
       setText(hex.toUpperCase());
     }
   }, [hex, focused]);
+
+  const isValid = useMemo(() => {
+    if (!focused) return true;
+    return hexToRgb(text) !== null;
+  }, [text, focused]);
 
   const handleChange = (e) => {
     const raw = e.target.value;
@@ -30,9 +34,9 @@ export default function HexInput({ hex, onChange }) {
       type="text"
       value={text}
       onChange={handleChange}
-      onFocus={() => setFocused(true)}
+      onFocus={(e) => { setFocused(true); e.target.select(); }}
       onBlur={handleBlur}
-      className="font-mono text-sm"
+      className={`font-mono text-sm ${!isValid ? 'border-red-500 focus-visible:border-red-500 focus-visible:ring-red-500/50' : ''}`}
     />
   );
 }
