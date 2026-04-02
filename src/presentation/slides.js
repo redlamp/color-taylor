@@ -1,7 +1,8 @@
 export const slides = [
   {
     id: '01-1bit',
-    title: 'Black & White \u2014 1984, System 1.0',
+    title: 'Black & White',
+    titleMeta: { colorCount: 2, year: 1984, os: 'System 1.0' },
     type: 'static',
     component: 'MonitorPanel',
     props: { mode: 'bw' },
@@ -9,7 +10,8 @@ export const slides = [
   },
   {
     id: '02-sixteen',
-    title: '16 Colors \u2014 1987, Macintosh II',
+    title: '16 Colors',
+    titleMeta: { colorCount: 16, year: 1987, os: 'System 5' },
     type: 'static',
     component: 'MonitorPanel',
     props: { mode: 'c16' },
@@ -17,7 +19,8 @@ export const slides = [
   },
   {
     id: '03-256',
-    title: '256 Colors \u2014 1987, Macintosh II',
+    title: '256 Colors',
+    titleMeta: { colorCount: 256, year: 1987, os: 'System 5' },
     type: 'static',
     component: 'MonitorPanel',
     props: { mode: 'c256' },
@@ -25,7 +28,8 @@ export const slides = [
   },
   {
     id: '04-thousands',
-    title: 'Thousands \u2014 1990, System 6',
+    title: 'Thousands',
+    titleMeta: { colorCount: 32768, year: 1990, os: 'System 6' },
     type: 'static',
     component: 'MonitorPanel',
     props: { mode: 'thousands' },

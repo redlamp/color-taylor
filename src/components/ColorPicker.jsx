@@ -239,7 +239,7 @@ export default function ColorPicker() {
           className="px-3 py-1.5 text-xs font-medium rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none"
           onClick={() => { window.location.hash = '#/presentation'; }}
         >
-          Present
+          Intro
         </button>
       </div>
 

@@ -1,6 +1,33 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { slides } from './slides';
 import PresentationStage from './PresentationStage';
+
+// Animated number counter — tweens from previous value to target
+function useAnimatedNumber(target, duration = 800) {
+  const [display, setDisplay] = useState(target);
+  const prevTarget = useRef(target);
+  const rafRef = useRef(null);
+
+  useEffect(() => {
+    const from = prevTarget.current;
+    prevTarget.current = target;
+    if (from === target) return;
+
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    const start = performance.now();
+    const tick = (ts) => {
+      const t = Math.min((ts - start) / duration, 1);
+      const eased = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+      setDisplay(Math.round(from + (target - from) * eased));
+      if (t < 1) rafRef.current = requestAnimationFrame(tick);
+      else rafRef.current = null;
+    };
+    rafRef.current = requestAnimationFrame(tick);
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+  }, [target, duration]);
+
+  return display;
+}
 
 export default function PresentationShell({ navigate }) {
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -57,9 +84,7 @@ export default function PresentationShell({ navigate }) {
       </div>
 
       {/* Slide title */}
-      <div className="px-6 pt-4 pb-2 shrink-0 z-10">
-        <h2 className="text-2xl font-bold">{slide.title}</h2>
-      </div>
+      <SlideTitle slide={slide} />
 
       {/* Main content — persistent stage handles all slide types */}
       <div className="flex-1 flex items-center justify-center px-6 overflow-auto relative">
@@ -106,6 +131,33 @@ export default function PresentationShell({ navigate }) {
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function SlideTitle({ slide }) {
+  const meta = slide.titleMeta;
+  const animatedYear = useAnimatedNumber(meta?.year || 0, 600);
+  const animatedCount = useAnimatedNumber(meta?.colorCount || 0, 800);
+
+  if (!meta) {
+    return (
+      <div className="px-6 pt-4 pb-2 shrink-0 z-10">
+        <h1 className="text-2xl font-bold">{slide.title}</h1>
+      </div>
+    );
+  }
+
+  return (
+    <div className="px-6 pt-4 pb-2 shrink-0 z-10">
+      <h1 className="text-2xl font-bold">
+        {slide.title}
+        <span className="text-lg font-normal text-muted-foreground ml-2">
+          ({animatedCount.toLocaleString()} colors)
+        </span>
+      </h1>
+      <h2 className="text-lg font-semibold tabular-nums">{animatedYear}</h2>
+      <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">{meta.os}</h3>
     </div>
   );
 }
