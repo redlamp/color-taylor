@@ -41,7 +41,7 @@ export default function PresentationShell({ navigate }) {
   }, [currentSlide]);
 
   return (
-    <div className="fixed inset-0 bg-background flex flex-col select-none">
+    <div className="fixed inset-0 flex flex-col select-none" style={{ backgroundColor: 'slategray' }}>
       {/* Top bar */}
       <div className="flex items-center justify-between px-6 py-3 border-b border-border/40 shrink-0 z-10">
         <h1 className="text-sm font-semibold tracking-wide">Color Taylor</h1>
