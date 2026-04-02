@@ -101,11 +101,10 @@ const MOVE_DUR = '0.8s';
 const FADE_DUR = '0.6s';
 const STAGGER_MAX = 0.5; // seconds — max delay for the stagger wave
 const EASING = 'ease-in-out';
-const MOVE_TRANS = `left ${MOVE_DUR} ${EASING}, top ${MOVE_DUR} ${EASING}, width ${MOVE_DUR} ${EASING}, height ${MOVE_DUR} ${EASING}, background-color ${MOVE_DUR} ${EASING}`;
-const FADEOUT_TRANS = `opacity ${MOVE_DUR} ${EASING}`;
-
-// Swatch transitions: width first (200ms), then height (400ms after 200ms delay)
-const SWATCH_TRANS = `left 0.2s ${EASING}, width 0.2s ${EASING}, top 0.4s ${EASING} 0.2s, height 0.4s ${EASING} 0.2s, background-color 0.6s ${EASING}`;
+// All cell tweens: width first (200ms), then height (400ms after 200ms delay)
+const MOVE_TRANS = `left 0.2s ${EASING}, width 0.2s ${EASING}, top 0.4s ${EASING} 0.2s, height 0.4s ${EASING} 0.2s, background-color 0.6s ${EASING}`;
+const MOVE_TOTAL_MS = 600; // 200ms + 400ms
+const FADEOUT_TRANS = `opacity 0.6s ${EASING}`;
 
 // Per-cell staggered fade: delay proportional to hex integer value
 // #000000 = 0 delay, #FFFFFF = STAGGER_MAX delay
@@ -198,13 +197,6 @@ export default function AnimatedGrid({ mode, swatchColor }) {
     const toLayout = getLayout(mode, swatchColor);
     prevMode.current = mode;
 
-    // Detect swatch transitions for sequenced width→height animation
-    const isExpanding = mode === 'swatch';
-    const isShrinking = fromMode === 'swatch';
-    const isSwatchTransition = isExpanding || isShrinking;
-    const moveTrans = isSwatchTransition ? SWATCH_TRANS : MOVE_TRANS;
-    const totalMoveDur = isSwatchTransition ? 600 : parseFloat(MOVE_DUR) * 1000;
-
     const { pairs, removed, added } = buildPairs(fromLayout, toLayout);
     const matchedKeys = new Set(pairs.map(p => p.key));
     const removedKeys = new Set(removed.map(c => c.id));
@@ -238,7 +230,7 @@ export default function AnimatedGrid({ mode, swatchColor }) {
         setCells(prev => prev.map(cell => {
           if (matchedKeys.has(cell.id)) {
             const to = pairMap.get(cell.id);
-            return { ...cell, color: to.color, x: to.x, y: to.y, w: to.w, h: to.h, transition: moveTrans };
+            return { ...cell, color: to.color, x: to.x, y: to.y, w: to.w, h: to.h, transition: MOVE_TRANS };
           }
           if (removedKeys.has(cell.id)) {
             return { ...cell, opacity: 0, transition: FADEOUT_TRANS };
@@ -247,7 +239,7 @@ export default function AnimatedGrid({ mode, swatchColor }) {
         }));
 
         // Step 3: New cells start fading in at 50% of matched cell tween
-        const overlapMs = totalMoveDur * 0.5;
+        const overlapMs = MOVE_TOTAL_MS * 0.5;
         timers.current.push(setTimeout(() => {
           setCells(prev => prev.map(cell => {
             if (addedKeys.has(cell.id)) {
