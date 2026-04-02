@@ -52,6 +52,7 @@ export default function ColorPicker() {
 
   // Push to undo stack (debounced — only if value changed significantly)
   useEffect(() => {
+    if (isUndoRedoing.current) return;
     const key = `${hsb.h},${hsb.s},${hsb.b}`;
     if (key === lastPushed.current) return;
     const timeout = setTimeout(() => {
@@ -66,6 +67,8 @@ export default function ColorPicker() {
     return () => clearTimeout(timeout);
   }, [hsb.h, hsb.s, hsb.b]);
 
+  const isUndoRedoing = useRef(false);
+
   useEffect(() => {
     const handleKeyDown = (e) => {
       const isMac = navigator.platform.includes('Mac');
@@ -77,7 +80,32 @@ export default function ColorPicker() {
           const prev = undoStack.current.pop();
           lastPushed.current = `${prev.h},${prev.s},${prev.b}`;
           rgbOverride.current = null;
-          setHsb(prev);
+          isUndoRedoing.current = true;
+          // Tween to previous color
+          if (animRef.current) cancelAnimationFrame(animRef.current);
+          const from = { ...hsbRef.current };
+          const duration = 400;
+          let start = null;
+          const easeInOut = (t) => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+          const tick = (ts) => {
+            if (!start) start = ts;
+            const t = easeInOut(Math.min((ts - start) / duration, 1));
+            let dh = prev.h - from.h;
+            if (dh > 180) dh -= 360;
+            if (dh < -180) dh += 360;
+            const h = Math.round(((from.h + dh * t) % 360 + 360) % 360);
+            const s = Math.round(from.s + (prev.s - from.s) * t);
+            const b = Math.round(from.b + (prev.b - from.b) * t);
+            rgbOverride.current = null;
+            setHsb({ h, s, b });
+            if ((ts - start) < duration) {
+              animRef.current = requestAnimationFrame(tick);
+            } else {
+              animRef.current = null;
+              isUndoRedoing.current = false;
+            }
+          };
+          animRef.current = requestAnimationFrame(tick);
         }
       } else if (mod && ((e.key === 'z' && e.shiftKey) || e.key === 'y')) {
         e.preventDefault();
@@ -86,7 +114,31 @@ export default function ColorPicker() {
           const next = redoStack.current.pop();
           lastPushed.current = `${next.h},${next.s},${next.b}`;
           rgbOverride.current = null;
-          setHsb(next);
+          isUndoRedoing.current = true;
+          if (animRef.current) cancelAnimationFrame(animRef.current);
+          const from = { ...hsbRef.current };
+          const duration = 400;
+          let start = null;
+          const easeInOut = (t) => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+          const tick = (ts) => {
+            if (!start) start = ts;
+            const t = easeInOut(Math.min((ts - start) / duration, 1));
+            let dh = next.h - from.h;
+            if (dh > 180) dh -= 360;
+            if (dh < -180) dh += 360;
+            const h = Math.round(((from.h + dh * t) % 360 + 360) % 360);
+            const s = Math.round(from.s + (next.s - from.s) * t);
+            const b = Math.round(from.b + (next.b - from.b) * t);
+            rgbOverride.current = null;
+            setHsb({ h, s, b });
+            if ((ts - start) < duration) {
+              animRef.current = requestAnimationFrame(tick);
+            } else {
+              animRef.current = null;
+              isUndoRedoing.current = false;
+            }
+          };
+          animRef.current = requestAnimationFrame(tick);
         }
       }
     };
@@ -172,6 +224,7 @@ export default function ColorPicker() {
     <div id="color-picker-root" className="mx-auto max-w-[1400px] p-6">
       <h1 id="color-picker-title" className="text-2xl font-semibold tracking-tight text-primary mb-4">Color Taylor 🧵</h1>
 
+      <div className="inline-flex flex-col">
       <div className="flex gap-4 items-start">
         {/* Left column: Color Hexagon */}
         <div className="shrink-0">
@@ -415,6 +468,7 @@ export default function ColorPicker() {
             </div>
           </div>
         </CollapsibleSection>
+      </div>
       </div>
     </div>
   );
