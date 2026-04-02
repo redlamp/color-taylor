@@ -178,63 +178,62 @@ export default function PresentationStage({ slide, slideIndex }) {
         )}
       </div>
 
-      {/* ── SLIDERS (tween in from below) ── */}
-      {hasSliders && (
-        <div
-          className="transition-all duration-700 ease-out"
-          style={{
-            width: PANEL_W,
-            opacity: visible ? 1 : 0,
-            transform: visible ? 'translateY(0)' : 'translateY(24px)',
-            marginTop: 12,
-          }}
-        >
-          <div className="grid grid-cols-2 gap-4">
-            {has('rgb-sliders') && (
-              <div className="border border-input rounded-lg p-3">
-                <h3 className="text-sm font-semibold mb-2">RGB</h3>
-                <div className="flex flex-col gap-2">
-                  <ColorSlider label="R" value={rgb.r} max={255} gradient={redChannelGradient} onChange={(v) => handleRgbChange('r', v)} />
-                  {!locked.includes('g') && <ColorSlider label="G" value={rgb.g} max={255} gradient={greenChannelGradient} onChange={(v) => handleRgbChange('g', v)} />}
-                  {!locked.includes('b') && <ColorSlider label="B" value={rgb.b} max={255} gradient={blueChannelGradient} onChange={(v) => handleRgbChange('b', v)} />}
+      {/* ── SLIDERS (always in DOM, tween in/out) ── */}
+      <div
+        className="transition-all duration-700 ease-out"
+        style={{
+          width: PANEL_W,
+          opacity: hasSliders && visible ? 1 : 0,
+          transform: hasSliders && visible ? 'translateY(0)' : 'translateY(24px)',
+          marginTop: 12,
+          pointerEvents: hasSliders ? 'auto' : 'none',
+        }}
+      >
+        <div className="grid grid-cols-2 gap-4">
+          {has('rgb-sliders') && (
+            <div className="border border-input rounded-lg p-3">
+              <h3 className="text-sm font-semibold mb-2">RGB</h3>
+              <div className="flex flex-col gap-2">
+                <ColorSlider label="R" value={rgb.r} max={255} gradient={redChannelGradient} onChange={(v) => handleRgbChange('r', v)} />
+                {!locked.includes('g') && <ColorSlider label="G" value={rgb.g} max={255} gradient={greenChannelGradient} onChange={(v) => handleRgbChange('g', v)} />}
+                {!locked.includes('b') && <ColorSlider label="B" value={rgb.b} max={255} gradient={blueChannelGradient} onChange={(v) => handleRgbChange('b', v)} />}
+              </div>
+            </div>
+          )}
+          {has('hsb-sliders') && (
+            <div className="border border-input rounded-lg p-3">
+              <h3 className="text-sm font-semibold mb-2">HSB</h3>
+              <div className="flex flex-col gap-2">
+                <ColorSlider label="H" value={hsb.h} max={360} wrap gradient={hueGradient(hsb.s, hsb.b, 'srgb')} onChange={(v) => setHsbClear(p => ({ ...p, h: v }))} />
+                <ColorSlider label="S" value={hsb.s} max={100} gradient={saturationGradient(hsb.h, hsb.b, 'srgb')} onChange={(v) => setHsbClear(p => ({ ...p, s: v }))} />
+                <ColorSlider label="B" value={hsb.b} max={100} gradient={brightnessGradient(hsb.h, hsb.s, 'srgb')} onChange={(v) => setHsbClear(p => ({ ...p, b: v }))} />
+              </div>
+            </div>
+          )}
+          {has('hex-input') && (
+            <div className="border border-input rounded-lg p-3">
+              <h3 className="text-sm font-semibold mb-2">Hex</h3>
+              <div className="flex gap-3 items-stretch">
+                <PreviewSwatch hex={hex} />
+                <div className="flex-1 min-w-0">
+                  <HexInput hex={hex} onChange={(parsed) => setHsbClear(rgbToHsb(parsed.r, parsed.g, parsed.b))} />
                 </div>
               </div>
-            )}
-            {has('hsb-sliders') && (
-              <div className="border border-input rounded-lg p-3">
-                <h3 className="text-sm font-semibold mb-2">HSB</h3>
-                <div className="flex flex-col gap-2">
-                  <ColorSlider label="H" value={hsb.h} max={360} wrap gradient={hueGradient(hsb.s, hsb.b, 'srgb')} onChange={(v) => setHsbClear(p => ({ ...p, h: v }))} />
-                  <ColorSlider label="S" value={hsb.s} max={100} gradient={saturationGradient(hsb.h, hsb.b, 'srgb')} onChange={(v) => setHsbClear(p => ({ ...p, s: v }))} />
-                  <ColorSlider label="B" value={hsb.b} max={100} gradient={brightnessGradient(hsb.h, hsb.s, 'srgb')} onChange={(v) => setHsbClear(p => ({ ...p, b: v }))} />
-                </div>
-              </div>
-            )}
-            {has('hex-input') && (
-              <div className="border border-input rounded-lg p-3">
-                <h3 className="text-sm font-semibold mb-2">Hex</h3>
-                <div className="flex gap-3 items-stretch">
-                  <PreviewSwatch hex={hex} />
-                  <div className="flex-1 min-w-0">
-                    <HexInput hex={hex} onChange={(parsed) => setHsbClear(rgbToHsb(parsed.r, parsed.g, parsed.b))} />
-                  </div>
-                </div>
-              </div>
-            )}
-            {has('equations') && (
-              <div className="border border-input rounded-lg p-3 col-span-2">
-                <h3 className="text-sm font-semibold mb-2">Equations</h3>
-                <EquationsPanel rgb={rgb} hue={hsb.h} saturation={hsb.s} brightness={hsb.b} hsl={hsl} blMode="brightness" />
-              </div>
-            )}
-            {has('conversions') && (
-              <div className="col-span-2">
-                <ColorOperations hsb={hsb} onAnimateToHsb={animateToHsb} />
-              </div>
-            )}
-          </div>
+            </div>
+          )}
+          {has('equations') && (
+            <div className="border border-input rounded-lg p-3 col-span-2">
+              <h3 className="text-sm font-semibold mb-2">Equations</h3>
+              <EquationsPanel rgb={rgb} hue={hsb.h} saturation={hsb.s} brightness={hsb.b} hsl={hsl} blMode="brightness" />
+            </div>
+          )}
+          {has('conversions') && (
+            <div className="col-span-2">
+              <ColorOperations hsb={hsb} onAnimateToHsb={animateToHsb} />
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
