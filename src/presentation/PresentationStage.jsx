@@ -169,12 +169,14 @@ export default function PresentationStage({ slide, slideIndex }) {
           { r: 255, g: 0,   b: 0   }, // Red
         ]
       : [
+          { r: 0,   g: 0,   b: 0   }, // Black
           { r: 255, g: 0,   b: 0   }, // Red
           { r: 0,   g: 255, b: 0   }, // Green
           { r: 0,   g: 0,   b: 255 }, // Blue
           { r: 255, g: 255, b: 0   }, // Yellow
           { r: 0,   g: 255, b: 255 }, // Cyan
           { r: 255, g: 0,   b: 255 }, // Magenta
+          { r: 255, g: 255, b: 255 }, // White
         ];
 
     const TRANSITION_DUR = 800; // ms for sine transition between keyframes
