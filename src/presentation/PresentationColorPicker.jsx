@@ -84,11 +84,12 @@ export default function PresentationColorPicker({
     return (rgb.r * 0.299 + rgb.g * 0.587 + rgb.b * 0.114) > 150 ? '#000' : '#fff';
   })();
 
-  // Animate sliders in on mount
-  const [slidersVisible, setSlidersVisible] = useState(false);
+  // Animate panels in on mount / slide change
+  const [visible, setVisible] = useState(false);
   useEffect(() => {
-    const id = requestAnimationFrame(() => setSlidersVisible(true));
-    return () => { cancelAnimationFrame(id); setSlidersVisible(false); };
+    setVisible(false);
+    const id = requestAnimationFrame(() => requestAnimationFrame(() => setVisible(true)));
+    return () => cancelAnimationFrame(id);
   }, [visiblePanels]);
 
   const hasSliders = has('rgb-sliders') || has('hsb-sliders') || has('hex-input') || has('equations') || has('conversions');
@@ -130,13 +131,15 @@ export default function PresentationColorPicker({
         </div>
       ) : has('large-preview') ? (
         <div
-          className="rounded-xl flex flex-col items-center justify-center transition-colors duration-200"
+          className="rounded-xl flex flex-col items-center justify-center transition-all duration-700 ease-out"
           style={{
             width: PANEL_W,
             height: PANEL_H,
             backgroundColor: hex,
             boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.1)',
             color: textColor,
+            opacity: visible ? 1 : 0,
+            transform: visible ? 'translateY(0)' : 'translateY(-24px)',
           }}
         >
           <span className="font-mono text-4xl font-bold tracking-wider">{hex.toUpperCase()}</span>
@@ -152,8 +155,8 @@ export default function PresentationColorPicker({
           className="transition-all duration-700 ease-out"
           style={{
             width: PANEL_W,
-            opacity: slidersVisible ? 1 : 0,
-            transform: slidersVisible ? 'translateY(0)' : 'translateY(24px)',
+            opacity: visible ? 1 : 0,
+            transform: visible ? 'translateY(0)' : 'translateY(24px)',
             marginTop: 12,
           }}
         >
