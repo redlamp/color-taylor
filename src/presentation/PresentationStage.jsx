@@ -140,6 +140,15 @@ export default function PresentationStage({ slide, slideIndex }) {
   }
 
   // ── Panel slides (static grids + interactive color swatch) ────────
+  // Compute the target hex from initialHsb — used as the definitive enter color
+  // so the swatch transition always starts with the correct target (e.g. #ff0000)
+  const enterColor = useMemo(() => {
+    if (!slide.props?.initialHsb) return null;
+    const { h, s, b: bv } = slide.props.initialHsb;
+    const r = hsbToRgb(h, s, bv);
+    return rgbToHex(r.r, r.g, r.b);
+  }, [slide.props?.initialHsb]);
+
   const textColor = (rgb.r * 0.299 + rgb.g * 0.587 + rgb.b * 0.114) > 150 ? '#000' : '#fff';
 
   return (
@@ -160,6 +169,7 @@ export default function PresentationStage({ slide, slideIndex }) {
           <AnimatedGrid
             mode={isStatic ? slide.props?.mode || 'bw' : 'swatch'}
             swatchColor={hex}
+            enterColor={enterColor}
           />
         </div>
 

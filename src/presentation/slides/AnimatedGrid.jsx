@@ -179,7 +179,7 @@ function buildPairs(fromLayout, toLayout) {
 
 // ── Component ───────────────────────────────────────────────────────
 
-export default function AnimatedGrid({ mode, swatchColor }) {
+export default function AnimatedGrid({ mode, swatchColor, enterColor }) {
   const [cells, setCells] = useState(() =>
     getLayout(mode, swatchColor).map(c => ({ ...c, opacity: 1, z: 1, transition: 'none' }))
   );
@@ -192,8 +192,16 @@ export default function AnimatedGrid({ mode, swatchColor }) {
     if (mode === prevMode.current) return;
 
     const fromMode = prevMode.current;
-    const fromLayout = getLayout(fromMode, latestSwatch.current);
-    const toLayout = getLayout(mode, swatchColor);
+    const enteringSwatch = mode === 'swatch';
+    const leavingSwatch = fromMode === 'swatch';
+
+    // Entering swatch: use enterColor (e.g. #ff0000) so the correct grid cell expands
+    // Leaving swatch: use the current slider color so it shrinks to the right position
+    const fromColor = leavingSwatch ? latestSwatch.current : swatchColor;
+    const toColor = enteringSwatch ? (enterColor || swatchColor) : swatchColor;
+
+    const fromLayout = getLayout(fromMode, fromColor);
+    const toLayout = getLayout(mode, toColor);
     prevMode.current = mode;
 
     const { pairs, removed, added } = buildPairs(fromLayout, toLayout);
