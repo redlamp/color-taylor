@@ -178,3 +178,34 @@ export function hexToRgb(hex) {
     b: num & 255,
   };
 }
+
+// --- Single-color operations ---
+
+/** Rotate hue by 180 degrees */
+export function complementary(h, s, b) {
+  return { h: (h + 180) % 360, s, b };
+}
+
+/** Invert RGB channels, return as HSB */
+export function inverse(r, g, b) {
+  return rgbToHsb(255 - r, 255 - g, 255 - b);
+}
+
+/** Increase brightness by amount (default 15), capped at 100 */
+export function lighter(h, s, b, amount = 15) {
+  return { h, s, b: Math.min(100, b + amount) };
+}
+
+/** Decrease brightness by amount (default 15), floored at 0 */
+export function darker(h, s, b, amount = 15) {
+  return { h, s, b: Math.max(0, b - amount) };
+}
+
+/** RGB difference against a reference color, return as HSB */
+export function difference(r1, g1, b1, r2, g2, b2) {
+  return rgbToHsb(
+    Math.abs(r1 - r2),
+    Math.abs(g1 - g2),
+    Math.abs(b1 - b2),
+  );
+}
