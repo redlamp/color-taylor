@@ -139,11 +139,10 @@ export default function PresentationStage({ slide, slideIndex }) {
         style={{
           width: PANEL_W,
           height: PANEL_H,
-          backgroundColor: isStatic ? '#000' : hex,
-          borderRadius: 6,
+          backgroundColor: isStatic ? '#1F2C33' : hex,
+          borderRadius: 16,
           overflow: 'hidden',
           position: 'relative',
-          border: '2px solid magenta',
         }}
       >
         {/* Animated grid — cells with matching IDs tween between layouts */}

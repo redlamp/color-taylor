@@ -13,10 +13,15 @@ function App() {
   return (
     <ThemeProvider>
       <TooltipProvider delayDuration={0}>
+        {/* Background layer that tweens between app and presentation colors */}
+        <div
+          className="fixed inset-0 transition-colors duration-700 ease-in-out"
+          style={{ backgroundColor: isPresentation ? '#2E424D' : 'var(--background)' }}
+        />
         {isPresentation ? (
           <PresentationShell navigate={navigate} />
         ) : (
-          <div className="min-h-svh flex items-center justify-center p-5">
+          <div className="relative min-h-svh flex items-center justify-center p-5">
             <ThemeToggle />
             <ColorPicker />
             <Toaster position="top-center" />
