@@ -52,7 +52,6 @@ export const slides = [
     props: {
       visiblePanels: ['rgb-sliders', 'large-preview'],
       initialHsb: { h: 0, s: 100, b: 100 },
-      showRgbAnimate: true,
     },
     caption: 'Same idea for green and blue. Three separate channels. Each one from black to its full value.',
   },
@@ -65,6 +64,7 @@ export const slides = [
       visiblePanels: ['rgb-sliders', 'large-preview'],
       initialHsb: { h: 200, s: 80, b: 90 },
       showRgbAnimate: true,
+      rgbAnimAutoStart: true,
     },
     caption: 'Put them together and you get a color. It works. But it\'s not always obvious where you\'ll land.',
   },

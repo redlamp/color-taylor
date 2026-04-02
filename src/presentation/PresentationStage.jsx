@@ -151,7 +151,8 @@ export default function PresentationStage({ slide, slideIndex }) {
 
   useEffect(() => {
     if (!slide.props?.showRgbAnimate) setRgbAnimActive(false);
-  }, [slideIndex, slide.props?.showRgbAnimate]);
+    else if (slide.props?.rgbAnimAutoStart) setRgbAnimActive(true);
+  }, [slideIndex, slide.props?.showRgbAnimate, slide.props?.rgbAnimAutoStart]);
 
   useEffect(() => {
     if (!rgbAnimActive) {
