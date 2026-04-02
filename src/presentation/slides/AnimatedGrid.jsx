@@ -105,12 +105,12 @@ const MOVE_TRANS = `left 0.4s ${EASE}, width 0.4s ${EASE}, top 0.6s ${EASE} 0.4s
 const MOVE_TOTAL_MS = 1000; // 400ms + 600ms
 const FADEOUT_TRANS = `opacity 0.6s ${EASE}`;
 
-// Per-cell staggered fade: delay proportional to hex integer value
-// #000000 = 0 delay, #FFFFFF = STAGGER_MAX delay
+// Per-cell staggered fade: bright colors appear first, dark colors last
+// #FFFFFF = 0 delay, #000000 = STAGGER_MAX delay
 function staggeredFade(hexColor) {
   const raw = hexColor.replace('#', '').replace(/:.*/, ''); // strip dup suffix
   const n = parseInt(raw, 16) || 0;
-  const delay = (n / 0xFFFFFF) * STAGGER_MAX;
+  const delay = STAGGER_MAX * (1 - n / 0xFFFFFF);
   return `opacity ${FADE_DUR} ${EASE} ${delay.toFixed(3)}s`;
 }
 
