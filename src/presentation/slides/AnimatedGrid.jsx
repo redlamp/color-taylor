@@ -93,7 +93,7 @@ function getLayout(mode) {
 
 const MOVE_DUR = '0.8s';
 const FADE_DUR = '0.6s';
-const STAGGER_MAX = 0.8; // seconds — max delay for the stagger wave
+const STAGGER_MAX = 0.5; // seconds — max delay for the stagger wave
 const EASING = 'ease-in-out';
 const MOVE_TRANS = `left ${MOVE_DUR} ${EASING}, top ${MOVE_DUR} ${EASING}, width ${MOVE_DUR} ${EASING}, height ${MOVE_DUR} ${EASING}, background-color ${MOVE_DUR} ${EASING}`;
 const FADEOUT_TRANS = `opacity ${MOVE_DUR} ${EASING}`;
