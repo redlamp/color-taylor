@@ -91,15 +91,19 @@ function getLayout(mode) {
 
 // ── Animated grid component ─────────────────────────────────────────
 
-const DURATION = '1s';
+const MOVE_DUR = '0.8s';
+const FADE_DUR = '0.6s';
 const EASING = 'ease-in-out';
-const TRANS = `left ${DURATION} ${EASING}, top ${DURATION} ${EASING}, width ${DURATION} ${EASING}, height ${DURATION} ${EASING}, opacity ${DURATION} ${EASING}, background-color ${DURATION} ${EASING}`;
+const MOVE_TRANS = `left ${MOVE_DUR} ${EASING}, top ${MOVE_DUR} ${EASING}, width ${MOVE_DUR} ${EASING}, height ${MOVE_DUR} ${EASING}, background-color ${MOVE_DUR} ${EASING}`;
+const FADE_TRANS = `opacity ${FADE_DUR} ${EASING}`;
+const FADEOUT_TRANS = `opacity ${MOVE_DUR} ${EASING}`;
 
 export default function AnimatedGrid({ mode }) {
   const [cells, setCells] = useState(() =>
-    getLayout(mode).map(c => ({ ...c, opacity: 1, transition: 'none' }))
+    getLayout(mode).map(c => ({ ...c, opacity: 1, z: 1, transition: 'none' }))
   );
   const prevMode = useRef(mode);
+  const timers = useRef([]);
 
   useEffect(() => {
     if (mode === prevMode.current) return;
@@ -112,43 +116,73 @@ export default function AnimatedGrid({ mode }) {
     const toMap = new Map(toLayout.map(c => [c.id, c]));
     const allIds = [...new Set([...fromMap.keys(), ...toMap.keys()])];
 
-    // Step 1: jump to start positions (no transition)
-    setCells(allIds.map(id => {
+    // Classify cells
+    const matched = [];
+    const added = [];
+    const removed = [];
+    for (const id of allIds) {
       const from = fromMap.get(id);
       const to = toMap.get(id);
-      if (from) {
-        return { id, color: from.color, x: from.x, y: from.y, w: from.w, h: from.h, opacity: 1, transition: 'none' };
-      }
-      // New cell — start invisible at target position
-      return { id, color: to.color, x: to.x, y: to.y, w: to.w, h: to.h, opacity: 0, transition: 'none' };
-    }));
+      if (from && to) matched.push(id);
+      else if (to) added.push(id);
+      else removed.push(id);
+    }
 
-    // Step 2: after paint, set end positions with CSS transition
+    // Clear previous timers
+    timers.current.forEach(clearTimeout);
+    timers.current = [];
+
+    // Step 1: Set start positions — matched + removed visible (z:2), new hidden (z:1)
+    setCells([
+      ...matched.map(id => {
+        const from = fromMap.get(id);
+        return { id, color: from.color, x: from.x, y: from.y, w: from.w, h: from.h, opacity: 1, z: 2, transition: 'none' };
+      }),
+      ...removed.map(id => {
+        const from = fromMap.get(id);
+        return { id, color: from.color, x: from.x, y: from.y, w: from.w, h: from.h, opacity: 1, z: 2, transition: 'none' };
+      }),
+      ...added.map(id => {
+        const to = toMap.get(id);
+        return { id, color: to.color, x: to.x, y: to.y, w: to.w, h: to.h, opacity: 0, z: 1, transition: 'none' };
+      }),
+    ]);
+
+    // Step 2: After paint — matched cells tween to target, removed fade out
     const raf = requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        setCells(allIds.map(id => {
-          const from = fromMap.get(id);
-          const to = toMap.get(id);
-          if (from && to) {
-            // Matched — tween position, size, color
-            return { id, color: to.color, x: to.x, y: to.y, w: to.w, h: to.h, opacity: 1, transition: TRANS };
+        setCells(prev => prev.map(cell => {
+          if (matched.includes(cell.id)) {
+            const to = toMap.get(cell.id);
+            return { ...cell, color: to.color, x: to.x, y: to.y, w: to.w, h: to.h, transition: MOVE_TRANS };
           }
-          if (to) {
-            // New — fade in
-            return { id, color: to.color, x: to.x, y: to.y, w: to.w, h: to.h, opacity: 1, transition: TRANS };
+          if (removed.includes(cell.id)) {
+            return { ...cell, opacity: 0, transition: FADEOUT_TRANS };
           }
-          // Removed — fade out
-          return { id, color: from.color, x: from.x, y: from.y, w: from.w, h: from.h, opacity: 0, transition: TRANS };
+          return cell; // added cells stay hidden
         }));
 
-        // Clean up after transition
-        setTimeout(() => {
-          setCells(toLayout.map(c => ({ ...c, opacity: 1, transition: 'none' })));
-        }, 1100);
+        // Step 3: After matched cells arrive — fade in new cells
+        timers.current.push(setTimeout(() => {
+          setCells(prev => prev.map(cell => {
+            if (added.includes(cell.id)) {
+              return { ...cell, opacity: 1, transition: FADE_TRANS };
+            }
+            return cell;
+          }));
+
+          // Clean up after everything settles
+          timers.current.push(setTimeout(() => {
+            setCells(toLayout.map(c => ({ ...c, opacity: 1, z: 1, transition: 'none' })));
+          }, 700));
+        }, 850));
       });
     });
 
-    return () => cancelAnimationFrame(raf);
+    return () => {
+      cancelAnimationFrame(raf);
+      timers.current.forEach(clearTimeout);
+    };
   }, [mode]);
 
   return (
@@ -164,6 +198,7 @@ export default function AnimatedGrid({ mode }) {
             height: `${cell.h * 100}%`,
             backgroundColor: cell.color,
             opacity: cell.opacity,
+            zIndex: cell.z,
             transition: cell.transition,
           }}
         />
