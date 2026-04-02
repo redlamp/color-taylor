@@ -93,10 +93,19 @@ function getLayout(mode) {
 
 const MOVE_DUR = '0.8s';
 const FADE_DUR = '0.6s';
+const STAGGER_MAX = 0.8; // seconds — max delay for the stagger wave
 const EASING = 'ease-in-out';
 const MOVE_TRANS = `left ${MOVE_DUR} ${EASING}, top ${MOVE_DUR} ${EASING}, width ${MOVE_DUR} ${EASING}, height ${MOVE_DUR} ${EASING}, background-color ${MOVE_DUR} ${EASING}`;
-const FADE_TRANS = `opacity ${FADE_DUR} ${EASING}`;
 const FADEOUT_TRANS = `opacity ${MOVE_DUR} ${EASING}`;
+
+// Per-cell staggered fade: delay proportional to hex integer value
+// #000000 = 0 delay, #FFFFFF = STAGGER_MAX delay
+function staggeredFade(hexColor) {
+  const raw = hexColor.replace('#', '').replace(/:.*/, ''); // strip dup suffix
+  const n = parseInt(raw, 16) || 0;
+  const delay = (n / 0xFFFFFF) * STAGGER_MAX;
+  return `opacity ${FADE_DUR} ${EASING} ${delay.toFixed(3)}s`;
+}
 
 export default function AnimatedGrid({ mode }) {
   const [cells, setCells] = useState(() =>
@@ -162,19 +171,20 @@ export default function AnimatedGrid({ mode }) {
           return cell; // added cells stay hidden
         }));
 
-        // Step 3: After matched cells arrive — fade in new cells
+        // Step 3: After matched cells arrive — fade in new cells with stagger
         timers.current.push(setTimeout(() => {
           setCells(prev => prev.map(cell => {
             if (added.includes(cell.id)) {
-              return { ...cell, opacity: 1, transition: FADE_TRANS };
+              return { ...cell, opacity: 1, transition: staggeredFade(cell.color) };
             }
             return cell;
           }));
 
-          // Clean up after everything settles
+          // Clean up after stagger + fade completes
+          const cleanupMs = (STAGGER_MAX + parseFloat(FADE_DUR) + 0.1) * 1000;
           timers.current.push(setTimeout(() => {
             setCells(toLayout.map(c => ({ ...c, opacity: 1, z: 1, transition: 'none' })));
-          }, 700));
+          }, cleanupMs));
         }, 850));
       });
     });
