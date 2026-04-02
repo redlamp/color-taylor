@@ -16,6 +16,7 @@ export default function PresentationColorPicker({
   visiblePanels = [],
   initialHsb = { h: 200, s: 80, b: 90 },
   lockedChannels = [],
+  showHexInPreview = false,
 }) {
   const [hsb, setHsb] = useState(initialHsb);
   const animRef = useRef(null);
@@ -142,10 +143,9 @@ export default function PresentationColorPicker({
             transform: visible ? 'translateY(0)' : 'translateY(-24px)',
           }}
         >
-          <span className="font-mono text-4xl font-bold tracking-wider">{hex.toUpperCase()}</span>
-          <span className="font-mono text-base mt-2 opacity-60">
-            R {rgb.r} &nbsp; G {rgb.g} &nbsp; B {rgb.b}
-          </span>
+          {showHexInPreview && (
+            <span className="font-mono text-4xl font-bold tracking-wider">{hex.toUpperCase()}</span>
+          )}
         </div>
       ) : null}
 
@@ -160,10 +160,10 @@ export default function PresentationColorPicker({
             marginTop: 12,
           }}
         >
-          <div className="flex gap-4 flex-wrap">
+          <div className="grid grid-cols-2 gap-4">
             {/* RGB sliders */}
             {has('rgb-sliders') && (
-              <div className="border border-input rounded-lg p-3 flex-1 min-w-[340px]">
+              <div className="border border-input rounded-lg p-3">
                 <h3 className="text-sm font-semibold mb-2">RGB</h3>
                 <div className="flex flex-col gap-2">
                   <ColorSlider
@@ -191,7 +191,7 @@ export default function PresentationColorPicker({
 
             {/* HSB sliders */}
             {has('hsb-sliders') && (
-              <div className="border border-input rounded-lg p-3 flex-1 min-w-[340px]">
+              <div className="border border-input rounded-lg p-3">
                 <h3 className="text-sm font-semibold mb-2">HSB</h3>
                 <div className="flex flex-col gap-2">
                   <ColorSlider
@@ -215,7 +215,7 @@ export default function PresentationColorPicker({
 
             {/* Hex input */}
             {has('hex-input') && (
-              <div className="border border-input rounded-lg p-3 min-w-[200px]">
+              <div className="border border-input rounded-lg p-3">
                 <h3 className="text-sm font-semibold mb-2">Hex</h3>
                 <div className="flex gap-3 items-stretch">
                   <PreviewSwatch hex={hex} />
@@ -229,9 +229,9 @@ export default function PresentationColorPicker({
               </div>
             )}
 
-            {/* Equations */}
+            {/* Equations — spans full width */}
             {has('equations') && (
-              <div className="border border-input rounded-lg p-3 w-full">
+              <div className="border border-input rounded-lg p-3 col-span-2">
                 <h3 className="text-sm font-semibold mb-2">Equations</h3>
                 <EquationsPanel
                   rgb={rgb}
@@ -244,9 +244,9 @@ export default function PresentationColorPicker({
               </div>
             )}
 
-            {/* Conversions */}
+            {/* Conversions — spans full width */}
             {has('conversions') && (
-              <div className="w-full">
+              <div className="col-span-2">
                 <ColorOperations
                   hsb={hsb}
                   onAnimateToHsb={animateToHsb}

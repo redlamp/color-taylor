@@ -71,7 +71,8 @@ export const slides = [
     type: 'interactive',
     component: 'PresentationColorPicker',
     props: {
-      visiblePanels: ['rgb-sliders', 'hex-input', 'large-preview'],
+      visiblePanels: ['rgb-sliders', 'large-preview'],
+      showHexInPreview: true,
       initialHsb: { h: 200, s: 80, b: 90 },
     },
     caption: 'Then the web came along and added hex values. Still RGB underneath, just written differently.',
