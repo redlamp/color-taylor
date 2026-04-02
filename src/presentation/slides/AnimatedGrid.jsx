@@ -55,7 +55,7 @@ function assignIds(cells) {
   });
 }
 
-function getLayout(mode) {
+function getLayout(mode, swatchColor) {
   switch (mode) {
     case 'bw':
       return assignIds([
@@ -83,6 +83,12 @@ function getLayout(mode) {
           color, x: ci / row.length, y: ri / 4, w: 1 / row.length, h: 1 / 4,
         }))
       ));
+
+    // Single cell filling the panel — used for static↔interactive transitions
+    case 'swatch':
+      return assignIds([
+        { color: swatchColor || '#ff0000', x: 0, y: 0, w: 1, h: 1 },
+      ]);
 
     default:
       return [];
@@ -172,18 +178,20 @@ function buildPairs(fromLayout, toLayout) {
 
 // ── Component ───────────────────────────────────────────────────────
 
-export default function AnimatedGrid({ mode }) {
+export default function AnimatedGrid({ mode, swatchColor }) {
   const [cells, setCells] = useState(() =>
-    getLayout(mode).map(c => ({ ...c, opacity: 1, z: 1, transition: 'none' }))
+    getLayout(mode, swatchColor).map(c => ({ ...c, opacity: 1, z: 1, transition: 'none' }))
   );
   const prevMode = useRef(mode);
+  const latestSwatch = useRef(swatchColor);
+  latestSwatch.current = swatchColor; // always tracks the latest color
   const timers = useRef([]);
 
   useEffect(() => {
     if (mode === prevMode.current) return;
 
-    const fromLayout = getLayout(prevMode.current);
-    const toLayout = getLayout(mode);
+    const fromLayout = getLayout(prevMode.current, latestSwatch.current);
+    const toLayout = getLayout(mode, swatchColor);
     prevMode.current = mode;
 
     const { pairs, removed, added } = buildPairs(fromLayout, toLayout);

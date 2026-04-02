@@ -77,10 +77,6 @@ export default function PresentationStage({ slide, slideIndex }) {
   const locked = slide.props?.lockedChannels || [];
   const hasSliders = has('rgb-sliders') || has('hsb-sliders') || has('hex-input') || has('equations') || has('conversions');
 
-  // ── Remember last static mode so the grid stays correct during fade-out ──
-  const lastMode = useRef('bw');
-  if (isStatic && slide.props?.mode) lastMode.current = slide.props.mode;
-
   // ── Tween color when entering a new interactive slide ─────────────
   const prevIdx = useRef(slideIndex);
   useEffect(() => {
@@ -139,23 +135,18 @@ export default function PresentationStage({ slide, slideIndex }) {
         style={{
           width: PANEL_W,
           height: PANEL_H,
-          backgroundColor: isStatic ? '#1F2C33' : hex,
+          backgroundColor: '#1F2C33',
           borderRadius: 16,
           overflow: 'hidden',
           position: 'relative',
         }}
       >
-        {/* Animated grid — cells with matching IDs tween between layouts */}
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            opacity: isStatic ? 1 : 0,
-            transition: 'opacity 0.7s ease-in-out',
-            zIndex: 1,
-          }}
-        >
-          <AnimatedGrid mode={lastMode.current} />
+        {/* Animated grid — tweens between grid layouts and full swatch */}
+        <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}>
+          <AnimatedGrid
+            mode={isStatic ? slide.props?.mode || 'bw' : 'swatch'}
+            swatchColor={hex}
+          />
         </div>
 
         {/* Hex label inside swatch */}
