@@ -102,16 +102,27 @@ const STAGGER_MAX = 0.5; // seconds — max delay for the stagger wave
 const EASE = 'cubic-bezier(0.4, 0, 0.2, 1)'; // Material standard — quick start, smooth decel
 // All cell tweens: width/x first (400ms), then height/y (600ms after 400ms delay)
 const MOVE_TRANS = `left 0.4s ${EASE}, width 0.4s ${EASE}, top 0.6s ${EASE} 0.4s, height 0.6s ${EASE} 0.4s, background-color 1s ${EASE}`;
-const MOVE_TOTAL_MS = 1000; // 400ms + 600ms
+const MOVE_TOTAL_MS = 1300; // 400ms + 600ms + 300ms max stagger
 const FADEOUT_TRANS = `opacity 0.6s ${EASE}`;
 
-// Per-cell staggered fade: bright colors appear first, dark colors last
-// #FFFFFF = 0 delay, #000000 = STAGGER_MAX delay
-function staggeredFade(hexColor) {
-  const raw = hexColor.replace('#', '').replace(/:.*/, ''); // strip dup suffix
+// Compute a stagger delay from hex color: bright = early, dark = late
+function colorDelay(hexColor, maxDelay) {
+  const raw = hexColor.replace('#', '').replace(/:.*/, '');
   const n = parseInt(raw, 16) || 0;
-  const delay = STAGGER_MAX * (1 - n / 0xFFFFFF);
+  return maxDelay * (1 - n / 0xFFFFFF);
+}
+
+// Staggered fade-in for new cells
+function staggeredFade(hexColor) {
+  const delay = colorDelay(hexColor, STAGGER_MAX);
   return `opacity ${FADE_DUR} ${EASE} ${delay.toFixed(3)}s`;
+}
+
+// Staggered move for matched cells (shorter max delay so they lead)
+const MOVE_STAGGER_MAX = 0.3; // seconds
+function staggeredMove(hexColor) {
+  const delay = colorDelay(hexColor, MOVE_STAGGER_MAX);
+  return `left 0.4s ${EASE} ${delay.toFixed(3)}s, width 0.4s ${EASE} ${delay.toFixed(3)}s, top 0.6s ${EASE} ${(0.4 + delay).toFixed(3)}s, height 0.6s ${EASE} ${(0.4 + delay).toFixed(3)}s, background-color 1s ${EASE} ${delay.toFixed(3)}s`;
 }
 
 // ── Nearest-neighbor color matching ─────────────────────────────────
@@ -187,9 +198,16 @@ export default function AnimatedGrid({ mode, swatchColor, enterColor }) {
   const latestSwatch = useRef(swatchColor);
   latestSwatch.current = swatchColor; // always tracks the latest color
   const timers = useRef([]);
+  const rafs = useRef([]);
 
   useEffect(() => {
     if (mode === prevMode.current) return;
+
+    // Cancel any in-flight animations from previous transitions
+    timers.current.forEach(clearTimeout);
+    timers.current = [];
+    rafs.current.forEach(cancelAnimationFrame);
+    rafs.current = [];
 
     const fromMode = prevMode.current;
     const enteringSwatch = mode === 'swatch';
@@ -209,9 +227,6 @@ export default function AnimatedGrid({ mode, swatchColor, enterColor }) {
     const removedKeys = new Set(removed.map(c => c.id));
     const addedKeys = new Set(added.map(c => c.id));
 
-    // Clear previous timers
-    timers.current.forEach(clearTimeout);
-    timers.current = [];
 
     // Step 1: Set start positions — matched + removed visible (z:2), new hidden (z:1)
     setCells([
@@ -230,14 +245,15 @@ export default function AnimatedGrid({ mode, swatchColor, enterColor }) {
     ]);
 
     // Step 2: After paint — matched tween to target, removed fade out
-    const raf = requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
+    const raf1 = requestAnimationFrame(() => {
+      const raf2 = requestAnimationFrame(() => {
+        rafs.current.push(raf2);
         const pairMap = new Map(pairs.map(p => [p.key, p.to]));
 
         setCells(prev => prev.map(cell => {
           if (matchedKeys.has(cell.id)) {
             const to = pairMap.get(cell.id);
-            return { ...cell, color: to.color, x: to.x, y: to.y, w: to.w, h: to.h, transition: MOVE_TRANS };
+            return { ...cell, color: to.color, x: to.x, y: to.y, w: to.w, h: to.h, transition: staggeredMove(to.color) };
           }
           if (removedKeys.has(cell.id)) {
             return { ...cell, opacity: 0, transition: FADEOUT_TRANS };
@@ -264,9 +280,13 @@ export default function AnimatedGrid({ mode, swatchColor, enterColor }) {
       });
     });
 
+    rafs.current.push(raf1);
+
     return () => {
-      cancelAnimationFrame(raf);
+      rafs.current.forEach(cancelAnimationFrame);
+      rafs.current = [];
       timers.current.forEach(clearTimeout);
+      timers.current = [];
     };
   }, [mode]);
 
