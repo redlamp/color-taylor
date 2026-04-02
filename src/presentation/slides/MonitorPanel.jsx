@@ -7,8 +7,8 @@ import { hsbToRgb, rgbToHex } from '../../utils/colorConversions';
 const MAC_16 = [
   // Row 1: Black, Dark Gray, Gray, Light Gray, Tan, Brown, Dark Green, Green
   ['#000000', '#404040', '#808080', '#C0C0C0', '#90713A', '#562C05', '#006412', '#1FB714'],
-  // Row 2: Cyan, Blue, Purple, Magenta, Red, Orange, Yellow, Bright Green
-  ['#02ABEA', '#0000D4', '#4600A5', '#F20884', '#DD0907', '#FF6403', '#FBF305', '#00FF00'],
+  // Row 2: Cyan, Blue, Purple, Magenta, Red, Orange, Yellow, White
+  ['#02ABEA', '#0000D4', '#4600A5', '#F20884', '#DD0907', '#FF6403', '#FBF305', '#FFFFFF'],
 ];
 
 // 256: 16x16 grid (wider than tall tiles) — web-safe 216 + 40 grays
