@@ -357,6 +357,11 @@ export default function ColorPicker() {
             </Tabs>
           }
         >
+          {showHtmlOnHex && (
+            <p className="text-xs text-muted-foreground italic">
+              💡 Colored dots on the hexagon show nearby CSS named colors. Hover to see their names, click to select.
+            </p>
+          )}
           <NamedColorMatch
             rgb={rgb}
             onAnimateToHsb={animateToHsb}
