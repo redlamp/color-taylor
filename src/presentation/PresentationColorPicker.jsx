@@ -79,6 +79,10 @@ export default function PresentationColorPicker({
 
   const has = (panel) => visiblePanels.includes(panel);
 
+  const textColor = (() => {
+    return (rgb.r * 0.299 + rgb.g * 0.587 + rgb.b * 0.114) > 150 ? '#000' : '#fff';
+  })();
+
   return (
     <div className="flex gap-6 items-start">
       {/* Left: Hexagon */}
@@ -103,6 +107,25 @@ export default function PresentationColorPicker({
             showHtmlOnHex={false}
             onHoverHtmlColor={() => {}}
           />
+        </div>
+      )}
+
+      {/* Large color preview */}
+      {has('large-preview') && (
+        <div
+          className="shrink-0 rounded-xl flex flex-col items-center justify-center transition-colors duration-200"
+          style={{
+            width: 280,
+            height: 280,
+            backgroundColor: hex,
+            boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.1)',
+            color: textColor,
+          }}
+        >
+          <span className="font-mono text-3xl font-bold tracking-wider">{hex.toUpperCase()}</span>
+          <span className="font-mono text-sm mt-1 opacity-60">
+            {rgb.r}, {rgb.g}, {rgb.b}
+          </span>
         </div>
       )}
 
