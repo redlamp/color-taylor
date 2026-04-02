@@ -199,6 +199,7 @@ export default function AnimatedGrid({ mode, swatchColor, enterColor }) {
   latestSwatch.current = swatchColor; // always tracks the latest color
   const timers = useRef([]);
   const rafs = useRef([]);
+  const generation = useRef(0); // increments each transition; stale callbacks become no-ops
 
   useEffect(() => {
     if (mode === prevMode.current) return;
@@ -208,6 +209,7 @@ export default function AnimatedGrid({ mode, swatchColor, enterColor }) {
     timers.current = [];
     rafs.current.forEach(cancelAnimationFrame);
     rafs.current = [];
+    const gen = ++generation.current;
 
     const fromMode = prevMode.current;
     const enteringSwatch = mode === 'swatch';
@@ -247,6 +249,7 @@ export default function AnimatedGrid({ mode, swatchColor, enterColor }) {
     // Step 2: After paint — matched tween to target, removed fade out
     const raf1 = requestAnimationFrame(() => {
       const raf2 = requestAnimationFrame(() => {
+        if (generation.current !== gen) return; // stale
         rafs.current.push(raf2);
         const pairMap = new Map(pairs.map(p => [p.key, p.to]));
 
@@ -261,9 +264,10 @@ export default function AnimatedGrid({ mode, swatchColor, enterColor }) {
           return cell; // added cells stay hidden
         }));
 
-        // Step 3: New cells start fading in at 50% of matched cell tween
+        // Step 3: New cells start fading in at 70% of matched cell tween
         const overlapMs = MOVE_TOTAL_MS * 0.7;
         timers.current.push(setTimeout(() => {
+          if (generation.current !== gen) return; // stale
           setCells(prev => prev.map(cell => {
             if (addedKeys.has(cell.id)) {
               return { ...cell, opacity: 1, transition: staggeredFade(cell.color) };
@@ -274,6 +278,7 @@ export default function AnimatedGrid({ mode, swatchColor, enterColor }) {
           // Clean up after stagger + fade completes
           const cleanupMs = (STAGGER_MAX + parseFloat(FADE_DUR) + 0.1) * 1000;
           timers.current.push(setTimeout(() => {
+            if (generation.current !== gen) return; // stale
             setCells(toLayout.map(c => ({ ...c, opacity: 1, z: 1, transition: 'none' })));
           }, cleanupMs));
         }, overlapMs));
