@@ -233,7 +233,15 @@ export default function ColorPicker() {
 
   return (
     <div id="color-picker-root" className="mx-auto max-w-[1400px] p-6">
-      <h1 id="color-picker-title" className="text-2xl font-semibold tracking-tight text-primary mb-4">Color Taylor 🧵</h1>
+      <div className="flex items-center justify-between mb-4">
+        <h1 id="color-picker-title" className="text-2xl font-semibold tracking-tight text-primary">Color Taylor 🧵</h1>
+        <button
+          className="px-3 py-1.5 text-xs font-medium rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none"
+          onClick={() => { window.location.hash = '#/presentation'; }}
+        >
+          Present
+        </button>
+      </div>
 
       <div className="flex flex-col">
       <div ref={topRowRef} className="flex gap-4 items-start">
