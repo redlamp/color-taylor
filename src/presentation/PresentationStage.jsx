@@ -110,7 +110,7 @@ export default function PresentationStage({ slide, slideIndex }) {
 
   // ── Sine wave animation (Finding HSB slide) ───────────────────────
   const [sineActive, setSineActive] = useState(false);
-  const [sinePeriods, setSinePeriods] = useState({ h: 6000, s: 4000, b: 2000 });
+  const [sinePeriods, setSinePeriods] = useState({ h: 15000, s: 11000, b: 9000 });
   const sinePeriodsRef = useRef(sinePeriods);
   sinePeriodsRef.current = sinePeriods;
   const sineRaf = useRef(null);
@@ -294,6 +294,7 @@ export default function PresentationStage({ slide, slideIndex }) {
               />
               <span className="text-sm text-muted-foreground">Animate HSB</span>
             </label>
+            {/* Period sliders — hidden for now
             <div className="grid grid-cols-3 gap-4">
               {[
                 { key: 'h', label: 'H', color: 'hsl(0,70%,60%)' },
@@ -318,6 +319,7 @@ export default function PresentationStage({ slide, slideIndex }) {
                 </div>
               ))}
             </div>
+            */}
           </div>
         )}
       </div>
