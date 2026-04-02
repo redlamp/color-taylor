@@ -235,7 +235,8 @@ export default function AnimatedGrid({ mode, swatchColor }) {
           return cell; // added cells stay hidden
         }));
 
-        // Step 3: After matched cells arrive — staggered fade in for new cells
+        // Step 3: New cells start fading in at 50% of matched cell tween
+        const overlapMs = parseFloat(MOVE_DUR) * 0.5 * 1000;
         timers.current.push(setTimeout(() => {
           setCells(prev => prev.map(cell => {
             if (addedKeys.has(cell.id)) {
@@ -249,7 +250,7 @@ export default function AnimatedGrid({ mode, swatchColor }) {
           timers.current.push(setTimeout(() => {
             setCells(toLayout.map(c => ({ ...c, opacity: 1, z: 1, transition: 'none' })));
           }, cleanupMs));
-        }, 850));
+        }, overlapMs));
       });
     });
 
