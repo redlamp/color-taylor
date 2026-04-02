@@ -295,13 +295,15 @@ export default function AnimatedGrid({ mode, swatchColor, enterColor }) {
     };
   }, [mode]);
 
-  // Reactively update swatch color when sliders change
+  // Reactively update swatch color and ensure visibility
   useEffect(() => {
     if (mode !== 'swatch' || !swatchColor) return;
-    setCells(prev => prev.map(cell => ({
-      ...cell,
+    setCells([{
+      id: swatchColor.toLowerCase(),
       color: swatchColor,
-    })));
+      x: 0, y: 0, w: 1, h: 1,
+      opacity: 1, z: 1, transition: 'none',
+    }]);
   }, [swatchColor, mode]);
 
   return (
