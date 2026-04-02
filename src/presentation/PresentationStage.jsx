@@ -143,6 +143,16 @@ export default function PresentationStage({ slide, slideIndex }) {
     };
   }, [sineActive]);
 
+  // ── Derived values (must be above early returns to keep hook order stable) ──
+  const enterColor = useMemo(() => {
+    if (!slide.props?.initialHsb) return null;
+    const { h, s, b: bv } = slide.props.initialHsb;
+    const result = hsbToRgb(h, s, bv);
+    return rgbToHex(result.r, result.g, result.b);
+  }, [slide.props?.initialHsb]);
+
+  const textColor = (rgb.r * 0.299 + rgb.g * 0.587 + rgb.b * 0.114) > 150 ? '#000' : '#fff';
+
   // ── Narrative slides ──────────────────────────────────────────────
   if (isNarrative) return <NarrativeSlide {...(slide.props || {})} />;
 
@@ -175,16 +185,6 @@ export default function PresentationStage({ slide, slideIndex }) {
   }
 
   // ── Panel slides (static grids + interactive color swatch) ────────
-  // Compute the target hex from initialHsb — used as the definitive enter color
-  // so the swatch transition always starts with the correct target (e.g. #ff0000)
-  const enterColor = useMemo(() => {
-    if (!slide.props?.initialHsb) return null;
-    const { h, s, b: bv } = slide.props.initialHsb;
-    const r = hsbToRgb(h, s, bv);
-    return rgbToHex(r.r, r.g, r.b);
-  }, [slide.props?.initialHsb]);
-
-  const textColor = (rgb.r * 0.299 + rgb.g * 0.587 + rgb.b * 0.114) > 150 ? '#000' : '#fff';
 
   return (
     <div className="flex flex-col items-center">
