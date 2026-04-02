@@ -143,9 +143,9 @@ export default function PresentationStage({ slide, slideIndex }) {
     };
   }, [sineActive]);
 
-  // ── RGB sequenced animation (slides 4-7) ──────────────────────────
-  // 12 phases: R rise, R hold, G rise, G hold, B rise, B hold,
-  //            R fall, R hold, G fall, G hold, B fall, B hold → loop
+  // ── RGB keyframe animation (slides 4-7) ────────────────────────────
+  // Cycles through keyframe colors with sine-eased transitions and holds.
+  // Slide 4: red only. Slides 5-7: R,G,B → Y,C,M sequence.
   const [rgbAnimActive, setRgbAnimActive] = useState(false);
   const rgbAnimRaf = useRef(null);
 
@@ -160,32 +160,48 @@ export default function PresentationStage({ slide, slideIndex }) {
       return;
     }
 
-    const PHASE_DUR = 800; // ms per phase
-    const TOTAL_PHASES = 12;
-    // Channel config: [riseStartPhase, fallStartPhase]
-    const CH = { r: [0, 6], g: [2, 8], b: [4, 10] };
+    // Red-only for slide with locked G/B, full sequence otherwise
+    const redOnly = slide.props?.lockedChannels?.includes('g');
+    const keyframes = redOnly
+      ? [
+          { r: 0,   g: 0,   b: 0   }, // Black
+          { r: 255, g: 0,   b: 0   }, // Red
+        ]
+      : [
+          { r: 255, g: 0,   b: 0   }, // Red
+          { r: 0,   g: 255, b: 0   }, // Green
+          { r: 0,   g: 0,   b: 255 }, // Blue
+          { r: 255, g: 255, b: 0   }, // Yellow
+          { r: 0,   g: 255, b: 255 }, // Cyan
+          { r: 255, g: 0,   b: 255 }, // Magenta
+        ];
 
-    function channelValue(phase, riseStart, fallStart) {
-      // Rise: quarter sine 0→1
-      if (phase >= riseStart && phase < riseStart + 1)
-        return Math.sin((phase - riseStart) * Math.PI / 2);
-      // Hold high
-      if (phase >= riseStart + 1 && phase < fallStart)
-        return 1;
-      // Fall: quarter cosine 1→0
-      if (phase >= fallStart && phase < fallStart + 1)
-        return Math.cos((phase - fallStart) * Math.PI / 2);
-      // Hold low
-      return 0;
-    }
+    const TRANSITION_DUR = 800; // ms for sine transition between keyframes
+    const HOLD_DUR = 600;       // ms to hold at each keyframe
+    const STEP_DUR = TRANSITION_DUR + HOLD_DUR;
+    const CYCLE_DUR = keyframes.length * STEP_DUR;
 
     const start = performance.now();
     const tick = (ts) => {
       const elapsed = ts - start;
-      const phase = (elapsed / PHASE_DUR) % TOTAL_PHASES;
-      const r = Math.round(channelValue(phase, CH.r[0], CH.r[1]) * 255);
-      const g = Math.round(channelValue(phase, CH.g[0], CH.g[1]) * 255);
-      const b = Math.round(channelValue(phase, CH.b[0], CH.b[1]) * 255);
+      const t = elapsed % CYCLE_DUR;
+      const frameIdx = Math.floor(t / STEP_DUR);
+      const frameT = t - frameIdx * STEP_DUR;
+
+      let r, g, b;
+      if (frameT < HOLD_DUR) {
+        // Hold at current keyframe
+        ({ r, g, b } = keyframes[frameIdx]);
+      } else {
+        // Sine-ease transition to next keyframe
+        const p = Math.sin(((frameT - HOLD_DUR) / TRANSITION_DUR) * Math.PI / 2);
+        const from = keyframes[frameIdx];
+        const to = keyframes[(frameIdx + 1) % keyframes.length];
+        r = Math.round(from.r + (to.r - from.r) * p);
+        g = Math.round(from.g + (to.g - from.g) * p);
+        b = Math.round(from.b + (to.b - from.b) * p);
+      }
+
       rgbOverride.current = { r, g, b };
       setHsb(rgbToHsb(r, g, b));
       rgbAnimRaf.current = requestAnimationFrame(tick);
