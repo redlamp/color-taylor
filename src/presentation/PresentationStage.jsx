@@ -76,6 +76,10 @@ export default function PresentationStage({ slide, slideIndex }) {
   const locked = slide.props?.lockedChannels || [];
   const hasSliders = has('rgb-sliders') || has('hsb-sliders') || has('hex-input') || has('equations') || has('conversions');
 
+  // ── Remember last static mode so the grid stays correct during fade-out ──
+  const lastMode = useRef('bw');
+  if (isStatic && slide.props?.mode) lastMode.current = slide.props.mode;
+
   // ── Tween color when entering a new interactive slide ─────────────
   const prevIdx = useRef(slideIndex);
   useEffect(() => {
@@ -150,7 +154,7 @@ export default function PresentationStage({ slide, slideIndex }) {
             zIndex: 1,
           }}
         >
-          <MonitorPanelContent mode={slide.props?.mode || 'bw'} />
+          <MonitorPanelContent mode={lastMode.current} />
         </div>
 
         {/* Hex label inside swatch */}
