@@ -191,6 +191,7 @@ function buildPairs(fromLayout, toLayout) {
 // ── Component ───────────────────────────────────────────────────────
 
 export default function AnimatedGrid({ mode, swatchColor, enterColor }) {
+  const containerRef = useRef(null);
   const [cells, setCells] = useState(() =>
     getLayout(mode, swatchColor).map(c => ({ ...c, opacity: 1, z: 1, transition: 'none' }))
   );
@@ -247,10 +248,13 @@ export default function AnimatedGrid({ mode, swatchColor, enterColor }) {
     ]);
 
     // Step 2: After paint — matched tween to target, removed fade out
+    // Use rAF + setTimeout(0) to guarantee the browser has painted step 1
+    // before we apply transitions (React 18 batching can swallow double-rAF)
     const raf1 = requestAnimationFrame(() => {
-      const raf2 = requestAnimationFrame(() => {
+      // Force layout read to flush step 1 to the DOM
+      containerRef.current?.offsetHeight;
+      const tid = setTimeout(() => {
         if (generation.current !== gen) return; // stale
-        rafs.current.push(raf2);
         const pairMap = new Map(pairs.map(p => [p.key, p.to]));
 
         setCells(prev => prev.map(cell => {
@@ -282,7 +286,8 @@ export default function AnimatedGrid({ mode, swatchColor, enterColor }) {
             setCells(toLayout.map(c => ({ ...c, opacity: 1, z: 1, transition: 'none' })));
           }, cleanupMs));
         }, overlapMs));
-      });
+      }, 0);
+      timers.current.push(tid);
     });
 
     rafs.current.push(raf1);
@@ -307,7 +312,7 @@ export default function AnimatedGrid({ mode, swatchColor, enterColor }) {
   }, [swatchColor, mode]);
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+    <div ref={containerRef} style={{ position: 'relative', width: '100%', height: '100%' }}>
       {cells.map(cell => (
         <div
           key={cell.id}
