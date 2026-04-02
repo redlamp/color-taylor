@@ -11,27 +11,29 @@ const MAC_16 = [
   ['#02ABEA', '#0000D4', '#4600A5', '#F20884', '#DD0907', '#FF6403', '#FBF305', '#FFFFFF'],
 ];
 
-// 256: 16x16 grid (wider than tall tiles) — web-safe 216 + 40 grays
+// 256: Mac CLUT8 — 6x6x6 RGB cube (R desc, G desc, B desc) + 40 grays
+// Arranged as 8 rows of 32, tiles wider than tall
 function generate256Grid() {
+  const hex = (r, g, b) => '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
   const colors = [];
-  const steps = [0x00, 0x33, 0x66, 0x99, 0xCC, 0xFF];
+  const steps = [0xFF, 0xCC, 0x99, 0x66, 0x33, 0x00];
+  // 6x6x6 cube: 216 entries
   for (const r of steps) {
     for (const g of steps) {
       for (const b of steps) {
-        colors.push('#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join(''));
+        colors.push(hex(r, g, b));
       }
     }
   }
-  // Fill remaining 40 with grays
-  for (let i = 0; colors.length < 256; i++) {
-    const v = Math.round((i / 39) * 255);
-    const hex = '#' + v.toString(16).padStart(2, '0').repeat(3);
-    if (!colors.includes(hex)) colors.push(hex);
+  // 40 grays (bright to dark, filling indices 216-255)
+  for (let i = 0; i < 40; i++) {
+    const v = Math.round(255 - (i / 39) * 255);
+    colors.push(hex(v, v, v));
   }
-  // Arrange into 16 rows of 16
+  // Arrange as 8 rows of 32
   const grid = [];
-  for (let r = 0; r < 16; r++) {
-    grid.push(colors.slice(r * 16, (r + 1) * 16));
+  for (let r = 0; r < 8; r++) {
+    grid.push(colors.slice(r * 32, (r + 1) * 32));
   }
   return grid;
 }
@@ -107,7 +109,7 @@ function Grid256Layout() {
   return (
     <div className="w-full" style={{ borderRadius: 6, overflow: 'hidden' }}>
       {GRID_256.map((row, ri) => (
-        <div key={ri} style={{ display: 'flex', height: 20 }}>
+        <div key={ri} style={{ display: 'flex', height: 40 }}>
           {row.map((color, ci) => (
             <div key={ci} style={{ flex: 1, background: color }} />
           ))}
