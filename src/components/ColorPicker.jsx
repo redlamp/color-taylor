@@ -165,7 +165,10 @@ export default function ColorPicker() {
 
   const animateToHsb = useCallback((target) => {
     rgbOverride.current = null;
-    if (animRef.current) cancelAnimationFrame(animRef.current);
+    if (animRef.current) {
+      cancelAnimationFrame(animRef.current);
+      isUndoRedoing.current = false;
+    }
     const duration = 1000;
     const from = { ...hsbRef.current };
     let start = null;
