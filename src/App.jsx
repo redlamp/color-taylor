@@ -1,6 +1,5 @@
 import { useEffect } from 'react'
 import ColorPicker from './components/ColorPicker'
-import ThemeToggle from './components/ThemeToggle'
 import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ThemeProvider, useTheme } from './hooks/useTheme'
@@ -45,7 +44,6 @@ function AppInner() {
         <PresentationShell navigate={navigate} />
       ) : (
         <div className="relative min-h-svh flex items-center justify-center p-5">
-          <ThemeToggle />
           <ColorPicker />
           <Toaster position="top-center" />
         </div>

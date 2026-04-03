@@ -24,6 +24,7 @@ import EquationsPanel from './EquationsPanel';
 import PreviewSwatch from './PreviewSwatch';
 import CollapsibleSection from './CollapsibleSection';
 import NamedColorMatch from './NamedColorMatch';
+import ThemeToggle from './ThemeToggle';
 
 export default function ColorPicker() {
   const [hsb, setHsb] = useState(() => {
@@ -235,12 +236,15 @@ export default function ColorPicker() {
     <div id="color-picker-root" className="mx-auto min-w-[1200px] max-w-[1400px] p-6">
       <div className="flex items-center justify-between mb-4">
         <h1 id="color-picker-title" className="text-2xl font-semibold tracking-tight text-primary">Color Taylor 🧵</h1>
-        <button
-          className="px-3 py-1.5 text-xs font-medium rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none"
-          onClick={() => { window.location.hash = '#/presentation'; }}
-        >
-          Intro
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            className="px-3 py-1.5 text-xs font-medium rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none"
+            onClick={() => { window.location.hash = '#/presentation'; }}
+          >
+            Intro
+          </button>
+          <ThemeToggle />
+        </div>
       </div>
 
       <div className="flex flex-col">
@@ -455,34 +459,7 @@ export default function ColorPicker() {
         </CollapsibleSection>
       </div>
 
-      {/* Learn section */}
-      <div className="mt-3 border border-input rounded-lg p-2.5 overflow-hidden" style={{ width: topRowWidth || 'auto' }}>
-        <CollapsibleSection id="learn-group" title="Learn" level="h2" defaultOpen={false}>
-          <div className="grid grid-cols-3 gap-3 text-sm text-muted-foreground" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
-            <div className="flex flex-col gap-2 border border-input rounded-lg p-2.5 min-w-0">
-              <h3 className="text-sm font-semibold text-foreground">RGB Color Model</h3>
-              <hr className="border-input" />
-              <p>Colors are made by mixing <span className="text-red-500 font-semibold">Red</span>, <span className="text-green-500 font-semibold">Green</span>, and <span className="font-semibold" style={{color: 'rgb(96,96,255)'}}>Blue</span> light (0-255 each).</p>
-              <p>The hexagon shows how these three channels combine as vectors, starting from the center and adding each channel's contribution.</p>
-              <p className="text-xs">All three at 0 = black. All at 255 = white. Equal values = gray.</p>
-            </div>
-            <div className="flex flex-col gap-2 border border-input rounded-lg p-2.5 min-w-0">
-              <h3 className="text-sm font-semibold text-foreground">HSB vs HSL</h3>
-              <hr className="border-input" />
-              <p><span className="font-semibold">HSB</span> (Hue, Saturation, Brightness): Brightness controls how much light is emitted. B=0 is always black, B=100 is the brightest version of the color.</p>
-              <p><span className="font-semibold">HSL</span> (Hue, Saturation, Lightness): Lightness is symmetric — L=0 is black, L=50 is the most vivid, L=100 is white.</p>
-              <p className="text-xs">HSB is used in design tools (Photoshop, Figma). HSL is used in CSS.</p>
-            </div>
-            <div className="flex flex-col gap-2 border border-input rounded-lg p-2.5 min-w-0">
-              <h3 className="text-sm font-semibold text-foreground">The Color Hexagon</h3>
-              <hr className="border-input" />
-              <p><span className="font-semibold">Angle</span> = Hue (0-360°). Red at 0°, Green at 120°, Blue at 240°, with Yellow, Cyan, Magenta between.</p>
-              <p><span className="font-semibold">Distance from center</span> = Saturation. Center is desaturated (gray/white), edges are fully saturated.</p>
-              <p className="text-xs">The dashed inner hexagon shows the brightness limit — vectors can't extend beyond it at the current brightness.</p>
-            </div>
-          </div>
-        </CollapsibleSection>
-      </div>
+      {/* Learn section — hidden for now */}
       </div>
     </div>
   );
