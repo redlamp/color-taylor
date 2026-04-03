@@ -13,6 +13,8 @@ import EquationsPanel from '../components/EquationsPanel';
 import ColorOperations from '../components/ColorOperations';
 import ColorHexagon from '../components/ColorHexagon';
 import NarrativeSlide from './slides/NarrativeSlide';
+import HsbCircle from './HsbCircle';
+import ColorPicker from '../components/ColorPicker';
 
 export default function PresentationStage({ slide, slideIndex }) {
   // ── Color state (persists across all slides) ──────────────────────
@@ -212,7 +214,7 @@ export default function PresentationStage({ slide, slideIndex }) {
       // Always pause briefly when changing slides to let cell tweens settle.
       // Longer delay when coming from static (swatch expand needs ~1.2s).
       // Shorter delay between interactive slides (just need CSS to settle).
-      const delay = prevWasStatic.current ? 1200 : 300;
+      const delay = prevWasStatic.current ? 1000 : 300;
       setRgbAnimActive(false); // pause current animation
       rgbAnimDelay.current = setTimeout(() => setRgbAnimActive(true), delay);
     }
@@ -328,8 +330,59 @@ export default function PresentationStage({ slide, slideIndex }) {
 
   const textColor = (rgb.r * 0.299 + rgb.g * 0.587 + rgb.b * 0.114) > 130 ? '#000' : '#fff';
 
+  // ── App reveal: mount hidden at small scale, then expand ──
+  const [appReady, setAppReady] = useState(false);  // true = painted at start scale
+  const [appExpanded, setAppExpanded] = useState(false); // true = scale up + fade in
+  useEffect(() => {
+    if (!has('color-taylor-app')) { setAppReady(false); setAppExpanded(false); return; }
+    // Step 1: render at start scale, invisible (no transition)
+    setAppReady(false);
+    setAppExpanded(false);
+    // Step 2: after paint, mark ready (still invisible)
+    const raf = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setAppReady(true);
+        // Step 3: after another frame, expand + fade in (with transition)
+        requestAnimationFrame(() => setAppExpanded(true));
+      });
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [slideIndex]);
+
+  // ── HSB Circle entrance animation (must be above ALL early returns) ──
+  const [circleIn, setCircleIn] = useState(false);
+  useEffect(() => {
+    if (!has('hsb-circle')) { setCircleIn(false); return; }
+    setCircleIn(false);
+    const id = requestAnimationFrame(() => requestAnimationFrame(() => setCircleIn(true)));
+    return () => cancelAnimationFrame(id);
+  }, [slideIndex]);
+
+  const showCircle = has('hsb-circle');
+
   // ── Narrative slides ──────────────────────────────────────────────
   if (isNarrative) return <NarrativeSlide {...(slide.props || {})} />;
+
+  // ── Color Taylor App reveal — scales up from presentation width ───
+  const appRef = useRef(null);
+  if (has('color-taylor-app')) {
+    // Measure actual app width to compute accurate start scale
+    const appWidth = appRef.current?.offsetWidth || 1150;
+    const startScale = PANEL_W / appWidth;
+    return (
+      <div
+        ref={appRef}
+        style={{
+          transform: `scale(${appExpanded ? 1 : startScale})`,
+          transformOrigin: 'center center',
+          opacity: appExpanded ? 1 : 0,
+          transition: appReady ? 'transform 0.6s ease-out, opacity 0.4s ease-out' : 'none',
+        }}
+      >
+        <ColorPicker />
+      </div>
+    );
+  }
 
   // ── Hexagon slides (different layout entirely) ────────────────────
   if (hasHexagon) {
@@ -361,27 +414,87 @@ export default function PresentationStage({ slide, slideIndex }) {
 
   // ── Panel slides (static grids + interactive color swatch) ────────
 
+  const showEquations = has('equations');
+  const halfW = (PANEL_W - 16) / 2;
+  const swatchH = showEquations ? 64 : PANEL_H;
+  const circleSize = showEquations ? PANEL_H - swatchH - 8 : PANEL_H - 24;
+
   return (
-    <div className="flex flex-col items-center">
-      {/* ── THE PERSISTENT PANEL ── */}
+    <div className="flex flex-col items-center" style={{ width: PANEL_W }}>
+      {/* Top area — relative container for absolute positioning */}
+      <div style={{ position: 'relative', width: '100%', height: PANEL_H }}>
+
+      {/* Equations panel — left column, bottom-aligned, auto height */}
+      <div style={{
+        position: 'absolute',
+        left: 0,
+        bottom: 0,
+        width: halfW,
+        opacity: showEquations ? 1 : 0,
+        transform: showEquations ? 'translateY(0)' : 'translateY(-30px)',
+        pointerEvents: showEquations ? 'auto' : 'none',
+        transition: 'opacity 0.5s ease-out 0.3s, transform 0.5s ease-out 0.3s',
+      }}>
+        {showEquations && (
+          <div className="presentation-equations" style={{ fontSize: '0.65rem' }}>
+            <style>{`.presentation-equations > div { display: flex !important; flex-direction: column !important; gap: 4px !important; grid-template-columns: none !important; }`}</style>
+            <EquationsPanel
+              rgb={rgb}
+              hue={hsb.h}
+              saturation={hsb.s}
+              brightness={hsb.b}
+              hsl={hsl}
+              blMode="brightness"
+            />
+          </div>
+        )}
+      </div>
+
+      {/* ── THE PERSISTENT PANEL (swatch) — tweens between positions, bottom-aligned ── */}
       <div
         style={{
-          width: PANEL_W,
-          height: PANEL_H,
+          position: 'absolute',
+          left: showEquations ? halfW + 16 : (showCircle ? 0 : 0),
+          bottom: 0,
+          width: showCircle ? halfW : PANEL_W,
+          height: swatchH,
           backgroundColor: '#1F2C33',
           borderRadius: 16,
           overflow: 'hidden',
-          position: 'relative',
+          transition: showEquations
+            ? 'height 0.4s ease-out, left 0.4s ease-out 0.3s, width 0.4s ease-out 0.3s'
+            : 'left 0.4s ease-out, width 0.4s ease-out, height 0.4s ease-out 0.3s',
         }}
       >
         {/* Animated grid — tweens between grid layouts and full swatch */}
-        {/* z:3 when leaving gradient so the expanding cell appears ABOVE the fading gradient */}
-        <div style={{ position: 'absolute', inset: 0, zIndex: leavingGradient ? 3 : 1 }}>
+        {/* z:3 when leaving gradient or intro so expanding cells appear ABOVE */}
+        <div style={{ position: 'absolute', inset: 0, zIndex: (leavingGradient || introExiting) ? 3 : 1 }}>
           <AnimatedGrid
             mode={panelMode}
             swatchColor={hex}
             enterColor={enterColor}
           />
+        </div>
+
+        {/* Millions gradient overlay — smooth R/G/B/Gray bars over thousands cells */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 2,
+            opacity: slide.props?.mode === 'millions' ? 1 : 0,
+            transition: slide.props?.mode === 'millions'
+              ? 'opacity 0.3s ease-out'
+              : 'opacity 0.3s ease-out',
+            display: 'flex',
+            flexDirection: 'column',
+            pointerEvents: 'none',
+          }}
+        >
+          <div style={{ flex: 1, background: 'linear-gradient(to right, #000000, #ff0000)' }} />
+          <div style={{ flex: 1, background: 'linear-gradient(to right, #000000, #00ff00)' }} />
+          <div style={{ flex: 1, background: 'linear-gradient(to right, #000000, #0000ff)' }} />
+          <div style={{ flex: 1, background: 'linear-gradient(to right, #000000, #ffffff)' }} />
         </div>
 
         {/* Smooth HSL gradient overlay — single opaque layer, fades in after cells settle */}
@@ -392,7 +505,7 @@ export default function PresentationStage({ slide, slideIndex }) {
             zIndex: 2,
             opacity: slide.props?.mode === 'hsl-gradient' ? 1 : 0,
             transition: slide.props?.mode === 'hsl-gradient'
-              ? 'opacity 0.8s ease-in 1.5s'
+              ? 'opacity 0.6s ease-in 0.8s'
               : 'opacity 0.3s ease-out',
             background: `
               linear-gradient(to bottom, white 0%, rgba(255,255,255,0) 50%, black 100%),
@@ -421,43 +534,60 @@ export default function PresentationStage({ slide, slideIndex }) {
               transition: 'all 0.7s ease-in-out',
               zIndex: 2,
               color: textColor,
+              containerType: 'inline-size',
             }}
           >
-            {/* Hex — always centered */}
-            <span className="font-mono font-bold tracking-wider" style={{ fontSize: '4.5rem' }}>{hex.toUpperCase()}</span>
+            {/* Hex — scales to fit container width */}
+            <span className="font-mono font-bold tracking-wider" style={{ fontSize: 'min(4.5rem, 12cqw)' }}>{hex.toUpperCase()}</span>
 
-            {/* RGB + HSB/HSL below hex — two columns */}
+            {/* RGB + HSB/HSL below hex — uses margin trick for centering */}
             <div style={{
-              display: 'flex',
+              position: 'relative',
               width: '100%',
               marginTop: 8,
             }}>
-              {/* Left column: RGB values — center aligned */}
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <span className="font-mono text-sm opacity-70 tabular-nums">
+              {/* RGB values — slides from center to left half */}
+              <div style={{
+                position: 'absolute',
+                top: 0,
+                left: slide.props?.showHsbInPreview ? 0 : '25%',
+                width: '50%',
+                display: 'flex', flexDirection: 'column', alignItems: 'center',
+                transition: 'left 0.4s ease-out',
+              }}>
+                <span className="font-mono text-sm font-bold opacity-70 tabular-nums whitespace-nowrap">
                   rgb({'\u2007\u2007'}{String(rgb.r).padStart(3, '\u2007')}, {'\u2007\u2007'}{String(rgb.g).padStart(3, '\u2007')}, {'\u2007\u2007'}{String(rgb.b).padStart(3, '\u2007')})
                 </span>
-                <span className="font-mono text-sm opacity-50">
+                <span className="font-mono text-sm font-bold opacity-50 whitespace-nowrap">
                   rgb({(rgb.r / 255).toFixed(3)}, {(rgb.g / 255).toFixed(3)}, {(rgb.b / 255).toFixed(3)})
                 </span>
               </div>
 
-              {/* Right column: HSB/HSL values — center aligned, tweens in */}
+              {/* HSB/HSL values — slides in from right */}
               <div style={{
-                flex: 1,
+                position: 'absolute',
+                top: 0,
+                left: '50%',
+                width: '50%',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
                 opacity: slide.props?.showHsbInPreview ? 1 : 0,
-                transform: slide.props?.showHsbInPreview ? 'translateX(0)' : 'translateX(20px)',
-                transition: 'all 0.7s ease-in-out',
+                transform: slide.props?.showHsbInPreview ? 'translateX(0)' : 'translateX(30px)',
+                transition: 'opacity 0.4s ease-out, transform 0.4s ease-out',
+                whiteSpace: 'nowrap',
               }}>
                 <span className="font-mono text-sm opacity-70 tabular-nums">
                   hsb({String(hsb.h).padStart(3, '\u2007')}, {String(hsb.s).padStart(3, '\u2007')}%, {String(hsb.b).padStart(3, '\u2007')}%)
                 </span>
-                <span className="font-mono text-sm opacity-50 tabular-nums">
+                <span className="font-mono text-sm font-bold opacity-50 tabular-nums">
                   hsl({String(hsl.h).padStart(3, '\u2007')}, {String(hsl.s).padStart(3, '\u2007')}%, {String(hsl.l).padStart(3, '\u2007')}%)
                 </span>
+              </div>
+              {/* Spacer for height */}
+              <div style={{ visibility: 'hidden' }}>
+                <span className="font-mono text-sm">placeholder</span>
+                <span className="font-mono text-sm">placeholder</span>
               </div>
             </div>
           </div>
@@ -467,6 +597,41 @@ export default function PresentationStage({ slide, slideIndex }) {
         {(slide.props?.mode === 'intro' || slide.props?.mode === 'acronyms' || introExiting) && (
           <IntroPanel mode={introExiting ? introExitMode.current : slide.props.mode} exiting={introExiting} />
         )}
+
+        {/* Hex value overlay inside swatch */}
+        {showCircle && (
+          <div style={{
+            position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 2, color: textColor, containerType: 'inline-size',
+          }}>
+            <span className="font-mono font-bold tracking-wider" style={{ fontSize: showEquations ? '8cqw' : '12cqw', transition: 'font-size 0.4s ease-out' }}>{hex.toUpperCase()}</span>
+          </div>
+        )}
+      </div>
+
+      {/* HSB Circle — right column, bottom-aligned above the swatch */}
+      <div style={{
+        position: 'absolute',
+        right: 0,
+        bottom: showEquations ? swatchH + 8 : 0,
+        width: showCircle ? halfW : 0,
+        height: circleSize,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        opacity: circleIn ? 1 : 0,
+        overflow: 'hidden',
+        transition: 'width 0.5s ease-out, opacity 0.4s ease-out 0.1s',
+      }}>
+        <HsbCircle
+          size={circleSize}
+          hue={hsb.h}
+          saturation={hsb.s}
+          brightness={hsb.b}
+          shape={slide.props?.hsbCircleShape || 'circle'}
+          onHsbChange={(newHsb) => { signalUserInteraction(); setHsbClear(p => ({ ...p, ...newHsb })); }}
+        />
+      </div>
       </div>
 
       {/* ── SLIDERS (always in DOM, tween in/out) ── */}
@@ -480,35 +645,42 @@ export default function PresentationStage({ slide, slideIndex }) {
           pointerEvents: hasSliders ? 'auto' : 'none',
         }}
       >
-        <div style={{
-          display: 'flex',
-          gap: 16,
-          justifyContent: has('hsb-sliders') ? 'stretch' : 'center',
-          transition: 'all 0.7s ease-out',
-        }}>
+        <div style={{ position: 'relative', minHeight: 120 }}>
+          {/* RGB sliders — centered when alone, slides to left when HSB appears */}
           {has('rgb-sliders') && (
             <div className="border border-input rounded-lg p-3" style={{
-              flex: has('hsb-sliders') ? 1 : '0 1 calc(50% - 8px)',
-              transition: 'all 0.7s ease-out',
+              position: 'absolute',
+              top: 0,
+              left: has('hsb-sliders') ? 0 : '25%',
+              width: 'calc(50% - 8px)',
+              transition: 'left 0.4s ease-out',
             }}>
               <h3 className="text-sm font-semibold mb-2">RGB</h3>
               <div className="flex flex-col gap-2">
-                <ColorSlider label="R" value={rgb.r} max={255} gradient={redChannelGradient} onChange={(v) => handleRgbChange('r', v)} hideStepper />
-                {!locked.includes('g') && <ColorSlider label="G" value={rgb.g} max={255} gradient={greenChannelGradient} onChange={(v) => handleRgbChange('g', v)} hideStepper />}
-                {!locked.includes('b') && <ColorSlider label="B" value={rgb.b} max={255} gradient={blueChannelGradient} onChange={(v) => handleRgbChange('b', v)} hideStepper />}
+                <ColorSlider label="R" value={rgb.r} max={255} gradient={redChannelGradient} onChange={(v) => handleRgbChange('r', v)} hideStepper={!showCircle} />
+                {!locked.includes('g') && <ColorSlider label="G" value={rgb.g} max={255} gradient={greenChannelGradient} onChange={(v) => handleRgbChange('g', v)} hideStepper={!showCircle} />}
+                {!locked.includes('b') && <ColorSlider label="B" value={rgb.b} max={255} gradient={blueChannelGradient} onChange={(v) => handleRgbChange('b', v)} hideStepper={!showCircle} />}
               </div>
             </div>
           )}
-          {has('hsb-sliders') && (
-            <div className="border border-input rounded-lg p-3" style={{ flex: 1 }}>
+          {/* HSB sliders — absolute positioned so it doesn't push RGB off-center */}
+          <div className="border border-input rounded-lg p-3" style={{
+            position: 'absolute',
+            right: 0,
+            top: 0,
+            width: 'calc(50% - 8px)',
+            opacity: has('hsb-sliders') ? 1 : 0,
+            transform: has('hsb-sliders') ? 'translateX(0)' : 'translateX(40px)',
+            transition: 'opacity 0.4s ease-out, transform 0.4s ease-out',
+            pointerEvents: has('hsb-sliders') ? 'auto' : 'none',
+          }}>
               <h3 className="text-sm font-semibold mb-2">HSB</h3>
               <div className="flex flex-col gap-2">
-                <ColorSlider label="H" value={hsb.h} max={360} wrap gradient={hueGradient(hsb.s, hsb.b, 'srgb')} onChange={(v) => setHsbClear(p => ({ ...p, h: v }))} hideStepper />
-                <ColorSlider label="S" value={hsb.s} max={100} gradient={saturationGradient(hsb.h, hsb.b, 'srgb')} onChange={(v) => setHsbClear(p => ({ ...p, s: v }))} hideStepper />
-                <ColorSlider label="B" value={hsb.b} max={100} gradient={brightnessGradient(hsb.h, hsb.s, 'srgb')} onChange={(v) => setHsbClear(p => ({ ...p, b: v }))} hideStepper />
+                <ColorSlider label="H" value={hsb.h} max={360} wrap gradient={hueGradient(hsb.s, hsb.b, 'srgb')} onChange={(v) => setHsbClear(p => ({ ...p, h: v }))} hideStepper={!showCircle} />
+                <ColorSlider label="S" value={hsb.s} max={100} gradient={saturationGradient(hsb.h, hsb.b, 'srgb')} onChange={(v) => setHsbClear(p => ({ ...p, s: v }))} hideStepper={!showCircle} />
+                <ColorSlider label="B" value={hsb.b} max={100} gradient={brightnessGradient(hsb.h, hsb.s, 'srgb')} onChange={(v) => setHsbClear(p => ({ ...p, b: v }))} hideStepper={!showCircle} />
               </div>
             </div>
-          )}
           {has('hex-input') && (
             <div className="border border-input rounded-lg p-3">
               <h3 className="text-sm font-semibold mb-2">Hex</h3>
@@ -520,12 +692,7 @@ export default function PresentationStage({ slide, slideIndex }) {
               </div>
             </div>
           )}
-          {has('equations') && (
-            <div className="border border-input rounded-lg p-3 col-span-2">
-              <h3 className="text-sm font-semibold mb-2">Equations</h3>
-              <EquationsPanel rgb={rgb} hue={hsb.h} saturation={hsb.s} brightness={hsb.b} hsl={hsl} blMode="brightness" />
-            </div>
-          )}
+          {/* Equations panel is now in the left column above the swatch */}
           {has('conversions') && (
             <div className="col-span-2">
               <ColorOperations hsb={hsb} onAnimateToHsb={animateToHsb} />
@@ -646,15 +813,9 @@ const ACRO_Y_OFFSET = -14; // compensation for lineHeight:1 vs cap-height trim
 function IntroPanel({ mode, exiting = false }) {
   const exp = mode === 'acronyms';
 
-  // Exit positions: RGB flies left off-panel, HSB flies right off-panel
-  const exitX = { rgb: -200, hsb: 826 }; // off-screen left and right
-
+  // When exiting, hold positions in place (BW cells will expand over them)
   function getLetterPos(l) {
-    if (exiting) {
-      const acroAbsY = ACRO_LETTER_Y + ACRO_Y_OFFSET + l.row * ROW_STEP;
-      return { x: exitX[l.group], y: acroAbsY };
-    }
-    if (exp) {
+    if (exiting || exp) {
       return {
         x: ACRO_LETTER_X[l.group] + (ACRO_LETTER_XOFF[l.id] || 0),
         y: ACRO_LETTER_Y + ACRO_Y_OFFSET + l.row * ROW_STEP,
@@ -664,10 +825,7 @@ function IntroPanel({ mode, exiting = false }) {
   }
 
   function getLabelPos(l) {
-    if (exiting) {
-      return { x: exitX[l.group] + 100, y: ACRO_LABEL_Y + l.row * ROW_STEP };
-    }
-    if (exp) {
+    if (exiting || exp) {
       return { x: ACRO_LABEL_X[l.group], y: ACRO_LABEL_Y + l.row * ROW_STEP };
     }
     const introXOff = INTRO_LABEL_XOFF[l.group][l.row];
@@ -684,7 +842,7 @@ function IntroPanel({ mode, exiting = false }) {
             position: 'absolute',
             left: pos.x,
             top: pos.y,
-            opacity: exiting ? 0 : 1,
+            opacity: 1,
             transition: TRANS_INTRO,
           }}>
             <span style={{
@@ -711,7 +869,7 @@ function IntroPanel({ mode, exiting = false }) {
             position: 'absolute',
             left: pos.x,
             top: pos.y,
-            opacity: (exp && !exiting) ? 1 : 0,
+            opacity: (exp || exiting) ? 1 : 0,
             transition: TRANS_INTRO,
             whiteSpace: 'nowrap',
           }}>
@@ -739,7 +897,7 @@ function IntroPanel({ mode, exiting = false }) {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        opacity: exiting ? 0 : (exp ? 0.3 : 0.6),
+        opacity: exp || exiting ? 0.3 : 0.6,
         transition: TRANS_INTRO,
         pointerEvents: 'none',
       }}>

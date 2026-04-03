@@ -68,7 +68,6 @@ function generateThousands(count = 64) {
 
 const GRID_256 = generate256();
 const THOUSANDS = generateThousands(64);
-const MILLIONS = generateThousands(128);
 
 // ── Layout generators ───────────────────────────────────────────────
 // Each cell: { id, color, x, y, w, h } — all in 0–1 normalized coords.
@@ -118,9 +117,11 @@ function getLayout(mode, swatchColor) {
         }))
       ));
 
-    // Millions: denser 4-bar layout (128 cols × 4 rows = 512 cells)
+    // Millions: same cells as thousands. Smooth gradient overlay handles the visual.
+    // This means thousands→millions has all cells matched (no fade-in needed),
+    // and millions→hsl-gradient uses the 256 thousands cells for the tween.
     case 'millions':
-      return assignIds(MILLIONS.flatMap((row, ri) =>
+      return assignIds(THOUSANDS.flatMap((row, ri) =>
         row.map((color, ci) => ({
           color, x: ci / row.length, y: ri / 4, w: 1 / row.length, h: 1 / 4,
         }))
@@ -353,38 +354,53 @@ export default function AnimatedGrid({ mode, swatchColor, enterColor }) {
         if (generation.current !== gen) return; // stale
         const pairMap = new Map(pairs.map(p => [p.key, p.to]));
 
-        setCells(prev => prev.map(cell => {
-          if (matchedKeys.has(cell.id)) {
-            const to = pairMap.get(cell.id);
-            return { ...cell, color: to.color, x: to.x, y: to.y, w: to.w, h: to.h, transition: (enteringSwatch || fromEmpty) ? SWATCH_EXPAND_TRANS : staggeredMove(to.color) };
-          }
-          if (removedKeys.has(cell.id)) {
-            return { ...cell, opacity: 0, transition: FADEOUT_TRANS };
-          }
-          return cell; // added cells stay hidden
-        }));
+        // Fast path: if no cells move, are added, or removed (e.g. thousands→millions),
+        // skip all animation timers and finish immediately.
+        const noMovement = removed.length === 0 && added.length === 0 &&
+          pairs.every(p => p.from.x === p.to.x && p.from.y === p.to.y && p.from.w === p.to.w && p.from.h === p.to.h);
 
-        // Step 3: New cells fade in — skip overlap delay if no matched cells to wait for
-        const totalMs = enteringSwatch ? SWATCH_EXPAND_TOTAL_MS : MOVE_TOTAL_MS;
-        const overlapMs = pairs.length > 0 ? totalMs * 0.7 : 0;
-        const fadeStagger = mode === 'hsl-gradient' ? 0.15 : STAGGER_MAX;
-        timers.current.push(setTimeout(() => {
-          if (generation.current !== gen) return; // stale
+        if (noMovement) {
+          isTransitioning.current = false;
+          setCells(toLayout.map(c => ({ ...c, opacity: 1, z: 1, transition: 'none' })));
+        } else {
           setCells(prev => prev.map(cell => {
-            if (addedKeys.has(cell.id)) {
-              return { ...cell, opacity: 1, transition: staggeredFade(cell.color, fadeStagger) };
+            if (matchedKeys.has(cell.id)) {
+              const to = pairMap.get(cell.id);
+              return { ...cell, color: to.color, x: to.x, y: to.y, w: to.w, h: to.h, transition: (enteringSwatch || fromEmpty) ? SWATCH_EXPAND_TRANS : staggeredMove(to.color) };
             }
-            return cell;
+            if (removedKeys.has(cell.id)) {
+              return { ...cell, opacity: 0, transition: FADEOUT_TRANS };
+            }
+            return cell; // added cells stay hidden
           }));
 
-          // Clean up after stagger + fade completes
-          const cleanupMs = (fadeStagger + parseFloat(FADE_DUR) + 0.1) * 1000;
+          // Allow reactive swatch updates once matched cells have finished their tween
+          const totalMs = enteringSwatch ? SWATCH_EXPAND_TOTAL_MS : MOVE_TOTAL_MS;
+          timers.current.push(setTimeout(() => {
+            if (generation.current !== gen) return;
+            isTransitioning.current = false;
+          }, totalMs));
+
+          // Step 3: New cells fade in — skip overlap delay if no matched cells to wait for
+          const overlapMs = pairs.length > 0 ? totalMs * 0.7 : 0;
+          const fadeStagger = mode === 'hsl-gradient' ? 0.15 : STAGGER_MAX;
           timers.current.push(setTimeout(() => {
             if (generation.current !== gen) return; // stale
-            isTransitioning.current = false;
-            setCells(toLayout.map(c => ({ ...c, opacity: 1, z: 1, transition: 'none' })));
-          }, cleanupMs));
-        }, overlapMs));
+            setCells(prev => prev.map(cell => {
+              if (addedKeys.has(cell.id)) {
+                return { ...cell, opacity: 1, transition: staggeredFade(cell.color, fadeStagger) };
+              }
+              return cell;
+            }));
+
+            // Clean up after stagger + fade completes
+            const cleanupMs = (fadeStagger + parseFloat(FADE_DUR) + 0.1) * 1000;
+            timers.current.push(setTimeout(() => {
+              if (generation.current !== gen) return; // stale
+              setCells(toLayout.map(c => ({ ...c, opacity: 1, z: 1, transition: 'none' })));
+            }, cleanupMs));
+          }, overlapMs));
+        }
       }, 0);
       timers.current.push(tid);
     });
