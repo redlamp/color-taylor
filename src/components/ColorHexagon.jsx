@@ -858,11 +858,12 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
         />
       </div>
 
-      {/* Color Operations */}
+      {/* Color Operations — hidden for now
       <ColorOperations
         hsb={{ h: hue, s: saturation, b: brightness }}
         onAnimateToHsb={onAnimateToHsb}
       />
+      */}
 
       {/* Recent Colors + Named Color Match */}
       <div className="w-full mt-2">
@@ -895,7 +896,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                   className="rounded-md cursor-pointer shrink-0 transition-shadow duration-200 ease-in-out"
                   style={{
                     width: 50,
-                    height: 70,
+                    height: 50,
                     backgroundColor: color || 'transparent',
                     boxShadow: i === selectedRecentIdx && color ? '0 0 0 2px white' : 'none',
                     border: i === selectedRecentIdx && color ? '2px solid transparent' : '1px solid var(--input)',

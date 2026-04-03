@@ -749,7 +749,7 @@ export default function PresentationStage({ slide, slideIndex }) {
 const TRANS_INTRO = 'all 0.7s cubic-bezier(0.4, 0, 0.2, 1)';
 const LETTER_SZ = '6rem';
 const LETTER_W = 900;
-const LETTER_FONT = "'DM Sans Variable', 'DM Sans', sans-serif";
+const LETTER_FONT = "'Barlow', sans-serif";
 const DROP = 'drop-shadow(3px 3px 0 rgba(0,0,0,0.9))';
 
 const R_STYLE = { color: '#FF4444', filter: DROP };

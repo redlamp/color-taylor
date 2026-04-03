@@ -55,6 +55,9 @@ export default function EquationsPanel({ rgb, hue, saturation, brightness, hsl, 
   const maxChLabel = maxChKey === 'r' ? R : maxChKey === 'g' ? G : B_;
   const chr = <T color={oc} title={`Chroma = ${delta}`}>chroma</T>;
   const H = <span className="text-foreground">H</span>;
+  const Hr = <T color={rc} title="Hue (red dominant)">H</T>;
+  const Hg = <T color={gc} title="Hue (green dominant)">H</T>;
+  const Hb = <T color={bc} title="Hue (blue dominant)">H</T>;
   const S = <span className="text-foreground">S</span>;
   const Bv = <span className="text-foreground">B</span>;
   const Lv = <span className="text-foreground">L</span>;
@@ -98,8 +101,8 @@ export default function EquationsPanel({ rgb, hue, saturation, brightness, hsl, 
   );
 
   return (
-    <div className="grid gap-4 w-full text-sm font-mono text-muted-foreground" style={{ gridTemplateColumns: '1.05fr 1.25fr 0.85fr 0.7fr' }}>
-      <div className="flex flex-col gap-1 border border-input rounded-lg p-2.5">
+    <div className="grid gap-2 w-full text-sm font-mono text-muted-foreground" style={{ gridTemplateColumns: '1fr 1.2fr 1fr 0.6fr' }}>
+      <div className="flex flex-col gap-1 border border-input rounded-lg p-1.5">
         <span className="text-sm font-semibold font-sans text-foreground">Variables</span>
         <hr className="border-input" />
         <div className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-1">
@@ -109,47 +112,47 @@ export default function EquationsPanel({ rgb, hue, saturation, brightness, hsl, 
               backgroundColor: rgbToHex(rgb.r, rgb.g, rgb.b),
               color: (rgb.r * 0.299 + rgb.g * 0.587 + rgb.b * 0.114) > 150 ? '#000' : '#fff',
             }}
-          >Color</span> =</span>
+          >Color</span>:</span>
           <span>rgb({rv}, {gv}, {bv})</span>
 
-          <span className="text-right"><T color={mc} title="Maximum RGB value">max</T> =</span>
+          <span className="text-right"><T color={mc} title="Maximum RGB value">max</T>:</span>
           <span>max({maxMinList(true)})</span>
 
-          <span className="text-right"><T color={cc} title="Minimum RGB value">min</T> =</span>
+          <span className="text-right"><T color={cc} title="Minimum RGB value">min</T>:</span>
           <span>min({maxMinList(false)})</span>
 
-          <span className="text-right">{chr} =</span>
-          <span>{maxT(pad(maxVal))} - {minT(pad(minVal))} = {chrT(pad(delta))}</span>
+          <span className="text-right">{chr}:</span>
+          <span>{maxT(pad(maxVal))}-{minT(pad(minVal))}={chrT(pad(delta))}</span>
         </div>
       </div>
-      <div className="flex flex-col gap-1 border border-input rounded-lg p-2.5">
+      <div className="flex flex-col gap-1 border border-input rounded-lg p-1.5">
         <Row
           left={<span className="text-sm font-semibold font-sans text-foreground">Hue</span>}
           right={`${hue}°`}
         />
         <hr className="border-input" />
         <span className="text-sm font-sans text-muted-foreground">Based on max RGB channel</span>
-        <span className={maxChKey === 'r' ? '' : 'opacity-30'}>{R}: {H} = 60(({gv}-{bv})/{chrT(pad(delta))} mod 6){maxChKey === 'r' && <> = <span className="text-foreground font-semibold">{hue}°</span></>}</span>
-        <span className={maxChKey === 'g' ? '' : 'opacity-30'}>{G}: {H} = 60(({bv}-{rv})/{chrT(pad(delta))} + 2){maxChKey === 'g' && <> = <span className="text-foreground font-semibold">{hue}°</span></>}</span>
-        <span className={maxChKey === 'b' ? '' : 'opacity-30'}>{B_}: {H} = 60(({rv}-{gv})/{chrT(pad(delta))} + 4){maxChKey === 'b' && <> = <span className="text-foreground font-semibold">{hue}°</span></>}</span>
+        <span className={maxChKey === 'r' ? '' : 'opacity-30'}>{Hr}: 60(({gv}-{bv})/{chrT(pad(delta))}%6){maxChKey === 'r' && <>=<span className="text-white underline" style={{ textDecorationColor: 'white', textUnderlineOffset: '2px', textDecorationThickness: '2px' }}>{hue}°</span></>}</span>
+        <span className={maxChKey === 'g' ? '' : 'opacity-30'}>{Hg}: 60(({bv}-{rv})/{chrT(pad(delta))}+2){maxChKey === 'g' && <>=<span className="text-white underline" style={{ textDecorationColor: 'white', textUnderlineOffset: '2px', textDecorationThickness: '2px' }}>{hue}°</span></>}</span>
+        <span className={maxChKey === 'b' ? '' : 'opacity-30'}>{Hb}: 60(({rv}-{gv})/{chrT(pad(delta))}+4){maxChKey === 'b' && <>=<span className="text-white underline" style={{ textDecorationColor: 'white', textUnderlineOffset: '2px', textDecorationThickness: '2px' }}>{hue}°</span></>}</span>
       </div>
-      <div className="flex flex-col gap-1 border border-input rounded-lg p-2.5">
+      <div className="flex flex-col gap-1 border border-input rounded-lg p-1.5">
         <Row
           left={<span className="text-sm font-semibold font-sans text-foreground">Saturation</span>}
           right={blMode === 'brightness' ? `${saturation}%` : `${hsl?.s ?? 0}%`}
         />
         <hr className="border-input" />
         {blMode === 'brightness' ? (
-          <span>{S} = {chrT(pad(delta))} / {maxT(pad(maxVal))} = <span className="text-foreground font-semibold">{saturation}%</span></span>
+          <span>{S}: {chrT(pad(delta))}/{maxT(pad(maxVal))}=<span className="text-white underline" style={{ textDecorationColor: 'white', textUnderlineOffset: '2px', textDecorationThickness: '2px' }}>{saturation}%</span></span>
         ) : (
           <>
-            <span>{Lv} = ({maxT(pad(maxVal))} + {minT(pad(minVal))}) / 2 = <span className="text-foreground font-semibold">{pad(Math.round(l))}</span></span>
-            <span><MCT title="Max Chroma">MC</MCT> = 1-|2·<span className="text-foreground font-bold">{pad(Math.round(l))}</span>/255-1| = <MCT title={`Max Chroma = ${mcVal}`}>{pad(mcVal)}</MCT></span>
-            <span>{S} = {chrT(pad(delta))} / <MCT title={`Max Chroma = ${mcVal}`}>{pad(mcVal)}</MCT> = <span className="text-foreground font-semibold">{hsl?.s ?? 0}%</span></span>
+            <span>{Lv}:{'\u2007'}({maxT(pad(maxVal))}+{minT(pad(minVal))})/2={pad(Math.round(l))}</span>
+            <span><MCT title="Max Chroma">MC</MCT>: 1-|2·<span className="text-foreground font-bold">{pad(Math.round(l))}</span>/255-1|=<MCT title={`Max Chroma = ${mcVal}`}>{pad(mcVal)}</MCT></span>
+            <span>{S}:{'\u2007'}{chrT(pad(delta))}/<MCT title={`Max Chroma = ${mcVal}`}>{pad(mcVal)}</MCT>=<span className="text-white underline" style={{ textDecorationColor: 'white', textUnderlineOffset: '2px', textDecorationThickness: '2px' }}>{hsl?.s ?? 0}%</span></span>
           </>
         )}
       </div>
-      <div className="flex flex-col gap-1 border border-input rounded-lg p-2.5">
+      <div className="flex flex-col gap-1 border border-input rounded-lg p-1.5">
         {blMode === 'brightness' ? (
           <>
             <Row
@@ -157,7 +160,7 @@ export default function EquationsPanel({ rgb, hue, saturation, brightness, hsl, 
               right={`${brightness}%`}
             />
             <hr className="border-input" />
-            <span>{Bv} = {maxT(pad(maxVal))} / 255 = <span className="text-foreground font-semibold">{brightness}%</span></span>
+            <span>{Bv}: {maxT(pad(maxVal))}/255=<span className="text-white underline" style={{ textDecorationColor: 'white', textUnderlineOffset: '2px', textDecorationThickness: '2px' }}>{brightness}%</span></span>
           </>
         ) : (
           <>
@@ -166,7 +169,7 @@ export default function EquationsPanel({ rgb, hue, saturation, brightness, hsl, 
               right={`${hsl?.l ?? 0}%`}
             />
             <hr className="border-input" />
-            <span>{Lv} = <span className="text-foreground font-bold">{pad(Math.round(l))}</span> / 255 = <span className="text-foreground font-semibold">{hsl?.l ?? 0}%</span></span>
+            <span>{Lv}: <span className="text-foreground font-bold">{pad(Math.round(l))}</span>/255=<span className="text-white underline" style={{ textDecorationColor: 'white', textUnderlineOffset: '2px', textDecorationThickness: '2px' }}>{hsl?.l ?? 0}%</span></span>
           </>
         )}
       </div>

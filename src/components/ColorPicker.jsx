@@ -232,7 +232,7 @@ export default function ColorPicker() {
   const showHsl = hslMode === 'hsl' || hslMode === 'both';
 
   return (
-    <div id="color-picker-root" className="mx-auto max-w-[1400px] p-6">
+    <div id="color-picker-root" className="mx-auto min-w-[1200px] max-w-[1400px] p-6">
       <div className="flex items-center justify-between mb-4">
         <h1 id="color-picker-title" className="text-2xl font-semibold tracking-tight text-primary">Color Taylor 🧵</h1>
         <button
