@@ -1,10 +1,10 @@
-import { useEffect } from 'react'
+import { useEffect, Suspense, lazy } from 'react'
 import ColorPicker from './components/ColorPicker'
 import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ThemeProvider, useTheme } from './hooks/useTheme'
 import { useHashRoute } from './hooks/useHashRoute'
-import PresentationShell from './presentation/PresentationShell'
+const PresentationShell = lazy(() => import('./presentation/PresentationShell'))
 
 function App() {
   return (
@@ -41,7 +41,9 @@ function AppInner() {
         }}
       />
       {isPresentation ? (
-        <PresentationShell navigate={navigate} />
+        <Suspense fallback={null}>
+          <PresentationShell navigate={navigate} />
+        </Suspense>
       ) : (
         <div className="relative min-h-svh flex items-center justify-center p-5">
           <ColorPicker />
