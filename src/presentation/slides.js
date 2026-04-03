@@ -23,7 +23,7 @@ export const slides = [
     type: 'static',
     component: 'MonitorPanel',
     props: { mode: 'bw' },
-    caption: 'But first, a little history. My first computer was a Macintosh Plus, which had exactly two colors, Black and White.',
+    caption: 'But first, a little history. My first computer was a Macintosh Plus,\nwhich had exactly two colors, Black and White.',
   },
   {
     id: '02-sixteen',
@@ -32,7 +32,7 @@ export const slides = [
     type: 'static',
     component: 'MonitorPanel',
     props: { mode: 'c16' },
-    caption: 'Then came sixteen colors. Still a pretty small world... but suddenly things felt a little more alive.',
+    caption: 'Then came sixteen colors. Still a pretty small world...\nbut suddenly things felt a little more alive.',
   },
   {
     id: '03-256',
@@ -41,7 +41,7 @@ export const slides = [
     type: 'static',
     component: 'MonitorPanel',
     props: { mode: 'c256' },
-    caption: '256 colors. Each one had a number, a fixed spot in a lookup table. You didn\'t describe the color, you referenced it.',
+    caption: '256 colors. Each one had a number, a fixed spot in a lookup table.\nYou didn\'t describe the color, you referenced it.',
   },
   {
     id: '04-thousands',
@@ -50,7 +50,7 @@ export const slides = [
     type: 'static',
     component: 'MonitorPanel',
     props: { mode: 'thousands' },
-    caption: 'Then thousands. Three channels - Red, Green, Blue - each a gradient from black to full intensity. That\'s where RGB came in.',
+    caption: 'Then thousands. Three channels - Red, Green, Blue - each a gradient from black to full intensity.\n_That\'s where RGB came in._',
   },
   {
     id: '05-millions',
@@ -59,7 +59,7 @@ export const slides = [
     type: 'static',
     component: 'MonitorPanel',
     props: { mode: 'millions' },
-    caption: 'Millions. 24 bits - 8 per channel. The Monitors panel still showed four bars, but the machine could now display any of 16.7 million colors.',
+    caption: 'Millions. 24 bits - 8 per channel.\nThe Monitors panel still showed four bars, but the machine could now display any of 16.7 million colors.',
   },
   {
     id: '06-spectrum',
@@ -67,7 +67,7 @@ export const slides = [
     type: 'static',
     component: 'MonitorPanel',
     props: { mode: 'hsl-gradient' },
-    caption: 'In reality, those millions of colors fill a continuous spectrum. Hue across, lightness top to bottom. Every color the screen can show.',
+    caption: 'In reality, those millions of colors fill a continuous spectrum.\nHue across, lightness top to bottom. Every color the screen can show.',
   },
   {
     id: '07-red',
@@ -79,7 +79,6 @@ export const slides = [
       lockedChannels: ['g', 'b'],
       initialHsb: { h: 0, s: 100, b: 100 },
       showRgbAnimate: true,
-
     },
     caption: 'Red is just a channel. Zero is black. 255 is full red. On its own, it\'s just a range.',
   },
@@ -92,7 +91,6 @@ export const slides = [
       visiblePanels: ['rgb-sliders', 'large-preview'],
       initialHsb: { h: 200, s: 80, b: 90 },
       showRgbAnimate: true,
-
     },
     caption: 'Same idea for green and blue. Three separate channels. Each one from black to its full value.\nPut them together and you get a color. It works. But it\'s not always obvious where you\'ll land.',
   },
@@ -107,7 +105,7 @@ export const slides = [
       initialHsb: { h: 200, s: 80, b: 90 },
       showRgbAnimate: true,
     },
-    caption: 'Hexadecimal values are used to describe colors as 6 character values. Each color channel has a value between 0-255, which can also be described as a float from 0 to 1.',
+    caption: 'Hexadecimal values are used to describe colors as 6 character values. Each color channel has a value between 0-255,\nwhich can also be described as a float from 0 to 1.',
   },
   {
     id: '09-hsb',
@@ -121,7 +119,7 @@ export const slides = [
       initialHsb: { h: 200, s: 80, b: 90 },
       showRgbAnimate: true,
     },
-    caption: 'Then I found HSB. Hue, Saturation, Brightness. Suddenly I could think in terms of: what color is it? How rich is it? How bright is it?',
+    caption: 'Then I found HSB. Hue, Saturation, Brightness.\nSuddenly I could think in terms of: what color is it? How rich is it? How bright is it?',
   },
   {
     id: '10-hsb-circle',
@@ -134,7 +132,7 @@ export const slides = [
       initialHsb: { h: 200, s: 80, b: 90 },
       showRgbAnimate: true,
     },
-    caption: 'The HSB color wheel felt more natural to me, and aligned with how color is often represented in color theory material.',
+    caption: 'The HSB color wheel felt more natural to me,\nand matched lessons from color theory.',
   },
   {
     id: '12-hexagon',
@@ -148,7 +146,7 @@ export const slides = [
       initialHsb: { h: 200, s: 80, b: 90 },
       showRgbAnimate: true,
     },
-    caption: 'And this is where it all clicks. The hexagon shows you where your color lives, and the RGB vectors show how each channel contributes.',
+    caption: 'This is where it all clicks. The hexagon shows you how colors come together.\nThe line segments show how each RGB color channel contributes.',
   },
   {
     id: '13-equations',
@@ -162,7 +160,7 @@ export const slides = [
       initialHsb: { h: 200, s: 80, b: 90 },
       showRgbAnimate: true,
     },
-    caption: 'Each color you choose tells you something about how it\'s constructed.\nThese equations show us how we can go from RGB to HSB.',
+    caption: 'Each color tells you something about how it\'s constructed.\nThese equations show the math to go from RGB to HSB.',
   },
   {
     id: '15-app',
@@ -173,6 +171,6 @@ export const slides = [
     props: {
       visiblePanels: ['color-taylor-app'],
     },
-    caption: 'Drag around the hexagon and sliders to watch the relationships update in realtime.',
+    caption: 'Now give the app a try yourself.',
   },
 ];

@@ -122,7 +122,7 @@ export default function EquationsPanel({ rgb, hue, saturation, brightness, hsl, 
           <span>min({maxMinList(false)})</span>
 
           <span className="text-right">{chr}:</span>
-          <span>{maxT(pad(maxVal))}-{minT(pad(minVal))}={chrT(pad(delta))}</span>
+          <span>{maxT(pad(maxVal))}-{minT(pad(minVal))} = {chrT(pad(delta))}</span>
         </div>
       </div>
       <div className="flex flex-col gap-1 border border-input rounded-lg p-1.5">
@@ -132,9 +132,9 @@ export default function EquationsPanel({ rgb, hue, saturation, brightness, hsl, 
         />
         <hr className="border-input" />
         <span className="text-sm font-sans text-muted-foreground">Based on max RGB channel</span>
-        <span className={maxChKey === 'r' ? '' : 'opacity-30'}>{Hr}: 60(({gv}-{bv})/{chrT(pad(delta))}%6){maxChKey === 'r' && <>=<span className="text-white underline" style={{ textDecorationColor: 'white', textUnderlineOffset: '2px', textDecorationThickness: '2px' }}>{hue}°</span></>}</span>
-        <span className={maxChKey === 'g' ? '' : 'opacity-30'}>{Hg}: 60(({bv}-{rv})/{chrT(pad(delta))}+2){maxChKey === 'g' && <>=<span className="text-white underline" style={{ textDecorationColor: 'white', textUnderlineOffset: '2px', textDecorationThickness: '2px' }}>{hue}°</span></>}</span>
-        <span className={maxChKey === 'b' ? '' : 'opacity-30'}>{Hb}: 60(({rv}-{gv})/{chrT(pad(delta))}+4){maxChKey === 'b' && <>=<span className="text-white underline" style={{ textDecorationColor: 'white', textUnderlineOffset: '2px', textDecorationThickness: '2px' }}>{hue}°</span></>}</span>
+        <span className={maxChKey === 'r' ? '' : 'opacity-30'}>{Hr}: 60(({gv}-{bv})/{chrT(pad(delta))}%6){maxChKey === 'r' && <> = <span className="text-white underline" style={{ textDecorationColor: 'white', textUnderlineOffset: '2px', textDecorationThickness: '2px' }}>{hue}°</span></>}</span>
+        <span className={maxChKey === 'g' ? '' : 'opacity-30'}>{Hg}: 60(({bv}-{rv})/{chrT(pad(delta))}+2){maxChKey === 'g' && <> = <span className="text-white underline" style={{ textDecorationColor: 'white', textUnderlineOffset: '2px', textDecorationThickness: '2px' }}>{hue}°</span></>}</span>
+        <span className={maxChKey === 'b' ? '' : 'opacity-30'}>{Hb}: 60(({rv}-{gv})/{chrT(pad(delta))}+4){maxChKey === 'b' && <> = <span className="text-white underline" style={{ textDecorationColor: 'white', textUnderlineOffset: '2px', textDecorationThickness: '2px' }}>{hue}°</span></>}</span>
       </div>
       <div className="flex flex-col gap-1 border border-input rounded-lg p-1.5">
         <Row
@@ -143,12 +143,12 @@ export default function EquationsPanel({ rgb, hue, saturation, brightness, hsl, 
         />
         <hr className="border-input" />
         {blMode === 'brightness' ? (
-          <span>{S}: {chrT(pad(delta))}/{maxT(pad(maxVal))}=<span className="text-white underline" style={{ textDecorationColor: 'white', textUnderlineOffset: '2px', textDecorationThickness: '2px' }}>{saturation}%</span></span>
+          <span>{S}: {chrT(pad(delta))}/{maxT(pad(maxVal))} = <span className="text-white underline" style={{ textDecorationColor: 'white', textUnderlineOffset: '2px', textDecorationThickness: '2px' }}>{saturation}%</span></span>
         ) : (
           <>
-            <span>{Lv}:{'\u2007'}({maxT(pad(maxVal))}+{minT(pad(minVal))})/2={pad(Math.round(l))}</span>
-            <span><MCT title="Max Chroma">MC</MCT>: 1-|2·<span className="text-foreground font-bold">{pad(Math.round(l))}</span>/255-1|=<MCT title={`Max Chroma = ${mcVal}`}>{pad(mcVal)}</MCT></span>
-            <span>{S}:{'\u2007'}{chrT(pad(delta))}/<MCT title={`Max Chroma = ${mcVal}`}>{pad(mcVal)}</MCT>=<span className="text-white underline" style={{ textDecorationColor: 'white', textUnderlineOffset: '2px', textDecorationThickness: '2px' }}>{hsl?.s ?? 0}%</span></span>
+            <span>{Lv}:{'\u2007'}({maxT(pad(maxVal))}+{minT(pad(minVal))})/2 = {pad(Math.round(l))}</span>
+            <span><MCT title="Max Chroma">MC</MCT>: 1-|2·<span className="text-foreground font-bold">{pad(Math.round(l))}</span>/255-1| = <MCT title={`Max Chroma = ${mcVal}`}>{pad(mcVal)}</MCT></span>
+            <span>{S}:{'\u2007'}{chrT(pad(delta))}/<MCT title={`Max Chroma = ${mcVal}`}>{pad(mcVal)}</MCT> = <span className="text-white underline" style={{ textDecorationColor: 'white', textUnderlineOffset: '2px', textDecorationThickness: '2px' }}>{hsl?.s ?? 0}%</span></span>
           </>
         )}
       </div>
@@ -160,7 +160,7 @@ export default function EquationsPanel({ rgb, hue, saturation, brightness, hsl, 
               right={`${brightness}%`}
             />
             <hr className="border-input" />
-            <span>{Bv}: {maxT(pad(maxVal))}/255=<span className="text-white underline" style={{ textDecorationColor: 'white', textUnderlineOffset: '2px', textDecorationThickness: '2px' }}>{brightness}%</span></span>
+            <span>{Bv}: {maxT(pad(maxVal))}/255 = <span className="text-white underline" style={{ textDecorationColor: 'white', textUnderlineOffset: '2px', textDecorationThickness: '2px' }}>{brightness}%</span></span>
           </>
         ) : (
           <>
@@ -169,7 +169,7 @@ export default function EquationsPanel({ rgb, hue, saturation, brightness, hsl, 
               right={`${hsl?.l ?? 0}%`}
             />
             <hr className="border-input" />
-            <span>{Lv}: <span className="text-foreground font-bold">{pad(Math.round(l))}</span>/255=<span className="text-white underline" style={{ textDecorationColor: 'white', textUnderlineOffset: '2px', textDecorationThickness: '2px' }}>{hsl?.l ?? 0}%</span></span>
+            <span>{Lv}: <span className="text-foreground font-bold">{pad(Math.round(l))}</span>/255 = <span className="text-white underline" style={{ textDecorationColor: 'white', textUnderlineOffset: '2px', textDecorationThickness: '2px' }}>{hsl?.l ?? 0}%</span></span>
           </>
         )}
       </div>

@@ -87,8 +87,8 @@ export default function PresentationShell({ navigate }) {
 
   useEffect(() => {
     if (!isLastSlide) { setChromeFading(false); return; }
-    // Start fading chrome immediately on last slide
-    const tid = setTimeout(() => setChromeFading(true), 500);
+    // Caption stays visible longer on last slide
+    const tid = setTimeout(() => setChromeFading(true), 6000);
     return () => clearTimeout(tid);
   }, [isLastSlide]);
 
@@ -141,8 +141,12 @@ export default function PresentationShell({ navigate }) {
       {slide.caption && (
         <div className="absolute bottom-16 left-0 right-0 pointer-events-none z-10"
           style={{ opacity: captionOpacity, transition: chromeTransition }}>
-          <p className="text-sm text-muted-foreground max-w-2xl mx-auto text-center leading-relaxed px-6 whitespace-pre-line">
-            {slide.caption}
+          <p className="text-lg text-muted-foreground max-w-5xl mx-auto text-center leading-relaxed px-6 whitespace-pre-line">
+            {slide.caption.split(/(_[^_]+_)/).map((part, i) =>
+              part.startsWith('_') && part.endsWith('_')
+                ? <em key={i}>{part.slice(1, -1)}</em>
+                : part
+            )}
           </p>
         </div>
       )}

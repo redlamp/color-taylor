@@ -777,21 +777,21 @@ const B_HSB_STYLE = {
 
 const LETTER_DATA = [
   // Intro: absolute position within panel. Acronyms: stacked column positions.
-  // introX = parent frame x + letter x within frame
-  { id: 'r',  char: 'R', style: R_STYLE, group: 'rgb', row: 0, introX: 71,  introXOff: 0,   label: 'Red' },
-  { id: 'g',  char: 'G', style: G_STYLE, group: 'rgb', row: 1, introX: 71,  introXOff: 72,  label: 'Green' },
-  { id: 'b1', char: 'B', style: B_STYLE, group: 'rgb', row: 2, introX: 71,  introXOff: 158, label: 'Blue' },
-  { id: 'h',  char: 'H', style: H_STYLE, group: 'hsb', row: 0, introX: 439, introXOff: 0,   label: 'Hue' },
-  { id: 's',  char: 'S', style: S_STYLE, group: 'hsb', row: 1, introX: 439, introXOff: 80,  label: 'Saturation' },
-  { id: 'b2', char: 'B', style: B_HSB_STYLE, group: 'hsb', row: 2, introX: 439, introXOff: 149, label: 'Brightness' },
+  // introX = parent frame x, introXOff = letter offset within group (tuned for Barlow)
+  { id: 'r',  char: 'R', style: R_STYLE, group: 'rgb', row: 0, introX: 85,  introXOff: 0,   label: 'Red' },
+  { id: 'g',  char: 'G', style: G_STYLE, group: 'rgb', row: 1, introX: 85,  introXOff: 60,  label: 'Green' },
+  { id: 'b1', char: 'B', style: B_STYLE, group: 'rgb', row: 2, introX: 85,  introXOff: 130, label: 'Blue' },
+  { id: 'h',  char: 'H', style: H_STYLE, group: 'hsb', row: 0, introX: 440, introXOff: 0,   label: 'Hue' },
+  { id: 's',  char: 'S', style: S_STYLE, group: 'hsb', row: 1, introX: 440, introXOff: 65,  label: 'Saturation' },
+  { id: 'b2', char: 'B', style: B_HSB_STYLE, group: 'hsb', row: 2, introX: 440, introXOff: 130, label: 'Brightness' },
 ];
 
 // Acronyms letter frame positions
 const ACRO_LETTER_X = { rgb: 60, hsb: 423 };
 // Letter x-offsets within the 80px-wide frame (centered per letter width)
 const ACRO_LETTER_XOFF = {
-  r: 9, g: 2, b1: 8.5,
-  h: 5, s: 10.5, b2: 8.5,
+  r: 10, g: 5, b1: 10,
+  h: 7, s: 12, b2: 10,
 };
 const ACRO_LETTER_Y = 40; // top of letter frame
 const ROW_STEP = 87; // y distance between letter rows
@@ -873,14 +873,7 @@ function IntroPanel({ mode, exiting = false }) {
             transition: TRANS_INTRO,
             whiteSpace: 'nowrap',
           }}>
-            <span style={{
-              fontSize: 24,
-              fontWeight: LETTER_W,
-              fontFamily: LETTER_FONT,
-              textTransform: 'uppercase',
-              color: '#fff',
-              lineHeight: '17px',
-            }}>
+            <span className="text-xl text-white">
               {l.label}
             </span>
           </div>
@@ -914,7 +907,7 @@ function IntroPanel({ mode, exiting = false }) {
         opacity: (exp || exiting) ? 0 : 1,
         transition: TRANS_INTRO,
       }}>
-        <span className="text-base text-muted-foreground">How does one become the other?</span>
+        <span className="text-xl text-muted-foreground">How does one become the other?</span>
       </div>
     </div>
   );
