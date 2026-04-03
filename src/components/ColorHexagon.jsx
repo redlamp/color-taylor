@@ -17,9 +17,9 @@ import ColorLabels from './hex/ColorLabels';
 import HueHandle from './hex/HueHandle';
 import BrightnessHandle from './hex/BrightnessHandle';
 
-const DEFAULT_RECENT = ['#0decaf', '#ff0000', '#ffff00', '#00ff00', '#00ffff', '#0000ff', '#ff00ff', '#ffffff', '#808080', '#000000'];
+const DEFAULT_RECENT = ['#ff0000', '#ffff00', '#00ff00', '#00ffff', '#0000ff', '#ff00ff', '#ffffff', '#808080', '#000000'];
 
-export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, onHoverHtmlColor }) {
+export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, animHolding, onHoverHtmlColor }) {
   const { isDark } = useTheme();
   const [hexOpen, setHexOpen] = useState(true);
   const [vectorMode, setVectorMode] = useState('rgb');
@@ -170,25 +170,49 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     }).filter(Boolean);
   }, [showHtmlOnHex, brightness]);
 
-  // Track recent colors — add to history when color settles for 500ms
+  // Highlight and add to recent — only after color has settled (1000ms).
+  // Exception: highlight immediately during animation hold phases.
   const currentHex = rgbToHex(rgb.r, rgb.g, rgb.b);
+  const addRecentTimer = useRef(null);
+
+  // Immediate highlight during animation holds
   useEffect(() => {
-    const timeout = setTimeout(() => {
+    if (animHolding) {
+      const matchIdx = recentColors.indexOf(currentHex);
+      setSelectedRecentIdx(matchIdx !== -1 ? matchIdx : null);
+    }
+  }, [animHolding, currentHex]);
+
+  useEffect(() => {
+    // Clear highlight when color starts changing (unless animation is holding)
+    if (!animHolding) setSelectedRecentIdx(null);
+
+    if (addRecentTimer.current) clearTimeout(addRecentTimer.current);
+    addRecentTimer.current = setTimeout(() => {
       if (skipNextRecent.current) {
         skipNextRecent.current = false;
         lastHex.current = currentHex;
         return;
       }
+      // Highlight if it matches an existing recent color
+      const matchIdx = recentColors.indexOf(currentHex);
+      if (matchIdx !== -1) {
+        setSelectedRecentIdx(matchIdx);
+        lastHex.current = currentHex;
+        return;
+      }
+      // New color — add to front
       if (currentHex !== lastHex.current) {
         lastHex.current = currentHex;
         setRecentColors((prev) => {
-          const filtered = prev.filter((c) => c !== currentHex);
-          return [currentHex, ...filtered].slice(0, 12);
+          if (prev.includes(currentHex)) return prev;
+          return [currentHex, ...prev].slice(0, 12);
         });
         setSelectedRecentIdx(0);
       }
-    }, 500);
-    return () => clearTimeout(timeout);
+    }, 1000);
+
+    return () => {};
   }, [currentHex]);
 
   const addToRecent = useCallback((hex) => {

@@ -25,6 +25,7 @@ import PreviewSwatch from './PreviewSwatch';
 import CollapsibleSection from './CollapsibleSection';
 import NamedColorMatch from './NamedColorMatch';
 import ThemeToggle from './ThemeToggle';
+import { Play, Pause } from 'lucide-react';
 
 export default function ColorPicker() {
   const [hsb, setHsb] = useState(() => {
@@ -32,7 +33,7 @@ export default function ColorPicker() {
       const saved = localStorage.getItem('color-taylor-hsb');
       if (saved) return JSON.parse(saved);
     } catch {}
-    return { h: 164, s: 94, b: 93 };
+    return { h: 327, s: 12, b: 98 };
   });
   const [hslMode, setHslMode] = useState('hsb');
   const [rgbGradientMode, setRgbGradientMode] = useState('channel');
@@ -158,7 +159,11 @@ export default function ColorPicker() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  // Ref-based animation stopper — called from user interaction handlers only
+  const colorAnimActiveRef = useRef(false);
+
   const setHsbAndClearOverride = useCallback((valOrFn) => {
+    if (colorAnimActiveRef.current) colorAnimActiveRef.current = 'stop';
     rgbOverride.current = null;
     setHsb(valOrFn);
   }, []);
@@ -213,6 +218,7 @@ export default function ColorPicker() {
   }, [hsb.h, hsb.s, hsb.b]);
 
   const handleRgbChange = useCallback((channel, value) => {
+    if (colorAnimActiveRef.current) colorAnimActiveRef.current = 'stop';
     setHsb((prev) => {
       const currentRgb = rgbOverride.current || hsbToRgb(prev.h, prev.s, prev.b);
       const newRgb = { ...currentRgb, [channel]: value };
@@ -222,6 +228,7 @@ export default function ColorPicker() {
   }, []);
 
   const handleHslChange = useCallback((channel, value) => {
+    if (colorAnimActiveRef.current) colorAnimActiveRef.current = 'stop';
     rgbOverride.current = null;
     setHsb((prev) => {
       const currentRgb = hsbToRgb(prev.h, prev.s, prev.b);
@@ -235,6 +242,90 @@ export default function ColorPicker() {
   const showHsb = hslMode === 'hsb' || hslMode === 'both';
   const showHsl = hslMode === 'hsl' || hslMode === 'both';
 
+  // ── Color cycle animation (same as presentation intro) ────────────
+  const [colorAnimActive, setColorAnimActive] = useState(false);
+  const [colorAnimHolding, setColorAnimHolding] = useState(false);
+  const colorAnimRaf = useRef(null);
+  colorAnimActiveRef.current = colorAnimActive;
+
+  // Matches the DEFAULT_RECENT colors from ColorHexagon
+  const COLOR_KEYFRAMES = [
+    { r: 255, g: 0,   b: 0   }, // #ff0000
+    { r: 255, g: 255, b: 0   }, // #ffff00
+    { r: 0,   g: 255, b: 0   }, // #00ff00
+    { r: 0,   g: 255, b: 255 }, // #00ffff
+    { r: 0,   g: 0,   b: 255 }, // #0000ff
+    { r: 255, g: 0,   b: 255 }, // #ff00ff
+    { r: 255, g: 255, b: 255 }, // #ffffff
+    { r: 128, g: 128, b: 128 }, // #808080
+    { r: 0,   g: 0,   b: 0   }, // #000000
+  ];
+  const ANIM_TRANSITION_DUR = 1200;
+  const ANIM_HOLD_DUR = 800;
+  const ANIM_STEP_DUR = ANIM_TRANSITION_DUR + ANIM_HOLD_DUR;
+  const ANIM_CYCLE_DUR = COLOR_KEYFRAMES.length * ANIM_STEP_DUR;
+
+  useEffect(() => {
+    if (!colorAnimActive) {
+      if (colorAnimRaf.current) cancelAnimationFrame(colorAnimRaf.current);
+      colorAnimRaf.current = null;
+      setColorAnimHolding(false);
+      return;
+    }
+
+    // Find nearest keyframe to current color
+    const curRgb = rgbOverride.current || hsbToRgb(hsbRef.current.h, hsbRef.current.s, hsbRef.current.b);
+    let bestIdx = 0, bestDist = Infinity;
+    for (let i = 0; i < COLOR_KEYFRAMES.length; i++) {
+      const kf = COLOR_KEYFRAMES[i];
+      const d = Math.abs(curRgb.r - kf.r) + Math.abs(curRgb.g - kf.g) + Math.abs(curRgb.b - kf.b);
+      if (d < bestDist) { bestDist = d; bestIdx = i; }
+    }
+    const timeOffset = bestIdx * ANIM_STEP_DUR;
+
+    const start = performance.now() - timeOffset;
+    let wasHolding = null;
+    const tick = (ts) => {
+      // Check if user interaction requested a stop
+      if (colorAnimActiveRef.current === 'stop') {
+        colorAnimActiveRef.current = false;
+        setColorAnimActive(false);
+        return;
+      }
+
+      const elapsed = ts - start;
+      const t = elapsed % ANIM_CYCLE_DUR;
+      const frameIdx = Math.floor(t / ANIM_STEP_DUR);
+      const frameT = t - frameIdx * ANIM_STEP_DUR;
+
+      const isHolding = frameT < ANIM_HOLD_DUR;
+      let r, g, b;
+      if (isHolding) {
+        ({ r, g, b } = COLOR_KEYFRAMES[frameIdx]);
+      } else {
+        const p = Math.sin(((frameT - ANIM_HOLD_DUR) / ANIM_TRANSITION_DUR) * Math.PI / 2);
+        const from = COLOR_KEYFRAMES[frameIdx];
+        const to = COLOR_KEYFRAMES[(frameIdx + 1) % COLOR_KEYFRAMES.length];
+        r = Math.round(from.r + (to.r - from.r) * p);
+        g = Math.round(from.g + (to.g - from.g) * p);
+        b = Math.round(from.b + (to.b - from.b) * p);
+      }
+
+      if (isHolding !== wasHolding) {
+        wasHolding = isHolding;
+        setColorAnimHolding(isHolding);
+      }
+
+      rgbOverride.current = { r, g, b };
+      setHsb(rgbToHsb(r, g, b));
+      colorAnimRaf.current = requestAnimationFrame(tick);
+    };
+    colorAnimRaf.current = requestAnimationFrame(tick);
+    return () => {
+      if (colorAnimRaf.current) cancelAnimationFrame(colorAnimRaf.current);
+    };
+  }, [colorAnimActive]);
+
   return (
     <div id="color-picker-root" className="mx-auto min-w-[1200px] max-w-[1400px] p-6">
       <div className="flex items-center justify-between mb-4">
@@ -245,6 +336,13 @@ export default function ColorPicker() {
             onClick={() => { window.location.hash = '#/presentation'; }}
           >
             Intro
+          </button>
+          <button
+            className="px-2 py-1 rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none"
+            onClick={() => setColorAnimActive(a => !a)}
+            aria-label={colorAnimActive ? 'Pause color animation' : 'Play color animation'}
+          >
+            {colorAnimActive ? <Pause className="size-4" /> : <Play className="size-4" />}
           </button>
           <ThemeToggle />
         </div>
@@ -260,17 +358,18 @@ export default function ColorPicker() {
             brightness={hsb.b}
             saturation={hsb.s}
             hsl={hsl}
-            onHueChange={(h) => { rgbOverride.current = null; setHsb((prev) => ({ ...prev, h })); }}
+            onHueChange={(h) => { if (colorAnimActiveRef.current) colorAnimActiveRef.current = 'stop'; rgbOverride.current = null; setHsb((prev) => ({ ...prev, h })); }}
             onRgbChange={handleRgbChange}
-            onHsbChange={(newHsb) => { rgbOverride.current = null; setHsb((prev) => ({ ...prev, ...newHsb })); }}
+            onHsbChange={(newHsb) => { if (colorAnimActiveRef.current) colorAnimActiveRef.current = 'stop'; rgbOverride.current = null; setHsb((prev) => ({ ...prev, ...newHsb })); }}
             onHslChange={handleHslChange}
-            onAnimateToHsb={animateToHsb}
+            onAnimateToHsb={(target) => { if (colorAnimActiveRef.current) colorAnimActiveRef.current = 'stop'; animateToHsb(target); }}
             blMode={blMode}
             onBlModeChange={setBlMode}
             colorSpace={colorSpace}
             onColorSpaceChange={setColorSpace}
             hoverMatchRgb={hoverMatchRgb}
             showHtmlOnHex={showHtmlOnHex}
+            animHolding={colorAnimHolding}
             onHoverHtmlColor={setHoveredHtmlColor}
           />
         </div>
@@ -411,7 +510,7 @@ export default function ColorPicker() {
         </CollapsibleSection>
 
         {/* Hex & HTML Colors */}
-        <CollapsibleSection id="hex-group" title="Hex">
+        <CollapsibleSection id="hex-group" title="Hex and HTML Colors">
           <div className="flex flex-col gap-3">
             <div className="flex gap-3 items-stretch">
               <PreviewSwatch hex={hex} />
