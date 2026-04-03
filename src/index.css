@@ -80,11 +80,9 @@ h1, h2 {
 
 .font-mono, code, pre { font-size: 0.85em; }
 
-/* Override Tailwind text sizes */
-.text-xs { font-size: 0.8rem !important; }
-.text-sm { font-size: 0.9rem !important; }
-
 @theme inline {
+  --font-size-xs: 0.8rem;
+  --font-size-sm: 0.9rem;
   --font-heading: var(--font-sans);
   --font-sans: 'Barlow', sans-serif;
   --font-mono: 'Share Tech Mono', ui-monospace, Consolas, monospace;

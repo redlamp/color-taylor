@@ -711,32 +711,6 @@ export default function PresentationStage({ slide, slideIndex }) {
               />
               <span className="text-sm text-muted-foreground">Animate HSB</span>
             </label>
-            {/* Period sliders — hidden for now
-            <div className="grid grid-cols-3 gap-4">
-              {[
-                { key: 'h', label: 'H', color: 'hsl(0,70%,60%)' },
-                { key: 's', label: 'S', color: 'hsl(120,70%,60%)' },
-                { key: 'b', label: 'B', color: 'hsl(240,70%,60%)' },
-              ].map(({ key, label, color }) => (
-                <div key={key} className="flex flex-col gap-1">
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span className="font-semibold" style={{ color }}>{label}</span>
-                    <span className="tabular-nums">{(sinePeriods[key] / 1000).toFixed(1)}s</span>
-                  </div>
-                  <input
-                    type="range"
-                    min={500}
-                    max={15000}
-                    step={100}
-                    value={sinePeriods[key]}
-                    onChange={(e) => setSinePeriods(p => ({ ...p, [key]: Number(e.target.value) }))}
-                    className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
-                    style={{ accentColor: color }}
-                  />
-                </div>
-              ))}
-            </div>
-            */}
           </div>
         )}
       </div>
