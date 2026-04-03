@@ -13,8 +13,17 @@ export default function CollapsibleSection({ id, title, level = 'h3', defaultOpe
   return (
     <div id={id} className={`flex flex-col gap-1.5 ${level === 'h3' ? 'border border-input rounded-lg p-2.5' : ''} ${extraClass || ''}`}>
       <div
+        role="button"
+        tabIndex={0}
+        aria-expanded={open}
         className="flex items-center gap-1.5 cursor-pointer select-none"
         onClick={() => setOpen((o) => !o)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setOpen((o) => !o);
+          }
+        }}
       >
         <ChevronRight
           className={`!size-4 text-muted-foreground transition-transform duration-200 ${open ? 'rotate-90' : ''}`}

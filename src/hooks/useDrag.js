@@ -21,11 +21,16 @@ export default function useDrag(onDrag) {
     const onPointerUp = () => {
       dragging.current = false;
     };
+    const onPointerLeave = () => {
+      dragging.current = false;
+    };
     window.addEventListener('pointermove', onPointerMove);
     window.addEventListener('pointerup', onPointerUp);
+    document.documentElement.addEventListener('pointerleave', onPointerLeave);
     return () => {
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerup', onPointerUp);
+      document.documentElement.removeEventListener('pointerleave', onPointerLeave);
     };
   }, [onDrag]);
 

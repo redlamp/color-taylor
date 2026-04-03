@@ -25,12 +25,27 @@ export default function SBBox({ hue, saturation, brightness, onChange }) {
       role="slider"
       aria-label="Saturation and brightness"
       aria-valuetext={`Saturation ${saturation}%, Brightness ${brightness}%`}
+      tabIndex={0}
       className="relative w-[255px] h-[150px] shrink-0 overflow-hidden cursor-crosshair select-none"
       ref={ref}
       style={{ backgroundColor: hueColor }}
       onMouseDown={(e) => {
         startDrag();
         update(e.clientX, e.clientY);
+      }}
+      onKeyDown={(e) => {
+        const step = e.shiftKey ? 5 : 1;
+        let s = saturation;
+        let b = brightness;
+        switch (e.key) {
+          case 'ArrowRight': s = Math.min(100, s + step); break;
+          case 'ArrowLeft':  s = Math.max(0, s - step);   break;
+          case 'ArrowUp':    b = Math.min(100, b + step);  break;
+          case 'ArrowDown':  b = Math.max(0, b - step);    break;
+          default: return;
+        }
+        e.preventDefault();
+        onChange(s, b);
       }}
     >
       <div id="sb-white-gradient" className="absolute inset-0 bg-gradient-to-r from-white to-transparent" />

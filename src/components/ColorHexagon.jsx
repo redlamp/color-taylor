@@ -16,11 +16,10 @@ import BrightnessBar from './hex/BrightnessBar';
 import ColorLabels from './hex/ColorLabels';
 import HueHandle from './hex/HueHandle';
 import BrightnessHandle from './hex/BrightnessHandle';
-import ColorOperations from './ColorOperations';
 
 const DEFAULT_RECENT = ['#0decaf', '#ff0000', '#ffff00', '#00ff00', '#00ffff', '#0000ff', '#ff00ff', '#ffffff', '#808080', '#000000'];
 
-export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, onColorSpaceChange, hoverMatchRgb, showHtmlOnHex, onHoverHtmlColor }) {
+export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, onHoverHtmlColor }) {
   const { isDark } = useTheme();
   const [hexOpen, setHexOpen] = useState(true);
   const [vectorMode, setVectorMode] = useState('rgb');

@@ -32,6 +32,7 @@ export default function HexInput({ hex, onChange }) {
   return (
     <Input
       type="text"
+      aria-label="Hex color value"
       value={text}
       onChange={handleChange}
       onFocus={(e) => { setFocused(true); e.target.select(); }}
