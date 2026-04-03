@@ -1,4 +1,5 @@
 import { useEffect, Suspense, lazy } from 'react'
+import ErrorBoundary from './components/ErrorBoundary'
 import ColorPicker from './components/ColorPicker'
 import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
@@ -9,9 +10,11 @@ const PresentationShell = lazy(() => import('./presentation/PresentationShell'))
 function App() {
   return (
     <ThemeProvider>
-      <TooltipProvider delayDuration={0}>
-        <AppInner />
-      </TooltipProvider>
+      <ErrorBoundary>
+        <TooltipProvider delayDuration={0}>
+          <AppInner />
+        </TooltipProvider>
+      </ErrorBoundary>
     </ThemeProvider>
   )
 }
