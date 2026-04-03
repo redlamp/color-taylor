@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
-import { hsbToRgb, rgbToHsb, rgbToHex, rgbToHsl } from '../utils/colorConversions';
+import { hsbToRgb, rgbToHsb, rgbToHex, rgbToHsl, getContrastTextColor } from '../utils/colorConversions';
 import {
   hueGradient, saturationGradient, brightnessGradient,
   redChannelGradient, greenChannelGradient, blueChannelGradient,
@@ -328,7 +328,7 @@ export default function PresentationStage({ slide, slideIndex }) {
     return rgbToHex(result.r, result.g, result.b);
   }, [slide.props?.initialHsb]);
 
-  const textColor = (rgb.r * 0.299 + rgb.g * 0.587 + rgb.b * 0.114) > 130 ? '#000' : '#fff';
+  const textColor = getContrastTextColor(rgb.r, rgb.g, rgb.b);
 
   // ── App reveal: mount hidden at small scale, then expand ──
   const [appReady, setAppReady] = useState(false);  // true = painted at start scale

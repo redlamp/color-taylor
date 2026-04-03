@@ -3,9 +3,9 @@ import { useRef, useEffect, useCallback } from 'react';
 /**
  * Shared drag hook. Returns { dragging, startDrag } where:
  * - dragging: ref boolean (true while dragging)
- * - startDrag(): call on mousedown to begin
+ * - startDrag(): call on pointerdown to begin
  *
- * @param {function} onDrag - called with MouseEvent on each mousemove while dragging
+ * @param {function} onDrag - called with PointerEvent on each pointermove while dragging
  */
 export default function useDrag(onDrag) {
   const dragging = useRef(false);
@@ -15,22 +15,17 @@ export default function useDrag(onDrag) {
   }, []);
 
   useEffect(() => {
-    const onMouseMove = (e) => {
+    const onPointerMove = (e) => {
       if (dragging.current) onDrag(e);
     };
-    const onMouseUp = () => {
+    const onPointerUp = () => {
       dragging.current = false;
     };
-    const onMouseLeave = () => {
-      dragging.current = false;
-    };
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseup', onMouseUp);
-    document.documentElement.addEventListener('mouseleave', onMouseLeave);
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
     return () => {
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseup', onMouseUp);
-      document.documentElement.removeEventListener('mouseleave', onMouseLeave);
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
     };
   }, [onDrag]);
 

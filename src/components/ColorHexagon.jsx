@@ -540,45 +540,6 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
         <h2 className="text-lg font-semibold tracking-tight text-foreground">Color Hexagon</h2>
       </div>
       {hexOpen && <><div className="flex items-end gap-3">
-        {/* Segment Order tab - hidden for now, may bring back later
-        <div className="flex flex-col items-center gap-0.5">
-          <span className="text-[10px] text-muted-foreground">Segment Order</span>
-          <Tabs value={vectorMode} onValueChange={setVectorMode}>
-            <TabsList>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span><TabsTrigger value="rgb" className="w-16">RGB</TabsTrigger></span>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" sideOffset={8} className="text-xs font-semibold">Red, Green, Blue</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span>
-                    <TabsTrigger value="desc" className="w-16">
-                      <svg width="14" height="12" viewBox="0 0 14 12" className="fill-current">
-                        <polygon points="0,0 0,12 14,12" />
-                      </svg>
-                    </TabsTrigger>
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" sideOffset={8} className="text-xs font-semibold">Big to Small</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span>
-                    <TabsTrigger value="asc" className="w-16">
-                      <svg width="14" height="12" viewBox="0 0 14 12" className="fill-current">
-                        <polygon points="0,12 14,12 14,0" />
-                      </svg>
-                    </TabsTrigger>
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" sideOffset={8} className="text-xs font-semibold">Small to Big</TooltipContent>
-              </Tooltip>
-            </TabsList>
-          </Tabs>
-        </div>
-        */}
         <div className="flex flex-col items-center gap-0.5">
           <span className="text-[10px] text-muted-foreground">Handles</span>
           <Tabs value={dragMode} onValueChange={setDragMode}>
@@ -598,27 +559,6 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             </TabsList>
           </Tabs>
         </div>
-        {/* Color Space tab - hidden for now, may bring back later
-        <div className="flex flex-col items-center gap-0.5">
-          <span className="text-[10px] text-muted-foreground">Color Space</span>
-          <Tabs value={colorSpace} onValueChange={onColorSpaceChange}>
-            <TabsList>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span><TabsTrigger value="srgb" className="w-16">sRGB</TabsTrigger></span>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" sideOffset={8} className="text-xs font-semibold">Standard RGB (gamma corrected)</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span><TabsTrigger value="linear" className="w-16">Linear</TabsTrigger></span>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" sideOffset={8} className="text-xs font-semibold">Linear RGB (physically accurate)</TooltipContent>
-              </Tooltip>
-            </TabsList>
-          </Tabs>
-        </div>
-        */}
         <div className="flex flex-col items-center gap-0.5">
           <span className="text-[10px] text-muted-foreground">Luminance</span>
           <Tabs value={blMode} onValueChange={onBlModeChange}>
@@ -857,13 +797,6 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           }}
         />
       </div>
-
-      {/* Color Operations — hidden for now
-      <ColorOperations
-        hsb={{ h: hue, s: saturation, b: brightness }}
-        onAnimateToHsb={onAnimateToHsb}
-      />
-      */}
 
       {/* Recent Colors + Named Color Match */}
       <div className="w-full mt-2">

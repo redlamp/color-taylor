@@ -209,3 +209,8 @@ export function difference(r1, g1, b1, r2, g2, b2) {
     Math.abs(b1 - b2),
   );
 }
+
+/** Returns black or white text color for readable contrast against an RGB background */
+export function getContrastTextColor(r, g, b, threshold = 130) {
+  return (r * 0.299 + g * 0.587 + b * 0.114) > threshold ? '#000' : '#fff';
+}

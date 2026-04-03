@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { toast } from 'sonner';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { getContrastTextColor } from '../utils/colorConversions';
 
 export default function PreviewSwatch({ hex }) {
   const handleClick = useCallback(() => {
@@ -13,7 +14,7 @@ export default function PreviewSwatch({ hex }) {
     const r = parseInt(hex.slice(1, 3), 16) || 0;
     const g = parseInt(hex.slice(3, 5), 16) || 0;
     const b = parseInt(hex.slice(5, 7), 16) || 0;
-    return (r * 0.299 + g * 0.587 + b * 0.114) > 150 ? '#000' : '#fff';
+    return getContrastTextColor(r, g, b, 150);
   })();
 
   return (
