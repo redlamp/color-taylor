@@ -98,7 +98,7 @@ export default function EquationsPanel({ rgb, hue, saturation, brightness, hsl, 
   );
 
   return (
-    <div className="grid gap-4 w-full text-sm font-mono text-muted-foreground" style={{ gridTemplateColumns: '0.9fr 1.35fr 1fr 0.8fr' }}>
+    <div className="grid gap-4 w-full text-sm font-mono text-muted-foreground" style={{ gridTemplateColumns: '1.05fr 1.25fr 0.85fr 0.7fr' }}>
       <div className="flex flex-col gap-1 border border-input rounded-lg p-2.5">
         <span className="text-sm font-semibold font-sans text-foreground">Variables</span>
         <hr className="border-input" />
