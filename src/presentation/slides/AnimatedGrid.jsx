@@ -47,6 +47,27 @@ function assignIds(cells) {
   });
 }
 
+// For an unmatched HSL cell, compute a "birth" position within the millions bars
+// based on the cell's dominant RGB channel. The cell appears to emerge from the
+// relevant color bar before tweening to its HSL grid position.
+function getMillionsBirthPos(color) {
+  const raw = color.replace('#', '');
+  const r = parseInt(raw.slice(0, 2), 16);
+  const g = parseInt(raw.slice(2, 4), 16);
+  const b = parseInt(raw.slice(4, 6), 16);
+  const max = Math.max(r, g, b);
+  const lum = (r + g + b) / 3;
+  // Pick the bar row based on dominant channel
+  let barRow;
+  if (max === r && r > g && r > b) barRow = 0;      // red bar
+  else if (max === g && g > r && g > b) barRow = 1;  // green bar
+  else if (max === b) barRow = 2;                     // blue bar
+  else barRow = 3;                                    // gray bar
+  // X position based on luminance (dark left, bright right)
+  const x = lum / 255;
+  return { x, y: barRow / 4 + 0.125, w: 1 / 64, h: 1 / 8 };
+}
+
 function getLayout(mode, swatchColor) {
   switch (mode) {
     case 'intro':
@@ -81,8 +102,6 @@ function getLayout(mode, swatchColor) {
       ));
 
     // Millions: same cells as thousands. Smooth gradient overlay handles the visual.
-    // This means thousands→millions has all cells matched (no fade-in needed),
-    // and millions→hsl-gradient uses the 256 thousands cells for the tween.
     case 'millions':
       return assignIds(THOUSANDS.flatMap((row, ri) =>
         row.map((color, ci) => ({
@@ -286,6 +305,30 @@ export default function AnimatedGrid({ mode, swatchColor, enterColor }) {
       removed = [];
     }
 
+    // Enrich millions↔hsl-gradient transitions: convert "added" cells into
+    // matched pairs with birth positions in the millions bars, so they tween
+    // into place instead of just fading in.
+    const isMillionsToGradient = fromMode === 'millions' && mode === 'hsl-gradient';
+    const isGradientToMillions = fromMode === 'hsl-gradient' && mode === 'millions';
+    if (isMillionsToGradient && added.length > 0) {
+      const enriched = added.map(c => ({
+        key: `seed:${c.id}`,
+        from: { ...c, ...getMillionsBirthPos(c.color), opacity: 0 },
+        to: c,
+      }));
+      pairs.push(...enriched);
+      added = [];
+    }
+    if (isGradientToMillions && removed.length > 0) {
+      const enriched = removed.map(c => ({
+        key: `seed:${c.id}`,
+        from: c,
+        to: { ...c, ...getMillionsBirthPos(c.color), opacity: 0 },
+      }));
+      pairs.push(...enriched);
+      removed = [];
+    }
+
     const matchedKeys = new Set(pairs.map(p => p.key));
     const removedKeys = new Set(removed.map(c => c.id));
     const addedKeys = new Set(added.map(c => c.id));
@@ -295,7 +338,7 @@ export default function AnimatedGrid({ mode, swatchColor, enterColor }) {
     setCells([
       ...pairs.map(p => ({
         id: p.key, color: p.from.color, x: p.from.x, y: p.from.y, w: p.from.w, h: p.from.h,
-        opacity: 1, z: 2, transition: 'none',
+        opacity: p.from.opacity ?? 1, z: 2, transition: 'none',
       })),
       ...removed.map(c => ({
         id: c.id, color: c.color, x: c.x, y: c.y, w: c.w, h: c.h,
@@ -329,7 +372,7 @@ export default function AnimatedGrid({ mode, swatchColor, enterColor }) {
           setCells(prev => prev.map(cell => {
             if (matchedKeys.has(cell.id)) {
               const to = pairMap.get(cell.id);
-              return { ...cell, color: to.color, x: to.x, y: to.y, w: to.w, h: to.h, transition: (enteringSwatch || fromEmpty) ? SWATCH_EXPAND_TRANS : staggeredMove(to.color) };
+              return { ...cell, color: to.color, x: to.x, y: to.y, w: to.w, h: to.h, opacity: to.opacity ?? 1, transition: (enteringSwatch || fromEmpty) ? SWATCH_EXPAND_TRANS : staggeredMove(to.color) };
             }
             if (removedKeys.has(cell.id)) {
               return { ...cell, opacity: 0, transition: FADEOUT_TRANS };

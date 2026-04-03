@@ -241,7 +241,7 @@ export default function ColorPicker() {
         <h1 id="color-picker-title" className="text-2xl font-semibold tracking-tight text-primary">Color Taylor 🧵</h1>
         <div className="flex items-center gap-2">
           <button
-            className="px-3 py-1.5 text-xs font-medium rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none"
+            className="px-3 py-1 text-sm font-medium rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none"
             onClick={() => { window.location.hash = '#/presentation'; }}
           >
             Intro
@@ -410,38 +410,27 @@ export default function ColorPicker() {
           </div>
         </CollapsibleSection>
 
-        {/* Hex */}
+        {/* Hex & HTML Colors */}
         <CollapsibleSection id="hex-group" title="Hex">
-          <div className="flex gap-3 items-stretch">
-            <PreviewSwatch hex={hex} />
-            <div className="flex-1 min-w-0">
-              <HexInput
-                hex={hex}
-                onChange={(parsed) => { rgbOverride.current = null; setHsb(rgbToHsb(parsed.r, parsed.g, parsed.b)); }}
-              />
+          <div className="flex flex-col gap-3">
+            <div className="flex gap-3 items-stretch">
+              <PreviewSwatch hex={hex} />
+              <div className="flex-1 min-w-0">
+                <HexInput
+                  hex={hex}
+                  onChange={(parsed) => { rgbOverride.current = null; setHsb(rgbToHsb(parsed.r, parsed.g, parsed.b)); }}
+                />
+              </div>
             </div>
+            <NamedColorMatch
+              rgb={rgb}
+              onAnimateToHsb={animateToHsb}
+              onHoverMatch={setHoverMatchRgb}
+              hoveredHtmlColor={hoveredHtmlColor}
+              showOnHex={showHtmlOnHex}
+              onShowOnHexChange={setShowHtmlOnHex}
+            />
           </div>
-        </CollapsibleSection>
-
-        {/* HTML Colors */}
-        <CollapsibleSection
-          id="html-colors-group"
-          title="HTML Colors"
-          headerRight={
-            <Tabs value={showHtmlOnHex ? 'show' : 'hide'} onValueChange={(v) => setShowHtmlOnHex(v === 'show')}>
-              <TabsList>
-                <TabsTrigger value="show" className="w-12">Show</TabsTrigger>
-                <TabsTrigger value="hide" className="w-12">Hide</TabsTrigger>
-              </TabsList>
-            </Tabs>
-          }
-        >
-          <NamedColorMatch
-            rgb={rgb}
-            onAnimateToHsb={animateToHsb}
-            onHoverMatch={setHoverMatchRgb}
-            hoveredHtmlColor={hoveredHtmlColor}
-          />
         </CollapsibleSection>
           </div>
         </CollapsibleSection>

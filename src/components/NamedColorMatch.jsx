@@ -2,14 +2,14 @@ import { useState, useMemo, useRef } from 'react';
 import { findNearestNamedColor } from '../utils/namedColors';
 import NAMED_COLORS from '../utils/namedColors';
 import { rgbToHex, rgbToHsb } from '../utils/colorConversions';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
-import { Minus, Plus, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Command, CommandInput, CommandList, CommandEmpty, CommandItem } from '@/components/ui/command';
 
-export default function NamedColorMatch({ rgb, onAnimateToHsb, onHoverMatch, hoveredHtmlColor }) {
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
+export default function NamedColorMatch({ rgb, onAnimateToHsb, onHoverMatch, hoveredHtmlColor, showOnHex, onShowOnHexChange }) {
   const [threshold, setThreshold] = useState(30);
 
   const match = useMemo(
@@ -45,7 +45,7 @@ export default function NamedColorMatch({ rgb, onAnimateToHsb, onHoverMatch, hov
       <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: 8, alignItems: 'stretch' }}>
         <Popover open={comboOpen} onOpenChange={setComboOpen}>
           <PopoverTrigger>
-            <button className="flex items-center justify-center w-8 h-8 border border-input rounded-md bg-transparent text-muted-foreground cursor-pointer hover:text-foreground">
+            <button className="flex items-center justify-center h-8 border border-input rounded-md bg-transparent text-muted-foreground cursor-pointer hover:text-foreground" style={{ width: 50 }}>
               <Search className="!size-4" />
             </button>
           </PopoverTrigger>
@@ -120,43 +120,12 @@ export default function NamedColorMatch({ rgb, onAnimateToHsb, onHoverMatch, hov
             </TooltipContent>
           )}
         </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div className="flex items-center border border-input rounded-md overflow-hidden h-8 w-[84px]">
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                className="h-8 w-5 rounded-none border-none"
-                tabIndex={-1}
-                onClick={() => setThreshold(clamp(threshold - 1))}
-              >
-                <Minus className="!size-3" />
-              </Button>
-              <Input
-                type="text"
-                inputMode="numeric"
-                value={threshold}
-                onChange={(e) => {
-                  const v = parseInt(e.target.value, 10);
-                  if (!isNaN(v)) setThreshold(clamp(v));
-                }}
-                className="h-8 w-full border-none rounded-none text-right text-xs px-1 font-mono tabular-nums focus-visible:ring-0 focus-visible:border-transparent"
-              />
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                className="h-8 w-5 rounded-none border-none"
-                tabIndex={-1}
-                onClick={() => setThreshold(clamp(threshold + 1))}
-              >
-                <Plus className="!size-3" />
-              </Button>
-            </div>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" sideOffset={8} className="text-xs font-semibold">
-            Tolerance
-          </TooltipContent>
-        </Tooltip>
+        <Tabs value={showOnHex ? 'show' : 'hide'} onValueChange={(v) => onShowOnHexChange?.(v === 'show')}>
+          <TabsList>
+            <TabsTrigger value="show" className="w-12">Show</TabsTrigger>
+            <TabsTrigger value="hide" className="w-12">Hide</TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
     </div>
   );

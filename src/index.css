@@ -78,7 +78,7 @@ h1, h2 {
   font-family: var(--sans);
 }
 
-.font-mono, code, pre { font-size: 0.85em; }
+.font-mono, code, pre { font-size: 1em; }
 
 @theme inline {
   --font-size-xs: 0.8rem;

@@ -206,17 +206,23 @@ export default function PresentationStage({ slide, slideIndex }) {
   ];
 
   const rgbAnimDelay = useRef(null);
+  const prevHadRgbAnim = useRef(false);
   useEffect(() => {
     if (rgbAnimDelay.current) clearTimeout(rgbAnimDelay.current);
     if (!slide.props?.showRgbAnimate) {
       setRgbAnimActive(false);
+      prevHadRgbAnim.current = false;
+    } else if (prevHadRgbAnim.current && rgbAnimActive) {
+      // Both previous and current slides have animation — keep it running.
+      // No pause needed. The animation effect will restart with new keyframes
+      // via the slideIndex dependency.
+      prevHadRgbAnim.current = true;
     } else {
-      // Always pause briefly when changing slides to let cell tweens settle.
-      // Longer delay when coming from static (swatch expand needs ~1.2s).
-      // Shorter delay between interactive slides (just need CSS to settle).
+      // Starting fresh or coming from static/non-animated slide
       const delay = prevWasStatic.current ? 1000 : 300;
-      setRgbAnimActive(false); // pause current animation
+      setRgbAnimActive(false);
       rgbAnimDelay.current = setTimeout(() => setRgbAnimActive(true), delay);
+      prevHadRgbAnim.current = true;
     }
     return () => { if (rgbAnimDelay.current) clearTimeout(rgbAnimDelay.current); };
   }, [slideIndex, slide.props?.showRgbAnimate]);
@@ -376,7 +382,7 @@ export default function PresentationStage({ slide, slideIndex }) {
           transform: `scale(${appExpanded ? 1 : startScale})`,
           transformOrigin: 'center center',
           opacity: appExpanded ? 1 : 0,
-          transition: appReady ? 'transform 0.6s ease-out, opacity 0.4s ease-out' : 'none',
+          transition: appReady ? 'transform 0.3s ease-out, opacity 0.3s ease-out' : 'none',
         }}
       >
         <ColorPicker />
@@ -436,8 +442,8 @@ export default function PresentationStage({ slide, slideIndex }) {
         transition: 'opacity 0.5s ease-out 0.3s, transform 0.5s ease-out 0.3s',
       }}>
         {showEquations && (
-          <div className="presentation-equations" style={{ fontSize: '0.65rem' }}>
-            <style>{`.presentation-equations > div { display: flex !important; flex-direction: column !important; gap: 4px !important; grid-template-columns: none !important; }`}</style>
+          <div className="presentation-equations" style={{ width: halfW }}>
+            <style>{`.presentation-equations > div { grid-template-columns: 1fr !important; gap: 4px !important; }`}</style>
             <EquationsPanel
               rgb={rgb}
               hue={hsb.h}
@@ -484,7 +490,7 @@ export default function PresentationStage({ slide, slideIndex }) {
             zIndex: 2,
             opacity: slide.props?.mode === 'millions' ? 1 : 0,
             transition: slide.props?.mode === 'millions'
-              ? 'opacity 0.3s ease-out'
+              ? 'opacity 0.3s ease-out 0.9s'
               : 'opacity 0.3s ease-out',
             display: 'flex',
             flexDirection: 'column',

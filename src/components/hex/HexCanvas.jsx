@@ -32,9 +32,8 @@ export default function HexCanvas({ brightness, colorSpace }) {
           const s = (dist / edgeDist) * 100;
           const idx = (py * HEX_SIZE + px) * 4;
 
+          let r, g, b;
           if (isLinear) {
-            // HSB mixing in linear space: treat HSB output as linear, gamma-encode for display
-            // This produces physically accurate blending — mid-tones appear brighter
             const bLinear = brightness / 100;
             const sNorm = s / 100;
             const c = bLinear * sNorm;
@@ -47,17 +46,20 @@ export default function HexCanvas({ brightness, colorSpace }) {
             else if (h < 240) { [r1, g1, b1] = [0, x, c]; }
             else if (h < 300) { [r1, g1, b1] = [x, 0, c]; }
             else { [r1, g1, b1] = [c, 0, x]; }
-            data[idx] = linearToSrgb(r1 + m);
-            data[idx + 1] = linearToSrgb(g1 + m);
-            data[idx + 2] = linearToSrgb(b1 + m);
-            data[idx + 3] = 255;
+            r = linearToSrgb(r1 + m);
+            g = linearToSrgb(g1 + m);
+            b = linearToSrgb(b1 + m);
           } else {
             const color = hsbToRgb(h, s, brightness);
-            data[idx] = color.r;
-            data[idx + 1] = color.g;
-            data[idx + 2] = color.b;
-            data[idx + 3] = 255;
+            r = color.r;
+            g = color.g;
+            b = color.b;
           }
+
+          data[idx] = r;
+          data[idx + 1] = g;
+          data[idx + 2] = b;
+          data[idx + 3] = 255;
         }
       }
 
