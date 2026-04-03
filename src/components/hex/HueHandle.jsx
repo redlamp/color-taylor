@@ -14,7 +14,7 @@ export default function HueHandle({ hue, hueLabel, onMouseDown }) {
       onMouseDown={onMouseDown}
     >
       <span
-        className="text-sm font-mono font-semibold pointer-events-none"
+        className="text-sm font-mono font-normal pointer-events-none"
         style={{ color: hue > 30 && hue < 200 ? '#000' : '#fff' }}
       >
         {hue}°

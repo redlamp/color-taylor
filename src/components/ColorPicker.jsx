@@ -269,9 +269,9 @@ export default function ColorPicker() {
         </div>
 
         {/* Right column: Controls */}
-        <div id="picker-layout" className="w-[420px] shrink-0 border border-input rounded-lg p-3">
+        <div id="picker-layout" className="w-[420px] shrink-0 border border-input rounded-lg p-2.5">
         <CollapsibleSection id="sliders-group" title="Sliders" level="h2">
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-3">
         {/* Color Editor: Swatch + SB Box + H Slider */}
         <CollapsibleSection id="color-editor-group" title="Color Editor">
           <div id="sb-wrapper" className="flex gap-3 min-w-0 overflow-hidden">
@@ -442,7 +442,7 @@ export default function ColorPicker() {
       </div>
 
       {/* Equations panel */}
-      <div className="mt-4 border border-input rounded-lg p-3" style={{ width: topRowWidth || 'auto' }}>
+      <div className="mt-3 border border-input rounded-lg p-2.5" style={{ width: topRowWidth || 'auto' }}>
         <CollapsibleSection id="equations-group" title="Equations" level="h2" defaultOpen={false}>
           <EquationsPanel
             rgb={rgb}
@@ -456,7 +456,7 @@ export default function ColorPicker() {
       </div>
 
       {/* Learn section */}
-      <div className="mt-4 border border-input rounded-lg p-3 overflow-hidden" style={{ width: topRowWidth || 'auto' }}>
+      <div className="mt-3 border border-input rounded-lg p-2.5 overflow-hidden" style={{ width: topRowWidth || 'auto' }}>
         <CollapsibleSection id="learn-group" title="Learn" level="h2" defaultOpen={false}>
           <div className="grid grid-cols-3 gap-3 text-sm text-muted-foreground" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
             <div className="flex flex-col gap-2 border border-input rounded-lg p-2.5 min-w-0">

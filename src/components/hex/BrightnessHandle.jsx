@@ -34,7 +34,7 @@ export default function BrightnessHandle({ hue, saturation, brightness, hsl, blM
         }}
       >
         <span
-          className="text-sm font-mono font-semibold pointer-events-none whitespace-nowrap"
+          className="text-sm font-mono font-normal pointer-events-none whitespace-nowrap"
           style={{ color: textColor }}
         >
           {blValue}%
