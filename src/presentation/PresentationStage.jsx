@@ -52,12 +52,27 @@ export default function PresentationStage({ slide, slideIndex }) {
     animRef.current = requestAnimationFrame(tick);
   }, []);
 
-  const setHsbClear = useCallback((valOrFn) => {
-    rgbOverride.current = null;
-    setHsb(valOrFn);
+  // ── User interaction pause for RGB animation ───────────────────────
+  const userInteracting = useRef(false);
+  const userResumeTimer = useRef(null);
+  const RESUME_DELAY = 4000; // ms before animation resumes after user stops
+
+  const signalUserInteraction = useCallback(() => {
+    userInteracting.current = true;
+    if (userResumeTimer.current) clearTimeout(userResumeTimer.current);
+    userResumeTimer.current = setTimeout(() => {
+      userInteracting.current = false;
+    }, RESUME_DELAY);
   }, []);
 
+  const setHsbClear = useCallback((valOrFn) => {
+    signalUserInteraction();
+    rgbOverride.current = null;
+    setHsb(valOrFn);
+  }, [signalUserInteraction]);
+
   const handleRgbChange = useCallback((channel, value) => {
+    signalUserInteraction();
     setHsb((prev) => {
       const cur = rgbOverride.current || hsbToRgb(prev.h, prev.s, prev.b);
       const next = { ...cur, [channel]: value };
@@ -78,6 +93,8 @@ export default function PresentationStage({ slide, slideIndex }) {
   const hasSliders = has('rgb-sliders') || has('hsb-sliders') || has('hex-input') || has('equations') || has('conversions');
 
   // ── Set color when entering a new interactive slide ────────────────
+  // Between interactive slides, keep the current color (no reset).
+  // Only set initialHsb when coming from a static slide.
   const prevIdx = useRef(slideIndex);
   const prevWasStatic = useRef(isStatic);
   useEffect(() => {
@@ -85,23 +102,39 @@ export default function PresentationStage({ slide, slideIndex }) {
       const comingFromStatic = prevWasStatic.current;
       prevIdx.current = slideIndex;
       prevWasStatic.current = isStatic;
-      if (slide.props?.initialHsb) {
-        // If RGB animation is running, keep the current color (continuous animation)
-        if (rgbAnimActive) {
-          // Don't reset — animation continues from current color
-        } else if (comingFromStatic) {
-          // Coming from a grid slide — set color instantly so the swatch
-          // expands with the correct color (no mid-animation color shift)
-          rgbOverride.current = null;
-          setHsb(slide.props.initialHsb);
-        } else {
-          animateToHsb(slide.props.initialHsb);
-        }
+      if (slide.props?.initialHsb && comingFromStatic) {
+        rgbOverride.current = null;
+        setHsb(slide.props.initialHsb);
       }
     } else {
       prevWasStatic.current = isStatic;
     }
-  }, [slideIndex, slide.props?.initialHsb, animateToHsb, isStatic]);
+  }, [slideIndex, slide.props?.initialHsb, isStatic]);
+
+  // ── Track previous panel mode for gradient transitions ─────────────
+  const panelMode = isStatic ? slide.props?.mode || 'bw' : 'swatch';
+  const prevPanelMode = useRef(panelMode);
+  const [leavingGradient, setLeavingGradient] = useState(false);
+  const [introExiting, setIntroExiting] = useState(false);
+  const introExitMode = useRef(null); // which intro mode is exiting ('intro' or 'acronyms')
+  useEffect(() => {
+    if (prevPanelMode.current === 'hsl-gradient' && panelMode !== 'hsl-gradient') {
+      setLeavingGradient(true);
+      const tid = setTimeout(() => setLeavingGradient(false), 400);
+      prevPanelMode.current = panelMode;
+      return () => clearTimeout(tid);
+    }
+    const wasIntro = prevPanelMode.current === 'intro' || prevPanelMode.current === 'acronyms';
+    const isIntro = panelMode === 'intro' || panelMode === 'acronyms';
+    if (wasIntro && !isIntro) {
+      introExitMode.current = prevPanelMode.current;
+      setIntroExiting(true);
+      const tid = setTimeout(() => setIntroExiting(false), 900);
+      prevPanelMode.current = panelMode;
+      return () => clearTimeout(tid);
+    }
+    prevPanelMode.current = panelMode;
+  }, [panelMode]);
 
   // ── Entrance animation for sliders ────────────────────────────────
   const [visible, setVisible] = useState(false);
@@ -146,17 +179,45 @@ export default function PresentationStage({ slide, slideIndex }) {
     };
   }, [sineActive]);
 
-  // ── RGB keyframe animation (slides 4-7) ────────────────────────────
-  // Cycles through keyframe colors with sine-eased transitions and holds.
-  // Slide 4: red only. Slides 5-7: R,G,B → Y,C,M sequence.
+  // ── RGB keyframe animation ──────────────────────────────────────────
+  // Always auto-starts when showRgbAnimate is set. No checkbox UI.
+  // Slide 8: red only. Slide 9+: full Black,R,Y,G,C,B,M,W cycle.
+  // When entering a new slide, finds the closest keyframe to the current
+  // color and starts the animation from that point.
   const [rgbAnimActive, setRgbAnimActive] = useState(false);
   const rgbAnimRaf = useRef(null);
+  const rgbAnimKeyframesRef = useRef(null); // track current keyframe set
 
+  const FULL_KEYFRAMES = [
+    { r: 0,   g: 0,   b: 0   }, // Black
+    { r: 255, g: 0,   b: 0   }, // Red
+    { r: 255, g: 255, b: 0   }, // Yellow
+    { r: 0,   g: 255, b: 0   }, // Green
+    { r: 0,   g: 255, b: 255 }, // Cyan
+    { r: 0,   g: 0,   b: 255 }, // Blue
+    { r: 255, g: 0,   b: 255 }, // Magenta
+    { r: 255, g: 255, b: 255 }, // White
+  ];
+  const RED_KEYFRAMES = [
+    { r: 0,   g: 0,   b: 0   },
+    { r: 255, g: 0,   b: 0   },
+  ];
+
+  const rgbAnimDelay = useRef(null);
   useEffect(() => {
-    if (!slide.props?.showRgbAnimate) setRgbAnimActive(false);
-    else if (slide.props?.rgbAnimAutoStart) setRgbAnimActive(true);
-    // If already active and next slide also has showRgbAnimate, keep it running
-  }, [slideIndex, slide.props?.showRgbAnimate, slide.props?.rgbAnimAutoStart]);
+    if (rgbAnimDelay.current) clearTimeout(rgbAnimDelay.current);
+    if (!slide.props?.showRgbAnimate) {
+      setRgbAnimActive(false);
+    } else {
+      // Always pause briefly when changing slides to let cell tweens settle.
+      // Longer delay when coming from static (swatch expand needs ~1.2s).
+      // Shorter delay between interactive slides (just need CSS to settle).
+      const delay = prevWasStatic.current ? 1200 : 300;
+      setRgbAnimActive(false); // pause current animation
+      rgbAnimDelay.current = setTimeout(() => setRgbAnimActive(true), delay);
+    }
+    return () => { if (rgbAnimDelay.current) clearTimeout(rgbAnimDelay.current); };
+  }, [slideIndex, slide.props?.showRgbAnimate]);
 
   useEffect(() => {
     if (!rgbAnimActive) {
@@ -165,48 +226,86 @@ export default function PresentationStage({ slide, slideIndex }) {
       return;
     }
 
-    // Red-only for slide with locked G/B, full sequence otherwise
     const redOnly = slide.props?.lockedChannels?.includes('g');
-    const keyframes = redOnly
-      ? [
-          { r: 0,   g: 0,   b: 0   }, // Black
-          { r: 255, g: 0,   b: 0   }, // Red
-        ]
-      : [
-          { r: 0,   g: 0,   b: 0   }, // Black
-          { r: 255, g: 0,   b: 0   }, // Red
-          { r: 255, g: 255, b: 0   }, // Yellow
-          { r: 0,   g: 255, b: 0   }, // Green
-          { r: 0,   g: 255, b: 255 }, // Cyan
-          { r: 0,   g: 0,   b: 255 }, // Blue
-          { r: 255, g: 0,   b: 255 }, // Magenta
-          { r: 255, g: 255, b: 255 }, // White
-        ];
+    const keyframes = redOnly ? RED_KEYFRAMES : FULL_KEYFRAMES;
+    rgbAnimKeyframesRef.current = keyframes;
 
-    const TRANSITION_DUR = 1200; // ms for sine transition between keyframes
-    const HOLD_DUR = 800;       // ms to hold at each keyframe (total 16s for 8 frames)
+    const TRANSITION_DUR = 1200;
+    const HOLD_DUR = 800;
     const STEP_DUR = TRANSITION_DUR + HOLD_DUR;
     const CYCLE_DUR = keyframes.length * STEP_DUR;
 
-    const start = performance.now();
-    const tick = (ts) => {
+    // Find the closest keyframe to the current color to start from
+    const curRgb = rgbOverride.current || hsbToRgb(hsbRef.current.h, hsbRef.current.s, hsbRef.current.b);
+    let bestIdx = 0;
+    let bestDist = Infinity;
+    for (let i = 0; i < keyframes.length; i++) {
+      const kf = keyframes[i];
+      const d = Math.abs(curRgb.r - kf.r) + Math.abs(curRgb.g - kf.g) + Math.abs(curRgb.b - kf.b);
+      if (d < bestDist) { bestDist = d; bestIdx = i; }
+    }
+    // Start the cycle offset so this keyframe is the current hold
+    const timeOffset = bestIdx * STEP_DUR;
+
+    const start = performance.now() - timeOffset;
+    const LERP_DUR = 1500; // ms to lerp from user color back to animation
+    let resumeStart = null; // when the user stopped interacting
+    let resumeFrom = null; // the user's color when they stopped
+
+    function getAnimColor(ts) {
       const elapsed = ts - start;
       const t = elapsed % CYCLE_DUR;
       const frameIdx = Math.floor(t / STEP_DUR);
       const frameT = t - frameIdx * STEP_DUR;
 
-      let r, g, b;
       if (frameT < HOLD_DUR) {
-        // Hold at current keyframe
-        ({ r, g, b } = keyframes[frameIdx]);
+        return keyframes[frameIdx];
+      }
+      const p = Math.sin(((frameT - HOLD_DUR) / TRANSITION_DUR) * Math.PI / 2);
+      const from = keyframes[frameIdx];
+      const to = keyframes[(frameIdx + 1) % keyframes.length];
+      return {
+        r: Math.round(from.r + (to.r - from.r) * p),
+        g: Math.round(from.g + (to.g - from.g) * p),
+        b: Math.round(from.b + (to.b - from.b) * p),
+      };
+    }
+
+    const tick = (ts) => {
+      if (userInteracting.current) {
+        // Paused — user is dragging. Reset resume state.
+        resumeStart = null;
+        resumeFrom = null;
+        rgbAnimRaf.current = requestAnimationFrame(tick);
+        return;
+      }
+
+      const animColor = getAnimColor(ts);
+
+      // If we just resumed from user interaction, lerp back
+      if (resumeStart === null && resumeFrom === null) {
+        // Check if we need to start a lerp (user was interacting, now stopped)
+        const curRgb = rgbOverride.current || hsbToRgb(hsbRef.current.h, hsbRef.current.s, hsbRef.current.b);
+        const dist = Math.abs(curRgb.r - animColor.r) + Math.abs(curRgb.g - animColor.g) + Math.abs(curRgb.b - animColor.b);
+        if (dist > 10) {
+          resumeStart = ts;
+          resumeFrom = { ...curRgb };
+        }
+      }
+
+      let r, g, b;
+      if (resumeStart !== null && resumeFrom !== null) {
+        const lerpT = Math.min((ts - resumeStart) / LERP_DUR, 1);
+        const eased = lerpT < 0.5 ? 2 * lerpT * lerpT : -1 + (4 - 2 * lerpT) * lerpT;
+        r = Math.round(resumeFrom.r + (animColor.r - resumeFrom.r) * eased);
+        g = Math.round(resumeFrom.g + (animColor.g - resumeFrom.g) * eased);
+        b = Math.round(resumeFrom.b + (animColor.b - resumeFrom.b) * eased);
+        if (lerpT >= 1) {
+          resumeStart = null;
+          resumeFrom = null;
+        }
       } else {
-        // Sine-ease transition to next keyframe
-        const p = Math.sin(((frameT - HOLD_DUR) / TRANSITION_DUR) * Math.PI / 2);
-        const from = keyframes[frameIdx];
-        const to = keyframes[(frameIdx + 1) % keyframes.length];
-        r = Math.round(from.r + (to.r - from.r) * p);
-        g = Math.round(from.g + (to.g - from.g) * p);
-        b = Math.round(from.b + (to.b - from.b) * p);
+        ({ r, g, b } = animColor);
       }
 
       rgbOverride.current = { r, g, b };
@@ -217,7 +316,7 @@ export default function PresentationStage({ slide, slideIndex }) {
     return () => {
       if (rgbAnimRaf.current) cancelAnimationFrame(rgbAnimRaf.current);
     };
-  }, [rgbAnimActive]);
+  }, [rgbAnimActive, slideIndex]);
 
   // ── Derived values (must be above early returns to keep hook order stable) ──
   const enterColor = useMemo(() => {
@@ -276,15 +375,39 @@ export default function PresentationStage({ slide, slideIndex }) {
         }}
       >
         {/* Animated grid — tweens between grid layouts and full swatch */}
-        <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}>
+        {/* z:3 when leaving gradient so the expanding cell appears ABOVE the fading gradient */}
+        <div style={{ position: 'absolute', inset: 0, zIndex: leavingGradient ? 3 : 1 }}>
           <AnimatedGrid
-            mode={isStatic ? slide.props?.mode || 'bw' : 'swatch'}
+            mode={panelMode}
             swatchColor={hex}
             enterColor={enterColor}
           />
         </div>
 
-        {/* Hex label inside swatch */}
+        {/* Smooth HSL gradient overlay — single opaque layer, fades in after cells settle */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 2,
+            opacity: slide.props?.mode === 'hsl-gradient' ? 1 : 0,
+            transition: slide.props?.mode === 'hsl-gradient'
+              ? 'opacity 0.8s ease-in 1.5s'
+              : 'opacity 0.3s ease-out',
+            background: `
+              linear-gradient(to bottom, white 0%, rgba(255,255,255,0) 50%, black 100%),
+              linear-gradient(to right,
+                hsl(0,100%,50%), hsl(30,100%,50%), hsl(60,100%,50%),
+                hsl(90,100%,50%), hsl(120,100%,50%), hsl(150,100%,50%),
+                hsl(180,100%,50%), hsl(210,100%,50%), hsl(240,100%,50%),
+                hsl(270,100%,50%), hsl(300,100%,50%), hsl(330,100%,50%),
+                hsl(360,100%,50%)
+              )`,
+            pointerEvents: 'none',
+          }}
+        />
+
+        {/* Hex/RGB/HSB labels inside swatch */}
         {slide.props?.showHexInPreview && (
           <div
             style={{
@@ -295,19 +418,54 @@ export default function PresentationStage({ slide, slideIndex }) {
               alignItems: 'center',
               justifyContent: 'center',
               opacity: isStatic ? 0 : 1,
-              transition: 'opacity 0.7s ease-in-out',
+              transition: 'all 0.7s ease-in-out',
               zIndex: 2,
               color: textColor,
             }}
           >
-            <span className="font-mono text-4xl font-bold tracking-wider">{hex.toUpperCase()}</span>
-            <span className="font-mono text-sm mt-2 opacity-70 tabular-nums">
-              rgb({String(rgb.r).padStart(3, '\u2007')}, {String(rgb.g).padStart(3, '\u2007')}, {String(rgb.b).padStart(3, '\u2007')})
-            </span>
-            <span className="font-mono text-sm opacity-50">
-              rgb({(rgb.r / 255).toFixed(3)}, {(rgb.g / 255).toFixed(3)}, {(rgb.b / 255).toFixed(3)})
-            </span>
+            {/* Hex — always centered */}
+            <span className="font-mono font-bold tracking-wider" style={{ fontSize: '4.5rem' }}>{hex.toUpperCase()}</span>
+
+            {/* RGB + HSB/HSL below hex — two columns */}
+            <div style={{
+              display: 'flex',
+              width: '100%',
+              marginTop: 8,
+            }}>
+              {/* Left column: RGB values — center aligned */}
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <span className="font-mono text-sm opacity-70 tabular-nums">
+                  rgb({'\u2007\u2007'}{String(rgb.r).padStart(3, '\u2007')}, {'\u2007\u2007'}{String(rgb.g).padStart(3, '\u2007')}, {'\u2007\u2007'}{String(rgb.b).padStart(3, '\u2007')})
+                </span>
+                <span className="font-mono text-sm opacity-50">
+                  rgb({(rgb.r / 255).toFixed(3)}, {(rgb.g / 255).toFixed(3)}, {(rgb.b / 255).toFixed(3)})
+                </span>
+              </div>
+
+              {/* Right column: HSB/HSL values — center aligned, tweens in */}
+              <div style={{
+                flex: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                opacity: slide.props?.showHsbInPreview ? 1 : 0,
+                transform: slide.props?.showHsbInPreview ? 'translateX(0)' : 'translateX(20px)',
+                transition: 'all 0.7s ease-in-out',
+              }}>
+                <span className="font-mono text-sm opacity-70 tabular-nums">
+                  hsb({String(hsb.h).padStart(3, '\u2007')}, {String(hsb.s).padStart(3, '\u2007')}%, {String(hsb.b).padStart(3, '\u2007')}%)
+                </span>
+                <span className="font-mono text-sm opacity-50 tabular-nums">
+                  hsl({String(hsl.h).padStart(3, '\u2007')}, {String(hsl.s).padStart(3, '\u2007')}%, {String(hsl.l).padStart(3, '\u2007')}%)
+                </span>
+              </div>
+            </div>
           </div>
+        )}
+
+        {/* Intro / Acronyms — shared elements that tween between slides */}
+        {(slide.props?.mode === 'intro' || slide.props?.mode === 'acronyms' || introExiting) && (
+          <IntroPanel mode={introExiting ? introExitMode.current : slide.props.mode} exiting={introExiting} />
         )}
       </div>
 
@@ -322,24 +480,32 @@ export default function PresentationStage({ slide, slideIndex }) {
           pointerEvents: hasSliders ? 'auto' : 'none',
         }}
       >
-        <div className="grid grid-cols-2 gap-4">
+        <div style={{
+          display: 'flex',
+          gap: 16,
+          justifyContent: has('hsb-sliders') ? 'stretch' : 'center',
+          transition: 'all 0.7s ease-out',
+        }}>
           {has('rgb-sliders') && (
-            <div className="border border-input rounded-lg p-3">
+            <div className="border border-input rounded-lg p-3" style={{
+              flex: has('hsb-sliders') ? 1 : '0 1 calc(50% - 8px)',
+              transition: 'all 0.7s ease-out',
+            }}>
               <h3 className="text-sm font-semibold mb-2">RGB</h3>
               <div className="flex flex-col gap-2">
-                <ColorSlider label="R" value={rgb.r} max={255} gradient={redChannelGradient} onChange={(v) => handleRgbChange('r', v)} />
-                {!locked.includes('g') && <ColorSlider label="G" value={rgb.g} max={255} gradient={greenChannelGradient} onChange={(v) => handleRgbChange('g', v)} />}
-                {!locked.includes('b') && <ColorSlider label="B" value={rgb.b} max={255} gradient={blueChannelGradient} onChange={(v) => handleRgbChange('b', v)} />}
+                <ColorSlider label="R" value={rgb.r} max={255} gradient={redChannelGradient} onChange={(v) => handleRgbChange('r', v)} hideStepper />
+                {!locked.includes('g') && <ColorSlider label="G" value={rgb.g} max={255} gradient={greenChannelGradient} onChange={(v) => handleRgbChange('g', v)} hideStepper />}
+                {!locked.includes('b') && <ColorSlider label="B" value={rgb.b} max={255} gradient={blueChannelGradient} onChange={(v) => handleRgbChange('b', v)} hideStepper />}
               </div>
             </div>
           )}
           {has('hsb-sliders') && (
-            <div className="border border-input rounded-lg p-3">
+            <div className="border border-input rounded-lg p-3" style={{ flex: 1 }}>
               <h3 className="text-sm font-semibold mb-2">HSB</h3>
               <div className="flex flex-col gap-2">
-                <ColorSlider label="H" value={hsb.h} max={360} wrap gradient={hueGradient(hsb.s, hsb.b, 'srgb')} onChange={(v) => setHsbClear(p => ({ ...p, h: v }))} />
-                <ColorSlider label="S" value={hsb.s} max={100} gradient={saturationGradient(hsb.h, hsb.b, 'srgb')} onChange={(v) => setHsbClear(p => ({ ...p, s: v }))} />
-                <ColorSlider label="B" value={hsb.b} max={100} gradient={brightnessGradient(hsb.h, hsb.s, 'srgb')} onChange={(v) => setHsbClear(p => ({ ...p, b: v }))} />
+                <ColorSlider label="H" value={hsb.h} max={360} wrap gradient={hueGradient(hsb.s, hsb.b, 'srgb')} onChange={(v) => setHsbClear(p => ({ ...p, h: v }))} hideStepper />
+                <ColorSlider label="S" value={hsb.s} max={100} gradient={saturationGradient(hsb.h, hsb.b, 'srgb')} onChange={(v) => setHsbClear(p => ({ ...p, s: v }))} hideStepper />
+                <ColorSlider label="B" value={hsb.b} max={100} gradient={brightnessGradient(hsb.h, hsb.s, 'srgb')} onChange={(v) => setHsbClear(p => ({ ...p, b: v }))} hideStepper />
               </div>
             </div>
           )}
@@ -366,17 +532,7 @@ export default function PresentationStage({ slide, slideIndex }) {
             </div>
           )}
         </div>
-        {slide.props?.showRgbAnimate && (
-          <label className="flex items-center gap-2 mt-3 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={rgbAnimActive}
-              onChange={(e) => setRgbAnimActive(e.target.checked)}
-              className="w-4 h-4 rounded accent-current cursor-pointer"
-            />
-            <span className="text-sm text-muted-foreground">Animate Colors</span>
-          </label>
-        )}
+        {/* Animate Colors checkbox removed — animation auto-starts */}
         {slide.props?.showSineWave && (
           <div className="mt-3 flex flex-col gap-2">
             <label className="flex items-center gap-2 cursor-pointer select-none">
@@ -416,6 +572,191 @@ export default function PresentationStage({ slide, slideIndex }) {
             */}
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ── Shared intro/acronyms panel with tweening positions ─────────────
+
+const TRANS_INTRO = 'all 0.7s cubic-bezier(0.4, 0, 0.2, 1)';
+const LETTER_SZ = '6rem';
+const LETTER_W = 900;
+const LETTER_FONT = "'DM Sans Variable', 'DM Sans', sans-serif";
+const DROP = 'drop-shadow(3px 3px 0 rgba(0,0,0,0.9))';
+
+const R_STYLE = { color: '#FF4444', filter: DROP };
+const G_STYLE = { color: '#44DD44', filter: DROP };
+const B_STYLE = { color: '#6688FF', filter: DROP };
+const H_STYLE = {
+  backgroundImage: 'conic-gradient(from 0deg at 50% 50%, hsl(0,100%,50%), hsl(60,100%,50%), hsl(120,100%,50%), hsl(180,100%,50%), hsl(240,100%,50%), hsl(300,100%,50%), hsl(360,100%,50%))',
+  WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent', filter: DROP,
+};
+const S_STYLE = {
+  backgroundImage: 'linear-gradient(165deg, #FF9900 20%, #FFFFFF 80%)',
+  WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent', filter: DROP,
+};
+const B_HSB_STYLE = {
+  backgroundImage: 'linear-gradient(165deg, #FFFFFF 20%, #000000 80%)',
+  WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent', filter: DROP,
+};
+
+// Each letter absolutely positioned, tweens from intro row to acronym columns.
+// Positions in % of panel. Letter container is fixed width for alignment.
+
+// Exact positions from Figma metadata (726×320 panel).
+// Letter rendered height = 67px (96px font with cap-height trim).
+// Row spacing in acronyms: 87px between letter tops.
+
+const LETTER_DATA = [
+  // Intro: absolute position within panel. Acronyms: stacked column positions.
+  // introX = parent frame x + letter x within frame
+  { id: 'r',  char: 'R', style: R_STYLE, group: 'rgb', row: 0, introX: 71,  introXOff: 0,   label: 'Red' },
+  { id: 'g',  char: 'G', style: G_STYLE, group: 'rgb', row: 1, introX: 71,  introXOff: 72,  label: 'Green' },
+  { id: 'b1', char: 'B', style: B_STYLE, group: 'rgb', row: 2, introX: 71,  introXOff: 158, label: 'Blue' },
+  { id: 'h',  char: 'H', style: H_STYLE, group: 'hsb', row: 0, introX: 439, introXOff: 0,   label: 'Hue' },
+  { id: 's',  char: 'S', style: S_STYLE, group: 'hsb', row: 1, introX: 439, introXOff: 80,  label: 'Saturation' },
+  { id: 'b2', char: 'B', style: B_HSB_STYLE, group: 'hsb', row: 2, introX: 439, introXOff: 149, label: 'Brightness' },
+];
+
+// Acronyms letter frame positions
+const ACRO_LETTER_X = { rgb: 60, hsb: 423 };
+// Letter x-offsets within the 80px-wide frame (centered per letter width)
+const ACRO_LETTER_XOFF = {
+  r: 9, g: 2, b1: 8.5,
+  h: 5, s: 10.5, b2: 8.5,
+};
+const ACRO_LETTER_Y = 40; // top of letter frame
+const ROW_STEP = 87; // y distance between letter rows
+
+// Acronyms label positions
+const ACRO_LABEL_X = { rgb: 160, hsb: 523 };
+const ACRO_LABEL_Y = 65; // top of label frame
+
+// Intro label positions (hidden, with x-offsets for slide-in animation)
+const INTRO_LABEL_XOFF = {
+  rgb: [0, 50, 120],   // Red, Green, Blue x-offsets within frame
+  hsb: [0, 50, 100],   // Hue, Saturation, Brightness x-offsets within frame
+};
+
+const INTRO_Y = 111; // top of letters in intro (125 - 14 line-height compensation)
+const LETTER_H = 67; // rendered cap-height
+const ACRO_Y_OFFSET = -14; // compensation for lineHeight:1 vs cap-height trim
+
+function IntroPanel({ mode, exiting = false }) {
+  const exp = mode === 'acronyms';
+
+  // Exit positions: RGB flies left off-panel, HSB flies right off-panel
+  const exitX = { rgb: -200, hsb: 826 }; // off-screen left and right
+
+  function getLetterPos(l) {
+    if (exiting) {
+      const acroAbsY = ACRO_LETTER_Y + ACRO_Y_OFFSET + l.row * ROW_STEP;
+      return { x: exitX[l.group], y: acroAbsY };
+    }
+    if (exp) {
+      return {
+        x: ACRO_LETTER_X[l.group] + (ACRO_LETTER_XOFF[l.id] || 0),
+        y: ACRO_LETTER_Y + ACRO_Y_OFFSET + l.row * ROW_STEP,
+      };
+    }
+    return { x: l.introX + l.introXOff, y: INTRO_Y };
+  }
+
+  function getLabelPos(l) {
+    if (exiting) {
+      return { x: exitX[l.group] + 100, y: ACRO_LABEL_Y + l.row * ROW_STEP };
+    }
+    if (exp) {
+      return { x: ACRO_LABEL_X[l.group], y: ACRO_LABEL_Y + l.row * ROW_STEP };
+    }
+    const introXOff = INTRO_LABEL_XOFF[l.group][l.row];
+    return { x: (l.group === 'rgb' ? 210 : 573) + introXOff, y: 65 + l.row * ROW_STEP };
+  }
+
+  return (
+    <div style={{ position: 'absolute', inset: 0, zIndex: 2, overflow: 'hidden' }}>
+      {/* Letters */}
+      {LETTER_DATA.map(l => {
+        const pos = getLetterPos(l);
+        return (
+          <div key={l.id} style={{
+            position: 'absolute',
+            left: pos.x,
+            top: pos.y,
+            opacity: exiting ? 0 : 1,
+            transition: TRANS_INTRO,
+          }}>
+            <span style={{
+              fontSize: 96,
+              fontWeight: LETTER_W,
+              fontFamily: LETTER_FONT,
+              lineHeight: 1,
+              display: 'block',
+              textTransform: 'uppercase',
+              overflow: 'visible',
+              ...l.style,
+            }}>
+              {l.char}
+            </span>
+          </div>
+        );
+      })}
+
+      {/* Labels */}
+      {LETTER_DATA.map(l => {
+        const pos = getLabelPos(l);
+        return (
+          <div key={l.id + '-label'} style={{
+            position: 'absolute',
+            left: pos.x,
+            top: pos.y,
+            opacity: (exp && !exiting) ? 1 : 0,
+            transition: TRANS_INTRO,
+            whiteSpace: 'nowrap',
+          }}>
+            <span style={{
+              fontSize: 24,
+              fontWeight: LETTER_W,
+              fontFamily: LETTER_FONT,
+              textTransform: 'uppercase',
+              color: '#fff',
+              lineHeight: '17px',
+            }}>
+              {l.label}
+            </span>
+          </div>
+        );
+      })}
+
+      {/* Arrow */}
+      <div style={{
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        top: INTRO_Y,
+        height: 96,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        opacity: exiting ? 0 : (exp ? 0.3 : 0.6),
+        transition: TRANS_INTRO,
+        pointerEvents: 'none',
+      }}>
+        <span style={{ fontSize: 48, fontWeight: 300, color: '#fff' }}>&#x2194;</span>
+      </div>
+
+      {/* Subtitle */}
+      <div style={{
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        bottom: 30,
+        textAlign: 'center',
+        opacity: (exp || exiting) ? 0 : 1,
+        transition: TRANS_INTRO,
+      }}>
+        <span className="text-base text-muted-foreground">How does one become the other?</span>
       </div>
     </div>
   );

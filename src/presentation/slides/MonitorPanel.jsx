@@ -104,6 +104,7 @@ export function MonitorPanelContent({ mode }) {
   if (mode === 'c16') return <SixteenLayout />;
   if (mode === 'c256') return <Grid256Layout />;
   if (mode === 'thousands') return <ThousandsLayout />;
+  if (mode === 'millions') return <ThousandsLayout />;
   return null;
 }
 

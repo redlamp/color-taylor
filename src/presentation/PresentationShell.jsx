@@ -83,10 +83,12 @@ export default function PresentationShell({ navigate }) {
         </button>
       </div>
 
-      {/* Slide title */}
-      <SlideTitle slide={slide} />
+      {/* Slide title — absolute so it doesn't shift the display area */}
+      <div className="absolute left-0 right-0 pointer-events-none z-10" style={{ top: 52 }}>
+        <SlideTitle slide={slide} />
+      </div>
 
-      {/* Main content — persistent stage handles all slide types */}
+      {/* Main content — fills space below top bar, centered */}
       <div className="flex-1 flex items-center justify-center px-6 overflow-auto relative">
         <PresentationStage slide={slide} slideIndex={currentSlide} />
       </div>
@@ -94,7 +96,7 @@ export default function PresentationShell({ navigate }) {
       {/* Caption — absolute overlay, doesn't affect content centering */}
       {slide.caption && (
         <div className="absolute bottom-16 left-0 right-0 pointer-events-none z-10">
-          <p className="text-sm text-muted-foreground max-w-2xl mx-auto text-center leading-relaxed px-6">
+          <p className="text-sm text-muted-foreground max-w-2xl mx-auto text-center leading-relaxed px-6 whitespace-pre-line">
             {slide.caption}
           </p>
         </div>
@@ -137,27 +139,31 @@ export default function PresentationShell({ navigate }) {
 
 function SlideTitle({ slide }) {
   const meta = slide.titleMeta;
+  const animatedBits = useAnimatedNumber(meta?.bits || 0, 400);
   const animatedYear = useAnimatedNumber(meta?.year || 0, 600);
   const animatedCount = useAnimatedNumber(meta?.colorCount || 0, 800);
 
   if (!meta) {
+    if (!slide.title) return null;
     return (
       <div className="px-6 pt-4 pb-2 shrink-0 z-10">
         <h1 className="text-2xl font-bold">{slide.title}</h1>
+        {slide.subtitle && (
+          <h2 className="text-lg text-muted-foreground">{slide.subtitle}</h2>
+        )}
       </div>
     );
   }
 
   return (
     <div className="px-6 pt-4 pb-2 shrink-0 z-10">
-      <h1 className="text-2xl font-bold">
-        {slide.title}
-        <span className="text-lg font-normal text-muted-foreground ml-2">
-          ({animatedCount.toLocaleString()} colors)
-        </span>
-      </h1>
-      <h2 className="text-lg font-semibold tabular-nums">{animatedYear}</h2>
-      <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">{meta.os}</h3>
+      <h1 className="text-2xl font-bold">{slide.title}</h1>
+      <h2 className="text-lg font-semibold tabular-nums">
+        {animatedBits}-bit, {animatedCount.toLocaleString()} colors
+      </h2>
+      <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+        {meta.os} ({animatedYear})
+      </h3>
     </div>
   );
 }

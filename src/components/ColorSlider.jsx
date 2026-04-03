@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Minus, Plus } from 'lucide-react';
 import useDrag from '../hooks/useDrag';
 
-export default function ColorSlider({ label, value, max, gradient, suffix, wrap, onChange }) {
+export default function ColorSlider({ label, value, max, gradient, suffix, wrap, onChange, hideStepper }) {
   const trackRef = useRef(null);
 
   const clamp = (v) => Math.max(0, Math.min(max, v));
@@ -96,7 +96,7 @@ export default function ColorSlider({ label, value, max, gradient, suffix, wrap,
       </div>
 
       {/* Stepper */}
-      <div id={`${sliderId}-stepper`} className="flex items-center h-6 shrink-0">
+      {!hideStepper && <div id={`${sliderId}-stepper`} className="flex items-center h-6 shrink-0">
         <div className="flex items-center border border-input rounded-md overflow-hidden h-6 w-[84px]">
           <Button
             variant="ghost"
@@ -144,7 +144,7 @@ export default function ColorSlider({ label, value, max, gradient, suffix, wrap,
         {suffix && (
           <span className="text-xs text-muted-foreground ml-1 w-3">{suffix}</span>
         )}
-      </div>
+      </div>}
     </div>
   );
 }
