@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 
 const ThemeContext = createContext({ isDark: false, toggle: () => {}, setDark: () => {}, restore: () => {} });
 
@@ -20,23 +20,23 @@ export function ThemeProvider({ children }) {
     }
   }, [isDark]);
 
-  const toggle = () => setIsDark((d) => !d);
+  const toggle = useCallback(() => setIsDark(d => !d), []);
 
   // Force dark theme, remembering the previous setting
-  const setDark = () => {
-    if (savedTheme.current === null) {
-      savedTheme.current = isDark;
-    }
-    setIsDark(true);
-  };
+  const setDark = useCallback(() => {
+    setIsDark(current => {
+      if (savedTheme.current === null) savedTheme.current = current;
+      return true;
+    });
+  }, []);
 
   // Restore theme to what it was before setDark was called
-  const restore = () => {
+  const restore = useCallback(() => {
     if (savedTheme.current !== null) {
       setIsDark(savedTheme.current);
       savedTheme.current = null;
     }
-  };
+  }, []);
 
   return (
     <ThemeContext.Provider value={{ isDark, toggle, setDark, restore }}>
