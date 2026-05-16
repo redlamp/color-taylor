@@ -84,6 +84,35 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   const [savedSortMode, setSavedSortMode] = useState<SortMode>('user');
   const [draggedUserIdx, setDraggedUserIdx] = useState<number | null>(null);
   const [dragOverUserIdx, setDragOverUserIdx] = useState<number | null>(null);
+  const [touchArmedUserIdx, setTouchArmedUserIdx] = useState<number | null>(null);
+  const touchDrag = useRef<{ startX: number; startY: number; userIdx: number; armed: boolean } | null>(null);
+  const touchDragTimer = useRef<number | null>(null);
+  const suppressNextClick = useRef(false);
+
+  const teardownTouchDrag = useCallback(() => {
+    if (touchDragTimer.current !== null) {
+      window.clearTimeout(touchDragTimer.current);
+      touchDragTimer.current = null;
+    }
+    if (touchDrag.current?.armed) {
+      document.body.style.overflow = '';
+      document.body.style.userSelect = '';
+    }
+    touchDrag.current = null;
+    setTouchArmedUserIdx(null);
+    setDragOverUserIdx(null);
+  }, []);
+
+  const performSavedSwap = useCallback((from: number, to: number) => {
+    if (from === to) return;
+    setSavedSlots((prev) => {
+      const next = [...prev];
+      [next[from], next[to]] = [next[to], next[from]];
+      return next;
+    });
+    setSavedSortMode('user');
+    setSelectedSavedIdx(to);
+  }, []);
   const lastHex = useRef(initialHex);
   const skipNextRecent = useRef(false);
 
@@ -993,17 +1022,21 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             {displaySlots.map(({ slot, userIdx }, displayIdx) => {
               const color = slot?.hex ?? null;
               const isSelected = userIdx === selectedSavedIdx && color;
-              const isDragging = userIdx === draggedUserIdx;
-              const isDragOver = userIdx === dragOverUserIdx && draggedUserIdx !== null && draggedUserIdx !== userIdx;
+              const isDragging = userIdx === draggedUserIdx || userIdx === touchArmedUserIdx;
+              const isDragOver = userIdx === dragOverUserIdx && userIdx !== draggedUserIdx && userIdx !== touchArmedUserIdx;
+              const isArmed = userIdx === touchArmedUserIdx;
               return (
                 <button
                   key={`${userIdx}-${displayIdx}`}
+                  data-saved-idx={userIdx}
                   className="rounded-md cursor-pointer h-8 w-full transition-shadow duration-200 ease-in-out"
                   style={{
                     backgroundColor: color || 'transparent',
-                    boxShadow: isDragOver ? '0 0 0 2px #00BFFF' : isSelected ? '0 0 0 2px white' : 'none',
-                    border: (isDragOver || isSelected) ? '2px solid transparent' : '1px dashed var(--input)',
-                    opacity: isDragging ? 0.4 : 1,
+                    boxShadow: isDragOver ? '0 0 0 2px #00BFFF' : isArmed ? '0 0 0 2px #00BFFF' : isSelected ? '0 0 0 2px white' : 'none',
+                    border: (isDragOver || isSelected || isArmed) ? '2px solid transparent' : '1px dashed var(--input)',
+                    opacity: isDragging && !isArmed ? 0.4 : 1,
+                    transform: isArmed ? 'scale(1.1)' : 'scale(1)',
+                    transition: 'transform 120ms ease-out, box-shadow 120ms ease-out',
                   }}
                   draggable={!!color}
                   aria-label={color ? `Load ${color}` : `Save current color to slot ${userIdx + 1}`}
@@ -1027,20 +1060,60 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                     const from = draggedUserIdx;
                     setDraggedUserIdx(null);
                     setDragOverUserIdx(null);
-                    if (from === null || from === userIdx) return;
-                    setSavedSlots((prev) => {
-                      const next = [...prev];
-                      [next[from], next[userIdx]] = [next[userIdx], next[from]];
-                      return next;
-                    });
-                    setSavedSortMode('user');
-                    setSelectedSavedIdx(userIdx);
+                    if (from === null) return;
+                    performSavedSwap(from, userIdx);
                   }}
                   onDragEnd={() => {
                     setDraggedUserIdx(null);
                     setDragOverUserIdx(null);
                   }}
+                  onPointerDown={(e) => {
+                    if (e.pointerType !== 'touch' || !color) return;
+                    touchDrag.current = { startX: e.clientX, startY: e.clientY, userIdx, armed: false };
+                    if (touchDragTimer.current !== null) window.clearTimeout(touchDragTimer.current);
+                    touchDragTimer.current = window.setTimeout(() => {
+                      if (!touchDrag.current) return;
+                      touchDrag.current.armed = true;
+                      setTouchArmedUserIdx(touchDrag.current.userIdx);
+                      document.body.style.overflow = 'hidden';
+                      document.body.style.userSelect = 'none';
+                      if (navigator.vibrate) navigator.vibrate(15);
+                    }, 400);
+                  }}
+                  onPointerMove={(e) => {
+                    const ds = touchDrag.current;
+                    if (!ds) return;
+                    if (!ds.armed) {
+                      const dx = e.clientX - ds.startX;
+                      const dy = e.clientY - ds.startY;
+                      if (dx * dx + dy * dy > 64) teardownTouchDrag();
+                      return;
+                    }
+                    e.preventDefault();
+                    const target = (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null)?.closest('[data-saved-idx]') as HTMLElement | null;
+                    if (target) {
+                      const idx = Number(target.dataset.savedIdx);
+                      if (!Number.isNaN(idx)) setDragOverUserIdx(idx === ds.userIdx ? null : idx);
+                    } else {
+                      setDragOverUserIdx(null);
+                    }
+                  }}
+                  onPointerUp={(e) => {
+                    const ds = touchDrag.current;
+                    if (!ds) return;
+                    if (ds.armed) {
+                      const target = (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null)?.closest('[data-saved-idx]') as HTMLElement | null;
+                      if (target) {
+                        const idx = Number(target.dataset.savedIdx);
+                        if (!Number.isNaN(idx)) performSavedSwap(ds.userIdx, idx);
+                      }
+                      suppressNextClick.current = true;
+                    }
+                    teardownTouchDrag();
+                  }}
+                  onPointerCancel={teardownTouchDrag}
                   onClick={() => {
+                    if (suppressNextClick.current) { suppressNextClick.current = false; return; }
                     if (color) {
                       if (!onAnimateToHsb) return;
                       setSelectedSavedIdx(userIdx);
