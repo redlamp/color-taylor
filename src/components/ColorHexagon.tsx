@@ -40,6 +40,7 @@ interface ColorHexagonProps {
   showHtmlOnHex?: boolean;
   animHolding?: boolean;
   onHoverHtmlColor?: (marker: HoveredMarker | null) => void;
+  muted?: boolean;
 }
 
 interface HoveredMarker {
@@ -49,7 +50,7 @@ interface HoveredMarker {
   name: string;
 }
 
-export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, animHolding, onHoverHtmlColor }: ColorHexagonProps) {
+export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, animHolding, onHoverHtmlColor, muted }: ColorHexagonProps) {
   const { isDark } = useTheme();
   const [hexOpen, setHexOpen] = useState(true);
   const [vectorMode, setVectorMode] = useState<ChannelOrder>('rgb');
@@ -93,6 +94,8 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   type Poof = { id: string; x: number; y: number; w: number; h: number; color: string };
   const [poofs, setPoofs] = useState<Poof[]>([]);
   const audioCtxRef = useRef<AudioContext | null>(null);
+  const mutedRef = useRef<boolean>(!!muted);
+  useEffect(() => { mutedRef.current = !!muted; }, [muted]);
 
   const rand = useCallback((center: number, spread: number) => center + (Math.random() * 2 - 1) * spread, []);
 
@@ -107,6 +110,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   }, []);
 
   const playFlit = useCallback(() => {
+    if (mutedRef.current) return;
     try {
       const ctx = ensureAudioCtx();
       const t = ctx.currentTime;
@@ -149,6 +153,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   }, [ensureAudioCtx, rand]);
 
   const playClick = useCallback(() => {
+    if (mutedRef.current) return;
     try {
       const ctx = ensureAudioCtx();
       const t = ctx.currentTime;
@@ -184,6 +189,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   }, [ensureAudioCtx, rand]);
 
   const playSave = useCallback(() => {
+    if (mutedRef.current) return;
     try {
       const ctx = ensureAudioCtx();
       const t = ctx.currentTime;
@@ -234,6 +240,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   }, [ensureAudioCtx, rand]);
 
   const playPop = useCallback(() => {
+    if (mutedRef.current) return;
     try {
       const ctx = ensureAudioCtx();
 

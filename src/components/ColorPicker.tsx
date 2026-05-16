@@ -26,7 +26,7 @@ import PreviewSwatch from './PreviewSwatch';
 import CollapsibleSection from './CollapsibleSection';
 import NamedColorMatch from './NamedColorMatch';
 import ThemeToggle from './ThemeToggle';
-import { Play, Pause } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeOff } from 'lucide-react';
 
 type HslMode = 'hsb' | 'hsl' | 'both';
 type RgbGradientMode = 'channel' | 'mixed';
@@ -47,6 +47,12 @@ export default function ColorPicker() {
   const [hoverMatchRgb, setHoverMatchRgb] = useState<RGB | null>(null);
   const [showHtmlOnHex, setShowHtmlOnHex] = useState(false);
   const [hoveredHtmlColor, setHoveredHtmlColor] = useState<{ hex: string; name: string } | null>(null);
+  const [muted, setMuted] = useState<boolean>(() => {
+    try { return localStorage.getItem('color-taylor-muted') === '1'; } catch { return false; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('color-taylor-muted', muted ? '1' : '0'); } catch {}
+  }, [muted]);
   const animRef = useRef<number | null>(null);
   const hsbRef = useRef(hsb);
   hsbRef.current = hsb;
@@ -343,6 +349,13 @@ export default function ColorPicker() {
           >
             {colorAnimActive ? <Pause className="size-4" /> : <Play className="size-4" />}
           </button>
+          <button
+            className="px-2 py-1 rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none"
+            onClick={() => setMuted(m => !m)}
+            aria-label={muted ? 'Unmute sounds' : 'Mute sounds'}
+          >
+            {muted ? <VolumeOff className="size-4" /> : <Volume2 className="size-4" />}
+          </button>
           <ThemeToggle />
         </div>
       </div>
@@ -370,6 +383,7 @@ export default function ColorPicker() {
             showHtmlOnHex={showHtmlOnHex}
             animHolding={colorAnimHolding}
             onHoverHtmlColor={setHoveredHtmlColor}
+            muted={muted}
           />
         </div>
 
