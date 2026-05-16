@@ -104,6 +104,38 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     return ctx;
   }, []);
 
+  const playClick = useCallback(() => {
+    try {
+      const ctx = ensureAudioCtx();
+      const t = ctx.currentTime;
+
+      // Short noise impulse, bandpass-filtered into a "click".
+      const duration = 0.04;
+      const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * duration), ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < data.length; i++) {
+        data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
+      }
+
+      const src = ctx.createBufferSource();
+      src.buffer = buffer;
+
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.value = 2000;
+      filter.Q.value = 0.8;
+
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.001, t);
+      gain.gain.exponentialRampToValueAtTime(0.18, t + 0.002);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + duration);
+
+      src.connect(filter).connect(gain).connect(ctx.destination);
+      src.start(t);
+      src.stop(t + duration + 0.01);
+    } catch {}
+  }, [ensureAudioCtx]);
+
   const playSave = useCallback(() => {
     try {
       const ctx = ensureAudioCtx();
@@ -225,7 +257,9 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     });
     setSavedSortMode('user');
     setSelectedSavedIdx(to);
-  }, []);
+    playClick();
+    if (navigator.vibrate) navigator.vibrate(8);
+  }, [playClick]);
   const lastHex = useRef(initialHex);
   const skipNextRecent = useRef(false);
 
