@@ -1,0 +1,126 @@
+import { hsbToRgb, rgbToHex, linearToSrgb } from '../../utils/colorConversions';
+import type { ColorSpace } from '../../utils/sliderGradients';
+import type { HSL } from '../../utils/colorConversions';
+import { RADIUS, CENTER, BL_BAR_X, BL_BAR_TOP, BL_BAR_HEIGHT, BL_BAR_WIDTH, BL_ARROW_SIZE } from './hexConstants';
+import type { MutableRefObject } from 'react';
+
+function hsbToDisplayHex(h: number, s: number, b: number, colorSpace: ColorSpace) {
+  if (colorSpace === 'linear') {
+    const sN = s / 100, bN = b / 100;
+    const c = bN * sN, x = c * (1 - Math.abs(((h / 60) % 2) - 1)), m = bN - c;
+    let r1: number, g1: number, b1: number;
+    if (h < 60) [r1, g1, b1] = [c, x, 0];
+    else if (h < 120) [r1, g1, b1] = [x, c, 0];
+    else if (h < 180) [r1, g1, b1] = [0, c, x];
+    else if (h < 240) [r1, g1, b1] = [0, x, c];
+    else if (h < 300) [r1, g1, b1] = [x, 0, c];
+    else [r1, g1, b1] = [c, 0, x];
+    return rgbToHex(linearToSrgb(r1 + m), linearToSrgb(g1 + m), linearToSrgb(b1 + m));
+  }
+  const rgb = hsbToRgb(h, s, b);
+  return rgbToHex(rgb.r, rgb.g, rgb.b);
+}
+
+interface BrightnessBarProps {
+  hue: number;
+  saturation: number;
+  brightness: number;
+  hsl: HSL;
+  blMode: 'brightness' | 'lightness';
+  blPointerDown: MutableRefObject<{ clientX: number; clientY: number; time: number; isDragging: boolean } | null>;
+  draggingBL: MutableRefObject<boolean>;
+  animateBLToValue: (v: number) => void;
+  colorSpace: ColorSpace;
+}
+
+export default function BrightnessBar({ hue, saturation, brightness, hsl, blMode, blPointerDown, draggingBL, animateBLToValue, colorSpace }: BrightnessBarProps) {
+  const blValue = blMode === 'brightness' ? brightness : (hsl?.l ?? 50);
+  const arrowY = BL_BAR_TOP + (1 - blValue / 100) * BL_BAR_HEIGHT;
+
+  return (
+    <>
+      <defs>
+        <linearGradient id="bl-gradient" x1="0" y1="0" x2="0" y2="1">
+          {blMode === 'brightness' ? (
+            <>
+              <stop offset="0%" stopColor={hsbToDisplayHex(hue, saturation, 100, colorSpace)} />
+              <stop offset="100%" stopColor="#000" />
+            </>
+          ) : (
+            <>
+              <stop offset="0%" stopColor="#fff" />
+              <stop offset="50%" stopColor={hsbToDisplayHex(hue, 100, 100, colorSpace)} />
+              <stop offset="100%" stopColor="#000" />
+            </>
+          )}
+        </linearGradient>
+      </defs>
+      <rect
+        id="bl-bar"
+        x={BL_BAR_X}
+        y={BL_BAR_TOP}
+        width={BL_BAR_WIDTH}
+        height={BL_BAR_HEIGHT}
+        fill="url(#bl-gradient)"
+        stroke="rgba(255,255,255,0.1)"
+        strokeWidth={1}
+        className="cursor-pointer touch-none"
+        onPointerDown={(e) => {
+          e.stopPropagation();
+          blPointerDown.current = {
+            clientX: e.clientX,
+            clientY: e.clientY,
+            time: Date.now(),
+            isDragging: false,
+          };
+        }}
+      />
+      <polygon
+        id="bl-bar-arrow"
+        points={`${BL_BAR_X - 2},${arrowY} ${BL_BAR_X - BL_ARROW_SIZE - 2},${arrowY - 5} ${BL_BAR_X - BL_ARROW_SIZE - 2},${arrowY + 5}`}
+        fill="var(--foreground)"
+        className="cursor-pointer"
+        onMouseDown={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          draggingBL.current = true;
+        }}
+      />
+
+      {/* BL bar markers */}
+      {[
+        { label: '100', value: 100, y: BL_BAR_TOP },
+        { label: '50', value: 50, y: BL_BAR_TOP + BL_BAR_HEIGHT / 2 },
+        { label: '0', value: 0, y: BL_BAR_TOP + BL_BAR_HEIGHT },
+      ].map(({ label, value, y }) => (
+        <g
+          key={value}
+          className="cursor-pointer"
+          onClick={(e) => {
+            e.stopPropagation();
+            animateBLToValue(value);
+          }}
+        >
+          <line
+            x1={BL_BAR_X + BL_BAR_WIDTH}
+            y1={y}
+            x2={BL_BAR_X + BL_BAR_WIDTH + 4}
+            y2={y}
+            stroke="var(--foreground)"
+            strokeWidth={1}
+            opacity={0.5}
+          />
+          <text
+            x={BL_BAR_X + BL_BAR_WIDTH + 8}
+            y={y}
+            dominantBaseline="central"
+            className="text-xs font-mono select-none"
+            fill="var(--muted-foreground)"
+          >
+            {label}
+          </text>
+        </g>
+      ))}
+    </>
+  );
+}

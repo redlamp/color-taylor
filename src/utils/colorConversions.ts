@@ -1,0 +1,214 @@
+export interface RGB {
+  r: number;
+  g: number;
+  b: number;
+}
+
+export interface HSB {
+  h: number;
+  s: number;
+  b: number;
+}
+
+export interface HSL {
+  h: number;
+  s: number;
+  l: number;
+}
+
+/** sRGB gamma: linearize (remove gamma) */
+export function srgbToLinear(c: number): number {
+  const s = c / 255;
+  return s <= 0.04045 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+}
+
+/** sRGB gamma: delinearize (apply gamma), output clamped 0-255 */
+export function linearToSrgb(c: number): number {
+  const s = c <= 0.0031308 ? c * 12.92 : 1.055 * Math.pow(c, 1 / 2.4) - 0.055;
+  return Math.round(Math.max(0, Math.min(255, s * 255)));
+}
+
+/**
+ * Convert HSB/HSV to RGB.
+ * h: 0-360, s: 0-100, b: 0-100
+ */
+export function hsbToRgb(h: number, s: number, b: number): RGB {
+  const sNorm = s / 100;
+  const bNorm = b / 100;
+  const c = bNorm * sNorm;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = bNorm - c;
+
+  let r1: number, g1: number, b1: number;
+  if (h < 60) {
+    [r1, g1, b1] = [c, x, 0];
+  } else if (h < 120) {
+    [r1, g1, b1] = [x, c, 0];
+  } else if (h < 180) {
+    [r1, g1, b1] = [0, c, x];
+  } else if (h < 240) {
+    [r1, g1, b1] = [0, x, c];
+  } else if (h < 300) {
+    [r1, g1, b1] = [x, 0, c];
+  } else {
+    [r1, g1, b1] = [c, 0, x];
+  }
+
+  return {
+    r: Math.round((r1 + m) * 255),
+    g: Math.round((g1 + m) * 255),
+    b: Math.round((b1 + m) * 255),
+  };
+}
+
+/**
+ * Convert RGB to HSB/HSV.
+ * r, g, b: 0-255
+ */
+export function rgbToHsb(r: number, g: number, b: number): HSB {
+  const rNorm = r / 255;
+  const gNorm = g / 255;
+  const bNorm = b / 255;
+
+  const max = Math.max(rNorm, gNorm, bNorm);
+  const min = Math.min(rNorm, gNorm, bNorm);
+  const delta = max - min;
+
+  let h = 0;
+  if (delta !== 0) {
+    if (max === rNorm) {
+      h = 60 * (((gNorm - bNorm) / delta) % 6);
+    } else if (max === gNorm) {
+      h = 60 * ((bNorm - rNorm) / delta + 2);
+    } else {
+      h = 60 * ((rNorm - gNorm) / delta + 4);
+    }
+  }
+  if (h < 0) h += 360;
+
+  const s = max === 0 ? 0 : (delta / max) * 100;
+  const v = max * 100;
+
+  return {
+    h: Math.round(h),
+    s: Math.round(s),
+    b: Math.round(v),
+  };
+}
+
+/**
+ * Convert RGB to HSL.
+ * r, g, b: 0-255
+ */
+export function rgbToHsl(r: number, g: number, b: number): HSL {
+  const rNorm = r / 255;
+  const gNorm = g / 255;
+  const bNorm = b / 255;
+
+  const max = Math.max(rNorm, gNorm, bNorm);
+  const min = Math.min(rNorm, gNorm, bNorm);
+  const delta = max - min;
+  const l = (max + min) / 2;
+
+  let h = 0;
+  let s = 0;
+  if (delta !== 0) {
+    s = delta / (1 - Math.abs(2 * l - 1));
+    if (max === rNorm) {
+      h = 60 * (((gNorm - bNorm) / delta) % 6);
+    } else if (max === gNorm) {
+      h = 60 * ((bNorm - rNorm) / delta + 2);
+    } else {
+      h = 60 * ((rNorm - gNorm) / delta + 4);
+    }
+  }
+  if (h < 0) h += 360;
+
+  return {
+    h: Math.round(h),
+    s: Math.round(s * 100),
+    l: Math.round(l * 100),
+  };
+}
+
+/**
+ * Convert HSL to RGB.
+ * h: 0-360, s: 0-100, l: 0-100
+ */
+export function hslToRgb(h: number, s: number, l: number): RGB {
+  const sNorm = s / 100;
+  const lNorm = l / 100;
+  const c = (1 - Math.abs(2 * lNorm - 1)) * sNorm;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = lNorm - c / 2;
+
+  let r1: number, g1: number, b1: number;
+  if (h < 60) {
+    [r1, g1, b1] = [c, x, 0];
+  } else if (h < 120) {
+    [r1, g1, b1] = [x, c, 0];
+  } else if (h < 180) {
+    [r1, g1, b1] = [0, c, x];
+  } else if (h < 240) {
+    [r1, g1, b1] = [0, x, c];
+  } else if (h < 300) {
+    [r1, g1, b1] = [x, 0, c];
+  } else {
+    [r1, g1, b1] = [c, 0, x];
+  }
+
+  return {
+    r: Math.round((r1 + m) * 255),
+    g: Math.round((g1 + m) * 255),
+    b: Math.round((b1 + m) * 255),
+  };
+}
+
+export function rgbToHex(r: number, g: number, b: number): string {
+  return '#' + [r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('');
+}
+
+export function hexToRgb(hex: string): RGB | null {
+  let cleaned = hex.replace('#', '');
+  if (cleaned.length === 3) {
+    cleaned = cleaned[0] + cleaned[0] + cleaned[1] + cleaned[1] + cleaned[2] + cleaned[2];
+  }
+  if (cleaned.length !== 6) return null;
+  const num = parseInt(cleaned, 16);
+  if (isNaN(num)) return null;
+  return {
+    r: (num >> 16) & 255,
+    g: (num >> 8) & 255,
+    b: num & 255,
+  };
+}
+
+/** Rotate hue by 180 degrees */
+export function complementary(h: number, s: number, b: number): HSB {
+  return { h: (h + 180) % 360, s, b };
+}
+
+/** Invert RGB channels, return as HSB */
+export function inverse(r: number, g: number, b: number): HSB {
+  return rgbToHsb(255 - r, 255 - g, 255 - b);
+}
+
+/** Increase brightness by amount, capped at 100 */
+export function lighter(h: number, s: number, b: number, amount = 15): HSB {
+  return { h, s, b: Math.min(100, b + amount) };
+}
+
+/** Decrease brightness by amount, floored at 0 */
+export function darker(h: number, s: number, b: number, amount = 15): HSB {
+  return { h, s, b: Math.max(0, b - amount) };
+}
+
+/** RGB difference against a reference color, return as HSB */
+export function difference(r1: number, g1: number, b1: number, r2: number, g2: number, b2: number): HSB {
+  return rgbToHsb(Math.abs(r1 - r2), Math.abs(g1 - g2), Math.abs(b1 - b2));
+}
+
+/** Black or white text color for readable contrast against an RGB background */
+export function getContrastTextColor(r: number, g: number, b: number, threshold = 130): '#000' | '#fff' {
+  return (r * 0.299 + g * 0.587 + b * 0.114) > threshold ? '#000' : '#fff';
+}
