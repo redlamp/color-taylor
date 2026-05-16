@@ -358,14 +358,14 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   // Refs keyed by COLOR identity (addedAt timestamp), not slot index, so we
   // can track a color across position changes for FLIP animation.
   const savedColorRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
-  const pendingFlipRects = useRef<{ rects: Map<number, DOMRect>; playSound: boolean } | null>(null);
+  const pendingFlipRects = useRef<{ rects: Map<number, DOMRect>; playSound: boolean; primaryAddedAt?: number } | null>(null);
 
-  const captureFlipRects = useCallback((playSound: boolean) => {
+  const captureFlipRects = useCallback((playSound: boolean, primaryAddedAt?: number) => {
     const rects = new Map<number, DOMRect>();
     savedColorRefs.current.forEach((el, addedAt) => {
       rects.set(addedAt, el.getBoundingClientRect());
     });
-    pendingFlipRects.current = { rects, playSound };
+    pendingFlipRects.current = { rects, playSound, primaryAddedAt };
   }, []);
 
   const computeDragHover = useCallback((clientX: number, clientY: number): { displayIdx: number; zone: 'left' | 'center' | 'right' } | null => {
@@ -388,7 +388,8 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   const performSavedReplace = useCallback((fromUserIdx: number, toDisplayIdx: number) => {
     const fromDisplay = displaySlots.findIndex((d) => d.userIdx === fromUserIdx);
     if (fromDisplay < 0 || fromDisplay === toDisplayIdx) return;
-    captureFlipRects(false);
+    const sourceSlotPreview = displaySlots[fromDisplay].slot;
+    captureFlipRects(false, sourceSlotPreview?.addedAt);
     const flattened: SavedSlot[] = displaySlots.map((d) => d.slot);
     const sourceSlot = flattened[fromDisplay];
     flattened[toDisplayIdx] = sourceSlot;
@@ -408,7 +409,8 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     if (target === fromDisplay || target === fromDisplay + 1) return;
     if (target < 0 || target >= displaySlots.length) return;
 
-    captureFlipRects(false);
+    const sourceSlotPreview = displaySlots[fromDisplay].slot;
+    captureFlipRects(false, sourceSlotPreview?.addedAt);
     const flattened: SavedSlot[] = displaySlots.map((d) => d.slot);
     const sourceSlot = flattened[fromDisplay];
     flattened[fromDisplay] = null;
@@ -465,6 +467,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     pendingFlipRects.current = null;
     const before = pending.rects;
     const shouldPlaySound = pending.playSound;
+    const primaryAddedAt = pending.primaryAddedAt;
 
     let movedCount = 0;
     savedColorRefs.current.forEach((el, addedAt) => {
@@ -475,8 +478,10 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       const dy = oldRect.top - newRect.top;
       if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) return;
       movedCount++;
+      const isPrimary = addedAt === primaryAddedAt;
       el.style.transition = 'none';
       el.style.transform = `translate(${dx}px, ${dy}px)`;
+      el.style.zIndex = isPrimary ? '20' : '10';
       requestAnimationFrame(() => {
         el.style.transition = 'transform 240ms cubic-bezier(0.3, 0.7, 0.3, 1)';
         el.style.transform = 'translate(0, 0)';
@@ -484,6 +489,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       window.setTimeout(() => {
         el.style.transition = '';
         el.style.transform = '';
+        el.style.zIndex = '';
       }, 280);
     });
 
@@ -1385,6 +1391,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                     opacity: isDragging && !isArmed ? 0.4 : 1,
                     transform: isArmed ? 'scale(1.1)' : 'scale(1)',
                     transition: 'transform 120ms ease-out, box-shadow 120ms ease-out',
+                    zIndex: isArmed || isDragging ? 20 : undefined,
                   }}
                   draggable={!!color}
                   aria-label={color ? `Load ${color}` : `Save current color to slot ${userIdx + 1}`}
