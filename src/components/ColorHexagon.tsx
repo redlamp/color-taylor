@@ -385,15 +385,13 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     return { displayIdx, zone };
   }, [displaySlots]);
 
-  const performSavedReplace = useCallback((fromUserIdx: number, toDisplayIdx: number) => {
+  const performSavedSwap = useCallback((fromUserIdx: number, toDisplayIdx: number) => {
     const fromDisplay = displaySlots.findIndex((d) => d.userIdx === fromUserIdx);
     if (fromDisplay < 0 || fromDisplay === toDisplayIdx) return;
     const sourceSlotPreview = displaySlots[fromDisplay].slot;
     captureFlipRects(false, sourceSlotPreview?.addedAt);
     const flattened: SavedSlot[] = displaySlots.map((d) => d.slot);
-    const sourceSlot = flattened[fromDisplay];
-    flattened[toDisplayIdx] = sourceSlot;
-    flattened[fromDisplay] = null;
+    [flattened[fromDisplay], flattened[toDisplayIdx]] = [flattened[toDisplayIdx], flattened[fromDisplay]];
     setSavedSlots(flattened);
     setSavedSortMode('user');
     setSelectedSavedIdx(toDisplayIdx);
@@ -445,13 +443,13 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   const applyDragHoverDrop = useCallback((fromUserIdx: number, hover: { displayIdx: number; zone: 'left' | 'center' | 'right' } | null) => {
     if (!hover) return false;
     if (hover.zone === 'center') {
-      performSavedReplace(fromUserIdx, hover.displayIdx);
+      performSavedSwap(fromUserIdx, hover.displayIdx);
     } else {
       const insertAt = hover.zone === 'left' ? hover.displayIdx : hover.displayIdx + 1;
       performSavedInsert(fromUserIdx, insertAt);
     }
     return true;
-  }, [performSavedReplace, performSavedInsert]);
+  }, [performSavedSwap, performSavedInsert]);
 
   const cycleSavedSort = useCallback(() => {
     captureFlipRects(true);
