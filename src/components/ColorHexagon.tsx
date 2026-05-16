@@ -63,14 +63,25 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     return [...DEFAULT_RECENT];
   });
   const [selectedRecentIdx, setSelectedRecentIdx] = useState(null);
-  const [savedColors, setSavedColors] = useState<(string | null)[]>(() => {
+  type SavedSlot = { hex: string; addedAt: number } | null;
+  type SortMode = 'date' | 'hue' | 'saturation' | 'brightness';
+  const [savedSlots, setSavedSlots] = useState<SavedSlot[]>(() => {
     try {
-      const saved = localStorage.getItem('color-taylor-saved');
-      if (saved) return JSON.parse(saved);
+      const raw = localStorage.getItem('color-taylor-saved');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        // Migrate from earlier (string | null)[] schema
+        return parsed.map((v: unknown) => {
+          if (!v) return null;
+          if (typeof v === 'string') return { hex: v, addedAt: 0 };
+          return v as { hex: string; addedAt: number };
+        });
+      }
     } catch {}
-    return Array(12).fill(null);
+    return Array(12).fill(null) as SavedSlot[];
   });
   const [selectedSavedIdx, setSelectedSavedIdx] = useState<number | null>(null);
+  const [savedSortMode, setSavedSortMode] = useState<SortMode>('date');
   const lastHex = useRef(initialHex);
   const skipNextRecent = useRef(false);
 
@@ -79,8 +90,34 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     localStorage.setItem('color-taylor-recent', JSON.stringify(recentColors));
   }, [recentColors]);
   useEffect(() => {
-    localStorage.setItem('color-taylor-saved', JSON.stringify(savedColors));
-  }, [savedColors]);
+    localStorage.setItem('color-taylor-saved', JSON.stringify(savedSlots));
+  }, [savedSlots]);
+
+  const applySavedSort = useCallback((slots: SavedSlot[], mode: SortMode): SavedSlot[] => {
+    const filled = slots.filter((s): s is { hex: string; addedAt: number } => s !== null);
+    const empties = slots.filter((s) => s === null);
+    filled.sort((a, b) => {
+      if (mode === 'date') return a.addedAt - b.addedAt;
+      const ar = parseInt(a.hex.slice(1, 3), 16), ag = parseInt(a.hex.slice(3, 5), 16), ab = parseInt(a.hex.slice(5, 7), 16);
+      const br = parseInt(b.hex.slice(1, 3), 16), bg = parseInt(b.hex.slice(3, 5), 16), bb = parseInt(b.hex.slice(5, 7), 16);
+      const aHsb = rgbToHsb(ar, ag, ab);
+      const bHsb = rgbToHsb(br, bg, bb);
+      if (mode === 'hue') return aHsb.h - bHsb.h;
+      if (mode === 'saturation') return bHsb.s - aHsb.s;
+      return bHsb.b - aHsb.b;
+    });
+    return [...filled, ...empties];
+  }, []);
+
+  const cycleSavedSort = useCallback(() => {
+    const order: SortMode[] = ['date', 'hue', 'saturation', 'brightness'];
+    const next = order[(order.indexOf(savedSortMode) + 1) % order.length];
+    setSavedSortMode(next);
+    setSavedSlots((prev) => applySavedSort(prev, next));
+    setSelectedSavedIdx(null);
+  }, [savedSortMode, applySavedSort]);
+
+  const SORT_LABELS: Record<SortMode, string> = { date: 'Date', hue: 'Hue', saturation: 'Sat', brightness: 'Bright' };
   const draggingBL = useRef(false);
   const svgRef = useRef(null);
   const draggingHue = useRef(false);
@@ -879,15 +916,15 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             <div className="flex gap-1">
               <button
                 className="px-2 py-0.5 text-xs rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none"
-                onClick={(e) => { e.stopPropagation(); setRecentColors([]); setSelectedRecentIdx(null); }}
-              >
-                Clear
-              </button>
-              <button
-                className="px-2 py-0.5 text-xs rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none"
                 onClick={(e) => { e.stopPropagation(); setRecentColors([...DEFAULT_RECENT]); setSelectedRecentIdx(null); }}
               >
                 Defaults
+              </button>
+              <button
+                className="px-2 py-0.5 text-xs rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none"
+                onClick={(e) => { e.stopPropagation(); setRecentColors([]); setSelectedRecentIdx(null); }}
+              >
+                Clear
               </button>
             </div>
           }
@@ -933,8 +970,15 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           headerRight={
             <div className="flex gap-1">
               <button
+                className="px-2 py-0.5 text-xs rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none tabular-nums"
+                onClick={(e) => { e.stopPropagation(); cycleSavedSort(); }}
+                aria-label={`Sort by ${SORT_LABELS[savedSortMode]} (click to cycle)`}
+              >
+                Sort: {SORT_LABELS[savedSortMode]}
+              </button>
+              <button
                 className="px-2 py-0.5 text-xs rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none"
-                onClick={(e) => { e.stopPropagation(); setSavedColors(Array(12).fill(null)); setSelectedSavedIdx(null); }}
+                onClick={(e) => { e.stopPropagation(); setSavedSlots(Array(12).fill(null)); setSelectedSavedIdx(null); }}
               >
                 Clear
               </button>
@@ -943,7 +987,8 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
         >
           <div className="grid grid-cols-6 md:grid-cols-12 gap-1.5">
             {Array.from({ length: 12 }, (_, i) => {
-              const color = savedColors[i];
+              const slot = savedSlots[i];
+              const color = slot?.hex ?? null;
               return (
                 <button
                   key={i}
@@ -966,9 +1011,9 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                       onAnimateToHsb(parsed);
                     } else {
                       const currentHex = rgbToHex(rgb.r, rgb.g, rgb.b);
-                      setSavedColors((prev) => {
+                      setSavedSlots((prev) => {
                         const next = [...prev];
-                        next[i] = currentHex;
+                        next[i] = { hex: currentHex, addedAt: Date.now() };
                         return next;
                       });
                       setSelectedSavedIdx(i);
