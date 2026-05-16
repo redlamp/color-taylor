@@ -94,14 +94,43 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   const [poofs, setPoofs] = useState<Poof[]>([]);
   const audioCtxRef = useRef<AudioContext | null>(null);
 
+  const ensureAudioCtx = useCallback(() => {
+    if (!audioCtxRef.current) {
+      const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      audioCtxRef.current = new AC();
+    }
+    const ctx = audioCtxRef.current;
+    if (ctx.state === 'suspended') ctx.resume();
+    return ctx;
+  }, []);
+
+  const playSave = useCallback(() => {
+    try {
+      const ctx = ensureAudioCtx();
+      const t = ctx.currentTime;
+
+      // Two-note rising chime (C5 → G5), triangle waves with quick fades.
+      const ping = (freq: number, startOffset: number, duration: number, peak: number) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, t + startOffset);
+        gain.gain.setValueAtTime(0.0001, t + startOffset);
+        gain.gain.exponentialRampToValueAtTime(peak, t + startOffset + 0.008);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + startOffset + duration);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(t + startOffset);
+        osc.stop(t + startOffset + duration + 0.02);
+      };
+
+      ping(523.25, 0.0, 0.12, 0.22);   // C5
+      ping(783.99, 0.07, 0.16, 0.20);  // G5
+    } catch {}
+  }, [ensureAudioCtx]);
+
   const playPop = useCallback(() => {
     try {
-      if (!audioCtxRef.current) {
-        const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-        audioCtxRef.current = new AC();
-      }
-      const ctx = audioCtxRef.current;
-      if (ctx.state === 'suspended') ctx.resume();
+      const ctx = ensureAudioCtx();
 
       // Crumple: filtered noise burst with random crinkle envelope.
       const duration = 0.32;
@@ -146,7 +175,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       src.start(t);
       src.stop(t + duration + 0.05);
     } catch {}
-  }, []);
+  }, [ensureAudioCtx]);
 
   const triggerPoof = useCallback((idx: number, color: string) => {
     const btn = document.querySelector<HTMLElement>(`[data-saved-idx="${idx}"]`);
@@ -1223,6 +1252,8 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                       });
                       setSavedSortMode('user');
                       setSelectedSavedIdx(userIdx);
+                      playSave();
+                      if (navigator.vibrate) navigator.vibrate(10);
                     }
                   }}
                 />
