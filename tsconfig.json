@@ -12,9 +12,6 @@
     "noEmit": true,
     "jsx": "react-jsx",
 
-    "allowJs": true,
-    "checkJs": false,
-
     "strict": false,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
@@ -24,5 +21,5 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src", "vite.config.js"]
+  "include": ["src"]
 }
