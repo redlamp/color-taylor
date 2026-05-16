@@ -88,6 +88,17 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   const touchDrag = useRef<{ startX: number; startY: number; userIdx: number; armed: boolean } | null>(null);
   const touchDragTimer = useRef<number | null>(null);
   const suppressNextClick = useRef(false);
+  const desktopDroppedRef = useRef(false);
+
+  const deleteSavedAt = useCallback((idx: number) => {
+    setSavedSlots((prev) => {
+      const next = [...prev];
+      next[idx] = null;
+      return next;
+    });
+    setSavedSortMode('user');
+    setSelectedSavedIdx((prev) => (prev === idx ? null : prev));
+  }, []);
 
   const teardownTouchDrag = useCallback(() => {
     if (touchDragTimer.current !== null) {
@@ -1058,12 +1069,17 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                   onDrop={(e) => {
                     e.preventDefault();
                     const from = draggedUserIdx;
+                    desktopDroppedRef.current = true;
                     setDraggedUserIdx(null);
                     setDragOverUserIdx(null);
                     if (from === null) return;
                     performSavedSwap(from, userIdx);
                   }}
                   onDragEnd={() => {
+                    if (!desktopDroppedRef.current && draggedUserIdx !== null) {
+                      deleteSavedAt(draggedUserIdx);
+                    }
+                    desktopDroppedRef.current = false;
                     setDraggedUserIdx(null);
                     setDragOverUserIdx(null);
                   }}
@@ -1106,6 +1122,8 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                       if (target) {
                         const idx = Number(target.dataset.savedIdx);
                         if (!Number.isNaN(idx)) performSavedSwap(ds.userIdx, idx);
+                      } else {
+                        deleteSavedAt(ds.userIdx);
                       }
                       suppressNextClick.current = true;
                     }
