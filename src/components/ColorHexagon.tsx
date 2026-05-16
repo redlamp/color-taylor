@@ -93,30 +93,32 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     localStorage.setItem('color-taylor-saved', JSON.stringify(savedSlots));
   }, [savedSlots]);
 
-  const applySavedSort = useCallback((slots: SavedSlot[], mode: SortMode): SavedSlot[] => {
-    if (mode === 'user') return slots;
-    const filled = slots.filter((s): s is { hex: string; addedAt: number } => s !== null);
-    const empties = slots.filter((s) => s === null);
+  // Display order — sorts a snapshot of the user's arrangement without mutating it.
+  // Switching back to "user" mode restores the original positions.
+  const displaySlots = useMemo<{ slot: SavedSlot; userIdx: number }[]>(() => {
+    const indexed = savedSlots.map((slot, userIdx) => ({ slot, userIdx }));
+    if (savedSortMode === 'user') return indexed;
+    const filled = indexed.filter((x): x is { slot: { hex: string; addedAt: number }; userIdx: number } => x.slot !== null);
+    const empties = indexed.filter((x) => x.slot === null);
     filled.sort((a, b) => {
-      if (mode === 'date') return a.addedAt - b.addedAt;
-      const ar = parseInt(a.hex.slice(1, 3), 16), ag = parseInt(a.hex.slice(3, 5), 16), ab = parseInt(a.hex.slice(5, 7), 16);
-      const br = parseInt(b.hex.slice(1, 3), 16), bg = parseInt(b.hex.slice(3, 5), 16), bb = parseInt(b.hex.slice(5, 7), 16);
+      if (savedSortMode === 'date') return a.slot.addedAt - b.slot.addedAt;
+      const ar = parseInt(a.slot.hex.slice(1, 3), 16), ag = parseInt(a.slot.hex.slice(3, 5), 16), ab = parseInt(a.slot.hex.slice(5, 7), 16);
+      const br = parseInt(b.slot.hex.slice(1, 3), 16), bg = parseInt(b.slot.hex.slice(3, 5), 16), bb = parseInt(b.slot.hex.slice(5, 7), 16);
       const aHsb = rgbToHsb(ar, ag, ab);
       const bHsb = rgbToHsb(br, bg, bb);
-      if (mode === 'hue') return aHsb.h - bHsb.h;
-      if (mode === 'saturation') return bHsb.s - aHsb.s;
+      if (savedSortMode === 'hue') return aHsb.h - bHsb.h;
+      if (savedSortMode === 'saturation') return bHsb.s - aHsb.s;
       return bHsb.b - aHsb.b;
     });
     return [...filled, ...empties];
-  }, []);
+  }, [savedSlots, savedSortMode]);
 
   const cycleSavedSort = useCallback(() => {
     const order: SortMode[] = ['user', 'date', 'hue', 'saturation', 'brightness'];
     const next = order[(order.indexOf(savedSortMode) + 1) % order.length];
     setSavedSortMode(next);
-    setSavedSlots((prev) => applySavedSort(prev, next));
     setSelectedSavedIdx(null);
-  }, [savedSortMode, applySavedSort]);
+  }, [savedSortMode]);
 
   const SORT_LABELS: Record<SortMode, string> = { user: 'User', date: 'Date', hue: 'Hue', saturation: 'Sat', brightness: 'Bright' };
   const draggingBL = useRef(false);
@@ -987,23 +989,23 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           }
         >
           <div className="grid grid-cols-6 md:grid-cols-12 gap-1.5">
-            {Array.from({ length: 12 }, (_, i) => {
-              const slot = savedSlots[i];
+            {displaySlots.map(({ slot, userIdx }, displayIdx) => {
               const color = slot?.hex ?? null;
+              const isSelected = userIdx === selectedSavedIdx && color;
               return (
                 <button
-                  key={i}
+                  key={`${userIdx}-${displayIdx}`}
                   className="rounded-md cursor-pointer h-8 w-full transition-shadow duration-200 ease-in-out"
                   style={{
                     backgroundColor: color || 'transparent',
-                    boxShadow: i === selectedSavedIdx && color ? '0 0 0 2px white' : 'none',
-                    border: i === selectedSavedIdx && color ? '2px solid transparent' : '1px dashed var(--input)',
+                    boxShadow: isSelected ? '0 0 0 2px white' : 'none',
+                    border: isSelected ? '2px solid transparent' : '1px dashed var(--input)',
                   }}
-                  aria-label={color ? `Load ${color}` : `Save current color to slot ${i + 1}`}
+                  aria-label={color ? `Load ${color}` : `Save current color to slot ${userIdx + 1}`}
                   onClick={() => {
                     if (color) {
                       if (!onAnimateToHsb) return;
-                      setSelectedSavedIdx(i);
+                      setSelectedSavedIdx(userIdx);
                       const parsed = rgbToHsb(
                         parseInt(color.slice(1, 3), 16),
                         parseInt(color.slice(3, 5), 16),
@@ -1014,11 +1016,11 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                       const currentHex = rgbToHex(rgb.r, rgb.g, rgb.b);
                       setSavedSlots((prev) => {
                         const next = [...prev];
-                        next[i] = { hex: currentHex, addedAt: Date.now() };
+                        next[userIdx] = { hex: currentHex, addedAt: Date.now() };
                         return next;
                       });
                       setSavedSortMode('user');
-                      setSelectedSavedIdx(i);
+                      setSelectedSavedIdx(userIdx);
                     }
                   }}
                 />
