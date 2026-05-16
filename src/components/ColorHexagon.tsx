@@ -141,22 +141,43 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       const ctx = ensureAudioCtx();
       const t = ctx.currentTime;
 
-      // Two-note rising chime (C5 → G5), triangle waves with quick fades.
-      const ping = (freq: number, startOffset: number, duration: number, peak: number) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(freq, t + startOffset);
-        gain.gain.setValueAtTime(0.0001, t + startOffset);
-        gain.gain.exponentialRampToValueAtTime(peak, t + startOffset + 0.008);
-        gain.gain.exponentialRampToValueAtTime(0.0001, t + startOffset + duration);
-        osc.connect(gain).connect(ctx.destination);
-        osc.start(t + startOffset);
-        osc.stop(t + startOffset + duration + 0.02);
-      };
+      // "Stamp" — short noise body around 700Hz + a low sine thump for weight.
+      const duration = 0.11;
 
-      ping(523.25, 0.0, 0.12, 0.22);   // C5
-      ping(783.99, 0.07, 0.16, 0.20);  // G5
+      const noiseBuf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * duration), ctx.sampleRate);
+      const data = noiseBuf.getChannelData(0);
+      for (let i = 0; i < data.length; i++) {
+        data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
+      }
+      const noise = ctx.createBufferSource();
+      noise.buffer = noiseBuf;
+
+      const bandpass = ctx.createBiquadFilter();
+      bandpass.type = 'bandpass';
+      bandpass.frequency.value = 750;
+      bandpass.Q.value = 1.1;
+
+      const noiseGain = ctx.createGain();
+      noiseGain.gain.setValueAtTime(0.0001, t);
+      noiseGain.gain.exponentialRampToValueAtTime(0.18, t + 0.003);
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+
+      noise.connect(bandpass).connect(noiseGain).connect(ctx.destination);
+      noise.start(t);
+      noise.stop(t + duration + 0.02);
+
+      // Low body thump — sine that drops from 120Hz to 60Hz quickly.
+      const thump = ctx.createOscillator();
+      const thumpGain = ctx.createGain();
+      thump.type = 'sine';
+      thump.frequency.setValueAtTime(140, t);
+      thump.frequency.exponentialRampToValueAtTime(55, t + 0.08);
+      thumpGain.gain.setValueAtTime(0.0001, t);
+      thumpGain.gain.exponentialRampToValueAtTime(0.18, t + 0.005);
+      thumpGain.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
+      thump.connect(thumpGain).connect(ctx.destination);
+      thump.start(t);
+      thump.stop(t + 0.1);
     } catch {}
   }, [ensureAudioCtx]);
 
