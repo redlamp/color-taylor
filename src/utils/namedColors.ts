@@ -1,5 +1,15 @@
-// All 148 CSS named colors
-const NAMED_COLORS = [
+export interface NamedColor {
+  name: string;
+  r: number;
+  g: number;
+  b: number;
+}
+
+export interface NearestNamedColor extends NamedColor {
+  distance: number;
+}
+
+const NAMED_COLORS: NamedColor[] = [
   { name: 'aliceblue', r: 240, g: 248, b: 255 },
   { name: 'antiquewhite', r: 250, g: 235, b: 215 },
   { name: 'aqua', r: 0, g: 255, b: 255 },
@@ -147,8 +157,8 @@ const NAMED_COLORS = [
  * Find the nearest named CSS color to the given RGB values.
  * Returns { name, r, g, b, distance }
  */
-export function findNearestNamedColor(r, g, b) {
-  let best = null;
+export function findNearestNamedColor(r: number, g: number, b: number): NearestNamedColor {
+  let best: NamedColor = NAMED_COLORS[0];
   let bestDist = Infinity;
   for (const c of NAMED_COLORS) {
     const dr = r - c.r;

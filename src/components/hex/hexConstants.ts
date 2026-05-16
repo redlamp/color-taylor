@@ -1,4 +1,4 @@
-import { hsbToRgb } from '../../utils/colorConversions';
+import { hsbToRgb, type RGB } from '../../utils/colorConversions';
 
 export const HEX_SIZE = 540;
 export const BL_BAR_WIDTH = 22;
@@ -14,26 +14,29 @@ export const BL_BAR_HEIGHT = RADIUS * 2;
 export const SQRT3_2 = Math.sqrt(3) / 2;
 export const PI = Math.PI;
 
-export const DIRS = {
+export type Channel = 'r' | 'g' | 'b';
+export type ChannelOrder = 'asc' | 'desc' | 'rgb';
+
+export const DIRS: Record<Channel, { x: number; y: number }> = {
   r: { x: 1, y: 0 },
   g: { x: -0.5, y: -SQRT3_2 },
   b: { x: -0.5, y: SQRT3_2 },
 };
 
-export function hexEdgeDist(angle, r) {
-  let a = ((angle % (2 * PI)) + 2 * PI) % (2 * PI);
+export function hexEdgeDist(angle: number, r: number): number {
+  const a = ((angle % (2 * PI)) + 2 * PI) % (2 * PI);
   const sectorAngle = a % (PI / 3);
   return (r * SQRT3_2) / Math.cos(sectorAngle - PI / 6);
 }
 
-export function hexPoints(cx, cy, r) {
+export function hexPoints(cx: number, cy: number, r: number): string {
   return Array.from({ length: 6 }, (_, i) => {
     const a = i * (PI / 3);
     return `${cx + r * Math.cos(a)},${cy - r * Math.sin(a)}`;
   }).join(' ');
 }
 
-export function colorAtPoint(px, py, brightness) {
+export function colorAtPoint(px: number, py: number, brightness: number): RGB {
   const dx = px - CENTER;
   const dy = py - CENTER;
   const dist = Math.sqrt(dx * dx + dy * dy);
@@ -45,8 +48,8 @@ export function colorAtPoint(px, py, brightness) {
   return hsbToRgb(h, s, brightness);
 }
 
-export function getOrder(mode, rgb) {
-  const channels = [
+export function getOrder(mode: ChannelOrder, rgb: RGB): Channel[] {
+  const channels: { key: Channel; value: number }[] = [
     { key: 'r', value: rgb.r },
     { key: 'g', value: rgb.g },
     { key: 'b', value: rgb.b },
