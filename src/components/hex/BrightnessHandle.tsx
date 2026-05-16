@@ -1,6 +1,6 @@
 import type { MouseEventHandler } from 'react';
 import { hsbToRgb, rgbToHex, type HSL } from '../../utils/colorConversions';
-import { BL_BAR_X, BL_BAR_TOP, BL_BAR_WIDTH, BL_BAR_HEIGHT } from './hexConstants';
+import { BL_BAR_X, BL_BAR_TOP, BL_BAR_WIDTH, BL_BAR_HEIGHT, SIZE, HEX_SIZE } from './hexConstants';
 
 interface BrightnessHandleProps {
   hue: number;
@@ -24,7 +24,7 @@ export default function BrightnessHandle({ hue, saturation, brightness, hsl, blM
     <div
       id="bl-handle"
       className="absolute z-10 -translate-y-1/2 flex items-center cursor-pointer select-none"
-      style={{ left: x, top: y }}
+      style={{ left: `${(x / SIZE) * 100}%`, top: `${(y / HEX_SIZE) * 100}%` }}
       onMouseDown={onMouseDown}
     >
       {/* Left-pointing arrow */}

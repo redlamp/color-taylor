@@ -115,7 +115,7 @@ export default function PresentationShell({ navigate }) {
           overflow: 'hidden',
           transition: `${chromeTransition}, height 0.5s ease-out, padding 0.5s ease-out`,
         }}>
-        <h1 className="text-sm font-semibold tracking-wide">Color Taylor 🧵</h1>
+        <h1 className="text-sm font-semibold tracking-wide">Color Taylor 🎨🧵</h1>
         <span className="text-xs text-muted-foreground tabular-nums">
           {currentSlide + 1} / {total}
         </span>

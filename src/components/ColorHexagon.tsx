@@ -87,7 +87,9 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
 
   const getSvgCoords = useCallback((e) => {
     const rect = svgRef.current.getBoundingClientRect();
-    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    const sx = SIZE / rect.width;
+    const sy = HEX_SIZE / rect.height;
+    return { x: (e.clientX - rect.left) * sx, y: (e.clientY - rect.top) * sy };
   }, []);
 
   const getHsbFromPosition = useCallback((svgX, svgY, clampOnly = false) => {
@@ -350,7 +352,8 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   const getBLValueFromClientY = useCallback((clientY) => {
     if (!svgRef.current) return null;
     const svgRect = svgRef.current.getBoundingClientRect();
-    const svgY = clientY - svgRect.top;
+    const sy = HEX_SIZE / svgRect.height;
+    const svgY = (clientY - svgRect.top) * sy;
     const y = Math.max(0, Math.min(svgY - BL_BAR_TOP, BL_BAR_HEIGHT));
     return Math.round((1 - y / BL_BAR_HEIGHT) * 100);
   }, []);
@@ -585,7 +588,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   }, [blMode, brightness, hsl?.l]);
 
   return (
-    <div id="color-hexagon" className="flex flex-col items-center gap-1 border border-input rounded-lg p-3" style={{ minWidth: SIZE + 40 }}>
+    <div id="color-hexagon" className="flex flex-col items-center gap-1 border border-input rounded-lg p-3 w-full md:w-auto" style={{ maxWidth: SIZE + 24 }}>
       <div
         className="flex items-center gap-1.5 w-full cursor-pointer select-none"
         onClick={() => setHexOpen((o) => !o)}
@@ -634,16 +637,16 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
         </div>
       </div>
 
-      <div className="relative" style={{ width: SIZE, height: HEX_SIZE, marginLeft: -20 }}>
+      <div className="relative w-full" style={{ maxWidth: SIZE, aspectRatio: `${SIZE} / ${HEX_SIZE}` }}>
         <HexCanvas brightness={brightness} colorSpace={colorSpace} />
         <svg
           id="hex-svg"
           ref={svgRef}
-          width={SIZE}
-          height={HEX_SIZE}
+          viewBox={`0 0 ${SIZE} ${HEX_SIZE}`}
+          preserveAspectRatio="xMidYMid meet"
           role="img"
           aria-label="Color hexagon with RGB vector visualization"
-          className="absolute inset-0 z-[5]"
+          className="absolute inset-0 z-[5] w-full h-full"
           onMouseDown={handleHexMouseDown}
         >
           <circle id="hex-circumscribe" cx={CENTER} cy={CENTER} r={RADIUS} fill="none" stroke="var(--input)" strokeWidth={1.5} />

@@ -1,6 +1,6 @@
 import { useRef, useEffect } from 'react';
 import { hsbToRgb, srgbToLinear, linearToSrgb } from '../../utils/colorConversions';
-import { HEX_SIZE, CENTER, RADIUS, PI, hexEdgeDist } from './hexConstants';
+import { HEX_SIZE, SIZE, CENTER, RADIUS, PI, hexEdgeDist } from './hexConstants';
 
 export default function HexCanvas({ brightness, colorSpace }) {
   const canvasRef = useRef(null);
@@ -74,7 +74,8 @@ export default function HexCanvas({ brightness, colorSpace }) {
       ref={canvasRef}
       width={HEX_SIZE}
       height={HEX_SIZE}
-      className="absolute inset-0 rounded-sm"
+      className="absolute top-0 left-0 rounded-sm"
+      style={{ width: `${(HEX_SIZE / SIZE) * 100}%`, height: '100%' }}
     />
   );
 }

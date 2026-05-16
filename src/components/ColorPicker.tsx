@@ -326,9 +326,9 @@ export default function ColorPicker() {
   }, [colorAnimActive]);
 
   return (
-    <div id="color-picker-root" className="mx-auto min-w-[1200px] max-w-[1400px] p-6">
+    <div id="color-picker-root" className="mx-auto w-full max-w-[1400px] p-3 sm:p-6">
       <div className="flex items-center justify-between mb-4">
-        <h1 id="color-picker-title" className="text-2xl font-semibold tracking-tight text-primary">Color Taylor 🧵</h1>
+        <h1 id="color-picker-title" className="text-2xl font-semibold tracking-tight text-primary">Color Taylor 🎨🧵</h1>
         <div className="flex items-center gap-2">
           <button
             className="px-3 py-1 text-sm font-medium rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none"
@@ -348,9 +348,9 @@ export default function ColorPicker() {
       </div>
 
       <div className="flex flex-col">
-      <div ref={topRowRef} className="flex gap-4 items-start">
+      <div ref={topRowRef} className="flex flex-col md:flex-row gap-4 items-stretch md:items-start">
         {/* Left column: Color Hexagon */}
-        <div className="shrink-0">
+        <div className="w-full md:w-auto md:shrink-0 min-w-0">
           <ColorHexagon
             rgb={rgb}
             hue={hsb.h}
@@ -374,7 +374,7 @@ export default function ColorPicker() {
         </div>
 
         {/* Right column: Controls */}
-        <div id="picker-layout" className="w-[420px] shrink-0 border border-input rounded-lg p-2.5">
+        <div id="picker-layout" className="w-full md:w-[420px] md:shrink-0 border border-input rounded-lg p-2.5">
         <CollapsibleSection id="sliders-group" title="Sliders" level="h2">
           <div className="flex flex-col gap-3">
         {/* Color Editor: Swatch + SB Box + H Slider */}
