@@ -296,21 +296,6 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     window.setTimeout(() => setPoofs((prev) => prev.filter((p) => p.id !== id)), 450);
   }, []);
 
-  const deleteSavedAt = useCallback((userIdx: number) => {
-    const slot = savedSlots[userIdx];
-    if (slot) {
-      triggerPoof(userIdx, slot.hex);
-      playPop();
-      if (navigator.vibrate) navigator.vibrate(20);
-    }
-    const displayIdx = displaySlots.findIndex((d) => d.userIdx === userIdx);
-    const flattened: SavedSlot[] = displaySlots.map((d) => d.slot);
-    if (displayIdx >= 0) flattened[displayIdx] = null;
-    setSavedSlots(flattened);
-    setSavedSortMode('user');
-    setSelectedSavedIdx(null);
-  }, [savedSlots, displaySlots, triggerPoof, playPop]);
-
   const teardownTouchDrag = useCallback(() => {
     if (touchDragTimer.current !== null) {
       window.clearTimeout(touchDragTimer.current);
@@ -325,19 +310,6 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     setDragOverUserIdx(null);
   }, []);
 
-  const performSavedSwap = useCallback((fromUserIdx: number, toUserIdx: number) => {
-    if (fromUserIdx === toUserIdx) return;
-    const fromDisplay = displaySlots.findIndex((d) => d.userIdx === fromUserIdx);
-    const toDisplay = displaySlots.findIndex((d) => d.userIdx === toUserIdx);
-    if (fromDisplay < 0 || toDisplay < 0) return;
-    const flattened: SavedSlot[] = displaySlots.map((d) => d.slot);
-    [flattened[fromDisplay], flattened[toDisplay]] = [flattened[toDisplay], flattened[fromDisplay]];
-    setSavedSlots(flattened);
-    setSavedSortMode('user');
-    setSelectedSavedIdx(toDisplay);
-    playClick();
-    if (navigator.vibrate) navigator.vibrate(8);
-  }, [displaySlots, playClick]);
   const lastHex = useRef(initialHex);
   const skipNextRecent = useRef(false);
 
@@ -367,6 +339,35 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     });
     return [...filled, ...empties];
   }, [savedSlots, savedSortMode]);
+
+  const deleteSavedAt = useCallback((userIdx: number) => {
+    const slot = savedSlots[userIdx];
+    if (slot) {
+      triggerPoof(userIdx, slot.hex);
+      playPop();
+      if (navigator.vibrate) navigator.vibrate(20);
+    }
+    const displayIdx = displaySlots.findIndex((d) => d.userIdx === userIdx);
+    const flattened: SavedSlot[] = displaySlots.map((d) => d.slot);
+    if (displayIdx >= 0) flattened[displayIdx] = null;
+    setSavedSlots(flattened);
+    setSavedSortMode('user');
+    setSelectedSavedIdx(null);
+  }, [savedSlots, displaySlots, triggerPoof, playPop]);
+
+  const performSavedSwap = useCallback((fromUserIdx: number, toUserIdx: number) => {
+    if (fromUserIdx === toUserIdx) return;
+    const fromDisplay = displaySlots.findIndex((d) => d.userIdx === fromUserIdx);
+    const toDisplay = displaySlots.findIndex((d) => d.userIdx === toUserIdx);
+    if (fromDisplay < 0 || toDisplay < 0) return;
+    const flattened: SavedSlot[] = displaySlots.map((d) => d.slot);
+    [flattened[fromDisplay], flattened[toDisplay]] = [flattened[toDisplay], flattened[fromDisplay]];
+    setSavedSlots(flattened);
+    setSavedSortMode('user');
+    setSelectedSavedIdx(toDisplay);
+    playClick();
+    if (navigator.vibrate) navigator.vibrate(8);
+  }, [displaySlots, playClick]);
 
   const savedSlotRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
   const pendingFlipRects = useRef<Map<number, DOMRect> | null>(null);
