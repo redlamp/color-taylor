@@ -609,39 +609,45 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           <h2 className="text-lg font-semibold tracking-tight text-foreground">Color Hexagon</h2>
         </div>
         {hexOpen && (
-          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-            <Tabs value={dragMode} onValueChange={setDragMode}>
-              <TabsList>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span><TabsTrigger value="free" className="w-14">Free</TabsTrigger></span>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" sideOffset={8} className="text-xs font-semibold">Free handles</TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span><TabsTrigger value="channel" className="w-14">Channel</TabsTrigger></span>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" sideOffset={8} className="text-xs font-semibold">Channel handles</TooltipContent>
-                </Tooltip>
-              </TabsList>
-            </Tabs>
-            <Tabs value={blMode} onValueChange={onBlModeChange}>
-              <TabsList>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span><TabsTrigger value="brightness" className="w-14">Bright</TabsTrigger></span>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" sideOffset={8} className="text-xs font-semibold">HSB brightness</TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span><TabsTrigger value="lightness" className="w-14">Light</TabsTrigger></span>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" sideOffset={8} className="text-xs font-semibold">HSL lightness</TooltipContent>
-                </Tooltip>
-              </TabsList>
-            </Tabs>
+          <div className="flex items-start gap-2" onClick={(e) => e.stopPropagation()}>
+            <div className="flex flex-col items-center gap-0.5">
+              <Tabs value={dragMode} onValueChange={setDragMode}>
+                <TabsList>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span><TabsTrigger value="free" className="w-14">Free</TabsTrigger></span>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" sideOffset={8} className="text-xs font-semibold">Free handles</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span><TabsTrigger value="channel" className="w-14">Channel</TabsTrigger></span>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" sideOffset={8} className="text-xs font-semibold">Channel handles</TooltipContent>
+                  </Tooltip>
+                </TabsList>
+              </Tabs>
+              <span className="text-[10px] text-muted-foreground">Handles</span>
+            </div>
+            <div className="flex flex-col items-center gap-0.5">
+              <Tabs value={blMode} onValueChange={onBlModeChange}>
+                <TabsList>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span><TabsTrigger value="brightness" className="w-14">Bright</TabsTrigger></span>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" sideOffset={8} className="text-xs font-semibold">HSB brightness</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span><TabsTrigger value="lightness" className="w-14">Light</TabsTrigger></span>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" sideOffset={8} className="text-xs font-semibold">HSL lightness</TooltipContent>
+                  </Tooltip>
+                </TabsList>
+              </Tabs>
+              <span className="text-[10px] text-muted-foreground">Luminance</span>
+            </div>
           </div>
         )}
       </div>
