@@ -108,27 +108,36 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     try {
       const ctx = ensureAudioCtx();
       const t = ctx.currentTime;
-      const duration = 0.14;
+      const duration = 0.38;
 
       const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * duration), ctx.sampleRate);
       const data = buf.getChannelData(0);
-      for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * 0.6;
+      for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
 
       const src = ctx.createBufferSource();
       src.buffer = buf;
 
+      // Broad bandpass for "air" rather than a narrow tonal sweep.
       const filter = ctx.createBiquadFilter();
       filter.type = 'bandpass';
-      filter.Q.value = 6;
-      filter.frequency.setValueAtTime(700, t);
-      filter.frequency.exponentialRampToValueAtTime(2400, t + duration);
+      filter.Q.value = 1.2;
+      filter.frequency.setValueAtTime(450, t);
+      filter.frequency.exponentialRampToValueAtTime(1700, t + duration * 0.7);
+      filter.frequency.exponentialRampToValueAtTime(900, t + duration);
+
+      // High-shelf tames the harsher top end so it reads as soft, not hissy.
+      const tilt = ctx.createBiquadFilter();
+      tilt.type = 'highshelf';
+      tilt.frequency.value = 3000;
+      tilt.gain.value = -6;
 
       const gain = ctx.createGain();
       gain.gain.setValueAtTime(0.0001, t);
-      gain.gain.exponentialRampToValueAtTime(0.13, t + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.22, t + 0.09);   // slow attack
+      gain.gain.linearRampToValueAtTime(0.18, t + 0.24);        // gentle hold
       gain.gain.exponentialRampToValueAtTime(0.0001, t + duration);
 
-      src.connect(filter).connect(gain).connect(ctx.destination);
+      src.connect(filter).connect(tilt).connect(gain).connect(ctx.destination);
       src.start(t);
       src.stop(t + duration + 0.02);
     } catch {}
