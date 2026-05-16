@@ -82,6 +82,8 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   });
   const [selectedSavedIdx, setSelectedSavedIdx] = useState<number | null>(null);
   const [savedSortMode, setSavedSortMode] = useState<SortMode>('user');
+  const [draggedUserIdx, setDraggedUserIdx] = useState<number | null>(null);
+  const [dragOverUserIdx, setDragOverUserIdx] = useState<number | null>(null);
   const lastHex = useRef(initialHex);
   const skipNextRecent = useRef(false);
 
@@ -992,16 +994,53 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             {displaySlots.map(({ slot, userIdx }, displayIdx) => {
               const color = slot?.hex ?? null;
               const isSelected = userIdx === selectedSavedIdx && color;
+              const isDragging = userIdx === draggedUserIdx;
+              const isDragOver = userIdx === dragOverUserIdx && draggedUserIdx !== null && draggedUserIdx !== userIdx;
               return (
                 <button
                   key={`${userIdx}-${displayIdx}`}
                   className="rounded-md cursor-pointer h-8 w-full transition-shadow duration-200 ease-in-out"
                   style={{
                     backgroundColor: color || 'transparent',
-                    boxShadow: isSelected ? '0 0 0 2px white' : 'none',
-                    border: isSelected ? '2px solid transparent' : '1px dashed var(--input)',
+                    boxShadow: isDragOver ? '0 0 0 2px #00BFFF' : isSelected ? '0 0 0 2px white' : 'none',
+                    border: (isDragOver || isSelected) ? '2px solid transparent' : '1px dashed var(--input)',
+                    opacity: isDragging ? 0.4 : 1,
                   }}
+                  draggable={!!color}
                   aria-label={color ? `Load ${color}` : `Save current color to slot ${userIdx + 1}`}
+                  onDragStart={(e) => {
+                    if (!color) { e.preventDefault(); return; }
+                    setDraggedUserIdx(userIdx);
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', String(userIdx));
+                  }}
+                  onDragOver={(e) => {
+                    if (draggedUserIdx === null || draggedUserIdx === userIdx) return;
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    if (dragOverUserIdx !== userIdx) setDragOverUserIdx(userIdx);
+                  }}
+                  onDragLeave={() => {
+                    setDragOverUserIdx((prev) => (prev === userIdx ? null : prev));
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const from = draggedUserIdx;
+                    setDraggedUserIdx(null);
+                    setDragOverUserIdx(null);
+                    if (from === null || from === userIdx) return;
+                    setSavedSlots((prev) => {
+                      const next = [...prev];
+                      [next[from], next[userIdx]] = [next[userIdx], next[from]];
+                      return next;
+                    });
+                    setSavedSortMode('user');
+                    setSelectedSavedIdx(userIdx);
+                  }}
+                  onDragEnd={() => {
+                    setDraggedUserIdx(null);
+                    setDragOverUserIdx(null);
+                  }}
                   onClick={() => {
                     if (color) {
                       if (!onAnimateToHsb) return;
