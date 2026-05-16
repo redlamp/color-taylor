@@ -53,7 +53,7 @@ export default function NamedColorMatch({ rgb, onAnimateToHsb, onHoverMatch, hov
     <div className="flex flex-col gap-2">
       <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: 8, alignItems: 'stretch' }}>
         <Popover open={comboOpen} onOpenChange={setComboOpen}>
-          <PopoverTrigger>
+          <PopoverTrigger asChild>
             <button className="flex items-center justify-center h-8 border border-input rounded-md bg-transparent text-muted-foreground cursor-pointer hover:text-foreground" style={{ width: 50 }}>
               <Search className="!size-4" />
             </button>
