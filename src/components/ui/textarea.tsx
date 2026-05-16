@@ -1,11 +1,11 @@
-import * as React from "react"
+import type { TextareaHTMLAttributes } from "react"
 
 import { cn } from "@/lib/utils"
 
 function Textarea({
   className,
   ...props
-}) {
+}: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return (
     <textarea
       data-slot="textarea"

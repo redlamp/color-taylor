@@ -1,19 +1,22 @@
-import * as React from "react"
 import { Popover as PopoverPrimitive } from "@base-ui/react/popover"
+import type { ComponentProps, HTMLAttributes } from "react"
 
 import { cn } from "@/lib/utils"
 
 function Popover({
   ...props
-}) {
+}: ComponentProps<typeof PopoverPrimitive.Root>) {
   return <PopoverPrimitive.Root data-slot="popover" {...props} />;
 }
 
 function PopoverTrigger({
   ...props
-}) {
+}: ComponentProps<typeof PopoverPrimitive.Trigger>) {
   return <PopoverPrimitive.Trigger data-slot="popover-trigger" {...props} />;
 }
+
+type PopoverContentProps = ComponentProps<typeof PopoverPrimitive.Popup> &
+  Pick<ComponentProps<typeof PopoverPrimitive.Positioner>, "align" | "alignOffset" | "side" | "sideOffset">;
 
 function PopoverContent({
   className,
@@ -22,7 +25,7 @@ function PopoverContent({
   side = "bottom",
   sideOffset = 4,
   ...props
-}) {
+}: PopoverContentProps) {
   return (
     <PopoverPrimitive.Portal>
       <PopoverPrimitive.Positioner
@@ -46,7 +49,7 @@ function PopoverContent({
 function PopoverHeader({
   className,
   ...props
-}) {
+}: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
       data-slot="popover-header"
@@ -58,7 +61,7 @@ function PopoverHeader({
 function PopoverTitle({
   className,
   ...props
-}) {
+}: ComponentProps<typeof PopoverPrimitive.Title>) {
   return (
     <PopoverPrimitive.Title
       data-slot="popover-title"
@@ -70,7 +73,7 @@ function PopoverTitle({
 function PopoverDescription({
   className,
   ...props
-}) {
+}: ComponentProps<typeof PopoverPrimitive.Description>) {
   return (
     <PopoverPrimitive.Description
       data-slot="popover-description"

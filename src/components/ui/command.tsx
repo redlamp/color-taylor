@@ -1,4 +1,4 @@
-import * as React from "react"
+import type { ComponentProps, HTMLAttributes, ReactNode } from "react"
 import { Command as CommandPrimitive } from "cmdk"
 
 import { cn } from "@/lib/utils"
@@ -18,7 +18,7 @@ import { SearchIcon, CheckIcon } from "lucide-react"
 function Command({
   className,
   ...props
-}) {
+}: ComponentProps<typeof CommandPrimitive>) {
   return (
     <CommandPrimitive
       data-slot="command"
@@ -30,6 +30,14 @@ function Command({
   );
 }
 
+type CommandDialogProps = ComponentProps<typeof Dialog> & {
+  title?: string;
+  description?: string;
+  children?: ReactNode;
+  className?: string;
+  showCloseButton?: boolean;
+};
+
 function CommandDialog({
   title = "Command Palette",
   description = "Search for a command to run...",
@@ -37,7 +45,7 @@ function CommandDialog({
   className,
   showCloseButton = false,
   ...props
-}) {
+}: CommandDialogProps) {
   return (
     <Dialog {...props}>
       <DialogHeader className="sr-only">
@@ -56,7 +64,7 @@ function CommandDialog({
 function CommandInput({
   className,
   ...props
-}) {
+}: ComponentProps<typeof CommandPrimitive.Input>) {
   return (
     <div data-slot="command-input-wrapper" className="p-1 pb-0">
       <InputGroup
@@ -79,7 +87,7 @@ function CommandInput({
 function CommandList({
   className,
   ...props
-}) {
+}: ComponentProps<typeof CommandPrimitive.List>) {
   return (
     <CommandPrimitive.List
       data-slot="command-list"
@@ -94,7 +102,7 @@ function CommandList({
 function CommandEmpty({
   className,
   ...props
-}) {
+}: ComponentProps<typeof CommandPrimitive.Empty>) {
   return (
     <CommandPrimitive.Empty
       data-slot="command-empty"
@@ -106,7 +114,7 @@ function CommandEmpty({
 function CommandGroup({
   className,
   ...props
-}) {
+}: ComponentProps<typeof CommandPrimitive.Group>) {
   return (
     <CommandPrimitive.Group
       data-slot="command-group"
@@ -121,7 +129,7 @@ function CommandGroup({
 function CommandSeparator({
   className,
   ...props
-}) {
+}: ComponentProps<typeof CommandPrimitive.Separator>) {
   return (
     <CommandPrimitive.Separator
       data-slot="command-separator"
@@ -134,7 +142,7 @@ function CommandItem({
   className,
   children,
   ...props
-}) {
+}: ComponentProps<typeof CommandPrimitive.Item>) {
   return (
     <CommandPrimitive.Item
       data-slot="command-item"
@@ -153,7 +161,7 @@ function CommandItem({
 function CommandShortcut({
   className,
   ...props
-}) {
+}: HTMLAttributes<HTMLSpanElement>) {
   return (
     <span
       data-slot="command-shortcut"
