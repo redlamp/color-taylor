@@ -102,18 +102,49 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       }
       const ctx = audioCtxRef.current;
       if (ctx.state === 'suspended') ctx.resume();
-      const osc = ctx.createOscillator();
+
+      // Crumple: filtered noise burst with random crinkle envelope.
+      const duration = 0.32;
+      const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * duration), ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+
+      const src = ctx.createBufferSource();
+      src.buffer = buffer;
+
+      const bandpass = ctx.createBiquadFilter();
+      bandpass.type = 'bandpass';
+      bandpass.frequency.value = 2800;
+      bandpass.Q.value = 1.4;
+
+      const highshelf = ctx.createBiquadFilter();
+      highshelf.type = 'highshelf';
+      highshelf.frequency.value = 4000;
+      highshelf.gain.value = 4;
+
       const gain = ctx.createGain();
-      osc.type = 'triangle';
-      osc.connect(gain).connect(ctx.destination);
       const t = ctx.currentTime;
-      osc.frequency.setValueAtTime(880, t);
-      osc.frequency.exponentialRampToValueAtTime(180, t + 0.09);
       gain.gain.setValueAtTime(0.0001, t);
-      gain.gain.exponentialRampToValueAtTime(0.25, t + 0.005);
-      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.1);
-      osc.start(t);
-      osc.stop(t + 0.12);
+
+      // Random crinkle envelope: 6–10 short spikes within the duration.
+      const spikes = 7 + Math.floor(Math.random() * 4);
+      const step = duration / spikes;
+      let cur = t;
+      for (let i = 0; i < spikes; i++) {
+        const slot = step * (0.4 + Math.random() * 0.6);
+        const rise = 0.004 + Math.random() * 0.01;
+        const fall = slot - rise;
+        const peak = 0.06 + Math.random() * 0.18;
+        cur += rise;
+        gain.gain.exponentialRampToValueAtTime(peak, cur);
+        cur += Math.max(0.005, fall);
+        gain.gain.exponentialRampToValueAtTime(0.003, cur);
+      }
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + duration);
+
+      src.connect(bandpass).connect(highshelf).connect(gain).connect(ctx.destination);
+      src.start(t);
+      src.stop(t + duration + 0.05);
     } catch {}
   }, []);
 
