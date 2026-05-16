@@ -83,7 +83,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   const [selectedSavedIdx, setSelectedSavedIdx] = useState<number | null>(null);
   const [savedSortMode, setSavedSortMode] = useState<SortMode>('user');
   const [draggedUserIdx, setDraggedUserIdx] = useState<number | null>(null);
-  const [dragOverUserIdx, setDragOverUserIdx] = useState<number | null>(null);
+  const [dragHover, setDragHover] = useState<{ displayIdx: number; zone: 'left' | 'center' | 'right' } | null>(null);
   const [touchArmedUserIdx, setTouchArmedUserIdx] = useState<number | null>(null);
   const touchDrag = useRef<{ startX: number; startY: number; userIdx: number; armed: boolean } | null>(null);
   const touchDragTimer = useRef<number | null>(null);
@@ -307,7 +307,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     }
     touchDrag.current = null;
     setTouchArmedUserIdx(null);
-    setDragOverUserIdx(null);
+    setDragHover(null);
   }, []);
 
   const lastHex = useRef(initialHex);
@@ -355,19 +355,63 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     setSelectedSavedIdx(null);
   }, [savedSlots, displaySlots, triggerPoof, playPop]);
 
-  const performSavedSwap = useCallback((fromUserIdx: number, toUserIdx: number) => {
-    if (fromUserIdx === toUserIdx) return;
+  const computeDragHover = useCallback((clientX: number, clientY: number): { displayIdx: number; zone: 'left' | 'center' | 'right' } | null => {
+    const el = (document.elementFromPoint(clientX, clientY) as HTMLElement | null)?.closest('[data-saved-idx]') as HTMLElement | null;
+    if (!el) return null;
+    const userIdx = Number(el.dataset.savedIdx);
+    if (Number.isNaN(userIdx)) return null;
+    const displayIdx = displaySlots.findIndex((d) => d.userIdx === userIdx);
+    if (displayIdx < 0) return null;
+    const rect = el.getBoundingClientRect();
+    const x = clientX - rect.left;
+    const w = rect.width;
+    const edge = Math.max(6, Math.min(12, w * 0.22));
+    let zone: 'left' | 'center' | 'right' = 'center';
+    if (x < edge) zone = 'left';
+    else if (x > w - edge) zone = 'right';
+    return { displayIdx, zone };
+  }, [displaySlots]);
+
+  const performSavedReplace = useCallback((fromUserIdx: number, toDisplayIdx: number) => {
     const fromDisplay = displaySlots.findIndex((d) => d.userIdx === fromUserIdx);
-    const toDisplay = displaySlots.findIndex((d) => d.userIdx === toUserIdx);
-    if (fromDisplay < 0 || toDisplay < 0) return;
+    if (fromDisplay < 0 || fromDisplay === toDisplayIdx) return;
     const flattened: SavedSlot[] = displaySlots.map((d) => d.slot);
-    [flattened[fromDisplay], flattened[toDisplay]] = [flattened[toDisplay], flattened[fromDisplay]];
+    const sourceSlot = flattened[fromDisplay];
+    flattened[toDisplayIdx] = sourceSlot;
+    flattened[fromDisplay] = null;
     setSavedSlots(flattened);
     setSavedSortMode('user');
-    setSelectedSavedIdx(toDisplay);
+    setSelectedSavedIdx(toDisplayIdx);
     playClick();
     if (navigator.vibrate) navigator.vibrate(8);
   }, [displaySlots, playClick]);
+
+  const performSavedInsert = useCallback((fromUserIdx: number, insertBeforeDisplayIdx: number) => {
+    const fromDisplay = displaySlots.findIndex((d) => d.userIdx === fromUserIdx);
+    if (fromDisplay < 0) return;
+    // No-op cases: inserting before yourself, or right after yourself
+    if (insertBeforeDisplayIdx === fromDisplay || insertBeforeDisplayIdx === fromDisplay + 1) return;
+    const flattened: SavedSlot[] = displaySlots.map((d) => d.slot);
+    const [sourceSlot] = flattened.splice(fromDisplay, 1);
+    const adjusted = fromDisplay < insertBeforeDisplayIdx ? insertBeforeDisplayIdx - 1 : insertBeforeDisplayIdx;
+    flattened.splice(adjusted, 0, sourceSlot);
+    setSavedSlots(flattened);
+    setSavedSortMode('user');
+    setSelectedSavedIdx(adjusted);
+    playClick();
+    if (navigator.vibrate) navigator.vibrate(8);
+  }, [displaySlots, playClick]);
+
+  const applyDragHoverDrop = useCallback((fromUserIdx: number, hover: { displayIdx: number; zone: 'left' | 'center' | 'right' } | null) => {
+    if (!hover) return false;
+    if (hover.zone === 'center') {
+      performSavedReplace(fromUserIdx, hover.displayIdx);
+    } else {
+      const insertAt = hover.zone === 'left' ? hover.displayIdx : hover.displayIdx + 1;
+      performSavedInsert(fromUserIdx, insertAt);
+    }
+    return true;
+  }, [performSavedReplace, performSavedInsert]);
 
   const savedSlotRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
   const pendingFlipRects = useRef<Map<number, DOMRect> | null>(null);
@@ -1288,7 +1332,10 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
               const color = slot?.hex ?? null;
               const isSelected = userIdx === selectedSavedIdx && color;
               const isDragging = userIdx === draggedUserIdx || userIdx === touchArmedUserIdx;
-              const isDragOver = userIdx === dragOverUserIdx && userIdx !== draggedUserIdx && userIdx !== touchArmedUserIdx;
+              const isHovered = dragHover?.displayIdx === displayIdx;
+              const isReplaceTarget = isHovered && dragHover?.zone === 'center' && !isDragging;
+              const showInsertLeft = isHovered && dragHover?.zone === 'left' && !isDragging;
+              const showInsertRight = isHovered && dragHover?.zone === 'right' && !isDragging;
               const isArmed = userIdx === touchArmedUserIdx;
               return (
                 <button
@@ -1298,11 +1345,11 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                     else savedSlotRefs.current.delete(userIdx);
                   }}
                   data-saved-idx={userIdx}
-                  className="rounded-md cursor-pointer h-8 w-full transition-shadow duration-200 ease-in-out"
+                  className="rounded-md cursor-pointer h-8 w-full transition-shadow duration-200 ease-in-out relative"
                   style={{
                     backgroundColor: color || 'transparent',
-                    boxShadow: isDragOver ? '0 0 0 2px #00BFFF' : isArmed ? '0 0 0 2px #00BFFF' : isSelected ? '0 0 0 2px white' : 'none',
-                    border: (isDragOver || isSelected || isArmed) ? '2px solid transparent' : '1px dashed var(--input)',
+                    boxShadow: isReplaceTarget ? '0 0 0 2px #00BFFF' : isArmed ? '0 0 0 2px #00BFFF' : isSelected ? '0 0 0 2px white' : 'none',
+                    border: (isReplaceTarget || isSelected || isArmed) ? '2px solid transparent' : '1px dashed var(--input)',
                     opacity: isDragging && !isArmed ? 0.4 : 1,
                     transform: isArmed ? 'scale(1.1)' : 'scale(1)',
                     transition: 'transform 120ms ease-out, box-shadow 120ms ease-out',
@@ -1316,22 +1363,26 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                     e.dataTransfer.setData('text/plain', String(userIdx));
                   }}
                   onDragOver={(e) => {
-                    if (draggedUserIdx === null || draggedUserIdx === userIdx) return;
+                    if (draggedUserIdx === null) return;
                     e.preventDefault();
                     e.dataTransfer.dropEffect = 'move';
-                    if (dragOverUserIdx !== userIdx) setDragOverUserIdx(userIdx);
+                    const hover = computeDragHover(e.clientX, e.clientY);
+                    if (hover && (hover.displayIdx !== dragHover?.displayIdx || hover.zone !== dragHover?.zone)) {
+                      setDragHover(hover);
+                    }
                   }}
                   onDragLeave={() => {
-                    setDragOverUserIdx((prev) => (prev === userIdx ? null : prev));
+                    setDragHover((prev) => (prev?.displayIdx === displayIdx ? null : prev));
                   }}
                   onDrop={(e) => {
                     e.preventDefault();
                     const from = draggedUserIdx;
                     desktopDroppedRef.current = true;
+                    const hover = computeDragHover(e.clientX, e.clientY);
                     setDraggedUserIdx(null);
-                    setDragOverUserIdx(null);
+                    setDragHover(null);
                     if (from === null) return;
-                    performSavedSwap(from, userIdx);
+                    applyDragHoverDrop(from, hover);
                   }}
                   onDragEnd={() => {
                     if (!desktopDroppedRef.current && draggedUserIdx !== null) {
@@ -1339,7 +1390,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                     }
                     desktopDroppedRef.current = false;
                     setDraggedUserIdx(null);
-                    setDragOverUserIdx(null);
+                    setDragHover(null);
                   }}
                   onPointerDown={(e) => {
                     if (e.pointerType !== 'touch' || !color) return;
@@ -1364,22 +1415,16 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                       return;
                     }
                     e.preventDefault();
-                    const target = (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null)?.closest('[data-saved-idx]') as HTMLElement | null;
-                    if (target) {
-                      const idx = Number(target.dataset.savedIdx);
-                      if (!Number.isNaN(idx)) setDragOverUserIdx(idx === ds.userIdx ? null : idx);
-                    } else {
-                      setDragOverUserIdx(null);
-                    }
+                    const hover = computeDragHover(e.clientX, e.clientY);
+                    setDragHover(hover);
                   }}
                   onPointerUp={(e) => {
                     const ds = touchDrag.current;
                     if (!ds) return;
                     if (ds.armed) {
-                      const target = (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null)?.closest('[data-saved-idx]') as HTMLElement | null;
-                      if (target) {
-                        const idx = Number(target.dataset.savedIdx);
-                        if (!Number.isNaN(idx)) performSavedSwap(ds.userIdx, idx);
+                      const hover = computeDragHover(e.clientX, e.clientY);
+                      if (hover) {
+                        applyDragHoverDrop(ds.userIdx, hover);
                       } else {
                         deleteSavedAt(ds.userIdx);
                       }
@@ -1412,7 +1457,20 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                       if (navigator.vibrate) navigator.vibrate(10);
                     }
                   }}
-                />
+                >
+                  {showInsertLeft && (
+                    <span
+                      className="pointer-events-none absolute -left-1 top-0 bottom-0 w-0.5 rounded-full"
+                      style={{ backgroundColor: '#00BFFF', boxShadow: '0 0 4px #00BFFF' }}
+                    />
+                  )}
+                  {showInsertRight && (
+                    <span
+                      className="pointer-events-none absolute -right-1 top-0 bottom-0 w-0.5 rounded-full"
+                      style={{ backgroundColor: '#00BFFF', boxShadow: '0 0 4px #00BFFF' }}
+                    />
+                  )}
+                </button>
               );
             })}
           </div>
