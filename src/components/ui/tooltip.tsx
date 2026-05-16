@@ -1,5 +1,5 @@
 import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip"
-import type { ComponentProps } from "react"
+import { isValidElement, type ComponentProps, type ReactElement } from "react"
 
 import { cn } from "@/lib/utils"
 
@@ -17,9 +17,14 @@ function Tooltip({
 }
 
 function TooltipTrigger({
+  asChild,
+  children,
   ...props
 }: ComponentProps<typeof TooltipPrimitive.Trigger> & { asChild?: boolean }) {
-  return <TooltipPrimitive.Trigger data-slot="tooltip-trigger" {...props} />;
+  if (asChild && isValidElement(children)) {
+    return <TooltipPrimitive.Trigger render={children as ReactElement} data-slot="tooltip-trigger" {...props} />;
+  }
+  return <TooltipPrimitive.Trigger data-slot="tooltip-trigger" {...props}>{children}</TooltipPrimitive.Trigger>;
 }
 
 type TooltipContentProps = ComponentProps<typeof TooltipPrimitive.Popup> &
