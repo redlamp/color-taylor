@@ -401,16 +401,39 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   const performSavedInsert = useCallback((fromUserIdx: number, insertBeforeDisplayIdx: number) => {
     const fromDisplay = displaySlots.findIndex((d) => d.userIdx === fromUserIdx);
     if (fromDisplay < 0) return;
-    // No-op cases: inserting before yourself, or right after yourself
-    if (insertBeforeDisplayIdx === fromDisplay || insertBeforeDisplayIdx === fromDisplay + 1) return;
+    const target = insertBeforeDisplayIdx;
+    // No-op: inserting at source's position or right after source.
+    if (target === fromDisplay || target === fromDisplay + 1) return;
+    if (target < 0 || target >= displaySlots.length) return;
+
     captureFlipRects(false);
     const flattened: SavedSlot[] = displaySlots.map((d) => d.slot);
-    const [sourceSlot] = flattened.splice(fromDisplay, 1);
-    const adjusted = fromDisplay < insertBeforeDisplayIdx ? insertBeforeDisplayIdx - 1 : insertBeforeDisplayIdx;
-    flattened.splice(adjusted, 0, sourceSlot);
+    const sourceSlot = flattened[fromDisplay];
+    flattened[fromDisplay] = null;
+
+    if (flattened[target] !== null) {
+      // Push target's content toward the nearest empty slot AWAY from the source's now-vacated slot.
+      const dir = fromDisplay < target ? +1 : -1;
+      let probe = target;
+      while (probe >= 0 && probe < flattened.length && flattened[probe] !== null) probe += dir;
+      if (probe < 0 || probe >= flattened.length) {
+        // No empty in the away direction — fall back to the source side (which is guaranteed empty).
+        probe = target;
+        const alt = -dir;
+        while (probe >= 0 && probe < flattened.length && flattened[probe] !== null) probe += alt;
+      }
+      if (probe < 0 || probe >= flattened.length) return;
+      if (probe > target) {
+        for (let j = probe; j > target; j--) flattened[j] = flattened[j - 1];
+      } else {
+        for (let j = probe; j < target; j++) flattened[j] = flattened[j + 1];
+      }
+    }
+    flattened[target] = sourceSlot;
+
     setSavedSlots(flattened);
     setSavedSortMode('user');
-    setSelectedSavedIdx(adjusted);
+    setSelectedSavedIdx(target);
     playClick();
     if (navigator.vibrate) navigator.vibrate(8);
   }, [displaySlots, playClick, captureFlipRects]);
