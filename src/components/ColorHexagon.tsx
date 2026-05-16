@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback, useState, useMemo, type CSSProperties } from 'react';
+import { useRef, useEffect, useCallback, useLayoutEffect, useState, useMemo, type CSSProperties } from 'react';
 import { hsbToRgb, rgbToHsb, rgbToHex, rgbToHsl, hslToRgb, type RGB, type HSB, type HSL } from '../utils/colorConversions';
 import type { ColorSpace } from '../utils/sliderGradients';
 import type { ChannelOrder } from './hex/hexConstants';
@@ -103,6 +103,36 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     if (ctx.state === 'suspended') ctx.resume();
     return ctx;
   }, []);
+
+  const playFlit = useCallback(() => {
+    try {
+      const ctx = ensureAudioCtx();
+      const t = ctx.currentTime;
+      const duration = 0.14;
+
+      const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * duration), ctx.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * 0.6;
+
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.Q.value = 6;
+      filter.frequency.setValueAtTime(700, t);
+      filter.frequency.exponentialRampToValueAtTime(2400, t + duration);
+
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(0.13, t + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + duration);
+
+      src.connect(filter).connect(gain).connect(ctx.destination);
+      src.start(t);
+      src.stop(t + duration + 0.02);
+    } catch {}
+  }, [ensureAudioCtx]);
 
   const playClick = useCallback(() => {
     try {
@@ -311,12 +341,51 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     return [...filled, ...empties];
   }, [savedSlots, savedSortMode]);
 
+  const savedSlotRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
+  const pendingFlipRects = useRef<Map<number, DOMRect> | null>(null);
+
   const cycleSavedSort = useCallback(() => {
+    // FLIP: capture each slot's current rect before re-rendering with the new sort order.
+    const before = new Map<number, DOMRect>();
+    savedSlotRefs.current.forEach((el, userIdx) => {
+      before.set(userIdx, el.getBoundingClientRect());
+    });
+    pendingFlipRects.current = before;
+
     const order: SortMode[] = ['user', 'hue', 'saturation', 'brightness'];
     const next = order[(order.indexOf(savedSortMode) + 1) % order.length];
     setSavedSortMode(next);
     setSelectedSavedIdx(null);
   }, [savedSortMode]);
+
+  useLayoutEffect(() => {
+    const before = pendingFlipRects.current;
+    if (!before) return;
+    pendingFlipRects.current = null;
+
+    let movedFilled = 0;
+    savedSlotRefs.current.forEach((el, userIdx) => {
+      const oldRect = before.get(userIdx);
+      if (!oldRect) return;
+      const newRect = el.getBoundingClientRect();
+      const dx = oldRect.left - newRect.left;
+      const dy = oldRect.top - newRect.top;
+      if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) return;
+      if (savedSlots[userIdx]) movedFilled++;
+      el.style.transition = 'none';
+      el.style.transform = `translate(${dx}px, ${dy}px)`;
+      requestAnimationFrame(() => {
+        el.style.transition = 'transform 280ms cubic-bezier(0.3, 0.7, 0.3, 1)';
+        el.style.transform = 'translate(0, 0)';
+      });
+      window.setTimeout(() => {
+        el.style.transition = '';
+        el.style.transform = '';
+      }, 320);
+    });
+
+    if (movedFilled > 0) playFlit();
+  }, [savedSortMode, savedSlots, playFlit]);
 
   const SORT_LABELS: Record<SortMode, string> = { user: 'User', hue: 'Hue', saturation: 'Sat', brightness: 'Bright' };
   const draggingBL = useRef(false);
@@ -1187,7 +1256,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           }
         >
           <div className="grid grid-cols-6 md:grid-cols-12 gap-1.5">
-            {displaySlots.map(({ slot, userIdx }, displayIdx) => {
+            {displaySlots.map(({ slot, userIdx }) => {
               const color = slot?.hex ?? null;
               const isSelected = userIdx === selectedSavedIdx && color;
               const isDragging = userIdx === draggedUserIdx || userIdx === touchArmedUserIdx;
@@ -1195,7 +1264,11 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
               const isArmed = userIdx === touchArmedUserIdx;
               return (
                 <button
-                  key={`${userIdx}-${displayIdx}`}
+                  key={userIdx}
+                  ref={(el) => {
+                    if (el) savedSlotRefs.current.set(userIdx, el);
+                    else savedSlotRefs.current.delete(userIdx);
+                  }}
                   data-saved-idx={userIdx}
                   className="rounded-md cursor-pointer h-8 w-full transition-shadow duration-200 ease-in-out"
                   style={{
