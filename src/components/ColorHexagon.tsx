@@ -39,7 +39,14 @@ interface ColorHexagonProps {
   hoverMatchRgb?: RGB | null;
   showHtmlOnHex?: boolean;
   animHolding?: boolean;
-  onHoverHtmlColor?: (hex: string | null) => void;
+  onHoverHtmlColor?: (marker: HoveredMarker | null) => void;
+}
+
+interface HoveredMarker {
+  x: number;
+  y: number;
+  hex: string;
+  name: string;
 }
 
 export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, animHolding, onHoverHtmlColor }: ColorHexagonProps) {
@@ -73,7 +80,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   const blPointerDown = useRef(null);
   const [hoveredDot, setHoveredDot] = useState(null); // index of hovered dot
   const [isHexDragging, setIsHexDragging] = useState(false);
-  const [hoveredMarker, setHoveredMarker] = useState<{ x: number; y: number; hex: string; name: string } | null>(null);
+  const [hoveredMarker, setHoveredMarker] = useState<HoveredMarker | null>(null);
 
   const dragTriggerDistance = 4;
   const clickMaxDuration = 200;
@@ -666,7 +673,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
               stroke="rgba(255,255,255,0.5)"
               strokeWidth={1}
               className="cursor-pointer"
-              onMouseEnter={() => { setHoveredMarker(m); onHoverHtmlColor?.(m.hex); }}
+              onMouseEnter={() => { setHoveredMarker(m); onHoverHtmlColor?.(m); }}
               onMouseLeave={() => { setHoveredMarker(null); onHoverHtmlColor?.(null); }}
               onClick={(e) => {
                 e.stopPropagation();

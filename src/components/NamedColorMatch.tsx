@@ -9,7 +9,16 @@ import { Command, CommandInput, CommandList, CommandEmpty, CommandItem } from '@
 
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-export default function NamedColorMatch({ rgb, onAnimateToHsb, onHoverMatch, hoveredHtmlColor, showOnHex, onShowOnHexChange }) {
+interface NamedColorMatchProps {
+  rgb: { r: number; g: number; b: number };
+  onAnimateToHsb: (target: { h: number; s: number; b: number }) => void;
+  onHoverMatch: (rgb: { r: number; g: number; b: number } | null) => void;
+  hoveredHtmlColor: { hex: string; name: string } | null;
+  showOnHex: boolean;
+  onShowOnHexChange: (v: boolean) => void;
+}
+
+export default function NamedColorMatch({ rgb, onAnimateToHsb, onHoverMatch, hoveredHtmlColor, showOnHex, onShowOnHexChange }: NamedColorMatchProps) {
   const [threshold, setThreshold] = useState(30);
 
   const match = useMemo(

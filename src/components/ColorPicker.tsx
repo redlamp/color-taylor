@@ -46,7 +46,7 @@ export default function ColorPicker() {
   const [colorSpace, setColorSpace] = useState<ColorSpace>('srgb');
   const [hoverMatchRgb, setHoverMatchRgb] = useState<RGB | null>(null);
   const [showHtmlOnHex, setShowHtmlOnHex] = useState(false);
-  const [hoveredHtmlColor, setHoveredHtmlColor] = useState<string | null>(null);
+  const [hoveredHtmlColor, setHoveredHtmlColor] = useState<{ hex: string; name: string } | null>(null);
   const animRef = useRef<number | null>(null);
   const hsbRef = useRef(hsb);
   hsbRef.current = hsb;
