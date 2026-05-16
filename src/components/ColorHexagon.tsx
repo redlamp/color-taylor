@@ -600,54 +600,52 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
 
   return (
     <div id="color-hexagon" className="flex flex-col items-center gap-1 border border-input rounded-lg p-3 max-w-full" style={{ width: SIZE + 24 }}>
-      <div
-        className="flex items-center gap-1.5 w-full cursor-pointer select-none"
-        onClick={() => setHexOpen((o) => !o)}
-      >
-        <ChevronRight className={`!size-4 text-muted-foreground transition-transform duration-200 ${hexOpen ? 'rotate-90' : ''}`} />
-        <h2 className="text-lg font-semibold tracking-tight text-foreground">Color Hexagon</h2>
-      </div>
-      {hexOpen && <><div className="flex items-end gap-3">
-        <div className="flex flex-col items-center gap-0.5">
-          <span className="text-[10px] text-muted-foreground">Handles</span>
-          <Tabs value={dragMode} onValueChange={setDragMode}>
-            <TabsList>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span><TabsTrigger value="free" className="w-16">Free</TabsTrigger></span>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" sideOffset={8} className="text-xs font-semibold">Set color</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span><TabsTrigger value="channel" className="w-16">Channel</TabsTrigger></span>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" sideOffset={8} className="text-xs font-semibold">Set a color channel</TooltipContent>
-              </Tooltip>
-            </TabsList>
-          </Tabs>
+      <div className="flex items-center gap-1.5 w-full">
+        <div
+          className="flex items-center gap-1.5 flex-1 min-w-0 cursor-pointer select-none"
+          onClick={() => setHexOpen((o) => !o)}
+        >
+          <ChevronRight className={`!size-4 text-muted-foreground transition-transform duration-200 ${hexOpen ? 'rotate-90' : ''}`} />
+          <h2 className="text-lg font-semibold tracking-tight text-foreground">Color Hexagon</h2>
         </div>
-        <div className="flex flex-col items-center gap-0.5">
-          <span className="text-[10px] text-muted-foreground">Luminance</span>
-          <Tabs value={blMode} onValueChange={onBlModeChange}>
-            <TabsList>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span><TabsTrigger value="brightness" className="w-16">Bright</TabsTrigger></span>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" sideOffset={8} className="text-xs font-semibold">HSB</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span><TabsTrigger value="lightness" className="w-16">Light</TabsTrigger></span>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" sideOffset={8} className="text-xs font-semibold">HSL</TooltipContent>
-              </Tooltip>
-            </TabsList>
-          </Tabs>
-        </div>
+        {hexOpen && (
+          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+            <Tabs value={dragMode} onValueChange={setDragMode}>
+              <TabsList>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span><TabsTrigger value="free" className="w-14">Free</TabsTrigger></span>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" sideOffset={8} className="text-xs font-semibold">Free handles</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span><TabsTrigger value="channel" className="w-14">Channel</TabsTrigger></span>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" sideOffset={8} className="text-xs font-semibold">Channel handles</TooltipContent>
+                </Tooltip>
+              </TabsList>
+            </Tabs>
+            <Tabs value={blMode} onValueChange={onBlModeChange}>
+              <TabsList>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span><TabsTrigger value="brightness" className="w-14">Bright</TabsTrigger></span>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" sideOffset={8} className="text-xs font-semibold">HSB brightness</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span><TabsTrigger value="lightness" className="w-14">Light</TabsTrigger></span>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" sideOffset={8} className="text-xs font-semibold">HSL lightness</TooltipContent>
+                </Tooltip>
+              </TabsList>
+            </Tabs>
+          </div>
+        )}
       </div>
-
+      {hexOpen && <>
       <div className="relative w-full" style={{ maxWidth: SIZE, aspectRatio: `${SIZE} / ${HEX_SIZE}` }}>
         <HexCanvas brightness={brightness} colorSpace={colorSpace} />
         <svg
