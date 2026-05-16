@@ -94,6 +94,8 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   const [poofs, setPoofs] = useState<Poof[]>([]);
   const audioCtxRef = useRef<AudioContext | null>(null);
 
+  const rand = useCallback((center: number, spread: number) => center + (Math.random() * 2 - 1) * spread, []);
+
   const ensureAudioCtx = useCallback(() => {
     if (!audioCtxRef.current) {
       const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
@@ -108,7 +110,12 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     try {
       const ctx = ensureAudioCtx();
       const t = ctx.currentTime;
-      const duration = 0.38;
+      const duration = rand(0.36, 0.04);
+      const startFreq = rand(450, 60);
+      const peakFreq = rand(1700, 180);
+      const endFreq = rand(900, 100);
+      const Q = rand(1.2, 0.25);
+      const peakGain = rand(0.22, 0.03);
 
       const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * duration), ctx.sampleRate);
       const data = buf.getChannelData(0);
@@ -117,15 +124,13 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       const src = ctx.createBufferSource();
       src.buffer = buf;
 
-      // Broad bandpass for "air" rather than a narrow tonal sweep.
       const filter = ctx.createBiquadFilter();
       filter.type = 'bandpass';
-      filter.Q.value = 1.2;
-      filter.frequency.setValueAtTime(450, t);
-      filter.frequency.exponentialRampToValueAtTime(1700, t + duration * 0.7);
-      filter.frequency.exponentialRampToValueAtTime(900, t + duration);
+      filter.Q.value = Q;
+      filter.frequency.setValueAtTime(startFreq, t);
+      filter.frequency.exponentialRampToValueAtTime(peakFreq, t + duration * 0.7);
+      filter.frequency.exponentialRampToValueAtTime(endFreq, t + duration);
 
-      // High-shelf tames the harsher top end so it reads as soft, not hissy.
       const tilt = ctx.createBiquadFilter();
       tilt.type = 'highshelf';
       tilt.frequency.value = 3000;
@@ -133,23 +138,26 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
 
       const gain = ctx.createGain();
       gain.gain.setValueAtTime(0.0001, t);
-      gain.gain.exponentialRampToValueAtTime(0.22, t + 0.09);   // slow attack
-      gain.gain.linearRampToValueAtTime(0.18, t + 0.24);        // gentle hold
+      gain.gain.exponentialRampToValueAtTime(peakGain, t + 0.09);
+      gain.gain.linearRampToValueAtTime(peakGain * 0.82, t + 0.24);
       gain.gain.exponentialRampToValueAtTime(0.0001, t + duration);
 
       src.connect(filter).connect(tilt).connect(gain).connect(ctx.destination);
       src.start(t);
       src.stop(t + duration + 0.02);
     } catch {}
-  }, [ensureAudioCtx]);
+  }, [ensureAudioCtx, rand]);
 
   const playClick = useCallback(() => {
     try {
       const ctx = ensureAudioCtx();
       const t = ctx.currentTime;
 
-      // Short noise impulse, bandpass-filtered into a "click".
-      const duration = 0.04;
+      const duration = rand(0.04, 0.008);
+      const filterFreq = rand(2000, 260);
+      const filterQ = rand(0.8, 0.18);
+      const peakGain = rand(0.18, 0.04);
+
       const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * duration), ctx.sampleRate);
       const data = buffer.getChannelData(0);
       for (let i = 0; i < data.length; i++) {
@@ -161,27 +169,33 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
 
       const filter = ctx.createBiquadFilter();
       filter.type = 'bandpass';
-      filter.frequency.value = 2000;
-      filter.Q.value = 0.8;
+      filter.frequency.value = filterFreq;
+      filter.Q.value = filterQ;
 
       const gain = ctx.createGain();
       gain.gain.setValueAtTime(0.001, t);
-      gain.gain.exponentialRampToValueAtTime(0.18, t + 0.002);
+      gain.gain.exponentialRampToValueAtTime(peakGain, t + 0.002);
       gain.gain.exponentialRampToValueAtTime(0.0001, t + duration);
 
       src.connect(filter).connect(gain).connect(ctx.destination);
       src.start(t);
       src.stop(t + duration + 0.01);
     } catch {}
-  }, [ensureAudioCtx]);
+  }, [ensureAudioCtx, rand]);
 
   const playSave = useCallback(() => {
     try {
       const ctx = ensureAudioCtx();
       const t = ctx.currentTime;
 
-      // "Stamp" — short noise body around 700Hz + a low sine thump for weight.
-      const duration = 0.11;
+      const duration = rand(0.11, 0.015);
+      const noiseFreq = rand(750, 90);
+      const noiseQ = rand(1.1, 0.18);
+      const noisePeak = rand(0.18, 0.03);
+      const thumpStart = rand(140, 18);
+      const thumpEnd = rand(55, 8);
+      const thumpDur = rand(0.085, 0.012);
+      const thumpPeak = rand(0.18, 0.03);
 
       const noiseBuf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * duration), ctx.sampleRate);
       const data = noiseBuf.getChannelData(0);
@@ -193,39 +207,43 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
 
       const bandpass = ctx.createBiquadFilter();
       bandpass.type = 'bandpass';
-      bandpass.frequency.value = 750;
-      bandpass.Q.value = 1.1;
+      bandpass.frequency.value = noiseFreq;
+      bandpass.Q.value = noiseQ;
 
       const noiseGain = ctx.createGain();
       noiseGain.gain.setValueAtTime(0.0001, t);
-      noiseGain.gain.exponentialRampToValueAtTime(0.18, t + 0.003);
+      noiseGain.gain.exponentialRampToValueAtTime(noisePeak, t + 0.003);
       noiseGain.gain.exponentialRampToValueAtTime(0.001, t + duration);
 
       noise.connect(bandpass).connect(noiseGain).connect(ctx.destination);
       noise.start(t);
       noise.stop(t + duration + 0.02);
 
-      // Low body thump — sine that drops from 120Hz to 60Hz quickly.
       const thump = ctx.createOscillator();
       const thumpGain = ctx.createGain();
       thump.type = 'sine';
-      thump.frequency.setValueAtTime(140, t);
-      thump.frequency.exponentialRampToValueAtTime(55, t + 0.08);
+      thump.frequency.setValueAtTime(thumpStart, t);
+      thump.frequency.exponentialRampToValueAtTime(thumpEnd, t + thumpDur);
       thumpGain.gain.setValueAtTime(0.0001, t);
-      thumpGain.gain.exponentialRampToValueAtTime(0.18, t + 0.005);
-      thumpGain.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
+      thumpGain.gain.exponentialRampToValueAtTime(thumpPeak, t + 0.005);
+      thumpGain.gain.exponentialRampToValueAtTime(0.0001, t + thumpDur + 0.01);
       thump.connect(thumpGain).connect(ctx.destination);
       thump.start(t);
-      thump.stop(t + 0.1);
+      thump.stop(t + thumpDur + 0.02);
     } catch {}
-  }, [ensureAudioCtx]);
+  }, [ensureAudioCtx, rand]);
 
   const playPop = useCallback(() => {
     try {
       const ctx = ensureAudioCtx();
 
       // Crumple: filtered noise burst with random crinkle envelope.
-      const duration = 0.32;
+      const duration = rand(0.32, 0.04);
+      const bandpassFreq = rand(2800, 250);
+      const bandpassQ = rand(1.4, 0.25);
+      const shelfFreq = rand(4000, 300);
+      const shelfGain = rand(4, 1);
+
       const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * duration), ctx.sampleRate);
       const data = buffer.getChannelData(0);
       for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
@@ -235,13 +253,13 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
 
       const bandpass = ctx.createBiquadFilter();
       bandpass.type = 'bandpass';
-      bandpass.frequency.value = 2800;
-      bandpass.Q.value = 1.4;
+      bandpass.frequency.value = bandpassFreq;
+      bandpass.Q.value = bandpassQ;
 
       const highshelf = ctx.createBiquadFilter();
       highshelf.type = 'highshelf';
-      highshelf.frequency.value = 4000;
-      highshelf.gain.value = 4;
+      highshelf.frequency.value = shelfFreq;
+      highshelf.gain.value = shelfGain;
 
       const gain = ctx.createGain();
       const t = ctx.currentTime;
@@ -267,7 +285,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       src.start(t);
       src.stop(t + duration + 0.05);
     } catch {}
-  }, [ensureAudioCtx]);
+  }, [ensureAudioCtx, rand]);
 
   const triggerPoof = useCallback((idx: number, color: string) => {
     const btn = document.querySelector<HTMLElement>(`[data-saved-idx="${idx}"]`);
