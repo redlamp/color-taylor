@@ -64,7 +64,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   });
   const [selectedRecentIdx, setSelectedRecentIdx] = useState(null);
   type SavedSlot = { hex: string; addedAt: number } | null;
-  type SortMode = 'user' | 'date' | 'hue' | 'saturation' | 'brightness';
+  type SortMode = 'user' | 'hue' | 'saturation' | 'brightness';
   const [savedSlots, setSavedSlots] = useState<SavedSlot[]>(() => {
     try {
       const raw = localStorage.getItem('color-taylor-saved');
@@ -103,7 +103,6 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     const filled = indexed.filter((x): x is { slot: { hex: string; addedAt: number }; userIdx: number } => x.slot !== null);
     const empties = indexed.filter((x) => x.slot === null);
     filled.sort((a, b) => {
-      if (savedSortMode === 'date') return a.slot.addedAt - b.slot.addedAt;
       const ar = parseInt(a.slot.hex.slice(1, 3), 16), ag = parseInt(a.slot.hex.slice(3, 5), 16), ab = parseInt(a.slot.hex.slice(5, 7), 16);
       const br = parseInt(b.slot.hex.slice(1, 3), 16), bg = parseInt(b.slot.hex.slice(3, 5), 16), bb = parseInt(b.slot.hex.slice(5, 7), 16);
       const aHsb = rgbToHsb(ar, ag, ab);
@@ -116,13 +115,13 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   }, [savedSlots, savedSortMode]);
 
   const cycleSavedSort = useCallback(() => {
-    const order: SortMode[] = ['user', 'date', 'hue', 'saturation', 'brightness'];
+    const order: SortMode[] = ['user', 'hue', 'saturation', 'brightness'];
     const next = order[(order.indexOf(savedSortMode) + 1) % order.length];
     setSavedSortMode(next);
     setSelectedSavedIdx(null);
   }, [savedSortMode]);
 
-  const SORT_LABELS: Record<SortMode, string> = { user: 'User', date: 'Date', hue: 'Hue', saturation: 'Sat', brightness: 'Bright' };
+  const SORT_LABELS: Record<SortMode, string> = { user: 'User', hue: 'Hue', saturation: 'Sat', brightness: 'Bright' };
   const draggingBL = useRef(false);
   const svgRef = useRef(null);
   const draggingHue = useRef(false);
