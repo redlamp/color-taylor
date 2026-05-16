@@ -50,7 +50,7 @@ function TabsList({
 function TabsTrigger({
   className,
   ...props
-}: ComponentProps<typeof TabsPrimitive.Tab>) {
+}: ComponentProps<typeof TabsPrimitive.Tab> & { asChild?: boolean }) {
   return (
     <TabsPrimitive.Tab
       data-slot="tabs-trigger"

@@ -1,8 +1,18 @@
-import { rgbToHex } from '../utils/colorConversions';
+import type { CSSProperties, ReactNode } from 'react';
+import { rgbToHex, type RGB, type HSL } from '../utils/colorConversions';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { useTheme } from '../hooks/useTheme';
 
-export default function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }) {
+interface EquationsPanelProps {
+  rgb: RGB;
+  hue: number;
+  saturation: number;
+  brightness: number;
+  hsl: HSL;
+  blMode: 'brightness' | 'lightness';
+}
+
+export default function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }: EquationsPanelProps) {
   const { isDark } = useTheme();
   const maxVal = Math.max(rgb.r, rgb.g, rgb.b);
   const minVal = Math.min(rgb.r, rgb.g, rgb.b);
@@ -16,10 +26,10 @@ export default function EquationsPanel({ rgb, hue, saturation, brightness, hsl, 
   const mc = isDark ? '#ff44ff' : '#dd00dd';
   const cc = isDark ? '#44ffff' : '#009999';
   const oc = isDark ? '#eebb22' : '#bb8800';
-  const chColor = (key) => key === 'r' ? rc : key === 'g' ? gc : bc;
+  const chColor = (key: 'r' | 'g' | 'b') => key === 'r' ? rc : key === 'g' ? gc : bc;
 
-  const pad = (v) => String(v).padStart(3, '\u2007');
-  const textOnColor = (cssColor) => {
+  const pad = (v: number | string) => String(v).padStart(3, '\u2007');
+  const textOnColor = (cssColor: string) => {
     const m = cssColor.match(/(\d+)/g);
     if (m && m.length >= 3) {
       const [r, g, b] = m.map(Number);
@@ -36,12 +46,12 @@ export default function EquationsPanel({ rgb, hue, saturation, brightness, hsl, 
     return '#fff';
   };
 
-  const T = ({ color, title, bold, children }) => (
+  const T = ({ color, title, bold, children }: { color: string; title: string; bold?: boolean; children: ReactNode }) => (
     <Tooltip>
       <TooltipTrigger asChild>
         <span style={{ color }} className={`cursor-default ${bold ? 'font-bold' : ''}`}>{children}</span>
       </TooltipTrigger>
-      <TooltipContent side="top" className="text-xs font-semibold border-0" style={{ '--tooltip-bg': color, backgroundColor: color, color: textOnColor(color) }}>
+      <TooltipContent side="top" className="text-xs font-semibold border-0" style={{ '--tooltip-bg': color, backgroundColor: color, color: textOnColor(color) } as CSSProperties}>
         {title}
       </TooltipContent>
     </Tooltip>
@@ -61,17 +71,17 @@ export default function EquationsPanel({ rgb, hue, saturation, brightness, hsl, 
   const S = <span className="text-foreground">S</span>;
   const Bv = <span className="text-foreground">B</span>;
   const Lv = <span className="text-foreground">L</span>;
-  const maxT = (v) => <T color={mc} title={`Max = ${maxVal}`} bold>{v}</T>;
-  const minT = (v) => <T color={cc} title={`Min = ${minVal}`} bold>{v}</T>;
-  const chrT = (v) => <T color={oc} title={`Chroma = ${delta}`}>{v}</T>;
-  const mcGradStyle = { background: `linear-gradient(105deg, ${mc}, ${oc})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' };
+  const maxT = (v: ReactNode) => <T color={mc} title={`Max = ${maxVal}`} bold>{v}</T>;
+  const minT = (v: ReactNode) => <T color={cc} title={`Min = ${minVal}`} bold>{v}</T>;
+  const chrT = (v: ReactNode) => <T color={oc} title={`Chroma = ${delta}`}>{v}</T>;
+  const mcGradStyle: CSSProperties = { background: `linear-gradient(105deg, ${mc}, ${oc})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' };
   const mcVal = Math.round((1 - Math.abs(2 * l / 255 - 1)) * 255);
-  const MCT = ({ children, title }) => (
+  const MCT = ({ children, title }: { children: ReactNode; title: string }) => (
     <Tooltip>
       <TooltipTrigger asChild>
         <span style={mcGradStyle} className="font-bold cursor-default">{children}</span>
       </TooltipTrigger>
-      <TooltipContent side="top" className="text-xs font-semibold border-0" style={{ '--tooltip-bg': mc, background: `linear-gradient(105deg, ${mc}, ${oc})`, color: '#000' }}>
+      <TooltipContent side="top" className="text-xs font-semibold border-0" style={{ '--tooltip-bg': mc, background: `linear-gradient(105deg, ${mc}, ${oc})`, color: '#000' } as CSSProperties}>
         {title}
       </TooltipContent>
     </Tooltip>
@@ -79,7 +89,7 @@ export default function EquationsPanel({ rgb, hue, saturation, brightness, hsl, 
 
   const ulStyle = { textDecorationColor: 'white', textUnderlineOffset: '2px', textDecorationThickness: '2px' };
 
-  const maxMinList = (isMaxMode) => ['r', 'g', 'b'].map((k, i) => {
+  const maxMinList = (isMaxMode: boolean) => (['r', 'g', 'b'] as const).map((k, i) => {
     const raw = String(rgb[k]);
     const spaces = '\u2007'.repeat(3 - raw.length);
     const highlight = isMaxMode ? k === maxChKey : k === minChKey;

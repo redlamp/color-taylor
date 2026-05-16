@@ -82,7 +82,7 @@ export default function PresentationShell({ navigate }) {
     } else {
       document.body.style.removeProperty('--pres-bg-override');
     }
-    return () => document.body.style.removeProperty('--pres-bg-override');
+    return () => { document.body.style.removeProperty('--pres-bg-override'); };
   }, [isLastSlide]);
 
   useEffect(() => {

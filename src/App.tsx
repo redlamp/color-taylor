@@ -11,7 +11,7 @@ function App() {
   return (
     <ThemeProvider>
       <ErrorBoundary>
-        <TooltipProvider delayDuration={0}>
+        <TooltipProvider delay={0}>
           <AppInner />
         </TooltipProvider>
       </ErrorBoundary>

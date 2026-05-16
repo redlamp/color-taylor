@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, type CSSProperties } from 'react';
 import { findNearestNamedColor } from '../utils/namedColors';
 import NAMED_COLORS from '../utils/namedColors';
 import { rgbToHex, rgbToHsb } from '../utils/colorConversions';
@@ -114,7 +114,7 @@ export default function NamedColorMatch({ rgb, onAnimateToHsb, onHoverMatch, hov
               side="bottom"
               sideOffset={8}
               className="text-xs font-mono font-semibold border-0"
-              style={{ '--tooltip-bg': matchHex, backgroundColor: matchHex, color: textColor }}
+              style={{ '--tooltip-bg': matchHex, backgroundColor: matchHex, color: textColor } as CSSProperties}
             >
               {matchHex.toUpperCase()}
             </TooltipContent>

@@ -1,5 +1,7 @@
 import { useRef, useEffect, useCallback, useState, useMemo } from 'react';
-import { hsbToRgb, rgbToHsb, rgbToHex, rgbToHsl, hslToRgb } from '../utils/colorConversions';
+import { hsbToRgb, rgbToHsb, rgbToHex, rgbToHsl, hslToRgb, type RGB, type HSB, type HSL } from '../utils/colorConversions';
+import type { ColorSpace } from '../utils/sliderGradients';
+import type { ChannelOrder } from './hex/hexConstants';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTheme } from '../hooks/useTheme';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
@@ -19,11 +21,32 @@ import BrightnessHandle from './hex/BrightnessHandle';
 
 const DEFAULT_RECENT = ['#ff0000', '#ffff00', '#00ff00', '#00ffff', '#0000ff', '#ff00ff', '#ffffff', '#808080', '#000000'];
 
-export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, animHolding, onHoverHtmlColor }) {
+interface ColorHexagonProps {
+  rgb: RGB;
+  hue: number;
+  brightness: number;
+  saturation: number;
+  hsl: HSL;
+  onHueChange: (h: number) => void;
+  onRgbChange: (channel: 'r' | 'g' | 'b', value: number) => void;
+  onHsbChange: (newHsb: Partial<HSB>) => void;
+  onHslChange: (channel: 'h' | 's' | 'l', value: number) => void;
+  onAnimateToHsb?: (target: HSB) => void;
+  blMode: 'brightness' | 'lightness';
+  onBlModeChange: (mode: 'brightness' | 'lightness') => void;
+  colorSpace: ColorSpace;
+  onColorSpaceChange?: (cs: ColorSpace) => void;
+  hoverMatchRgb?: RGB | null;
+  showHtmlOnHex?: boolean;
+  animHolding?: boolean;
+  onHoverHtmlColor?: (hex: string | null) => void;
+}
+
+export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, animHolding, onHoverHtmlColor }: ColorHexagonProps) {
   const { isDark } = useTheme();
   const [hexOpen, setHexOpen] = useState(true);
-  const [vectorMode, setVectorMode] = useState('rgb');
-  const [dragMode, setDragMode] = useState('free');
+  const [vectorMode, setVectorMode] = useState<ChannelOrder>('rgb');
+  const [dragMode, setDragMode] = useState<'free' | 'circle' | 'channel'>('free');
   const initialHex = useMemo(() => rgbToHex(rgb.r, rgb.g, rgb.b), []);
   const [recentColors, setRecentColors] = useState(() => {
     try {
@@ -50,7 +73,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   const blPointerDown = useRef(null);
   const [hoveredDot, setHoveredDot] = useState(null); // index of hovered dot
   const [isHexDragging, setIsHexDragging] = useState(false);
-  const [hoveredMarker, setHoveredMarker] = useState(null); // { x, y, hex, name }
+  const [hoveredMarker, setHoveredMarker] = useState<{ x: number; y: number; hex: string; name: string } | null>(null);
 
   const dragTriggerDistance = 4;
   const clickMaxDuration = 200;
@@ -277,7 +300,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
         const solved = solveChannels(x, y, channelKeys);
         if (solved) {
           for (const [ch, val] of Object.entries(solved)) {
-            onRgbChange(ch, val);
+            onRgbChange(ch as 'r' | 'g' | 'b', val as number);
           }
           return;
         }
@@ -339,7 +362,8 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       onAnimateToHsb({ h: hue, s: saturation, b: targetValue });
     } else {
       // Convert target lightness to HSB via RGB for tweening
-      const currentHsl = rgbToHsl(...Object.values(hsbToRgb(hue, saturation, brightness)));
+      const currentRgb = hsbToRgb(hue, saturation, brightness);
+      const currentHsl = rgbToHsl(currentRgb.r, currentRgb.g, currentRgb.b);
       const targetRgb = hslToRgb(currentHsl.h, currentHsl.s, targetValue);
       const targetHsb = rgbToHsb(targetRgb.r, targetRgb.g, targetRgb.b);
       onAnimateToHsb(targetHsb);
@@ -642,7 +666,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
               stroke="rgba(255,255,255,0.5)"
               strokeWidth={1}
               className="cursor-pointer"
-              onMouseEnter={() => { setHoveredMarker(m); onHoverHtmlColor?.(m); }}
+              onMouseEnter={() => { setHoveredMarker(m); onHoverHtmlColor?.(m.hex); }}
               onMouseLeave={() => { setHoveredMarker(null); onHoverHtmlColor?.(null); }}
               onClick={(e) => {
                 e.stopPropagation();

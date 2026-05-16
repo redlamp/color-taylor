@@ -1,9 +1,9 @@
-import { useCallback } from 'react';
+import { useCallback, type CSSProperties } from 'react';
 import { toast } from 'sonner';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { getContrastTextColor } from '../utils/colorConversions';
 
-export default function PreviewSwatch({ hex }) {
+export default function PreviewSwatch({ hex }: { hex: string }) {
   const handleClick = useCallback(() => {
     navigator.clipboard.writeText(hex.toUpperCase()).then(() => {
       toast('Copied!', { duration: 2000 });
@@ -33,7 +33,7 @@ export default function PreviewSwatch({ hex }) {
         side="bottom"
         sideOffset={8}
         className="text-xs font-semibold border-0"
-        style={{ '--tooltip-bg': hex, backgroundColor: hex, color: textColor }}
+        style={{ '--tooltip-bg': hex, backgroundColor: hex, color: textColor } as CSSProperties}
       >
         Click to copy
       </TooltipContent>

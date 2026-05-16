@@ -1,6 +1,14 @@
+import type { MouseEventHandler } from 'react';
 import { hsbToRgb, rgbToHex } from '../../utils/colorConversions';
 
-export default function HueHandle({ hue, hueLabel, onMouseDown }) {
+interface HueHandleProps {
+  hue: number;
+  hueLabel: { x: number; y: number };
+  onMouseDown: MouseEventHandler<HTMLDivElement>;
+}
+
+export default function HueHandle({ hue, hueLabel, onMouseDown }: HueHandleProps) {
+  const rgb = hsbToRgb(hue, 100, 100);
   return (
     <div
       id="hue-handle"
@@ -8,7 +16,7 @@ export default function HueHandle({ hue, hueLabel, onMouseDown }) {
       style={{
         left: hueLabel.x,
         top: hueLabel.y,
-        backgroundColor: rgbToHex(...Object.values(hsbToRgb(hue, 100, 100))),
+        backgroundColor: rgbToHex(rgb.r, rgb.g, rgb.b),
         border: '2px solid var(--background)',
       }}
       onMouseDown={onMouseDown}

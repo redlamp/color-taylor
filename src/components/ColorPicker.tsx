@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
-import { hsbToRgb, rgbToHsb, rgbToHex, rgbToHsl, hslToRgb } from '../utils/colorConversions';
+import { hsbToRgb, rgbToHsb, rgbToHex, rgbToHsl, hslToRgb, type HSB, type RGB } from '../utils/colorConversions';
+import type { ColorSpace } from '../utils/sliderGradients';
 import {
   hueGradient,
   saturationGradient,
@@ -27,27 +28,31 @@ import NamedColorMatch from './NamedColorMatch';
 import ThemeToggle from './ThemeToggle';
 import { Play, Pause } from 'lucide-react';
 
+type HslMode = 'hsb' | 'hsl' | 'both';
+type RgbGradientMode = 'channel' | 'mixed';
+type BlMode = 'brightness' | 'lightness';
+
 export default function ColorPicker() {
-  const [hsb, setHsb] = useState(() => {
+  const [hsb, setHsb] = useState<HSB>(() => {
     try {
       const saved = localStorage.getItem('color-taylor-hsb');
       if (saved) return JSON.parse(saved);
     } catch {}
     return { h: 327, s: 12, b: 98 };
   });
-  const [hslMode, setHslMode] = useState('hsb');
-  const [rgbGradientMode, setRgbGradientMode] = useState('channel');
-  const [blMode, setBlMode] = useState('brightness');
-  const [colorSpace, setColorSpace] = useState('srgb');
-  const [hoverMatchRgb, setHoverMatchRgb] = useState(null);
+  const [hslMode, setHslMode] = useState<HslMode>('hsb');
+  const [rgbGradientMode, setRgbGradientMode] = useState<RgbGradientMode>('channel');
+  const [blMode, setBlMode] = useState<BlMode>('brightness');
+  const [colorSpace, setColorSpace] = useState<ColorSpace>('srgb');
+  const [hoverMatchRgb, setHoverMatchRgb] = useState<RGB | null>(null);
   const [showHtmlOnHex, setShowHtmlOnHex] = useState(false);
-  const [hoveredHtmlColor, setHoveredHtmlColor] = useState(null);
-  const animRef = useRef(null);
+  const [hoveredHtmlColor, setHoveredHtmlColor] = useState<string | null>(null);
+  const animRef = useRef<number | null>(null);
   const hsbRef = useRef(hsb);
   hsbRef.current = hsb;
-  const rgbOverride = useRef(null);
-  const topRowRef = useRef(null);
-  const [topRowWidth, setTopRowWidth] = useState(null);
+  const rgbOverride = useRef<RGB | null>(null);
+  const topRowRef = useRef<HTMLDivElement | null>(null);
+  const [topRowWidth, setTopRowWidth] = useState<number | null>(null);
 
   useEffect(() => {
     if (!topRowRef.current) return;
@@ -59,9 +64,9 @@ export default function ColorPicker() {
   }, []);
 
   // Undo/redo history
-  const undoStack = useRef([]);
-  const redoStack = useRef([]);
-  const lastPushed = useRef(null);
+  const undoStack = useRef<HSB[]>([]);
+  const redoStack = useRef<HSB[]>([]);
+  const lastPushed = useRef<string | null>(null);
 
   // Push to undo stack (debounced — only if value changed significantly)
   useEffect(() => {
@@ -160,15 +165,9 @@ export default function ColorPicker() {
   }, []);
 
   // Ref-based animation stopper — called from user interaction handlers only
-  const colorAnimActiveRef = useRef(false);
+  const colorAnimActiveRef = useRef<boolean | 'stop'>(false);
 
-  const setHsbAndClearOverride = useCallback((valOrFn) => {
-    if (colorAnimActiveRef.current) colorAnimActiveRef.current = 'stop';
-    rgbOverride.current = null;
-    setHsb(valOrFn);
-  }, []);
-
-  const animateToHsb = useCallback((target) => {
+  const animateToHsb = useCallback((target: HSB) => {
     rgbOverride.current = null;
     if (animRef.current) {
       cancelAnimationFrame(animRef.current);
@@ -217,7 +216,7 @@ export default function ColorPicker() {
     localStorage.setItem('color-taylor-hsb', JSON.stringify(hsb));
   }, [hsb.h, hsb.s, hsb.b]);
 
-  const handleRgbChange = useCallback((channel, value) => {
+  const handleRgbChange = useCallback((channel: 'r' | 'g' | 'b', value: number) => {
     if (colorAnimActiveRef.current) colorAnimActiveRef.current = 'stop';
     setHsb((prev) => {
       const currentRgb = rgbOverride.current || hsbToRgb(prev.h, prev.s, prev.b);
@@ -227,7 +226,7 @@ export default function ColorPicker() {
     });
   }, []);
 
-  const handleHslChange = useCallback((channel, value) => {
+  const handleHslChange = useCallback((channel: 'h' | 's' | 'l', value: number) => {
     if (colorAnimActiveRef.current) colorAnimActiveRef.current = 'stop';
     rgbOverride.current = null;
     setHsb((prev) => {
@@ -245,7 +244,7 @@ export default function ColorPicker() {
   // ── Color cycle animation (same as presentation intro) ────────────
   const [colorAnimActive, setColorAnimActive] = useState(false);
   const [colorAnimHolding, setColorAnimHolding] = useState(false);
-  const colorAnimRaf = useRef(null);
+  const colorAnimRaf = useRef<number | null>(null);
   colorAnimActiveRef.current = colorAnimActive;
 
   // Matches the DEFAULT_RECENT colors from ColorHexagon

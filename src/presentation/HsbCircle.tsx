@@ -189,7 +189,6 @@ export default function HsbCircle({ size = 280, hue, saturation, brightness, onH
       {/* Hue/Saturation wheel — clip-path morphs between circle and hexagon */}
       <foreignObject x={0} y={0} width={size} height={size}>
         <div
-          xmlns="http://www.w3.org/1999/xhtml"
           style={{
             width: size,
             height: size,
@@ -212,7 +211,6 @@ export default function HsbCircle({ size = 280, hue, saturation, brightness, onH
       {/* Brightness overlay */}
       <foreignObject x={0} y={0} width={size} height={size}>
         <div
-          xmlns="http://www.w3.org/1999/xhtml"
           style={{
             width: size, height: size,
             clipPath, transition: 'clip-path 0.8s ease-in-out',
@@ -225,7 +223,6 @@ export default function HsbCircle({ size = 280, hue, saturation, brightness, onH
       {/* Hit area */}
       <foreignObject x={0} y={0} width={size} height={size}>
         <div
-          xmlns="http://www.w3.org/1999/xhtml"
           style={{
             width: size, height: size,
             clipPath, transition: 'clip-path 0.8s ease-in-out',

@@ -1,11 +1,14 @@
 import { hsbToRgb, rgbToHex, linearToSrgb } from '../../utils/colorConversions';
+import type { ColorSpace } from '../../utils/sliderGradients';
+import type { HSL } from '../../utils/colorConversions';
 import { RADIUS, CENTER, BL_BAR_X, BL_BAR_TOP, BL_BAR_HEIGHT, BL_BAR_WIDTH, BL_ARROW_SIZE } from './hexConstants';
+import type { MutableRefObject } from 'react';
 
-function hsbToDisplayHex(h, s, b, colorSpace) {
+function hsbToDisplayHex(h: number, s: number, b: number, colorSpace: ColorSpace) {
   if (colorSpace === 'linear') {
     const sN = s / 100, bN = b / 100;
     const c = bN * sN, x = c * (1 - Math.abs(((h / 60) % 2) - 1)), m = bN - c;
-    let r1, g1, b1;
+    let r1: number, g1: number, b1: number;
     if (h < 60) [r1, g1, b1] = [c, x, 0];
     else if (h < 120) [r1, g1, b1] = [x, c, 0];
     else if (h < 180) [r1, g1, b1] = [0, c, x];
@@ -14,10 +17,23 @@ function hsbToDisplayHex(h, s, b, colorSpace) {
     else [r1, g1, b1] = [c, 0, x];
     return rgbToHex(linearToSrgb(r1 + m), linearToSrgb(g1 + m), linearToSrgb(b1 + m));
   }
-  return rgbToHex(...Object.values(hsbToRgb(h, s, b)));
+  const rgb = hsbToRgb(h, s, b);
+  return rgbToHex(rgb.r, rgb.g, rgb.b);
 }
 
-export default function BrightnessBar({ hue, saturation, brightness, hsl, blMode, blPointerDown, draggingBL, animateBLToValue, colorSpace }) {
+interface BrightnessBarProps {
+  hue: number;
+  saturation: number;
+  brightness: number;
+  hsl: HSL;
+  blMode: 'brightness' | 'lightness';
+  blPointerDown: MutableRefObject<{ clientX: number; clientY: number; time: number; isDragging: boolean } | null>;
+  draggingBL: MutableRefObject<boolean>;
+  animateBLToValue: (v: number) => void;
+  colorSpace: ColorSpace;
+}
+
+export default function BrightnessBar({ hue, saturation, brightness, hsl, blMode, blPointerDown, draggingBL, animateBLToValue, colorSpace }: BrightnessBarProps) {
   const blValue = blMode === 'brightness' ? brightness : (hsl?.l ?? 50);
   const arrowY = BL_BAR_TOP + (1 - blValue / 100) * BL_BAR_HEIGHT;
 

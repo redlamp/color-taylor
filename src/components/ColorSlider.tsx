@@ -1,15 +1,28 @@
-import { useRef, useCallback, useState } from 'react';
+import { useRef, useCallback } from 'react';
+import type React from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Minus, Plus } from 'lucide-react';
 import useDrag from '../hooks/useDrag';
 
-export default function ColorSlider({ label, value, max, gradient, suffix, wrap, onChange, hideStepper }) {
-  const trackRef = useRef(null);
+interface ColorSliderProps {
+  label: string;
+  value: number;
+  max: number;
+  gradient: string;
+  suffix?: string;
+  wrap?: boolean;
+  onChange: (v: number) => void;
+  hideStepper?: boolean;
+}
 
-  const clamp = (v) => Math.max(0, Math.min(max, v));
+export default function ColorSlider({ label, value, max, gradient, suffix, wrap, onChange, hideStepper }: ColorSliderProps) {
+  const trackRef = useRef<HTMLDivElement | null>(null);
 
-  const updateValue = useCallback((clientX) => {
+  const clamp = (v: number) => Math.max(0, Math.min(max, v));
+
+  const updateValue = useCallback((clientX: number) => {
+    if (!trackRef.current) return;
     const rect = trackRef.current.getBoundingClientRect();
     const rawX = clientX - rect.left;
 
@@ -24,13 +37,13 @@ export default function ColorSlider({ label, value, max, gradient, suffix, wrap,
     }
   }, [max, wrap, onChange]);
 
-  const { dragging, startDrag } = useDrag(useCallback((e) => {
+  const { startDrag } = useDrag(useCallback((e: PointerEvent) => {
     updateValue(e.clientX);
   }, [updateValue]));
 
   // Stepper drag-to-adjust
-  const stepperDragStart = useRef(null);
-  const { startDrag: startStepperDrag } = useDrag(useCallback((e) => {
+  const stepperDragStart = useRef<{ x: number; y: number; value: number } | null>(null);
+  const { startDrag: startStepperDrag } = useDrag(useCallback((e: PointerEvent) => {
     if (!stepperDragStart.current) return;
     const dx = e.clientX - stepperDragStart.current.x;
     const dy = stepperDragStart.current.y - e.clientY;
@@ -39,7 +52,7 @@ export default function ColorSlider({ label, value, max, gradient, suffix, wrap,
     onChange(newVal);
   }, [max, onChange]));
 
-  const handleInputChange = (e) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value;
     if (raw === '') {
       onChange(0);

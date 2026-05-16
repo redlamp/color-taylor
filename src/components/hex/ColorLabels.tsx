@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { useTheme } from '../../hooks/useTheme';
 import { CENTER, RADIUS, PI } from './hexConstants';
@@ -47,7 +48,7 @@ export default function ColorLabels({ onColorClick }) {
               '--tooltip-bg': displayColor,
               backgroundColor: displayColor,
               color: textColor,
-            }}
+            } as CSSProperties}
           >
             {name}
           </TooltipContent>

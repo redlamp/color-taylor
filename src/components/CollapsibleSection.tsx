@@ -1,12 +1,24 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { ChevronRight } from 'lucide-react';
 
-const levelStyles = {
+type Level = 'h2' | 'h3';
+
+const levelStyles: Record<Level, string> = {
   h2: 'text-lg font-semibold tracking-tight text-foreground',
   h3: 'text-sm font-semibold uppercase tracking-wider text-muted-foreground',
 };
 
-export default function CollapsibleSection({ id, title, level = 'h3', defaultOpen = true, headerRight, className: extraClass, children }) {
+interface CollapsibleSectionProps {
+  id?: string;
+  title: string;
+  level?: Level;
+  defaultOpen?: boolean;
+  headerRight?: ReactNode;
+  className?: string;
+  children: ReactNode;
+}
+
+export default function CollapsibleSection({ id, title, level = 'h3', defaultOpen = true, headerRight, className: extraClass, children }: CollapsibleSectionProps) {
   const [open, setOpen] = useState(defaultOpen);
   const Tag = level;
 

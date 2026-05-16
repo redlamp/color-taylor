@@ -7,7 +7,7 @@ import { useRef, useEffect, useCallback } from 'react';
  *
  * @param {function} onDrag - called with PointerEvent on each pointermove while dragging
  */
-export default function useDrag(onDrag) {
+export default function useDrag(onDrag: (e: PointerEvent) => void) {
   const dragging = useRef(false);
 
   const startDrag = useCallback(() => {
@@ -15,7 +15,7 @@ export default function useDrag(onDrag) {
   }, []);
 
   useEffect(() => {
-    const onPointerMove = (e) => {
+    const onPointerMove = (e: PointerEvent) => {
       if (dragging.current) onDrag(e);
     };
     const onPointerUp = () => {

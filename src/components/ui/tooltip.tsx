@@ -18,7 +18,7 @@ function Tooltip({
 
 function TooltipTrigger({
   ...props
-}: ComponentProps<typeof TooltipPrimitive.Trigger>) {
+}: ComponentProps<typeof TooltipPrimitive.Trigger> & { asChild?: boolean }) {
   return <TooltipPrimitive.Trigger data-slot="tooltip-trigger" {...props} />;
 }
 
