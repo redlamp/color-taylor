@@ -355,6 +355,17 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     setSelectedSavedIdx(null);
   }, [savedSlots, displaySlots, triggerPoof, playPop]);
 
+  const savedSlotRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
+  const pendingFlipRects = useRef<{ rects: Map<number, DOMRect>; playSound: boolean } | null>(null);
+
+  const captureFlipRects = useCallback((playSound: boolean) => {
+    const rects = new Map<number, DOMRect>();
+    savedSlotRefs.current.forEach((el, userIdx) => {
+      rects.set(userIdx, el.getBoundingClientRect());
+    });
+    pendingFlipRects.current = { rects, playSound };
+  }, []);
+
   const computeDragHover = useCallback((clientX: number, clientY: number): { displayIdx: number; zone: 'left' | 'center' | 'right' } | null => {
     const el = (document.elementFromPoint(clientX, clientY) as HTMLElement | null)?.closest('[data-saved-idx]') as HTMLElement | null;
     if (!el) return null;
@@ -375,6 +386,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   const performSavedReplace = useCallback((fromUserIdx: number, toDisplayIdx: number) => {
     const fromDisplay = displaySlots.findIndex((d) => d.userIdx === fromUserIdx);
     if (fromDisplay < 0 || fromDisplay === toDisplayIdx) return;
+    captureFlipRects(false);
     const flattened: SavedSlot[] = displaySlots.map((d) => d.slot);
     const sourceSlot = flattened[fromDisplay];
     flattened[toDisplayIdx] = sourceSlot;
@@ -384,13 +396,14 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     setSelectedSavedIdx(toDisplayIdx);
     playClick();
     if (navigator.vibrate) navigator.vibrate(8);
-  }, [displaySlots, playClick]);
+  }, [displaySlots, playClick, captureFlipRects]);
 
   const performSavedInsert = useCallback((fromUserIdx: number, insertBeforeDisplayIdx: number) => {
     const fromDisplay = displaySlots.findIndex((d) => d.userIdx === fromUserIdx);
     if (fromDisplay < 0) return;
     // No-op cases: inserting before yourself, or right after yourself
     if (insertBeforeDisplayIdx === fromDisplay || insertBeforeDisplayIdx === fromDisplay + 1) return;
+    captureFlipRects(false);
     const flattened: SavedSlot[] = displaySlots.map((d) => d.slot);
     const [sourceSlot] = flattened.splice(fromDisplay, 1);
     const adjusted = fromDisplay < insertBeforeDisplayIdx ? insertBeforeDisplayIdx - 1 : insertBeforeDisplayIdx;
@@ -400,7 +413,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     setSelectedSavedIdx(adjusted);
     playClick();
     if (navigator.vibrate) navigator.vibrate(8);
-  }, [displaySlots, playClick]);
+  }, [displaySlots, playClick, captureFlipRects]);
 
   const applyDragHoverDrop = useCallback((fromUserIdx: number, hover: { displayIdx: number; zone: 'left' | 'center' | 'right' } | null) => {
     if (!hover) return false;
@@ -413,27 +426,20 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     return true;
   }, [performSavedReplace, performSavedInsert]);
 
-  const savedSlotRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
-  const pendingFlipRects = useRef<Map<number, DOMRect> | null>(null);
-
   const cycleSavedSort = useCallback(() => {
-    // FLIP: capture each slot's current rect before re-rendering with the new sort order.
-    const before = new Map<number, DOMRect>();
-    savedSlotRefs.current.forEach((el, userIdx) => {
-      before.set(userIdx, el.getBoundingClientRect());
-    });
-    pendingFlipRects.current = before;
-
+    captureFlipRects(true);
     const order: SortMode[] = ['user', 'hue', 'saturation', 'brightness'];
     const next = order[(order.indexOf(savedSortMode) + 1) % order.length];
     setSavedSortMode(next);
     setSelectedSavedIdx(null);
-  }, [savedSortMode]);
+  }, [savedSortMode, captureFlipRects]);
 
   useLayoutEffect(() => {
-    const before = pendingFlipRects.current;
-    if (!before) return;
+    const pending = pendingFlipRects.current;
+    if (!pending) return;
     pendingFlipRects.current = null;
+    const before = pending.rects;
+    const shouldPlaySound = pending.playSound;
 
     let movedFilled = 0;
     savedSlotRefs.current.forEach((el, userIdx) => {
@@ -447,16 +453,16 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       el.style.transition = 'none';
       el.style.transform = `translate(${dx}px, ${dy}px)`;
       requestAnimationFrame(() => {
-        el.style.transition = 'transform 280ms cubic-bezier(0.3, 0.7, 0.3, 1)';
+        el.style.transition = 'transform 240ms cubic-bezier(0.3, 0.7, 0.3, 1)';
         el.style.transform = 'translate(0, 0)';
       });
       window.setTimeout(() => {
         el.style.transition = '';
         el.style.transform = '';
-      }, 320);
+      }, 280);
     });
 
-    if (movedFilled > 0) playFlit();
+    if (shouldPlaySound && movedFilled > 0) playFlit();
   }, [savedSortMode, savedSlots, playFlit]);
 
   const SORT_LABELS: Record<SortMode, string> = { user: 'User', hue: 'Hue', saturation: 'Sat', brightness: 'Bright' };
