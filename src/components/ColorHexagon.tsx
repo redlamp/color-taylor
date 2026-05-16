@@ -400,7 +400,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       setHoveredDot(null);
       setIsHexDragging(false);
     };
-    const onMouseMove = (e) => {
+    const onPointerMove = (e) => {
       if (draggingHue.current) hueFromMouse(e);
       if (draggingDot.current) handleDotDrag(e);
       if (draggingBL.current) {
@@ -437,7 +437,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
         }
       }
     };
-    const onMouseUp = (e) => {
+    const onPointerUp = (e) => {
       if (hexPointerDown.current && !hexPointerDown.current.isDragging) {
         const elapsed = Date.now() - hexPointerDown.current.time;
         if (elapsed <= clickMaxDuration && onAnimateToHsb) {
@@ -459,14 +459,14 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       }
       clearAll();
     };
-    const onMouseLeave = () => clearAll();
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseup', onMouseUp);
-    document.documentElement.addEventListener('mouseleave', onMouseLeave);
+    const onPointerLeave = () => clearAll();
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    document.documentElement.addEventListener('pointerleave', onPointerLeave);
     return () => {
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseup', onMouseUp);
-      document.documentElement.removeEventListener('mouseleave', onMouseLeave);
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+      document.documentElement.removeEventListener('pointerleave', onPointerLeave);
     };
   }, [hueFromMouse, handleDotDrag, handleHexSurfaceDrag, getBLValueFromClientY, applyBLValue, animateBLToValue, getSvgCoords, getHsbFromPosition, onAnimateToHsb, onHsbChange, addToRecent]);
 
@@ -588,7 +588,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   }, [blMode, brightness, hsl?.l]);
 
   return (
-    <div id="color-hexagon" className="flex flex-col items-center gap-1 border border-input rounded-lg p-3 w-full md:w-auto" style={{ maxWidth: SIZE + 24 }}>
+    <div id="color-hexagon" className="flex flex-col items-center gap-1 border border-input rounded-lg p-3 max-w-full" style={{ width: SIZE + 24 }}>
       <div
         className="flex items-center gap-1.5 w-full cursor-pointer select-none"
         onClick={() => setHexOpen((o) => !o)}
