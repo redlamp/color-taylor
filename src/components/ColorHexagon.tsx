@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback, useState, useMemo } from 'react';
+import { useRef, useEffect, useCallback, useState, useMemo, type CSSProperties } from 'react';
 import { hsbToRgb, rgbToHsb, rgbToHex, rgbToHsl, hslToRgb, type RGB, type HSB, type HSL } from '../utils/colorConversions';
 import type { ColorSpace } from '../utils/sliderGradients';
 import type { ChannelOrder } from './hex/hexConstants';
@@ -90,7 +90,49 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   const suppressNextClick = useRef(false);
   const desktopDroppedRef = useRef(false);
 
+  type Poof = { id: string; x: number; y: number; w: number; h: number; color: string };
+  const [poofs, setPoofs] = useState<Poof[]>([]);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+
+  const playPop = useCallback(() => {
+    try {
+      if (!audioCtxRef.current) {
+        const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        audioCtxRef.current = new AC();
+      }
+      const ctx = audioCtxRef.current;
+      if (ctx.state === 'suspended') ctx.resume();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'triangle';
+      osc.connect(gain).connect(ctx.destination);
+      const t = ctx.currentTime;
+      osc.frequency.setValueAtTime(880, t);
+      osc.frequency.exponentialRampToValueAtTime(180, t + 0.09);
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(0.25, t + 0.005);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.1);
+      osc.start(t);
+      osc.stop(t + 0.12);
+    } catch {}
+  }, []);
+
+  const triggerPoof = useCallback((idx: number, color: string) => {
+    const btn = document.querySelector<HTMLElement>(`[data-saved-idx="${idx}"]`);
+    if (!btn) return;
+    const rect = btn.getBoundingClientRect();
+    const id = `${Date.now()}-${Math.random()}`;
+    setPoofs((prev) => [...prev, { id, x: rect.left, y: rect.top, w: rect.width, h: rect.height, color }]);
+    window.setTimeout(() => setPoofs((prev) => prev.filter((p) => p.id !== id)), 450);
+  }, []);
+
   const deleteSavedAt = useCallback((idx: number) => {
+    const slot = savedSlots[idx];
+    if (slot) {
+      triggerPoof(idx, slot.hex);
+      playPop();
+      if (navigator.vibrate) navigator.vibrate(20);
+    }
     setSavedSlots((prev) => {
       const next = [...prev];
       next[idx] = null;
@@ -98,7 +140,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     });
     setSavedSortMode('user');
     setSelectedSavedIdx((prev) => (prev === idx ? null : prev));
-  }, []);
+  }, [savedSlots, triggerPoof, playPop]);
 
   const teardownTouchDrag = useCallback(() => {
     if (touchDragTimer.current !== null) {
@@ -1158,6 +1200,37 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           </div>
         </CollapsibleSection>
       </div></>}
+
+      {poofs.map((p) => (
+        <div
+          key={p.id}
+          className="fixed pointer-events-none z-50"
+          style={{ left: p.x, top: p.y, width: p.w, height: p.h }}
+        >
+          {Array.from({ length: 6 }).map((_, i) => {
+            const angle = (i / 6) * Math.PI * 2;
+            const dist = Math.max(p.w, p.h) * 0.9;
+            const dx = Math.cos(angle) * dist;
+            const dy = Math.sin(angle) * dist;
+            return (
+              <span
+                key={i}
+                className="absolute rounded-full"
+                style={{
+                  left: '50%',
+                  top: '50%',
+                  width: 10,
+                  height: 10,
+                  backgroundColor: p.color,
+                  animation: 'poof-particle 420ms ease-out forwards',
+                  ['--dx' as string]: `${dx}px`,
+                  ['--dy' as string]: `${dy}px`,
+                } as CSSProperties}
+              />
+            );
+          })}
+        </div>
+      ))}
     </div>
   );
 }
