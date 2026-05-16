@@ -1283,7 +1283,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           }
         >
           <div className="grid grid-cols-6 md:grid-cols-12 gap-1.5">
-            {displaySlots.map(({ slot, userIdx }) => {
+            {displaySlots.map(({ slot, userIdx }, displayIdx) => {
               const color = slot?.hex ?? null;
               const isSelected = userIdx === selectedSavedIdx && color;
               const isDragging = userIdx === draggedUserIdx || userIdx === touchArmedUserIdx;
@@ -1400,13 +1400,13 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                       onAnimateToHsb(parsed);
                     } else {
                       const currentHex = rgbToHex(rgb.r, rgb.g, rgb.b);
-                      setSavedSlots((prev) => {
-                        const next = [...prev];
-                        next[userIdx] = { hex: currentHex, addedAt: Date.now() };
-                        return next;
-                      });
+                      // Adopt the currently displayed order as the new user arrangement,
+                      // then place the new color at the clicked display position.
+                      const flattened: SavedSlot[] = displaySlots.map((d) => d.slot);
+                      flattened[displayIdx] = { hex: currentHex, addedAt: Date.now() };
+                      setSavedSlots(flattened);
                       setSavedSortMode('user');
-                      setSelectedSavedIdx(userIdx);
+                      setSelectedSavedIdx(displayIdx);
                       playSave();
                       if (navigator.vibrate) navigator.vibrate(10);
                     }
