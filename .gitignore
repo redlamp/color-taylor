@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# remember plugin auto-logs (auto-generated, churns)
+.remember/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
