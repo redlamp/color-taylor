@@ -355,13 +355,15 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     setSelectedSavedIdx(null);
   }, [savedSlots, displaySlots, triggerPoof, playPop]);
 
-  const savedSlotRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
+  // Refs keyed by COLOR identity (addedAt timestamp), not slot index, so we
+  // can track a color across position changes for FLIP animation.
+  const savedColorRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
   const pendingFlipRects = useRef<{ rects: Map<number, DOMRect>; playSound: boolean } | null>(null);
 
   const captureFlipRects = useCallback((playSound: boolean) => {
     const rects = new Map<number, DOMRect>();
-    savedSlotRefs.current.forEach((el, userIdx) => {
-      rects.set(userIdx, el.getBoundingClientRect());
+    savedColorRefs.current.forEach((el, addedAt) => {
+      rects.set(addedAt, el.getBoundingClientRect());
     });
     pendingFlipRects.current = { rects, playSound };
   }, []);
@@ -464,15 +466,15 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     const before = pending.rects;
     const shouldPlaySound = pending.playSound;
 
-    let movedFilled = 0;
-    savedSlotRefs.current.forEach((el, userIdx) => {
-      const oldRect = before.get(userIdx);
+    let movedCount = 0;
+    savedColorRefs.current.forEach((el, addedAt) => {
+      const oldRect = before.get(addedAt);
       if (!oldRect) return;
       const newRect = el.getBoundingClientRect();
       const dx = oldRect.left - newRect.left;
       const dy = oldRect.top - newRect.top;
       if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) return;
-      if (savedSlots[userIdx]) movedFilled++;
+      movedCount++;
       el.style.transition = 'none';
       el.style.transform = `translate(${dx}px, ${dy}px)`;
       requestAnimationFrame(() => {
@@ -485,7 +487,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       }, 280);
     });
 
-    if (shouldPlaySound && movedFilled > 0) playFlit();
+    if (shouldPlaySound && movedCount > 0) playFlit();
   }, [savedSortMode, savedSlots, playFlit]);
 
   const SORT_LABELS: Record<SortMode, string> = { user: 'User', hue: 'Hue', saturation: 'Sat', brightness: 'Bright' };
@@ -1368,10 +1370,11 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
               const isArmed = userIdx === touchArmedUserIdx;
               return (
                 <button
-                  key={userIdx}
+                  key={slot ? `c-${slot.addedAt}` : `e-${displayIdx}`}
                   ref={(el) => {
-                    if (el) savedSlotRefs.current.set(userIdx, el);
-                    else savedSlotRefs.current.delete(userIdx);
+                    if (!slot) return;
+                    if (el) savedColorRefs.current.set(slot.addedAt, el);
+                    else savedColorRefs.current.delete(slot.addedAt);
                   }}
                   data-saved-idx={userIdx}
                   className="rounded-md cursor-pointer h-8 w-full transition-shadow duration-200 ease-in-out relative"
