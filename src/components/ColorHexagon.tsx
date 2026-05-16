@@ -894,7 +894,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
               return (
                 <button
                   key={i}
-                  className="rounded-md cursor-pointer aspect-square w-full transition-shadow duration-200 ease-in-out"
+                  className="rounded-md cursor-pointer h-8 w-full transition-shadow duration-200 ease-in-out"
                   style={{
                     backgroundColor: color || 'transparent',
                     boxShadow: i === selectedRecentIdx && color ? '0 0 0 2px white' : 'none',
@@ -943,7 +943,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
               return (
                 <button
                   key={i}
-                  className="rounded-md cursor-pointer aspect-square w-full transition-shadow duration-200 ease-in-out"
+                  className="rounded-md cursor-pointer h-8 w-full transition-shadow duration-200 ease-in-out"
                   style={{
                     backgroundColor: color || 'transparent',
                     boxShadow: i === selectedSavedIdx && color ? '0 0 0 2px white' : 'none',
