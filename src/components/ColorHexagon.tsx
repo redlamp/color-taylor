@@ -64,7 +64,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   });
   const [selectedRecentIdx, setSelectedRecentIdx] = useState(null);
   type SavedSlot = { hex: string; addedAt: number } | null;
-  type SortMode = 'date' | 'hue' | 'saturation' | 'brightness';
+  type SortMode = 'user' | 'date' | 'hue' | 'saturation' | 'brightness';
   const [savedSlots, setSavedSlots] = useState<SavedSlot[]>(() => {
     try {
       const raw = localStorage.getItem('color-taylor-saved');
@@ -81,7 +81,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     return Array(12).fill(null) as SavedSlot[];
   });
   const [selectedSavedIdx, setSelectedSavedIdx] = useState<number | null>(null);
-  const [savedSortMode, setSavedSortMode] = useState<SortMode>('date');
+  const [savedSortMode, setSavedSortMode] = useState<SortMode>('user');
   const lastHex = useRef(initialHex);
   const skipNextRecent = useRef(false);
 
@@ -94,6 +94,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   }, [savedSlots]);
 
   const applySavedSort = useCallback((slots: SavedSlot[], mode: SortMode): SavedSlot[] => {
+    if (mode === 'user') return slots;
     const filled = slots.filter((s): s is { hex: string; addedAt: number } => s !== null);
     const empties = slots.filter((s) => s === null);
     filled.sort((a, b) => {
@@ -110,14 +111,14 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   }, []);
 
   const cycleSavedSort = useCallback(() => {
-    const order: SortMode[] = ['date', 'hue', 'saturation', 'brightness'];
+    const order: SortMode[] = ['user', 'date', 'hue', 'saturation', 'brightness'];
     const next = order[(order.indexOf(savedSortMode) + 1) % order.length];
     setSavedSortMode(next);
     setSavedSlots((prev) => applySavedSort(prev, next));
     setSelectedSavedIdx(null);
   }, [savedSortMode, applySavedSort]);
 
-  const SORT_LABELS: Record<SortMode, string> = { date: 'Date', hue: 'Hue', saturation: 'Sat', brightness: 'Bright' };
+  const SORT_LABELS: Record<SortMode, string> = { user: 'User', date: 'Date', hue: 'Hue', saturation: 'Sat', brightness: 'Bright' };
   const draggingBL = useRef(false);
   const svgRef = useRef(null);
   const draggingHue = useRef(false);
@@ -1016,6 +1017,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                         next[i] = { hex: currentHex, addedAt: Date.now() };
                         return next;
                       });
+                      setSavedSortMode('user');
                       setSelectedSavedIdx(i);
                     }
                   }}
