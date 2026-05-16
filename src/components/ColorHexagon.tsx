@@ -1387,7 +1387,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                   style={{
                     backgroundColor: color || 'transparent',
                     boxShadow: isReplaceTarget ? '0 0 0 2px #00BFFF' : isArmed ? '0 0 0 2px #00BFFF' : isSelected ? '0 0 0 2px white' : 'none',
-                    border: (isReplaceTarget || isSelected || isArmed) ? '2px solid transparent' : '1px dashed var(--input)',
+                    border: (isReplaceTarget || isSelected || isArmed) ? '2px solid transparent' : color ? '1px solid var(--input)' : '1px dashed var(--input)',
                     opacity: isDragging && !isArmed ? 0.4 : 1,
                     transform: isArmed ? 'scale(1.1)' : 'scale(1)',
                     transition: 'transform 120ms ease-out, box-shadow 120ms ease-out',
