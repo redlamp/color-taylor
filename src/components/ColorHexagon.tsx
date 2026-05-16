@@ -646,8 +646,8 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           preserveAspectRatio="xMidYMid meet"
           role="img"
           aria-label="Color hexagon with RGB vector visualization"
-          className="absolute inset-0 z-[5] w-full h-full"
-          onMouseDown={handleHexMouseDown}
+          className="absolute inset-0 z-[5] w-full h-full touch-none"
+          onPointerDown={handleHexMouseDown}
         >
           <circle id="hex-circumscribe" cx={CENTER} cy={CENTER} r={RADIUS} fill="none" stroke="var(--input)" strokeWidth={1.5} />
           <polygon id="hex-outline" points={hexPoints(CENTER, CENTER, RADIUS)} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth={1} />
@@ -877,16 +877,14 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             </div>
           }
         >
-          <div className="flex gap-1.5 flex-wrap">
+          <div className="grid grid-cols-6 md:grid-cols-12 gap-1.5">
             {Array.from({ length: 12 }, (_, i) => {
               const color = recentColors[i];
               return (
                 <button
                   key={i}
-                  className="rounded-md cursor-pointer shrink-0 transition-shadow duration-200 ease-in-out"
+                  className="rounded-md cursor-pointer aspect-square w-full transition-shadow duration-200 ease-in-out"
                   style={{
-                    width: 50,
-                    height: 50,
                     backgroundColor: color || 'transparent',
                     boxShadow: i === selectedRecentIdx && color ? '0 0 0 2px white' : 'none',
                     border: i === selectedRecentIdx && color ? '2px solid transparent' : '1px solid var(--input)',

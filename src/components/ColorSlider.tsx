@@ -81,18 +81,18 @@ export default function ColorSlider({ label, value, max, gradient, suffix, wrap,
           aria-valuemin={0}
           aria-valuemax={max}
           aria-valuenow={value}
-          className="h-4 w-full rounded cursor-pointer select-none"
+          className="h-4 w-full rounded cursor-pointer select-none touch-none"
           style={{ background: gradient, boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.1)' }}
-          onMouseDown={(e) => {
+          onPointerDown={(e) => {
             startDrag();
             updateValue(e.clientX);
           }}
         />
         <div
           id={`${sliderId}-arrow`}
-          className="absolute top-4 -translate-x-1/2 cursor-pointer px-1 py-0.5"
+          className="absolute top-4 -translate-x-1/2 cursor-pointer px-1 py-0.5 touch-none"
           style={{ left: `${pct}%` }}
-          onMouseDown={(e) => {
+          onPointerDown={(e) => {
             e.preventDefault();
             startDrag();
           }}

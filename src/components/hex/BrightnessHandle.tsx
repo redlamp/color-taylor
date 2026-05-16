@@ -23,9 +23,9 @@ export default function BrightnessHandle({ hue, saturation, brightness, hsl, blM
   return (
     <div
       id="bl-handle"
-      className="absolute z-10 -translate-y-1/2 flex items-center cursor-pointer select-none"
+      className="absolute z-10 -translate-y-1/2 flex items-center cursor-pointer select-none touch-none"
       style={{ left: `${(x / SIZE) * 100}%`, top: `${(y / HEX_SIZE) * 100}%` }}
-      onMouseDown={onMouseDown}
+      onPointerDown={onMouseDown}
     >
       {/* Left-pointing arrow */}
       <div

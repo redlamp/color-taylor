@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { useTheme } from '../../hooks/useTheme';
-import { CENTER, RADIUS, PI } from './hexConstants';
+import { CENTER, RADIUS, PI, SIZE, HEX_SIZE } from './hexConstants';
 
 const COLORS = [
   { label: 'R', name: 'Red', deg: 0, color: '#ff0000', lightColor: '#e00000' },
@@ -26,7 +26,7 @@ export default function ColorLabels({ onColorClick }) {
       <div
         key={label}
         className="absolute -translate-x-1/2 -translate-y-1/2 z-[8]"
-        style={{ left: x, top: y }}
+        style={{ left: `${(x / SIZE) * 100}%`, top: `${(y / HEX_SIZE) * 100}%` }}
       >
         <Tooltip>
           <TooltipTrigger asChild>

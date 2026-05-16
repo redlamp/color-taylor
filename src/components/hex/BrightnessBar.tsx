@@ -64,8 +64,8 @@ export default function BrightnessBar({ hue, saturation, brightness, hsl, blMode
         fill="url(#bl-gradient)"
         stroke="rgba(255,255,255,0.1)"
         strokeWidth={1}
-        className="cursor-pointer"
-        onMouseDown={(e) => {
+        className="cursor-pointer touch-none"
+        onPointerDown={(e) => {
           e.stopPropagation();
           blPointerDown.current = {
             clientX: e.clientX,

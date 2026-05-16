@@ -26,10 +26,10 @@ export default function SBBox({ hue, saturation, brightness, onChange }) {
       aria-label="Saturation and brightness"
       aria-valuetext={`Saturation ${saturation}%, Brightness ${brightness}%`}
       tabIndex={0}
-      className="relative w-[255px] h-[150px] shrink-0 overflow-hidden cursor-crosshair select-none"
+      className="relative w-[255px] h-[150px] shrink-0 overflow-hidden cursor-crosshair select-none touch-none"
       ref={ref}
       style={{ backgroundColor: hueColor }}
-      onMouseDown={(e) => {
+      onPointerDown={(e) => {
         startDrag();
         update(e.clientX, e.clientY);
       }}

@@ -48,9 +48,9 @@ export default function HSlider({ hue, onChange }) {
     >
       <div
         id="hue-bar-arrow"
-        className="absolute -translate-y-1/2 cursor-pointer py-0.5 px-0.5"
+        className="absolute -translate-y-1/2 cursor-pointer py-0.5 px-0.5 touch-none"
         style={{ top: `${pct}%`, left: -10 }}
-        onMouseDown={(e) => {
+        onPointerDown={(e) => {
           e.preventDefault();
           startDrag();
         }}
@@ -67,12 +67,12 @@ export default function HSlider({ hue, onChange }) {
       <div
         id="hue-bar"
         ref={ref}
-        className="w-full h-full cursor-pointer select-none"
+        className="w-full h-full cursor-pointer select-none touch-none"
         style={{
           background: 'linear-gradient(to bottom, #f00 0%, #ff0 17%, #0f0 33%, #0ff 50%, #00f 67%, #f0f 83%, #f00 100%)',
           boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.1)',
         }}
-        onMouseDown={(e) => {
+        onPointerDown={(e) => {
           startDrag();
           update(e.clientY);
         }}
