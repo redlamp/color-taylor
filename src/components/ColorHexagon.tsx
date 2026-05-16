@@ -637,8 +637,8 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   }, [blMode, brightness, hsl?.l]);
 
   return (
-    <div id="color-hexagon" className="flex flex-col items-center gap-1 border border-input rounded-lg p-3 max-w-full" style={{ width: SIZE + 24 }}>
-      <div className="flex items-center gap-1.5 w-full">
+    <div id="color-hexagon" className="flex flex-col items-center gap-1 border border-input rounded-lg p-1 max-w-full" style={{ width: SIZE + 8 }}>
+      <div className="flex items-start gap-1.5 w-full">
         <div
           className="flex items-center gap-1.5 flex-1 min-w-0 cursor-pointer select-none"
           onClick={() => setHexOpen((o) => !o)}
