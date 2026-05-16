@@ -326,7 +326,7 @@ export default function ColorPicker() {
   }, [colorAnimActive]);
 
   return (
-    <div id="color-picker-root" className="mx-auto w-full max-w-[1400px] p-3 sm:p-6">
+    <div id="color-picker-root" className="mx-auto w-full max-w-[1120px] p-3 sm:p-6">
       <div className="flex items-center justify-between mb-4">
         <h1 id="color-picker-title" className="text-2xl font-semibold tracking-tight text-primary">Color Taylor 🎨🧵</h1>
         <div className="flex items-center gap-2">
@@ -349,8 +349,8 @@ export default function ColorPicker() {
 
       <div className="flex flex-col">
       <div ref={topRowRef} className="flex flex-col md:flex-row gap-4 items-stretch md:items-start">
-        {/* Left column: Color Hexagon */}
-        <div className="w-full md:w-auto md:shrink-0 min-w-0">
+        {/* Left column: Color Hexagon — flex-grows, shrinks before sliders */}
+        <div className="w-full md:flex-1 md:min-w-0">
           <ColorHexagon
             rgb={rgb}
             hue={hsb.h}
