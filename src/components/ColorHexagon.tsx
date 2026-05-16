@@ -63,13 +63,24 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     return [...DEFAULT_RECENT];
   });
   const [selectedRecentIdx, setSelectedRecentIdx] = useState(null);
+  const [savedColors, setSavedColors] = useState<(string | null)[]>(() => {
+    try {
+      const saved = localStorage.getItem('color-taylor-saved');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return Array(12).fill(null);
+  });
+  const [selectedSavedIdx, setSelectedSavedIdx] = useState<number | null>(null);
   const lastHex = useRef(initialHex);
   const skipNextRecent = useRef(false);
 
-  // Persist recent colors
+  // Persist recent + saved colors
   useEffect(() => {
     localStorage.setItem('color-taylor-recent', JSON.stringify(recentColors));
   }, [recentColors]);
+  useEffect(() => {
+    localStorage.setItem('color-taylor-saved', JSON.stringify(savedColors));
+  }, [savedColors]);
   const draggingBL = useRef(false);
   const svgRef = useRef(null);
   const draggingHue = useRef(false);
@@ -859,7 +870,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       <div className="w-full mt-2">
         <CollapsibleSection
           id="recent-colors"
-          title="Recent Colors"
+          title="Recent"
           headerRight={
             <div className="flex gap-1">
               <button
@@ -901,6 +912,62 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                         parseInt(color.slice(5, 7), 16),
                       );
                       onAnimateToHsb(parsed);
+                    }
+                  }}
+                />
+              );
+            })}
+          </div>
+        </CollapsibleSection>
+      </div>
+
+      {/* Saved Colors */}
+      <div className="w-full mt-2">
+        <CollapsibleSection
+          id="saved-colors"
+          title="Saved"
+          headerRight={
+            <div className="flex gap-1">
+              <button
+                className="px-2 py-0.5 text-xs rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none"
+                onClick={(e) => { e.stopPropagation(); setSavedColors(Array(12).fill(null)); setSelectedSavedIdx(null); }}
+              >
+                Clear
+              </button>
+            </div>
+          }
+        >
+          <div className="grid grid-cols-6 md:grid-cols-12 gap-1.5">
+            {Array.from({ length: 12 }, (_, i) => {
+              const color = savedColors[i];
+              return (
+                <button
+                  key={i}
+                  className="rounded-md cursor-pointer aspect-square w-full transition-shadow duration-200 ease-in-out"
+                  style={{
+                    backgroundColor: color || 'transparent',
+                    boxShadow: i === selectedSavedIdx && color ? '0 0 0 2px white' : 'none',
+                    border: i === selectedSavedIdx && color ? '2px solid transparent' : '1px dashed var(--input)',
+                  }}
+                  aria-label={color ? `Load ${color}` : `Save current color to slot ${i + 1}`}
+                  onClick={() => {
+                    if (color) {
+                      if (!onAnimateToHsb) return;
+                      setSelectedSavedIdx(i);
+                      const parsed = rgbToHsb(
+                        parseInt(color.slice(1, 3), 16),
+                        parseInt(color.slice(3, 5), 16),
+                        parseInt(color.slice(5, 7), 16),
+                      );
+                      onAnimateToHsb(parsed);
+                    } else {
+                      const currentHex = rgbToHex(rgb.r, rgb.g, rgb.b);
+                      setSavedColors((prev) => {
+                        const next = [...prev];
+                        next[i] = currentHex;
+                        return next;
+                      });
+                      setSelectedSavedIdx(i);
                     }
                   }}
                 />
