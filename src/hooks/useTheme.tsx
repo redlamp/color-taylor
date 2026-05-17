@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 
-const ThemeContext = createContext({ isDark: false, toggle: () => {}, setDark: () => {}, restore: () => {} });
+const ThemeContext = createContext({ isDark: false, toggle: () => {}, setDark: () => {}, restore: () => {}, reset: () => {} });
 
 export function ThemeProvider({ children }) {
   const [isDark, setIsDark] = useState(() => {
@@ -38,8 +38,15 @@ export function ThemeProvider({ children }) {
     }
   }, []);
 
+  // Reset theme to system preference, clear stored value
+  const reset = useCallback(() => {
+    try { localStorage.removeItem('color-taylor-theme'); } catch {}
+    savedTheme.current = null;
+    setIsDark(window.matchMedia('(prefers-color-scheme: dark)').matches);
+  }, []);
+
   return (
-    <ThemeContext.Provider value={{ isDark, toggle, setDark, restore }}>
+    <ThemeContext.Provider value={{ isDark, toggle, setDark, restore, reset }}>
       {children}
     </ThemeContext.Provider>
   );

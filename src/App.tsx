@@ -4,17 +4,20 @@ import ColorPicker from './components/ColorPicker'
 import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ThemeProvider, useTheme } from './hooks/useTheme'
+import { SettingsProvider } from './hooks/useSettings'
 import { useHashRoute } from './hooks/useHashRoute'
 const PresentationShell = lazy(() => import('./presentation/PresentationShell'))
 
 function App() {
   return (
     <ThemeProvider>
-      <ErrorBoundary>
-        <TooltipProvider delay={0}>
-          <AppInner />
-        </TooltipProvider>
-      </ErrorBoundary>
+      <SettingsProvider>
+        <ErrorBoundary>
+          <TooltipProvider delay={0}>
+            <AppInner />
+          </TooltipProvider>
+        </ErrorBoundary>
+      </SettingsProvider>
     </ThemeProvider>
   )
 }
