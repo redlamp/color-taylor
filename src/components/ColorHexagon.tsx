@@ -8,6 +8,7 @@ import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip
 import { ChevronRight } from 'lucide-react';
 import CollapsibleSection from './CollapsibleSection';
 import NAMED_COLORS from '../utils/namedColors';
+import { getAudioCtx, toneController } from '../utils/colorSynth';
 import {
   HEX_SIZE, SIZE, CENTER, RADIUS, PI, DIRS,
   BL_BAR_X, BL_BAR_TOP, BL_BAR_HEIGHT, BL_ARROW_SIZE,
@@ -93,21 +94,15 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
 
   type Poof = { id: string; x: number; y: number; w: number; h: number; color: string };
   const [poofs, setPoofs] = useState<Poof[]>([]);
-  const audioCtxRef = useRef<AudioContext | null>(null);
   const mutedRef = useRef<boolean>(!!muted);
   useEffect(() => { mutedRef.current = !!muted; }, [muted]);
+  const liveHsbRef = useRef<HSB>({ h: hue, s: saturation, b: brightness });
+  useEffect(() => { liveHsbRef.current = { h: hue, s: saturation, b: brightness }; }, [hue, saturation, brightness]);
+  const toneActiveRef = useRef(false);
 
   const rand = useCallback((center: number, spread: number) => center + (Math.random() * 2 - 1) * spread, []);
 
-  const ensureAudioCtx = useCallback(() => {
-    if (!audioCtxRef.current) {
-      const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      audioCtxRef.current = new AC();
-    }
-    const ctx = audioCtxRef.current;
-    if (ctx.state === 'suspended') ctx.resume();
-    return ctx;
-  }, []);
+  const ensureAudioCtx = useCallback(() => getAudioCtx(), []);
 
   const playFlit = useCallback(() => {
     if (mutedRef.current) return;
@@ -554,7 +549,9 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     const { x, y } = getSvgCoords(e);
     let angle = Math.atan2(-(y - CENTER), x - CENTER) * (180 / PI);
     if (angle < 0) angle += 360;
-    onHueChange(Math.round(angle));
+    const h = Math.round(angle);
+    onHueChange(h);
+    return h;
   }, [onHueChange, getSvgCoords]);
 
   // Vector chain
@@ -813,10 +810,11 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   }, [blMode, onAnimateToHsb, hue, saturation, brightness]);
 
   const handleHexSurfaceDrag = useCallback((e) => {
-    if (!hexPointerDown.current || !onHsbChange) return;
+    if (!hexPointerDown.current || !onHsbChange) return null;
     const { x, y } = getSvgCoords(e);
     const picked = getHsbFromPosition(x, y, true);
     if (picked) onHsbChange(picked);
+    return picked ?? null;
   }, [getSvgCoords, getHsbFromPosition, onHsbChange]);
 
   // Global mouse listeners
@@ -831,18 +829,42 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       startingBrightness.current = null;
       setHoveredDot(null);
       setIsHexDragging(false);
+      if (toneActiveRef.current) {
+        toneController.stop(80);
+        toneActiveRef.current = false;
+      }
+    };
+    const ensureToneStart = () => {
+      if (!toneActiveRef.current) {
+        toneController.start(liveHsbRef.current);
+        toneActiveRef.current = true;
+      }
+    };
+    const updateTone = (partial: Partial<HSB>) => {
+      if (!toneActiveRef.current) return;
+      toneController.update({ ...liveHsbRef.current, ...partial });
     };
     const onPointerMove = (e) => {
-      if (draggingHue.current) hueFromMouse(e);
+      if (draggingHue.current) {
+        ensureToneStart();
+        const newH = hueFromMouse(e);
+        if (typeof newH === 'number') updateTone({ h: newH });
+      }
       if (draggingDot.current) handleDotDrag(e);
       if (draggingBL.current) {
+        ensureToneStart();
         const val = getBLValueFromClientY(e.clientY);
-        if (val !== null) applyBLValue(val);
+        if (val !== null) {
+          applyBLValue(val);
+          if (blMode === 'brightness') updateTone({ b: val });
+          else updateTone({});
+        }
       }
       if (draggingFree.current) {
+        ensureToneStart();
         const { x, y } = getSvgCoords(e);
         const picked = getHsbFromPosition(x, y);
-        if (picked) onHsbChange(picked);
+        if (picked) { onHsbChange(picked); updateTone(picked); }
       }
       if (hexPointerDown.current) {
         const pd = hexPointerDown.current;
@@ -854,7 +876,11 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             setIsHexDragging(true);
           }
         }
-        if (pd.isDragging) handleHexSurfaceDrag(e);
+        if (pd.isDragging) {
+          ensureToneStart();
+          const picked = handleHexSurfaceDrag(e);
+          if (picked) updateTone(picked);
+        }
       }
       if (blPointerDown.current) {
         const pd = blPointerDown.current;
@@ -864,8 +890,13 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           if (Math.sqrt(dx * dx + dy * dy) >= dragTriggerDistance) pd.isDragging = true;
         }
         if (pd.isDragging) {
+          ensureToneStart();
           const val = getBLValueFromClientY(e.clientY);
-          if (val !== null) applyBLValue(val);
+          if (val !== null) {
+            applyBLValue(val);
+            if (blMode === 'brightness') updateTone({ b: val });
+            else updateTone({});
+          }
         }
       }
     };
@@ -900,7 +931,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       window.removeEventListener('pointerup', onPointerUp);
       document.documentElement.removeEventListener('pointerleave', onPointerLeave);
     };
-  }, [hueFromMouse, handleDotDrag, handleHexSurfaceDrag, getBLValueFromClientY, applyBLValue, animateBLToValue, getSvgCoords, getHsbFromPosition, onAnimateToHsb, onHsbChange, addToRecent]);
+  }, [hueFromMouse, handleDotDrag, handleHexSurfaceDrag, getBLValueFromClientY, applyBLValue, animateBLToValue, getSvgCoords, getHsbFromPosition, onAnimateToHsb, onHsbChange, addToRecent, blMode]);
 
   // Non-passive wheel listener to prevent page scroll
   useEffect(() => {
