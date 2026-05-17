@@ -26,7 +26,12 @@ import PreviewSwatch from './PreviewSwatch';
 import CollapsibleSection from './CollapsibleSection';
 import NamedColorMatch from './NamedColorMatch';
 import ThemeToggle from './ThemeToggle';
-import { Play, Pause, Volume2, VolumeOff } from 'lucide-react';
+import { SettingsPanel } from './SettingsPanel';
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { VolumeControl } from './VolumeControl';
+import { useSettings } from '@/hooks/useSettings';
+import { toneController } from '@/utils/colorSynth';
+import { Play, Pause, Settings, Music, Slash } from 'lucide-react';
 
 type HslMode = 'hsb' | 'hsl' | 'both';
 type RgbGradientMode = 'channel' | 'mixed';
@@ -53,6 +58,30 @@ export default function ColorPicker() {
   useEffect(() => {
     try { localStorage.setItem('color-taylor-muted', muted ? '1' : '0'); } catch {}
   }, [muted]);
+  useEffect(() => { toneController.setMuted(muted); }, [muted]);
+  const { settings, updateSynth } = useSettings();
+  const prevSynthEnabledRef = useRef(settings.synth.synthEnabled);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const isPointerDownRef = useRef(false);
+  const pulseTone = useCallback((target: HSB) => {
+    toneController.pulse(target, isPointerDownRef.current);
+  }, []);
+
+  useEffect(() => {
+    const onDown = () => { isPointerDownRef.current = true; };
+    const onUp = () => {
+      isPointerDownRef.current = false;
+      toneController.notifyPointerUp();
+    };
+    window.addEventListener('pointerdown', onDown, { capture: true });
+    window.addEventListener('pointerup', onUp, { capture: true });
+    window.addEventListener('pointercancel', onUp, { capture: true });
+    return () => {
+      window.removeEventListener('pointerdown', onDown, { capture: true } as EventListenerOptions);
+      window.removeEventListener('pointerup', onUp, { capture: true } as EventListenerOptions);
+      window.removeEventListener('pointercancel', onUp, { capture: true } as EventListenerOptions);
+    };
+  }, []);
   const animRef = useRef<number | null>(null);
   const hsbRef = useRef(hsb);
   hsbRef.current = hsb;
@@ -111,6 +140,7 @@ export default function ColorPicker() {
           const duration = 400;
           let start = null;
           const easeInOut = (t) => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+          toneController.start(from);
           const tick = (ts) => {
             if (!start) start = ts;
             const t = easeInOut(Math.min((ts - start) / duration, 1));
@@ -122,11 +152,13 @@ export default function ColorPicker() {
             const b = Math.round(from.b + (prev.b - from.b) * t);
             rgbOverride.current = null;
             setHsb({ h, s, b });
+            toneController.update({ h, s, b });
             if ((ts - start) < duration) {
               animRef.current = requestAnimationFrame(tick);
             } else {
               animRef.current = null;
               isUndoRedoing.current = false;
+              toneController.release();
             }
           };
           animRef.current = requestAnimationFrame(tick);
@@ -144,6 +176,7 @@ export default function ColorPicker() {
           const duration = 400;
           let start = null;
           const easeInOut = (t) => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+          toneController.start(from);
           const tick = (ts) => {
             if (!start) start = ts;
             const t = easeInOut(Math.min((ts - start) / duration, 1));
@@ -155,11 +188,13 @@ export default function ColorPicker() {
             const b = Math.round(from.b + (next.b - from.b) * t);
             rgbOverride.current = null;
             setHsb({ h, s, b });
+            toneController.update({ h, s, b });
             if ((ts - start) < duration) {
               animRef.current = requestAnimationFrame(tick);
             } else {
               animRef.current = null;
               isUndoRedoing.current = false;
+              toneController.release();
             }
           };
           animRef.current = requestAnimationFrame(tick);
@@ -185,6 +220,8 @@ export default function ColorPicker() {
 
     const easeInOut = (t) => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
 
+    toneController.start(from);
+
     const tick = (timestamp) => {
       if (!start) start = timestamp;
       const elapsed = timestamp - start;
@@ -202,11 +239,13 @@ export default function ColorPicker() {
 
       rgbOverride.current = null;
       setHsb({ h, s, b });
+      toneController.update({ h, s, b });
 
       if (progress < 1) {
         animRef.current = requestAnimationFrame(tick);
       } else {
         animRef.current = null;
+        toneController.release();
       }
     };
 
@@ -228,9 +267,11 @@ export default function ColorPicker() {
       const currentRgb = rgbOverride.current || hsbToRgb(prev.h, prev.s, prev.b);
       const newRgb = { ...currentRgb, [channel]: value };
       rgbOverride.current = newRgb;
-      return rgbToHsb(newRgb.r, newRgb.g, newRgb.b);
+      const next = rgbToHsb(newRgb.r, newRgb.g, newRgb.b);
+      pulseTone(next);
+      return next;
     });
-  }, []);
+  }, [pulseTone]);
 
   const handleHslChange = useCallback((channel: 'h' | 's' | 'l', value: number) => {
     if (colorAnimActiveRef.current) colorAnimActiveRef.current = 'stop';
@@ -240,15 +281,27 @@ export default function ColorPicker() {
       const currentHsl = rgbToHsl(currentRgb.r, currentRgb.g, currentRgb.b);
       const newHsl = { ...currentHsl, [channel]: value };
       const newRgb = hslToRgb(newHsl.h, newHsl.s, newHsl.l);
-      return rgbToHsb(newRgb.r, newRgb.g, newRgb.b);
+      const next = rgbToHsb(newRgb.r, newRgb.g, newRgb.b);
+      pulseTone(next);
+      return next;
     });
-  }, []);
+  }, [pulseTone]);
 
   const showHsb = hslMode === 'hsb' || hslMode === 'both';
   const showHsl = hslMode === 'hsl' || hslMode === 'both';
 
   // ── Color cycle animation (same as presentation intro) ────────────
   const [colorAnimActive, setColorAnimActive] = useState(false);
+  const colorAnimActiveStateRef = useRef(colorAnimActive);
+  colorAnimActiveStateRef.current = colorAnimActive;
+  useEffect(() => {
+    const wasOn = prevSynthEnabledRef.current;
+    const nowOn = settings.synth.synthEnabled;
+    prevSynthEnabledRef.current = nowOn;
+    if (!wasOn && nowOn && colorAnimActiveStateRef.current && !toneController.isActive()) {
+      toneController.start(hsbRef.current);
+    }
+  }, [settings.synth.synthEnabled]);
   const [colorAnimHolding, setColorAnimHolding] = useState(false);
   const colorAnimRaf = useRef<number | null>(null);
   colorAnimActiveRef.current = colorAnimActive;
@@ -275,6 +328,7 @@ export default function ColorPicker() {
       if (colorAnimRaf.current) cancelAnimationFrame(colorAnimRaf.current);
       colorAnimRaf.current = null;
       setColorAnimHolding(false);
+      toneController.release();
       return;
     }
 
@@ -290,11 +344,13 @@ export default function ColorPicker() {
 
     const start = performance.now() - timeOffset;
     let wasHolding = null;
+    toneController.start(hsbRef.current);
     const tick = (ts) => {
       // Check if user interaction requested a stop
       if (colorAnimActiveRef.current === 'stop') {
         colorAnimActiveRef.current = false;
         setColorAnimActive(false);
+        toneController.stop(120);
         return;
       }
 
@@ -322,12 +378,15 @@ export default function ColorPicker() {
       }
 
       rgbOverride.current = { r, g, b };
-      setHsb(rgbToHsb(r, g, b));
+      const nextHsb = rgbToHsb(r, g, b);
+      setHsb(nextHsb);
+      toneController.update(nextHsb);
       colorAnimRaf.current = requestAnimationFrame(tick);
     };
     colorAnimRaf.current = requestAnimationFrame(tick);
     return () => {
       if (colorAnimRaf.current) cancelAnimationFrame(colorAnimRaf.current);
+      toneController.release();
     };
   }, [colorAnimActive]);
 
@@ -337,26 +396,67 @@ export default function ColorPicker() {
         <h1 id="color-picker-title" className="text-2xl font-semibold tracking-tight text-primary">Color Taylor 🎨🧵</h1>
         <div className="flex items-center gap-2">
           <button
-            className="px-3 py-1 text-sm font-medium rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none"
+            className="inline-flex items-center justify-center h-8 px-3 text-sm font-medium rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none"
             onClick={() => { window.location.hash = '#/presentation'; }}
           >
             Intro
           </button>
-          <button
-            className="px-2 py-1 rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none"
-            onClick={() => setColorAnimActive(a => !a)}
-            aria-label={colorAnimActive ? 'Pause color animation' : 'Play color animation'}
-          >
-            {colorAnimActive ? <Pause className="size-4" /> : <Play className="size-4" />}
-          </button>
-          <button
-            className="px-2 py-1 rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none"
-            onClick={() => setMuted(m => !m)}
-            aria-label={muted ? 'Unmute sounds' : 'Mute sounds'}
-          >
-            {muted ? <VolumeOff className="size-4" /> : <Volume2 className="size-4" />}
-          </button>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <button
+                  className="inline-flex items-center justify-center size-8 rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none"
+                  onClick={() => setColorAnimActive(a => !a)}
+                  aria-label={colorAnimActive ? 'Pause color animation' : 'Play color animation'}
+                >
+                  {colorAnimActive ? <Pause className="size-4" /> : <Play className="size-4" />}
+                </button>
+              }
+            />
+            <TooltipContent>Cycle Colors</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <button
+                  className="inline-flex items-center justify-center size-8 rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none"
+                  onClick={() => updateSynth({ synthEnabled: !settings.synth.synthEnabled })}
+                  aria-label={settings.synth.synthEnabled ? 'Disable color synth' : 'Enable color synth'}
+                  aria-pressed={settings.synth.synthEnabled}
+                >
+                  <span className="relative inline-flex items-center justify-center size-4">
+                    <Music className="size-4" />
+                    {!settings.synth.synthEnabled && (
+                      <Slash className="size-4 absolute inset-0 -scale-x-100" />
+                    )}
+                  </span>
+                </button>
+              }
+            />
+            <TooltipContent>Color Synth</TooltipContent>
+          </Tooltip>
+          <VolumeControl
+            muted={muted}
+            onToggleMute={() => setMuted(m => !m)}
+            masterGain={settings.synth.masterGain}
+            onMasterGainChange={(v) => updateSynth({ masterGain: v })}
+          />
           <ThemeToggle />
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <button
+                  className="inline-flex items-center justify-center size-8 rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none"
+                  onClick={() => setSettingsOpen(o => !o)}
+                  aria-label="Open settings"
+                  aria-expanded={settingsOpen}
+                >
+                  <Settings className="size-4" />
+                </button>
+              }
+            />
+            <TooltipContent>Settings</TooltipContent>
+          </Tooltip>
         </div>
       </div>
 
@@ -399,11 +499,11 @@ export default function ColorPicker() {
               hue={hsb.h}
               saturation={hsb.s}
               brightness={hsb.b}
-              onChange={(s, b) => { rgbOverride.current = null; setHsb((prev) => ({ ...prev, s, b })); }}
+              onChange={(s, b) => { rgbOverride.current = null; setHsb((prev) => { const next = { ...prev, s, b }; pulseTone(next); return next; }); }}
             />
             <HSlider
               hue={hsb.h}
-              onChange={(h) => { rgbOverride.current = null; setHsb((prev) => ({ ...prev, h })); }}
+              onChange={(h) => { rgbOverride.current = null; setHsb((prev) => { const next = { ...prev, h }; pulseTone(next); return next; }); }}
             />
           </div>
         </CollapsibleSection>
@@ -472,21 +572,21 @@ export default function ColorPicker() {
                   max={360}
                   wrap
                   gradient={hueGradient(hsb.s, hsb.b, colorSpace)}
-                  onChange={(v) => { rgbOverride.current = null; setHsb((prev) => ({ ...prev, h: v })); }}
+                  onChange={(v) => { rgbOverride.current = null; setHsb((prev) => { const next = { ...prev, h: v }; pulseTone(next); return next; }); }}
                 />
                 <ColorSlider
                   label="S"
                   value={hsb.s}
                   max={100}
                   gradient={saturationGradient(hsb.h, hsb.b, colorSpace)}
-                  onChange={(v) => { rgbOverride.current = null; setHsb((prev) => ({ ...prev, s: v })); }}
+                  onChange={(v) => { rgbOverride.current = null; setHsb((prev) => { const next = { ...prev, s: v }; pulseTone(next); return next; }); }}
                 />
                 <ColorSlider
                   label="B"
                   value={hsb.b}
                   max={100}
                   gradient={brightnessGradient(hsb.h, hsb.s, colorSpace)}
-                  onChange={(v) => { rgbOverride.current = null; setHsb((prev) => ({ ...prev, b: v })); }}
+                  onChange={(v) => { rgbOverride.current = null; setHsb((prev) => { const next = { ...prev, b: v }; pulseTone(next); return next; }); }}
                 />
               </div>
             )}
@@ -530,7 +630,7 @@ export default function ColorPicker() {
               <div className="flex-1 min-w-0">
                 <HexInput
                   hex={hex}
-                  onChange={(parsed) => { rgbOverride.current = null; setHsb(rgbToHsb(parsed.r, parsed.g, parsed.b)); }}
+                  onChange={(parsed) => { rgbOverride.current = null; const next = rgbToHsb(parsed.r, parsed.g, parsed.b); pulseTone(next); setHsb(next); }}
                 />
               </div>
             </div>
@@ -565,6 +665,12 @@ export default function ColorPicker() {
 
       {/* Learn section — hidden for now */}
       </div>
+      <SettingsPanel
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        muted={muted}
+        onToggleMute={() => setMuted(m => !m)}
+      />
     </div>
   );
 }
