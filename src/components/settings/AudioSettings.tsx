@@ -1,9 +1,11 @@
+import { useState, useRef } from 'react';
 import { useSettings } from '@/hooks/useSettings';
 import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
 import { Volume, Volume1, Volume2, VolumeOff } from 'lucide-react';
+import { hsbToRgb, rgbToHex } from '@/utils/colorConversions';
 import {
   toneController, midiToName, midiToFreq,
   type Scale, type OscType, type SynthMode, type Chord, type VoiceOrder,
@@ -111,6 +113,9 @@ export function AudioSettings({ muted, onToggleMute }: AudioSettingsProps) {
   const { settings, updateSynth } = useSettings();
   const s = settings.synth;
   const isChord = s.mode === 'rgb-chord';
+  const [previewHex, setPreviewHex] = useState<string | null>(null);
+  const [isPreviewing, setIsPreviewing] = useState(false);
+  const previewRafRef = useRef<number | null>(null);
   const MuteIcon = muted || s.masterGain <= 0.01
     ? VolumeOff
     : s.masterGain < 0.66
@@ -119,19 +124,75 @@ export function AudioSettings({ muted, onToggleMute }: AudioSettingsProps) {
         ? Volume1
         : Volume2;
 
-  const preview = () => {
-    if (isChord) {
-      toneController.start({ h: 0, s: 100, b: 100 }, 'animation', true);
-      setTimeout(() => toneController.update({ h: 120, s: 100, b: 100 }), 250);
-      setTimeout(() => toneController.update({ h: 240, s: 100, b: 100 }), 500);
-      setTimeout(() => toneController.update({ h: 0, s: 0, b: 100 }), 750);
-      setTimeout(() => toneController.stop(150), 1100);
-    } else {
-      toneController.start({ h: 200, s: 60, b: 80 }, 'animation', true);
-      setTimeout(() => toneController.update({ h: 320, s: 80, b: 90 }), 200);
-      setTimeout(() => toneController.update({ h: 60, s: 100, b: 100 }), 500);
-      setTimeout(() => toneController.stop(120), 800);
+  // Ambient 100 BPM, quarter = 600ms. Whole = 2400ms, half = 1200ms.
+  type Keyframe = { t: number; hsb: { h: number; s: number; b: number } };
+  // Hue cycle = 4800ms motion (2 wholes) + 3 × half-note pauses at R/G/B = 8400ms total
+  const CHORD_KEYFRAMES: Keyframe[] = [
+    { t: 0,     hsb: { h: 0,   s: 100, b: 0   } },  // black (saturated, no brightness)
+    { t: 2400,  hsb: { h: 0,   s: 100, b: 100 } },  // black -> red (1 whole)
+    { t: 3600,  hsb: { h: 0,   s: 100, b: 100 } },  // pause at red (half)
+    { t: 5200,  hsb: { h: 120, s: 100, b: 100 } },  // red -> green (1/3 of 4800ms = 1600)
+    { t: 6400,  hsb: { h: 120, s: 100, b: 100 } },  // pause at green (half)
+    { t: 8000,  hsb: { h: 240, s: 100, b: 100 } },  // green -> blue
+    { t: 9200,  hsb: { h: 240, s: 100, b: 100 } },  // pause at blue (half)
+    { t: 10800, hsb: { h: 360, s: 100, b: 100 } },  // blue -> red (h=360)
+    { t: 13200, hsb: { h: 0,   s: 0,   b: 100 } },  // red -> white (1 whole)
+    { t: 14400, hsb: { h: 0,   s: 0,   b: 100 } },  // hold white (half)
+    { t: 15600, hsb: { h: 0,   s: 0,   b: 0   } },  // white -> black (half)
+  ];
+
+  // Hue voicing preview uses the same keyframe path as chord.
+  const HUE_KEYFRAMES: Keyframe[] = CHORD_KEYFRAMES;
+
+  const stopPreview = () => {
+    if (previewRafRef.current !== null) {
+      cancelAnimationFrame(previewRafRef.current);
+      previewRafRef.current = null;
     }
+    toneController.stop(150);
+    setPreviewHex(null);
+    setIsPreviewing(false);
+  };
+
+  const runPreview = (keyframes: Keyframe[]) => {
+    toneController.start(keyframes[0].hsb, 'animation', true);
+    setIsPreviewing(true);
+    const startTime = performance.now();
+    const totalMs = keyframes[keyframes.length - 1].t;
+    const tick = (now: number) => {
+      const elapsed = now - startTime;
+      if (elapsed >= totalMs) {
+        previewRafRef.current = null;
+        toneController.stop(150);
+        setPreviewHex(null);
+        setIsPreviewing(false);
+        return;
+      }
+      let i = 0;
+      while (i < keyframes.length - 1 && keyframes[i + 1].t < elapsed) i++;
+      const a = keyframes[i];
+      const b = keyframes[i + 1];
+      const span = b.t - a.t;
+      const segT = span > 0 ? (elapsed - a.t) / span : 1;
+      let dh = b.hsb.h - a.hsb.h;
+      if (dh > 180) dh -= 360;
+      if (dh < -180) dh += 360;
+      const hsb = {
+        h: ((a.hsb.h + dh * segT) % 360 + 360) % 360,
+        s: a.hsb.s + (b.hsb.s - a.hsb.s) * segT,
+        b: a.hsb.b + (b.hsb.b - a.hsb.b) * segT,
+      };
+      toneController.update(hsb);
+      const rgb = hsbToRgb(hsb.h, hsb.s, hsb.b);
+      setPreviewHex(rgbToHex(rgb.r, rgb.g, rgb.b));
+      previewRafRef.current = requestAnimationFrame(tick);
+    };
+    previewRafRef.current = requestAnimationFrame(tick);
+  };
+
+  const preview = () => {
+    if (isPreviewing) stopPreview();
+    else runPreview(isChord ? CHORD_KEYFRAMES : HUE_KEYFRAMES);
   };
 
   return (
@@ -193,7 +254,14 @@ export function AudioSettings({ muted, onToggleMute }: AudioSettingsProps) {
           <span className="text-xs text-muted-foreground">
             {isChord ? 'R/G/B values mix three pitches.' : 'Hue → pitch. Drag to sweep.'}
           </span>
-          <Button variant="outline" size="xs" onClick={preview}>Preview</Button>
+          <div className="flex items-center gap-2">
+            <div
+              aria-hidden
+              className="h-7 w-12 rounded-md border border-input shrink-0"
+              style={{ backgroundColor: previewHex ?? 'transparent' }}
+            />
+            <Button variant="outline" size="sm" onClick={preview} className="w-[68px]">{isPreviewing ? 'Stop' : 'Preview'}</Button>
+          </div>
         </div>
       </div>
 

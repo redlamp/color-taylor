@@ -100,6 +100,20 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   const liveHsbRef = useRef<HSB>({ h: hue, s: saturation, b: brightness });
   useEffect(() => { liveHsbRef.current = { h: hue, s: saturation, b: brightness }; }, [hue, saturation, brightness]);
   const toneActiveRef = useRef(false);
+  const holdToneTimer = useRef<number | null>(null);
+  const scheduleHoldTone = useCallback(() => {
+    if (holdToneTimer.current !== null) clearTimeout(holdToneTimer.current);
+    holdToneTimer.current = window.setTimeout(() => {
+      if (!toneActiveRef.current) {
+        toneController.start(liveHsbRef.current);
+        toneActiveRef.current = true;
+      }
+      holdToneTimer.current = null;
+    }, 250);
+  }, []);
+  const cancelHoldTone = useCallback(() => {
+    if (holdToneTimer.current !== null) { clearTimeout(holdToneTimer.current); holdToneTimer.current = null; }
+  }, []);
 
   const rand = useCallback((center: number, spread: number) => center + (Math.random() * 2 - 1) * spread, []);
 
@@ -830,12 +844,14 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       startingBrightness.current = null;
       setHoveredDot(null);
       setIsHexDragging(false);
+      cancelHoldTone();
       if (toneActiveRef.current) {
         toneController.release();
         toneActiveRef.current = false;
       }
     };
     const ensureToneStart = () => {
+      cancelHoldTone();
       if (!toneActiveRef.current) {
         toneController.start(liveHsbRef.current);
         toneActiveRef.current = true;
@@ -964,12 +980,8 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   const handleHueDragStart = (e) => {
     e.preventDefault();
     draggingHue.current = true;
-    const newH = hueFromMouse(e);
-    if (!toneActiveRef.current) {
-      toneController.start(liveHsbRef.current);
-      toneActiveRef.current = true;
-    }
-    if (typeof newH === 'number') toneController.update({ ...liveHsbRef.current, h: newH });
+    hueFromMouse(e);
+    scheduleHoldTone();
   };
 
   const handleDotMouseDown = (e, dotIndex, relative = false) => {
@@ -1016,11 +1028,8 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       time: Date.now(),
       isDragging: false,
     };
-    if (!toneActiveRef.current) {
-      toneController.start(liveHsbRef.current);
-      toneActiveRef.current = true;
-    }
-  }, [getSvgCoords, brightness, dragMode]);
+    scheduleHoldTone();
+  }, [getSvgCoords, brightness, dragMode, scheduleHoldTone]);
 
   const handleColorLabelClick = useCallback((deg) => {
     if (!onAnimateToHsb) return;
@@ -1328,10 +1337,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             e.preventDefault();
             e.stopPropagation();
             draggingBL.current = true;
-            if (!toneActiveRef.current) {
-              toneController.start(liveHsbRef.current);
-              toneActiveRef.current = true;
-            }
+            scheduleHoldTone();
           }}
         />
       </div>
