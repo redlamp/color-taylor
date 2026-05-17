@@ -29,10 +29,10 @@ const ORDERS: { value: VoiceOrder; label: string }[] = [
 ];
 
 const SCALES: { value: Scale; label: string }[] = [
-  { value: 'continuous', label: 'Continuous' },
-  { value: 'pentatonic', label: 'Pentatonic' },
-  { value: 'major', label: 'Major' },
-  { value: 'chromatic', label: 'Chromatic' },
+  { value: 'continuous', label: 'Free' },
+  { value: 'pentatonic', label: 'Penta' },
+  { value: 'major', label: 'Diatonic' },
+  { value: 'chromatic', label: 'Chrom' },
 ];
 
 const OSCS: { value: OscType; label: string }[] = [
