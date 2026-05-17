@@ -27,8 +27,11 @@ import CollapsibleSection from './CollapsibleSection';
 import NamedColorMatch from './NamedColorMatch';
 import ThemeToggle from './ThemeToggle';
 import { SettingsPanel } from './SettingsPanel';
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { VolumeControl } from './VolumeControl';
+import { useSettings } from '@/hooks/useSettings';
 import { toneController } from '@/utils/colorSynth';
-import { Play, Pause, Volume2, VolumeOff, Settings } from 'lucide-react';
+import { Play, Pause, Settings, Music, Slash } from 'lucide-react';
 
 type HslMode = 'hsb' | 'hsl' | 'both';
 type RgbGradientMode = 'channel' | 'mixed';
@@ -56,16 +59,28 @@ export default function ColorPicker() {
     try { localStorage.setItem('color-taylor-muted', muted ? '1' : '0'); } catch {}
   }, [muted]);
   useEffect(() => { toneController.setMuted(muted); }, [muted]);
+  const { settings, updateSynth } = useSettings();
+  const prevSynthEnabledRef = useRef(settings.synth.synthEnabled);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const pulseStopTimer = useRef<number | null>(null);
+  const isPointerDownRef = useRef(false);
   const pulseTone = useCallback((target: HSB) => {
-    if (!toneController.isActive()) toneController.start(target);
-    else toneController.update(target);
-    if (pulseStopTimer.current !== null) clearTimeout(pulseStopTimer.current);
-    pulseStopTimer.current = window.setTimeout(() => {
-      toneController.stop(120);
-      pulseStopTimer.current = null;
-    }, 200);
+    toneController.pulse(target, isPointerDownRef.current);
+  }, []);
+
+  useEffect(() => {
+    const onDown = () => { isPointerDownRef.current = true; };
+    const onUp = () => {
+      isPointerDownRef.current = false;
+      toneController.notifyPointerUp();
+    };
+    window.addEventListener('pointerdown', onDown, { capture: true });
+    window.addEventListener('pointerup', onUp, { capture: true });
+    window.addEventListener('pointercancel', onUp, { capture: true });
+    return () => {
+      window.removeEventListener('pointerdown', onDown, { capture: true } as EventListenerOptions);
+      window.removeEventListener('pointerup', onUp, { capture: true } as EventListenerOptions);
+      window.removeEventListener('pointercancel', onUp, { capture: true } as EventListenerOptions);
+    };
   }, []);
   const animRef = useRef<number | null>(null);
   const hsbRef = useRef(hsb);
@@ -143,7 +158,7 @@ export default function ColorPicker() {
             } else {
               animRef.current = null;
               isUndoRedoing.current = false;
-              toneController.stop(120);
+              toneController.release();
             }
           };
           animRef.current = requestAnimationFrame(tick);
@@ -179,7 +194,7 @@ export default function ColorPicker() {
             } else {
               animRef.current = null;
               isUndoRedoing.current = false;
-              toneController.stop(120);
+              toneController.release();
             }
           };
           animRef.current = requestAnimationFrame(tick);
@@ -230,7 +245,7 @@ export default function ColorPicker() {
         animRef.current = requestAnimationFrame(tick);
       } else {
         animRef.current = null;
-        toneController.stop(150);
+        toneController.release();
       }
     };
 
@@ -277,6 +292,16 @@ export default function ColorPicker() {
 
   // ── Color cycle animation (same as presentation intro) ────────────
   const [colorAnimActive, setColorAnimActive] = useState(false);
+  const colorAnimActiveStateRef = useRef(colorAnimActive);
+  colorAnimActiveStateRef.current = colorAnimActive;
+  useEffect(() => {
+    const wasOn = prevSynthEnabledRef.current;
+    const nowOn = settings.synth.synthEnabled;
+    prevSynthEnabledRef.current = nowOn;
+    if (!wasOn && nowOn && colorAnimActiveStateRef.current && !toneController.isActive()) {
+      toneController.start(hsbRef.current);
+    }
+  }, [settings.synth.synthEnabled]);
   const [colorAnimHolding, setColorAnimHolding] = useState(false);
   const colorAnimRaf = useRef<number | null>(null);
   colorAnimActiveRef.current = colorAnimActive;
@@ -303,7 +328,7 @@ export default function ColorPicker() {
       if (colorAnimRaf.current) cancelAnimationFrame(colorAnimRaf.current);
       colorAnimRaf.current = null;
       setColorAnimHolding(false);
-      toneController.stop(120);
+      toneController.release();
       return;
     }
 
@@ -361,7 +386,7 @@ export default function ColorPicker() {
     colorAnimRaf.current = requestAnimationFrame(tick);
     return () => {
       if (colorAnimRaf.current) cancelAnimationFrame(colorAnimRaf.current);
-      toneController.stop(120);
+      toneController.release();
     };
   }, [colorAnimActive]);
 
@@ -371,34 +396,67 @@ export default function ColorPicker() {
         <h1 id="color-picker-title" className="text-2xl font-semibold tracking-tight text-primary">Color Taylor 🎨🧵</h1>
         <div className="flex items-center gap-2">
           <button
-            className="px-3 py-1 text-sm font-medium rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none"
+            className="inline-flex items-center justify-center h-8 px-3 text-sm font-medium rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none"
             onClick={() => { window.location.hash = '#/presentation'; }}
           >
             Intro
           </button>
-          <button
-            className="px-2 py-1 rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none"
-            onClick={() => setColorAnimActive(a => !a)}
-            aria-label={colorAnimActive ? 'Pause color animation' : 'Play color animation'}
-          >
-            {colorAnimActive ? <Pause className="size-4" /> : <Play className="size-4" />}
-          </button>
-          <button
-            className="px-2 py-1 rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none"
-            onClick={() => setMuted(m => !m)}
-            aria-label={muted ? 'Unmute sounds' : 'Mute sounds'}
-          >
-            {muted ? <VolumeOff className="size-4" /> : <Volume2 className="size-4" />}
-          </button>
-          <button
-            className="px-2 py-1 rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none"
-            onClick={() => setSettingsOpen(o => !o)}
-            aria-label="Open settings"
-            aria-expanded={settingsOpen}
-          >
-            <Settings className="size-4" />
-          </button>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <button
+                  className="inline-flex items-center justify-center size-8 rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none"
+                  onClick={() => setColorAnimActive(a => !a)}
+                  aria-label={colorAnimActive ? 'Pause color animation' : 'Play color animation'}
+                >
+                  {colorAnimActive ? <Pause className="size-4" /> : <Play className="size-4" />}
+                </button>
+              }
+            />
+            <TooltipContent>Cycle Colors</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <button
+                  className="inline-flex items-center justify-center size-8 rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none"
+                  onClick={() => updateSynth({ synthEnabled: !settings.synth.synthEnabled })}
+                  aria-label={settings.synth.synthEnabled ? 'Disable color synth' : 'Enable color synth'}
+                  aria-pressed={settings.synth.synthEnabled}
+                >
+                  <span className="relative inline-flex items-center justify-center size-4">
+                    <Music className="size-4" />
+                    {!settings.synth.synthEnabled && (
+                      <Slash className="size-4 absolute inset-0 -scale-x-100" />
+                    )}
+                  </span>
+                </button>
+              }
+            />
+            <TooltipContent>Color Synth</TooltipContent>
+          </Tooltip>
+          <VolumeControl
+            muted={muted}
+            onToggleMute={() => setMuted(m => !m)}
+            masterGain={settings.synth.masterGain}
+            onMasterGainChange={(v) => updateSynth({ masterGain: v })}
+          />
           <ThemeToggle />
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <button
+                  className="inline-flex items-center justify-center size-8 rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none"
+                  onClick={() => setSettingsOpen(o => !o)}
+                  aria-label="Open settings"
+                  aria-expanded={settingsOpen}
+                >
+                  <Settings className="size-4" />
+                </button>
+              }
+            />
+            <TooltipContent>Settings</TooltipContent>
+          </Tooltip>
         </div>
       </div>
 
@@ -607,7 +665,12 @@ export default function ColorPicker() {
 
       {/* Learn section — hidden for now */}
       </div>
-      <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <SettingsPanel
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        muted={muted}
+        onToggleMute={() => setMuted(m => !m)}
+      />
     </div>
   );
 }

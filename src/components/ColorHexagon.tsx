@@ -8,7 +8,7 @@ import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip
 import { ChevronRight } from 'lucide-react';
 import CollapsibleSection from './CollapsibleSection';
 import NAMED_COLORS from '../utils/namedColors';
-import { getAudioCtx, toneController } from '../utils/colorSynth';
+import { getAudioCtx, getMasterGain, toneController } from '../utils/colorSynth';
 import {
   HEX_SIZE, SIZE, CENTER, RADIUS, PI, DIRS,
   BL_BAR_X, BL_BAR_TOP, BL_BAR_HEIGHT, BL_ARROW_SIZE,
@@ -72,7 +72,6 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       const raw = localStorage.getItem('color-taylor-saved');
       if (raw) {
         const parsed = JSON.parse(raw);
-        // Migrate from earlier (string | null)[] schema
         return parsed.map((v: unknown) => {
           if (!v) return null;
           if (typeof v === 'string') return { hex: v, addedAt: 0 };
@@ -80,7 +79,9 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
         });
       }
     } catch {}
-    return Array(12).fill(null) as SavedSlot[];
+    const defaults: SavedSlot[] = DEFAULT_RECENT.map(hex => ({ hex, addedAt: 0 }));
+    while (defaults.length < 12) defaults.push(null);
+    return defaults;
   });
   const [selectedSavedIdx, setSelectedSavedIdx] = useState<number | null>(null);
   const [savedSortMode, setSavedSortMode] = useState<SortMode>('user');
@@ -141,7 +142,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       gain.gain.linearRampToValueAtTime(peakGain * 0.82, t + 0.24);
       gain.gain.exponentialRampToValueAtTime(0.0001, t + duration);
 
-      src.connect(filter).connect(tilt).connect(gain).connect(ctx.destination);
+      src.connect(filter).connect(tilt).connect(gain).connect(getMasterGain());
       src.start(t);
       src.stop(t + duration + 0.02);
     } catch {}
@@ -177,7 +178,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       gain.gain.exponentialRampToValueAtTime(peakGain, t + 0.002);
       gain.gain.exponentialRampToValueAtTime(0.0001, t + duration);
 
-      src.connect(filter).connect(gain).connect(ctx.destination);
+      src.connect(filter).connect(gain).connect(getMasterGain());
       src.start(t);
       src.stop(t + duration + 0.01);
     } catch {}
@@ -216,7 +217,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       noiseGain.gain.exponentialRampToValueAtTime(noisePeak, t + 0.003);
       noiseGain.gain.exponentialRampToValueAtTime(0.001, t + duration);
 
-      noise.connect(bandpass).connect(noiseGain).connect(ctx.destination);
+      noise.connect(bandpass).connect(noiseGain).connect(getMasterGain());
       noise.start(t);
       noise.stop(t + duration + 0.02);
 
@@ -228,7 +229,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       thumpGain.gain.setValueAtTime(0.0001, t);
       thumpGain.gain.exponentialRampToValueAtTime(thumpPeak, t + 0.005);
       thumpGain.gain.exponentialRampToValueAtTime(0.0001, t + thumpDur + 0.01);
-      thump.connect(thumpGain).connect(ctx.destination);
+      thump.connect(thumpGain).connect(getMasterGain());
       thump.start(t);
       thump.stop(t + thumpDur + 0.02);
     } catch {}
@@ -283,7 +284,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       }
       gain.gain.exponentialRampToValueAtTime(0.0001, t + duration);
 
-      src.connect(bandpass).connect(highshelf).connect(gain).connect(ctx.destination);
+      src.connect(bandpass).connect(highshelf).connect(gain).connect(getMasterGain());
       src.start(t);
       src.stop(t + duration + 0.05);
     } catch {}
@@ -830,7 +831,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       setHoveredDot(null);
       setIsHexDragging(false);
       if (toneActiveRef.current) {
-        toneController.stop(80);
+        toneController.release();
         toneActiveRef.current = false;
       }
     };
@@ -963,7 +964,12 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   const handleHueDragStart = (e) => {
     e.preventDefault();
     draggingHue.current = true;
-    hueFromMouse(e);
+    const newH = hueFromMouse(e);
+    if (!toneActiveRef.current) {
+      toneController.start(liveHsbRef.current);
+      toneActiveRef.current = true;
+    }
+    if (typeof newH === 'number') toneController.update({ ...liveHsbRef.current, h: newH });
   };
 
   const handleDotMouseDown = (e, dotIndex, relative = false) => {
@@ -1010,6 +1016,10 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       time: Date.now(),
       isDragging: false,
     };
+    if (!toneActiveRef.current) {
+      toneController.start(liveHsbRef.current);
+      toneActiveRef.current = true;
+    }
   }, [getSvgCoords, brightness, dragMode]);
 
   const handleColorLabelClick = useCallback((deg) => {
@@ -1318,6 +1328,10 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             e.preventDefault();
             e.stopPropagation();
             draggingBL.current = true;
+            if (!toneActiveRef.current) {
+              toneController.start(liveHsbRef.current);
+              toneActiveRef.current = true;
+            }
           }}
         />
       </div>
@@ -1327,6 +1341,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
         <CollapsibleSection
           id="recent-colors"
           title="Recent"
+          defaultOpen={false}
           headerRight={
             <div className="flex gap-1">
               <button
