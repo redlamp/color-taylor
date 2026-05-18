@@ -1214,12 +1214,12 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                   stroke="transparent"
                   strokeWidth={12}
                   strokeLinecap="round"
-                  className="cursor-pointer"
-                  onMouseEnter={() => setHoveredDot(dotIndex)}
-                  onMouseLeave={() => {
+                  className="cursor-pointer touch-none"
+                  onPointerEnter={() => setHoveredDot(dotIndex)}
+                  onPointerLeave={() => {
                     if (!draggingDot.current && !draggingFree.current) setHoveredDot(null);
                   }}
-                  onMouseDown={(e) => handleDotMouseDown(e, dotIndex, true)}
+                  onPointerDown={(e) => handleDotMouseDown(e, dotIndex, true)}
                 />
                 {/* Visible segment */}
                 <line
@@ -1263,11 +1263,11 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                 fill={isOrigin ? '#ff0000' : dotColors[i]}
                 stroke={isOrigin ? 'none' : ringColor}
                 strokeWidth={isOrigin ? 0 : isHighlighted ? 3 : 2}
-                className={isDraggable ? 'cursor-pointer' : ''}
+                className={isDraggable ? 'cursor-pointer touch-none' : ''}
                 style={isLast ? { filter: 'drop-shadow(0 0 1px rgba(0,0,0,0.3))' } : undefined}
-                onMouseDown={isDraggable ? (e) => handleDotMouseDown(e, i) : undefined}
-                onMouseEnter={isDraggable ? () => setHoveredDot(i) : undefined}
-                onMouseLeave={isDraggable ? () => {
+                onPointerDown={isDraggable ? (e) => handleDotMouseDown(e, i) : undefined}
+                onPointerEnter={isDraggable ? () => setHoveredDot(i) : undefined}
+                onPointerLeave={isDraggable ? () => {
                   if (!draggingDot.current && !draggingFree.current) setHoveredDot(null);
                 } : undefined}
               />
