@@ -24,9 +24,9 @@ function ColorSlider({ label, value, max, gradient, suffix, wrap, onChange, hide
   const clamp = (v: number) => Math.max(0, Math.min(max, v));
 
   const emitChange = useCallback((next: number) => {
-    if (next !== lastHapticValueRef.current) {
+    if (Math.abs(next - lastHapticValueRef.current) >= 5) {
       lastHapticValueRef.current = next;
-      hapticTap(3);
+      hapticTap(2);
     }
     onChange(next);
   }, [onChange]);
