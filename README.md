@@ -1,6 +1,6 @@
 # Color Taylor 🎨🧵
 
-A color picker that doubles as a synthesizer and a short interactive history of color on computers.
+A color picker designed to show the relationship between RGB (Red, Green, Blue) and HSB/HSL (Hue, Saturation, Brightness/Lightness). The primary goal is to illustrate the math and behavior that connect color modes, helping designers understand each mode and how it shapes their process.
 
 **Live:** https://redlamp.github.io/color-taylor/
 
