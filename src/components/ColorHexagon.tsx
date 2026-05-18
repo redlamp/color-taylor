@@ -576,19 +576,32 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     const p0 = { x: CENTER, y: CENTER };
     const pts = [p0];
     const names = ['origin'];
-    let current = p0;
-    for (const ch of order) {
-      const dir = DIRS[ch];
-      const value = rgb[ch];
-      current = {
-        x: current.x + value * scale * dir.x,
-        y: current.y + value * scale * dir.y,
-      };
-      pts.push(current);
-      names.push(ch === 'r' ? 'red' : ch === 'g' ? 'green' : 'blue');
+    if (dragMode === 'channel') {
+      // Independent handles: each dot emanates from CENTER along its own axis.
+      for (const ch of order) {
+        const dir = DIRS[ch];
+        const value = rgb[ch];
+        pts.push({
+          x: CENTER + value * scale * dir.x,
+          y: CENTER + value * scale * dir.y,
+        });
+        names.push(ch === 'r' ? 'red' : ch === 'g' ? 'green' : 'blue');
+      }
+    } else {
+      let current = p0;
+      for (const ch of order) {
+        const dir = DIRS[ch];
+        const value = rgb[ch];
+        current = {
+          x: current.x + value * scale * dir.x,
+          y: current.y + value * scale * dir.y,
+        };
+        pts.push(current);
+        names.push(ch === 'r' ? 'red' : ch === 'g' ? 'green' : 'blue');
+      }
     }
     return { points: pts, dotNames: names };
-  }, [order, rgb.r, rgb.g, rgb.b, scale]);
+  }, [order, rgb.r, rgb.g, rgb.b, scale, dragMode]);
 
   const dotColors = useMemo(() => points.map((p) => {
     const c = colorAtPoint(p.x, p.y, brightness);
@@ -765,13 +778,15 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       const useRgb = dragMode === 'channel' ? lockedRgb : rgb;
       const useOrder = dragMode === 'channel' ? lockedOrder : order;
       let prev = { x: CENTER, y: CENTER };
-      for (let i = 0; i < index - 1; i++) {
-        const ch = useOrder[i];
-        const dir = DIRS[ch];
-        prev = {
-          x: prev.x + useRgb[ch] * scale * dir.x,
-          y: prev.y + useRgb[ch] * scale * dir.y,
-        };
+      if (dragMode !== 'channel') {
+        for (let i = 0; i < index - 1; i++) {
+          const ch = useOrder[i];
+          const dir = DIRS[ch];
+          prev = {
+            x: prev.x + useRgb[ch] * scale * dir.x,
+            y: prev.y + useRgb[ch] * scale * dir.y,
+          };
+        }
       }
       const dir = DIRS[channel];
       const dx = x - prev.x;
@@ -791,7 +806,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       const picked = getHsbFromPosition(x, y, true);
       if (picked) onHsbChange(picked);
     }
-  }, [getSvgCoords, onRgbChange, onHsbChange, points, scale, getHsbFromPosition]);
+  }, [getSvgCoords, onRgbChange, onHsbChange, points, scale, getHsbFromPosition, dragMode]);
 
   const getBLValueFromClientY = useCallback((clientY) => {
     if (!svgRef.current) return null;
@@ -992,13 +1007,15 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     const channel = order[dotIndex - 1];
     const { x, y } = getSvgCoords(e);
     let prev = { x: CENTER, y: CENTER };
-    for (let i = 0; i < dotIndex - 1; i++) {
-      const ch = order[i];
-      const dir = DIRS[ch];
-      prev = {
-        x: prev.x + rgb[ch] * scale * dir.x,
-        y: prev.y + rgb[ch] * scale * dir.y,
-      };
+    if (dragMode !== 'channel') {
+      for (let i = 0; i < dotIndex - 1; i++) {
+        const ch = order[i];
+        const dir = DIRS[ch];
+        prev = {
+          x: prev.x + rgb[ch] * scale * dir.x,
+          y: prev.y + rgb[ch] * scale * dir.y,
+        };
+      }
     }
     const dir = DIRS[channel];
     const startProjection = (x - prev.x) * dir.x + (y - prev.y) * dir.y;
@@ -1188,7 +1205,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
 
           {/* Vector line segments */}
           {points.slice(1).map((p, i) => {
-            const prev = points[i];
+            const prev = dragMode === 'channel' ? points[0] : points[i];
             const ch = order[i];
             const chValue = rgb[ch];
             // Hide zero-value segments during hex surface drag
