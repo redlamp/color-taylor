@@ -9,6 +9,7 @@ import { ChevronRight } from 'lucide-react';
 import CollapsibleSection from './CollapsibleSection';
 import NAMED_COLORS from '../utils/namedColors';
 import { getAudioCtx, getMasterGain, toneController } from '../utils/colorSynth';
+import { hapticTap } from '../utils/haptics';
 import {
   HEX_SIZE, SIZE, CENTER, RADIUS, PI, DIRS,
   BL_BAR_X, BL_BAR_TOP, BL_BAR_HEIGHT, BL_ARROW_SIZE,
@@ -862,12 +863,13 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       toneController.update({ ...liveHsbRef.current, ...partial });
     };
     const onPointerMove = (e) => {
+      let dragChanged = false;
       if (draggingHue.current) {
         ensureToneStart();
         const newH = hueFromMouse(e);
-        if (typeof newH === 'number') updateTone({ h: newH });
+        if (typeof newH === 'number') { updateTone({ h: newH }); dragChanged = true; }
       }
-      if (draggingDot.current) handleDotDrag(e);
+      if (draggingDot.current) { handleDotDrag(e); dragChanged = true; }
       if (draggingBL.current) {
         ensureToneStart();
         const val = getBLValueFromClientY(e.clientY);
@@ -875,13 +877,14 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           applyBLValue(val);
           if (blMode === 'brightness') updateTone({ b: val });
           else updateTone({});
+          dragChanged = true;
         }
       }
       if (draggingFree.current) {
         ensureToneStart();
         const { x, y } = getSvgCoords(e);
         const picked = getHsbFromPosition(x, y);
-        if (picked) { onHsbChange(picked); updateTone(picked); }
+        if (picked) { onHsbChange(picked); updateTone(picked); dragChanged = true; }
       }
       if (hexPointerDown.current) {
         const pd = hexPointerDown.current;
@@ -896,7 +899,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
         if (pd.isDragging) {
           ensureToneStart();
           const picked = handleHexSurfaceDrag(e);
-          if (picked) updateTone(picked);
+          if (picked) { updateTone(picked); dragChanged = true; }
         }
       }
       if (blPointerDown.current) {
@@ -913,9 +916,11 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             applyBLValue(val);
             if (blMode === 'brightness') updateTone({ b: val });
             else updateTone({});
+            dragChanged = true;
           }
         }
       }
+      if (dragChanged) hapticTap(3, 25);
     };
     const onPointerUp = (e) => {
       if (hexPointerDown.current && !hexPointerDown.current.isDragging) {
