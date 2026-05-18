@@ -5,7 +5,11 @@ import path from 'path'
 
 // https://vite.dev/config/
 export default defineConfig({
-  base: process.env.GITHUB_PAGES ? '/color-taylor/' : './',
+  base: process.env.GH_PAGES_DEV
+    ? '/color-taylor/dev/'
+    : process.env.GITHUB_PAGES
+      ? '/color-taylor/'
+      : './',
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
