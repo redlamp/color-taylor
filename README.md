@@ -37,7 +37,8 @@ bun dev          # localhost:5173
 | `bun run preview` | Serve last build locally |
 | `bun run typecheck` | `tsc --noEmit` |
 | `bun run lint` | ESLint flat config |
-| `bun run deploy` | Build with GitHub Pages base path + publish to `gh-pages` branch |
+| `bun run deploy` | Build with GitHub Pages base path + publish to `gh-pages` branch (production root) |
+| `bun run deploy:dev` | Build + publish current branch to the `dev/` subfolder of `gh-pages` for mobile preview at `redlamp.github.io/color-taylor/dev/` |
 
 ## Branch workflow
 
