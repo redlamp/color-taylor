@@ -290,6 +290,29 @@ export default function ColorPicker() {
   const showHsb = hslMode === 'hsb' || hslMode === 'both';
   const showHsl = hslMode === 'hsl' || hslMode === 'both';
 
+  // Stable per-channel onChange handlers so memoized ColorSlider children
+  // can skip re-renders when their channel value hasn't changed.
+  const handleRChange = useCallback((v: number) => handleRgbChange('r', v), [handleRgbChange]);
+  const handleGChange = useCallback((v: number) => handleRgbChange('g', v), [handleRgbChange]);
+  const handleBChange = useCallback((v: number) => handleRgbChange('b', v), [handleRgbChange]);
+
+  const handleHsbHChange = useCallback((v: number) => {
+    rgbOverride.current = null;
+    setHsb((prev) => { const next = { ...prev, h: v }; pulseTone(next); return next; });
+  }, [pulseTone]);
+  const handleHsbSChange = useCallback((v: number) => {
+    rgbOverride.current = null;
+    setHsb((prev) => { const next = { ...prev, s: v }; pulseTone(next); return next; });
+  }, [pulseTone]);
+  const handleHsbBChange = useCallback((v: number) => {
+    rgbOverride.current = null;
+    setHsb((prev) => { const next = { ...prev, b: v }; pulseTone(next); return next; });
+  }, [pulseTone]);
+
+  const handleHslHChange = useCallback((v: number) => handleHslChange('h', v), [handleHslChange]);
+  const handleHslSChange = useCallback((v: number) => handleHslChange('s', v), [handleHslChange]);
+  const handleHslLChange = useCallback((v: number) => handleHslChange('l', v), [handleHslChange]);
+
   // ── Color cycle animation (same as presentation intro) ────────────
   const [colorAnimActive, setColorAnimActive] = useState(false);
   const colorAnimActiveStateRef = useRef(colorAnimActive);
@@ -527,21 +550,21 @@ export default function ColorPicker() {
               value={rgb.r}
               max={255}
               gradient={rgbGradientMode === 'mixed' ? redGradient(rgb.g, rgb.b) : redChannelGradient}
-              onChange={(v) => handleRgbChange('r', v)}
+              onChange={handleRChange}
             />
             <ColorSlider
               label="G"
               value={rgb.g}
               max={255}
               gradient={rgbGradientMode === 'mixed' ? greenGradient(rgb.r, rgb.b) : greenChannelGradient}
-              onChange={(v) => handleRgbChange('g', v)}
+              onChange={handleGChange}
             />
             <ColorSlider
               label="B"
               value={rgb.b}
               max={255}
               gradient={rgbGradientMode === 'mixed' ? blueGradient(rgb.r, rgb.g) : blueChannelGradient}
-              onChange={(v) => handleRgbChange('b', v)}
+              onChange={handleBChange}
             />
           </div>
         </CollapsibleSection>
@@ -572,21 +595,21 @@ export default function ColorPicker() {
                   max={360}
                   wrap
                   gradient={hueGradient(hsb.s, hsb.b, colorSpace)}
-                  onChange={(v) => { rgbOverride.current = null; setHsb((prev) => { const next = { ...prev, h: v }; pulseTone(next); return next; }); }}
+                  onChange={handleHsbHChange}
                 />
                 <ColorSlider
                   label="S"
                   value={hsb.s}
                   max={100}
                   gradient={saturationGradient(hsb.h, hsb.b, colorSpace)}
-                  onChange={(v) => { rgbOverride.current = null; setHsb((prev) => { const next = { ...prev, s: v }; pulseTone(next); return next; }); }}
+                  onChange={handleHsbSChange}
                 />
                 <ColorSlider
                   label="B"
                   value={hsb.b}
                   max={100}
                   gradient={brightnessGradient(hsb.h, hsb.s, colorSpace)}
-                  onChange={(v) => { rgbOverride.current = null; setHsb((prev) => { const next = { ...prev, b: v }; pulseTone(next); return next; }); }}
+                  onChange={handleHsbBChange}
                 />
               </div>
             )}
@@ -601,21 +624,21 @@ export default function ColorPicker() {
                   max={360}
                   wrap
                   gradient={hslHueGradient(hsl.s, hsl.l, colorSpace)}
-                  onChange={(v) => handleHslChange('h', v)}
+                  onChange={handleHslHChange}
                 />
                 <ColorSlider
                   label="S"
                   value={hsl.s}
                   max={100}
                   gradient={hslSaturationGradient(hsl.h, hsl.l, colorSpace)}
-                  onChange={(v) => handleHslChange('s', v)}
+                  onChange={handleHslSChange}
                 />
                 <ColorSlider
                   label="L"
                   value={hsl.l}
                   max={100}
                   gradient={lightnessGradient(hsl.h, hsl.s, colorSpace)}
-                  onChange={(v) => handleHslChange('l', v)}
+                  onChange={handleHslLChange}
                 />
               </div>
             )}
