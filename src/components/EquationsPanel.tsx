@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from 'react';
+import { memo, type CSSProperties, type ReactNode } from 'react';
 import { rgbToHex, type RGB, type HSL } from '../utils/colorConversions';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { useTheme } from '../hooks/useTheme';
@@ -12,7 +12,7 @@ interface EquationsPanelProps {
   blMode: 'brightness' | 'lightness';
 }
 
-export default function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }: EquationsPanelProps) {
+function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }: EquationsPanelProps) {
   const { isDark } = useTheme();
   const maxVal = Math.max(rgb.r, rgb.g, rgb.b);
   const minVal = Math.min(rgb.r, rgb.g, rgb.b);
@@ -186,3 +186,5 @@ export default function EquationsPanel({ rgb, hue, saturation, brightness, hsl, 
     </div>
   );
 }
+
+export default memo(EquationsPanel);
