@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, type CSSProperties } from 'react';
+import { useState, useMemo, useRef, memo, type CSSProperties } from 'react';
 import { findNearestNamedColor } from '../utils/namedColors';
 import NAMED_COLORS from '../utils/namedColors';
 import { rgbToHex, rgbToHsb } from '../utils/colorConversions';
@@ -18,7 +18,7 @@ interface NamedColorMatchProps {
   onShowOnHexChange: (v: boolean) => void;
 }
 
-export default function NamedColorMatch({ rgb, onAnimateToHsb, onHoverMatch, hoveredHtmlColor, showOnHex, onShowOnHexChange }: NamedColorMatchProps) {
+function NamedColorMatch({ rgb, onAnimateToHsb, onHoverMatch, hoveredHtmlColor, showOnHex, onShowOnHexChange }: NamedColorMatchProps) {
   const [threshold, setThreshold] = useState(30);
 
   const match = useMemo(
@@ -139,3 +139,5 @@ export default function NamedColorMatch({ rgb, onAnimateToHsb, onHoverMatch, hov
     </div>
   );
 }
+
+export default memo(NamedColorMatch);

@@ -1,4 +1,4 @@
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, memo } from 'react';
 import type React from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,7 +16,7 @@ interface ColorSliderProps {
   hideStepper?: boolean;
 }
 
-export default function ColorSlider({ label, value, max, gradient, suffix, wrap, onChange, hideStepper }: ColorSliderProps) {
+function ColorSlider({ label, value, max, gradient, suffix, wrap, onChange, hideStepper }: ColorSliderProps) {
   const trackRef = useRef<HTMLDivElement | null>(null);
 
   const clamp = (v: number) => Math.max(0, Math.min(max, v));
@@ -161,3 +161,5 @@ export default function ColorSlider({ label, value, max, gradient, suffix, wrap,
     </div>
   );
 }
+
+export default memo(ColorSlider);

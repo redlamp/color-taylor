@@ -1,9 +1,9 @@
-import { useCallback, type CSSProperties } from 'react';
+import { useCallback, memo, type CSSProperties } from 'react';
 import { toast } from 'sonner';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { getContrastTextColor } from '../utils/colorConversions';
 
-export default function PreviewSwatch({ hex }: { hex: string }) {
+function PreviewSwatch({ hex }: { hex: string }) {
   const handleClick = useCallback(() => {
     navigator.clipboard.writeText(hex.toUpperCase()).then(() => {
       toast('Copied!', { duration: 2000 });
@@ -40,3 +40,5 @@ export default function PreviewSwatch({ hex }: { hex: string }) {
     </Tooltip>
   );
 }
+
+export default memo(PreviewSwatch);
