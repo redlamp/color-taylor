@@ -12,4 +12,19 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  build: {
+    rolldownOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined
+          if (id.includes('react-dom') || id.includes('/react/') || id.includes('scheduler')) return 'react'
+          if (id.includes('@base-ui-components')) return 'baseui'
+          if (id.includes('lucide-react')) return 'icons'
+          if (id.includes('sonner')) return 'sonner'
+          if (id.includes('@fontsource')) return 'fonts'
+          return 'vendor'
+        },
+      },
+    },
+  },
 })
