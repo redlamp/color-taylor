@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Minus, Plus } from 'lucide-react';
 import useDrag from '../hooks/useDrag';
-import { hapticTap } from '@/utils/haptics';
 
 interface ColorSliderProps {
   label: string;
@@ -19,17 +18,8 @@ interface ColorSliderProps {
 
 function ColorSlider({ label, value, max, gradient, suffix, wrap, onChange, hideStepper }: ColorSliderProps) {
   const trackRef = useRef<HTMLDivElement | null>(null);
-  const lastHapticValueRef = useRef<number>(value);
 
   const clamp = (v: number) => Math.max(0, Math.min(max, v));
-
-  const emitChange = useCallback((next: number) => {
-    if (Math.abs(next - lastHapticValueRef.current) >= 5) {
-      lastHapticValueRef.current = next;
-      hapticTap(2);
-    }
-    onChange(next);
-  }, [onChange]);
 
   const updateValue = useCallback((clientX: number) => {
     if (!trackRef.current) return;
@@ -39,13 +29,13 @@ function ColorSlider({ label, value, max, gradient, suffix, wrap, onChange, hide
     if (wrap) {
       const wrapped = ((rawX % rect.width) + rect.width) % rect.width;
       const newValue = Math.round((wrapped / rect.width) * max);
-      emitChange(Math.min(newValue, max));
+      onChange(Math.min(newValue, max));
     } else {
       const x = Math.max(0, Math.min(rawX, rect.width));
       const newValue = Math.round((x / rect.width) * max);
-      emitChange(Math.min(newValue, max));
+      onChange(Math.min(newValue, max));
     }
-  }, [max, wrap, emitChange]);
+  }, [max, wrap, onChange]);
 
   const { startDrag } = useDrag(useCallback((e: PointerEvent) => {
     updateValue(e.clientX);
@@ -59,8 +49,8 @@ function ColorSlider({ label, value, max, gradient, suffix, wrap, onChange, hide
     const dy = stepperDragStart.current.y - e.clientY;
     const delta = Math.round((dx + dy) / 2);
     const newVal = Math.max(0, Math.min(max, stepperDragStart.current.value + delta));
-    emitChange(newVal);
-  }, [max, emitChange]));
+    onChange(newVal);
+  }, [max, onChange]));
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value;
