@@ -424,12 +424,14 @@ export default function ColorPicker() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
         <h1 id="color-picker-title" className="text-2xl font-semibold tracking-tight text-primary">Color Taylor 🎨🧵</h1>
         <div className="flex items-center justify-end gap-2">
-          <button
-            className="inline-flex items-center justify-center h-8 px-3 text-sm font-medium rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none"
-            onClick={() => { window.location.hash = '#/presentation'; }}
-          >
-            Intro
-          </button>
+          {import.meta.env.VITE_INTRO_ENABLED === 'true' && (
+            <button
+              className="inline-flex items-center justify-center h-8 px-3 text-sm font-medium rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none"
+              onClick={() => { window.location.hash = '#/presentation'; }}
+            >
+              Intro
+            </button>
+          )}
           <Tooltip>
             <TooltipTrigger
               render={
