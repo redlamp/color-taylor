@@ -335,6 +335,20 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     localStorage.setItem('color-taylor-saved', JSON.stringify(savedSlots));
   }, [savedSlots]);
 
+  // Listen for global "reset all" — restore recent + saved to defaults.
+  useEffect(() => {
+    const onReset = () => {
+      setRecentColors([...DEFAULT_RECENT]);
+      const defaults: SavedSlot[] = DEFAULT_RECENT.map(hex => ({ hex, addedAt: 0 }));
+      while (defaults.length < 12) defaults.push(null);
+      setSavedSlots(defaults);
+      setSelectedRecentIdx(null);
+      setSelectedSavedIdx(null);
+    };
+    window.addEventListener('color-taylor:reset-all', onReset);
+    return () => window.removeEventListener('color-taylor:reset-all', onReset);
+  }, []);
+
   // Display order — sorts a snapshot of the user's arrangement without mutating it.
   // Switching back to "user" mode restores the original positions.
   const displaySlots = useMemo<{ slot: SavedSlot; userIdx: number }[]>(() => {
