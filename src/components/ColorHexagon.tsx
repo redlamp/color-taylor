@@ -3,7 +3,6 @@ import { hsbToRgb, rgbToHsb, rgbToHex, rgbToHsl, hslToRgb, type RGB, type HSB, t
 import type { ColorSpace } from '../utils/sliderGradients';
 import type { ChannelOrder } from './hex/hexConstants';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useTheme } from '../hooks/useTheme';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { ChevronRight } from 'lucide-react';
 import CollapsibleSection from './CollapsibleSection';
@@ -52,16 +51,14 @@ interface HoveredMarker {
 }
 
 export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, animHolding, onHoverHtmlColor, muted }: ColorHexagonProps) {
-  const { isDark } = useTheme();
   const [hexOpen, setHexOpen] = useState(true);
-  const [vectorMode, setVectorMode] = useState<ChannelOrder>('rgb');
-  const [dragMode, setDragMode] = useState<'free' | 'circle' | 'channel'>('free');
+  const [vectorMode] = useState<ChannelOrder>('rgb');
   const initialHex = useMemo(() => rgbToHex(rgb.r, rgb.g, rgb.b), []);
   const [recentColors, setRecentColors] = useState(() => {
     try {
       const saved = localStorage.getItem('color-taylor-recent');
       if (saved) return JSON.parse(saved);
-    } catch {}
+    } catch { /* localStorage unavailable */ }
     return [...DEFAULT_RECENT];
   });
   const [selectedRecentIdx, setSelectedRecentIdx] = useState(null);
@@ -78,7 +75,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           return v as { hex: string; addedAt: number };
         });
       }
-    } catch {}
+    } catch { /* localStorage unavailable */ }
     const defaults: SavedSlot[] = DEFAULT_RECENT.map(hex => ({ hex, addedAt: 0 }));
     while (defaults.length < 12) defaults.push(null);
     return defaults;
@@ -159,7 +156,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       src.connect(filter).connect(tilt).connect(gain).connect(getMasterGain());
       src.start(t);
       src.stop(t + duration + 0.02);
-    } catch {}
+    } catch { /* localStorage unavailable */ }
   }, [ensureAudioCtx, rand]);
 
   const playClick = useCallback(() => {
@@ -195,7 +192,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       src.connect(filter).connect(gain).connect(getMasterGain());
       src.start(t);
       src.stop(t + duration + 0.01);
-    } catch {}
+    } catch { /* localStorage unavailable */ }
   }, [ensureAudioCtx, rand]);
 
   const playSave = useCallback(() => {
@@ -246,7 +243,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       thump.connect(thumpGain).connect(getMasterGain());
       thump.start(t);
       thump.stop(t + thumpDur + 0.02);
-    } catch {}
+    } catch { /* localStorage unavailable */ }
   }, [ensureAudioCtx, rand]);
 
   const playPop = useCallback(() => {
@@ -301,7 +298,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       src.connect(bandpass).connect(highshelf).connect(gain).connect(getMasterGain());
       src.start(t);
       src.stop(t + duration + 0.05);
-    } catch {}
+    } catch { /* localStorage unavailable */ }
   }, [ensureAudioCtx, rand]);
 
   const triggerPoof = useCallback((idx: number, color: string) => {
@@ -337,6 +334,20 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   useEffect(() => {
     localStorage.setItem('color-taylor-saved', JSON.stringify(savedSlots));
   }, [savedSlots]);
+
+  // Listen for global "reset all" — restore recent + saved to defaults.
+  useEffect(() => {
+    const onReset = () => {
+      setRecentColors([...DEFAULT_RECENT]);
+      const defaults: SavedSlot[] = DEFAULT_RECENT.map(hex => ({ hex, addedAt: 0 }));
+      while (defaults.length < 12) defaults.push(null);
+      setSavedSlots(defaults);
+      setSelectedRecentIdx(null);
+      setSelectedSavedIdx(null);
+    };
+    window.addEventListener('color-taylor:reset-all', onReset);
+    return () => window.removeEventListener('color-taylor:reset-all', onReset);
+  }, []);
 
   // Display order — sorts a snapshot of the user's arrangement without mutating it.
   // Switching back to "user" mode restores the original positions.
@@ -595,10 +606,9 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     return rgbToHex(c.r, c.g, c.b);
   }), [points, brightness]);
 
-  const { hueRad, hueEnd, hueLabel } = useMemo(() => {
+  const { hueEnd, hueLabel } = useMemo(() => {
     const rad = (hue * PI) / 180;
     return {
-      hueRad: rad,
       hueEnd: {
         x: CENTER + RADIUS * Math.cos(rad),
         y: CENTER - RADIUS * Math.sin(rad),
@@ -733,11 +743,12 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   // Drag handlers
   const handleDotDrag = useCallback((e) => {
     if (draggingDot.current && onRgbChange) {
-      const { index, channel, lockedRgb, lockedOrder } = draggingDot.current;
+      const { index, channel } = draggingDot.current;
       const isLast = index === points.length - 1;
+      const isRelative = draggingDot.current.relative;
 
-      // Free mode: adjust all channels up to this dot
-      if (dragMode === 'free' && !draggingDot.current.relative) {
+      // Dot drag (non-relative): free multi-channel solve based on which dot
+      if (!isRelative) {
         const { x, y } = getSvgCoords(e);
 
         // Last dot (all 3 channels): set color from hex position
@@ -759,31 +770,24 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
         }
       }
 
-      // Channel mode or relative segment drag
+      // Segment drag (relative): adjust only this dot's channel
       const { x, y } = getSvgCoords(e);
-      const { startValue, startProjection, relative: isRelative } = draggingDot.current;
-      const useRgb = dragMode === 'channel' ? lockedRgb : rgb;
-      const useOrder = dragMode === 'channel' ? lockedOrder : order;
+      const { startValue, startProjection } = draggingDot.current;
       let prev = { x: CENTER, y: CENTER };
       for (let i = 0; i < index - 1; i++) {
-        const ch = useOrder[i];
+        const ch = order[i];
         const dir = DIRS[ch];
         prev = {
-          x: prev.x + useRgb[ch] * scale * dir.x,
-          y: prev.y + useRgb[ch] * scale * dir.y,
+          x: prev.x + rgb[ch] * scale * dir.x,
+          y: prev.y + rgb[ch] * scale * dir.y,
         };
       }
       const dir = DIRS[channel];
       const dx = x - prev.x;
       const dy = y - prev.y;
       const currentProjection = dx * dir.x + dy * dir.y;
-      let value;
-      if (isRelative) {
-        const delta = (currentProjection - startProjection) / scale;
-        value = Math.max(0, Math.min(255, Math.round(startValue + delta)));
-      } else {
-        value = Math.max(0, Math.min(255, Math.round(currentProjection / scale)));
-      }
+      const delta = (currentProjection - startProjection) / scale;
+      const value = Math.max(0, Math.min(255, Math.round(startValue + delta)));
       onRgbChange(channel, value);
     }
     if (draggingFree.current && onHsbChange) {
@@ -791,7 +795,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       const picked = getHsbFromPosition(x, y, true);
       if (picked) onHsbChange(picked);
     }
-  }, [getSvgCoords, onRgbChange, onHsbChange, points, scale, getHsbFromPosition]);
+  }, [getSvgCoords, onRgbChange, onHsbChange, points, scale, getHsbFromPosition, order, rgb, brightness, solveChannels]);
 
   const getBLValueFromClientY = useCallback((clientY) => {
     if (!svgRef.current) return null;
@@ -867,7 +871,11 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
         const newH = hueFromMouse(e);
         if (typeof newH === 'number') updateTone({ h: newH });
       }
-      if (draggingDot.current) handleDotDrag(e);
+      if (draggingDot.current) {
+        ensureToneStart();
+        handleDotDrag(e);
+        updateTone({});
+      }
       if (draggingBL.current) {
         ensureToneStart();
         const val = getBLValueFromClientY(e.clientY);
@@ -1029,7 +1037,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       isDragging: false,
     };
     scheduleHoldTone();
-  }, [getSvgCoords, brightness, dragMode, scheduleHoldTone]);
+  }, [getSvgCoords, brightness, scheduleHoldTone]);
 
   const handleColorLabelClick = useCallback((deg) => {
     if (!onAnimateToHsb) return;
@@ -1081,25 +1089,6 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
         </div>
         {hexOpen && (
           <div className="flex items-start gap-2" onClick={(e) => e.stopPropagation()}>
-            <div className="flex flex-col items-center gap-0.5">
-              <Tabs value={dragMode} onValueChange={setDragMode}>
-                <TabsList>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span><TabsTrigger value="free" className="w-14">Free</TabsTrigger></span>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" sideOffset={8} className="text-xs font-semibold">Free handles</TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span><TabsTrigger value="channel" className="w-14">Channel</TabsTrigger></span>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" sideOffset={8} className="text-xs font-semibold">Channel handles</TooltipContent>
-                  </Tooltip>
-                </TabsList>
-              </Tabs>
-              <span className="text-[10px] text-muted-foreground">Handles</span>
-            </div>
             <div className="flex flex-col items-center gap-0.5">
               <Tabs value={blMode} onValueChange={onBlModeChange}>
                 <TabsList>
@@ -1200,11 +1189,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             const hoverColor = bright
               ? (ch === 'r' ? 'rgba(240,90,90,1)' : ch === 'g' ? 'rgba(90,200,90,1)' : 'rgba(90,90,240,1)')
               : (ch === 'r' ? 'rgba(255,160,160,1)' : ch === 'g' ? 'rgba(160,255,160,1)' : 'rgba(160,160,255,1)');
-            const isHighlighted = hoveredDot !== null && (
-              dragMode === 'free'
-                ? true
-                : hoveredDot === i + 1
-            );
+            const isHighlighted = hoveredDot === i + 1;
             const dotIndex = i + 1;
             return (
               <g key={i}>
@@ -1247,11 +1232,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             const hoverRing = !ch ? 'white' : bright
               ? (ch === 'r' ? 'rgba(240,90,90,1)' : ch === 'g' ? 'rgba(90,200,90,1)' : 'rgba(90,90,240,1)')
               : (ch === 'r' ? 'rgba(255,160,160,1)' : ch === 'g' ? 'rgba(160,255,160,1)' : 'rgba(160,160,255,1)');
-            const isHighlighted = isDraggable && hoveredDot !== null && (
-              dragMode === 'free'
-                ? true
-                : hoveredDot === i
-            );
+            const isHighlighted = isDraggable && hoveredDot === i;
             const ringColor = isDraggable
               ? (isHighlighted ? hoverRing : baseRing)
               : 'white';

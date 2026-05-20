@@ -1,5 +1,5 @@
 import { useRef, useEffect } from 'react';
-import { hsbToRgb, srgbToLinear, linearToSrgb } from '../../utils/colorConversions';
+import { hsbToRgb, linearToSrgb } from '../../utils/colorConversions';
 import { HEX_SIZE, SIZE, CENTER, RADIUS, PI, hexEdgeDist } from './hexConstants';
 
 export default function HexCanvas({ brightness, colorSpace }) {

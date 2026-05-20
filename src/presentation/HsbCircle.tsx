@@ -49,7 +49,7 @@ const CIRCLE_CLIP = makeClipPath('circle');
 const HEX_CLIP = makeClipPath('hexagon');
 
 function hexEdgeDist(angle) {
-  let a = ((angle % (2 * PI)) + 2 * PI) % (2 * PI);
+  const a = ((angle % (2 * PI)) + 2 * PI) % (2 * PI);
   const sectorAngle = a % (PI / 3);
   return SQRT3_2 / Math.cos(sectorAngle - PI / 6);
 }
@@ -244,7 +244,6 @@ export default function HsbCircle({ size = 280, hue, saturation, brightness, onH
           if (!from || !to) return null;
           const value = rgb[ch];
           const isZero = value === 0;
-          const ringR = isZero ? 3.5 : 7;
           return (
             <g key={ch}>
               {/* Segment line */}

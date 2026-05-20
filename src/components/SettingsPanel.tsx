@@ -31,6 +31,7 @@ export function SettingsPanel({ open, onClose, muted, onToggleMute }: Props) {
   const resetAll = () => {
     resetSynth();
     resetTheme();
+    window.dispatchEvent(new CustomEvent('color-taylor:reset-all'));
   };
 
   const onHeaderPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {

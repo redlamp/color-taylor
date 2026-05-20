@@ -40,7 +40,7 @@ export function ThemeProvider({ children }) {
 
   // Reset theme to system preference, clear stored value
   const reset = useCallback(() => {
-    try { localStorage.removeItem('color-taylor-theme'); } catch {}
+    try { localStorage.removeItem('color-taylor-theme'); } catch { /* localStorage unavailable */ }
     savedTheme.current = null;
     setIsDark(window.matchMedia('(prefers-color-scheme: dark)').matches);
   }, []);
