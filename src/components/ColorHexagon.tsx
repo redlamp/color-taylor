@@ -935,6 +935,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             const targetRgb = hsbToRgb(picked.h, picked.s, picked.b);
             addToRecent(rgbToHex(targetRgb.r, targetRgb.g, targetRgb.b));
             onAnimateToHsb(picked);
+            if (navigator.vibrate) navigator.vibrate(12);
           }
         }
       }

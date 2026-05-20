@@ -129,6 +129,7 @@ export default function ColorPicker() {
       if (mod && e.key === 'z' && !e.shiftKey) {
         e.preventDefault();
         if (undoStack.current.length > 0) {
+          if (navigator.vibrate) navigator.vibrate(10);
           redoStack.current.push({ ...hsbRef.current });
           const prev = undoStack.current.pop();
           lastPushed.current = `${prev.h},${prev.s},${prev.b}`;
@@ -166,6 +167,7 @@ export default function ColorPicker() {
       } else if (mod && ((e.key === 'z' && e.shiftKey) || e.key === 'y')) {
         e.preventDefault();
         if (redoStack.current.length > 0) {
+          if (navigator.vibrate) navigator.vibrate(10);
           undoStack.current.push({ ...hsbRef.current });
           const next = redoStack.current.pop();
           lastPushed.current = `${next.h},${next.s},${next.b}`;
