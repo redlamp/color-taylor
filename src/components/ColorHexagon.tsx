@@ -55,7 +55,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   const { isDark } = useTheme();
   const [hexOpen, setHexOpen] = useState(true);
   const [vectorMode, setVectorMode] = useState<ChannelOrder>('rgb');
-  const [dragMode, setDragMode] = useState<'free' | 'circle' | 'channel'>('free');
+  const [dragMode, setDragMode] = useState<'free' | 'channel'>('free');
   const initialHex = useMemo(() => rgbToHex(rgb.r, rgb.g, rgb.b), []);
   const [recentColors, setRecentColors] = useState(() => {
     try {
