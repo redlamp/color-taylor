@@ -44,7 +44,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   }, [settings.synth]);
 
   useEffect(() => {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(settings)); } catch {}
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(settings)); } catch { /* localStorage unavailable */ }
   }, [settings]);
 
   const updateSynth = useCallback((patch: Partial<SynthConfig>) => {
@@ -53,7 +53,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
   const reset = useCallback(() => {
     setSettings(DEFAULTS);
-    try { localStorage.removeItem(STORAGE_KEY); } catch {}
+    try { localStorage.removeItem(STORAGE_KEY); } catch { /* localStorage unavailable */ }
   }, []);
 
   return (

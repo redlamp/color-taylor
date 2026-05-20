@@ -90,7 +90,6 @@ export default function PresentationStage({ slide, slideIndex }) {
   const has = (p) => panels.includes(p);
   const hasLargePreview = has('large-preview');
   const hasHexagon = has('hexagon');
-  const usesPanel = isStatic || hasLargePreview;
   const locked = slide.props?.lockedChannels || [];
   const hasSliders = has('rgb-sliders') || has('hsb-sliders') || has('hex-input') || has('equations') || has('conversions');
 
@@ -148,7 +147,7 @@ export default function PresentationStage({ slide, slideIndex }) {
 
   // ── Sine wave animation (Finding HSB slide) ───────────────────────
   const [sineActive, setSineActive] = useState(false);
-  const [sinePeriods, setSinePeriods] = useState({ h: 15000, s: 11000, b: 9000 });
+  const [sinePeriods] = useState({ h: 15000, s: 11000, b: 9000 });
   const sinePeriodsRef = useRef(sinePeriods);
   sinePeriodsRef.current = sinePeriods;
   const sineRaf = useRef(null);

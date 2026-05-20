@@ -1,4 +1,4 @@
-import { hsbToRgb, rgbToHex } from '../../utils/colorConversions';
+import { rgbToHex } from '../../utils/colorConversions';
 import { MAC_CLUT8 } from '../../utils/palettes';
 
 // --- Palette data matching the Mac Monitors screenshots ---

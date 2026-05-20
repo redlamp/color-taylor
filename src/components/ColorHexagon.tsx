@@ -3,7 +3,6 @@ import { hsbToRgb, rgbToHsb, rgbToHex, rgbToHsl, hslToRgb, type RGB, type HSB, t
 import type { ColorSpace } from '../utils/sliderGradients';
 import type { ChannelOrder } from './hex/hexConstants';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useTheme } from '../hooks/useTheme';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { ChevronRight } from 'lucide-react';
 import CollapsibleSection from './CollapsibleSection';
@@ -52,16 +51,15 @@ interface HoveredMarker {
 }
 
 export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, animHolding, onHoverHtmlColor, muted }: ColorHexagonProps) {
-  const { isDark } = useTheme();
   const [hexOpen, setHexOpen] = useState(true);
-  const [vectorMode, setVectorMode] = useState<ChannelOrder>('rgb');
+  const [vectorMode] = useState<ChannelOrder>('rgb');
   const [dragMode, setDragMode] = useState<'free' | 'channel'>('free');
   const initialHex = useMemo(() => rgbToHex(rgb.r, rgb.g, rgb.b), []);
   const [recentColors, setRecentColors] = useState(() => {
     try {
       const saved = localStorage.getItem('color-taylor-recent');
       if (saved) return JSON.parse(saved);
-    } catch {}
+    } catch { /* localStorage unavailable */ }
     return [...DEFAULT_RECENT];
   });
   const [selectedRecentIdx, setSelectedRecentIdx] = useState(null);
@@ -78,7 +76,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           return v as { hex: string; addedAt: number };
         });
       }
-    } catch {}
+    } catch { /* localStorage unavailable */ }
     const defaults: SavedSlot[] = DEFAULT_RECENT.map(hex => ({ hex, addedAt: 0 }));
     while (defaults.length < 12) defaults.push(null);
     return defaults;
@@ -159,7 +157,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       src.connect(filter).connect(tilt).connect(gain).connect(getMasterGain());
       src.start(t);
       src.stop(t + duration + 0.02);
-    } catch {}
+    } catch { /* localStorage unavailable */ }
   }, [ensureAudioCtx, rand]);
 
   const playClick = useCallback(() => {
@@ -195,7 +193,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       src.connect(filter).connect(gain).connect(getMasterGain());
       src.start(t);
       src.stop(t + duration + 0.01);
-    } catch {}
+    } catch { /* localStorage unavailable */ }
   }, [ensureAudioCtx, rand]);
 
   const playSave = useCallback(() => {
@@ -246,7 +244,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       thump.connect(thumpGain).connect(getMasterGain());
       thump.start(t);
       thump.stop(t + thumpDur + 0.02);
-    } catch {}
+    } catch { /* localStorage unavailable */ }
   }, [ensureAudioCtx, rand]);
 
   const playPop = useCallback(() => {
@@ -301,7 +299,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       src.connect(bandpass).connect(highshelf).connect(gain).connect(getMasterGain());
       src.start(t);
       src.stop(t + duration + 0.05);
-    } catch {}
+    } catch { /* localStorage unavailable */ }
   }, [ensureAudioCtx, rand]);
 
   const triggerPoof = useCallback((idx: number, color: string) => {
@@ -595,10 +593,9 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     return rgbToHex(c.r, c.g, c.b);
   }), [points, brightness]);
 
-  const { hueRad, hueEnd, hueLabel } = useMemo(() => {
+  const { hueEnd, hueLabel } = useMemo(() => {
     const rad = (hue * PI) / 180;
     return {
-      hueRad: rad,
       hueEnd: {
         x: CENTER + RADIUS * Math.cos(rad),
         y: CENTER - RADIUS * Math.sin(rad),
