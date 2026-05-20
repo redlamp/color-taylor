@@ -30,7 +30,7 @@ import { SettingsPanel } from './SettingsPanel';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { VolumeControl } from './VolumeControl';
 import { useSettings } from '@/hooks/useSettings';
-import { toneController } from '@/utils/colorSynth';
+import { toneController } from '@/utils/toneControllerLazy';
 import { Play, Pause, Settings, Music, Slash } from 'lucide-react';
 
 type HslMode = 'hsb' | 'hsl' | 'both';
