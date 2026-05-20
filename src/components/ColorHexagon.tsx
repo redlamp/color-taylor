@@ -7,7 +7,8 @@ import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip
 import { ChevronRight } from 'lucide-react';
 import CollapsibleSection from './CollapsibleSection';
 import NAMED_COLORS from '../utils/namedColors';
-import { getAudioCtx, getMasterGain, toneController } from '../utils/colorSynth';
+import { getAudioCtx, getMasterGain } from '../utils/audioContext';
+import { toneController } from '../utils/toneControllerLazy';
 import {
   HEX_SIZE, SIZE, CENTER, RADIUS, PI, DIRS,
   BL_BAR_X, BL_BAR_TOP, BL_BAR_HEIGHT, BL_ARROW_SIZE,
@@ -1273,7 +1274,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
 
           <BrightnessBar
             hue={hue} saturation={saturation} brightness={brightness} hsl={hsl}
-            blMode={blMode} blPointerDown={blPointerDown} draggingBL={draggingBL}
+            blMode={blMode} blPointerDownRef={blPointerDown} draggingBLRef={draggingBL}
             animateBLToValue={animateBLToValue} colorSpace={colorSpace}
           />
         </svg>

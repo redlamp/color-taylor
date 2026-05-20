@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
-import { DEFAULT_SYNTH_CONFIG, type SynthConfig, toneController } from '@/utils/colorSynth';
+import { DEFAULT_SYNTH_CONFIG, type SynthConfig } from '@/utils/synthConfig';
+import { toneController } from '@/utils/toneControllerLazy';
 
 export interface AppSettings {
   synth: SynthConfig;

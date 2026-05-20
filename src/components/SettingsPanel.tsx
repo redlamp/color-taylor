@@ -74,6 +74,9 @@ export function SettingsPanel({ open, onClose, muted, onToggleMute }: Props) {
         aria-hidden={!open}
         className={
           'fixed z-50 bg-background border border-input rounded-lg shadow-xl ' +
+          // Read dragOffset ref during render to switch transition style — avoids
+          // triggering a re-render on every drag frame. Lint exception intentional.
+          // eslint-disable-next-line react-hooks/refs
           (dragOffset.current ? '' : (pos ? 'transition-opacity duration-200 ease-out ' : 'transition-transform duration-200 ease-out ')) +
           'flex flex-col ' +
           // desktop default position (overridden by inline style when dragged)

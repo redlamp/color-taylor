@@ -27,13 +27,13 @@ interface BrightnessBarProps {
   brightness: number;
   hsl: HSL;
   blMode: 'brightness' | 'lightness';
-  blPointerDown: MutableRefObject<{ clientX: number; clientY: number; time: number; isDragging: boolean } | null>;
-  draggingBL: MutableRefObject<boolean>;
+  blPointerDownRef: MutableRefObject<{ clientX: number; clientY: number; time: number; isDragging: boolean } | null>;
+  draggingBLRef: MutableRefObject<boolean>;
   animateBLToValue: (v: number) => void;
   colorSpace: ColorSpace;
 }
 
-export default function BrightnessBar({ hue, saturation, brightness, hsl, blMode, blPointerDown, draggingBL, animateBLToValue, colorSpace }: BrightnessBarProps) {
+export default function BrightnessBar({ hue, saturation, brightness, hsl, blMode, blPointerDownRef, draggingBLRef, animateBLToValue, colorSpace }: BrightnessBarProps) {
   const blValue = blMode === 'brightness' ? brightness : (hsl?.l ?? 50);
   const arrowY = BL_BAR_TOP + (1 - blValue / 100) * BL_BAR_HEIGHT;
 
@@ -67,7 +67,7 @@ export default function BrightnessBar({ hue, saturation, brightness, hsl, blMode
         className="cursor-pointer touch-none"
         onPointerDown={(e) => {
           e.stopPropagation();
-          blPointerDown.current = {
+          blPointerDownRef.current = {
             clientX: e.clientX,
             clientY: e.clientY,
             time: Date.now(),
@@ -83,7 +83,7 @@ export default function BrightnessBar({ hue, saturation, brightness, hsl, blMode
         onMouseDown={(e) => {
           e.preventDefault();
           e.stopPropagation();
-          draggingBL.current = true;
+          draggingBLRef.current = true;
         }}
       />
 

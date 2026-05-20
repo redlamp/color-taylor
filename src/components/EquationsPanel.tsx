@@ -41,6 +41,28 @@ function T({ color, title, bold, children }: { color: string; title: string; bol
   );
 }
 
+function Row({ left, right }: { left: ReactNode; right: ReactNode }) {
+  return (
+    <div className="flex justify-between items-baseline">
+      <span>{left}</span>
+      <span className="text-foreground font-semibold">{right}</span>
+    </div>
+  );
+}
+
+function MCT({ children, title, gradStyle, bgColor }: { children: ReactNode; title: string; gradStyle: CSSProperties; bgColor: string }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span style={gradStyle} className="font-bold cursor-default">{children}</span>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="text-xs font-semibold border-0" style={{ '--tooltip-bg': bgColor, background: gradStyle.background, color: '#000' } as CSSProperties}>
+        {title}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }: EquationsPanelProps) {
   const { isDark } = useTheme();
   const maxVal = Math.max(rgb.r, rgb.g, rgb.b);
@@ -77,16 +99,6 @@ function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }: Equat
   const chrT = (v: ReactNode) => <T color={oc} title={`Chroma = ${delta}`}>{v}</T>;
   const mcGradStyle: CSSProperties = { background: `linear-gradient(105deg, ${mc}, ${oc})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' };
   const mcVal = Math.round((1 - Math.abs(2 * l / 255 - 1)) * 255);
-  const MCT = ({ children, title }: { children: ReactNode; title: string }) => (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span style={mcGradStyle} className="font-bold cursor-default">{children}</span>
-      </TooltipTrigger>
-      <TooltipContent side="top" className="text-xs font-semibold border-0" style={{ '--tooltip-bg': mc, background: `linear-gradient(105deg, ${mc}, ${oc})`, color: '#000' } as CSSProperties}>
-        {title}
-      </TooltipContent>
-    </Tooltip>
-  );
 
   const ulStyle = { textDecorationColor: 'white', textUnderlineOffset: '2px', textDecorationThickness: '2px' };
 
@@ -103,13 +115,6 @@ function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }: Equat
       </span>
     );
   });
-
-  const Row = ({ left, right }) => (
-    <div className="flex justify-between items-baseline">
-      <span>{left}</span>
-      <span className="text-foreground font-semibold">{right}</span>
-    </div>
-  );
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-[1fr_1.1fr_1fr_1fr] gap-2 w-full text-sm font-mono text-muted-foreground">
@@ -158,8 +163,8 @@ function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }: Equat
         ) : (
           <>
             <span>{Lv}:{'\u2007'}({maxT(pad(maxVal))}+{minT(pad(minVal))})/2 = {pad(Math.round(l))}</span>
-            <span><MCT title="Max Chroma">MC</MCT>: 1-|2·<span className="text-foreground font-bold">{pad(Math.round(l))}</span>/255-1| = <MCT title={`Max Chroma = ${mcVal}`}>{pad(mcVal)}</MCT></span>
-            <span>{S}:{'\u2007'}{chrT(pad(delta))}/<MCT title={`Max Chroma = ${mcVal}`}>{pad(mcVal)}</MCT> = <span className="text-white underline" style={{ textDecorationColor: 'white', textUnderlineOffset: '2px', textDecorationThickness: '2px' }}>{hsl?.s ?? 0}%</span></span>
+            <span><MCT gradStyle={mcGradStyle} bgColor={mc} title="Max Chroma">MC</MCT>: 1-|2·<span className="text-foreground font-bold">{pad(Math.round(l))}</span>/255-1| = <MCT gradStyle={mcGradStyle} bgColor={mc} title={`Max Chroma = ${mcVal}`}>{pad(mcVal)}</MCT></span>
+            <span>{S}:{'\u2007'}{chrT(pad(delta))}/<MCT gradStyle={mcGradStyle} bgColor={mc} title={`Max Chroma = ${mcVal}`}>{pad(mcVal)}</MCT> = <span className="text-white underline" style={{ textDecorationColor: 'white', textUnderlineOffset: '2px', textDecorationThickness: '2px' }}>{hsl?.s ?? 0}%</span></span>
           </>
         )}
       </div>

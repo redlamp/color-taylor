@@ -93,7 +93,7 @@ export default function HsbCircle({ size = 280, hue, saturation, brightness, onH
       pts.push(cur);
     }
     return pts;
-  }, [rgb.r, rgb.g, rgb.b, radius, scale]);
+  }, [rgb, radius, scale]);
 
   // Colors at each chain dot position (sample the wheel)
   const chainColors = useMemo(() => {
