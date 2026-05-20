@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, memo, type CSSProperties } from 'react';
+import { useState, useMemo, memo, type CSSProperties } from 'react';
 import { findNearestNamedColor } from '../utils/namedColors';
 import NAMED_COLORS from '../utils/namedColors';
 import { rgbToHex, rgbToHsb } from '../utils/colorConversions';
@@ -19,7 +19,7 @@ interface NamedColorMatchProps {
 }
 
 function NamedColorMatch({ rgb, onAnimateToHsb, onHoverMatch, hoveredHtmlColor, showOnHex, onShowOnHexChange }: NamedColorMatchProps) {
-  const [threshold, setThreshold] = useState(30);
+  const [threshold] = useState(30);
 
   const match = useMemo(
     () => findNearestNamedColor(rgb.r, rgb.g, rgb.b),
@@ -39,7 +39,6 @@ function NamedColorMatch({ rgb, onAnimateToHsb, onHoverMatch, hoveredHtmlColor, 
   const matchB = hoveredHtmlColor ? parseInt(matchHex.slice(5, 7), 16) : match.b;
   const textColor = (matchR * 0.299 + matchG * 0.587 + matchB * 0.114) > 150 ? '#000' : '#fff';
 
-  const clamp = (v) => Math.max(0, Math.min(100, v));
   const [hovering, setHovering] = useState(false);
   const [comboOpen, setComboOpen] = useState(false);
 

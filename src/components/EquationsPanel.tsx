@@ -12,6 +12,35 @@ interface EquationsPanelProps {
   blMode: 'brightness' | 'lightness';
 }
 
+function textOnColor(cssColor: string) {
+  const m = cssColor.match(/(\d+)/g);
+  if (m && m.length >= 3) {
+    const [r, g, b] = m.map(Number);
+    return (r * 0.299 + g * 0.587 + b * 0.114) > 150 ? '#000' : '#fff';
+  }
+  const hex = cssColor.replace('#', '');
+  if (hex.length >= 6) {
+    const r = parseInt(hex.slice(0, 2), 16);
+    const g = parseInt(hex.slice(2, 4), 16);
+    const b = parseInt(hex.slice(4, 6), 16);
+    return (r * 0.299 + g * 0.587 + b * 0.114) > 150 ? '#000' : '#fff';
+  }
+  return '#fff';
+}
+
+function T({ color, title, bold, children }: { color: string; title: string; bold?: boolean; children: ReactNode }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span style={{ color }} className={`cursor-default ${bold ? 'font-bold' : ''}`}>{children}</span>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="text-xs font-semibold border-0" style={{ '--tooltip-bg': color, backgroundColor: color, color: textOnColor(color) } as CSSProperties}>
+        {title}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }: EquationsPanelProps) {
   const { isDark } = useTheme();
   const maxVal = Math.max(rgb.r, rgb.g, rgb.b);
@@ -29,40 +58,12 @@ function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }: Equat
   const chColor = (key: 'r' | 'g' | 'b') => key === 'r' ? rc : key === 'g' ? gc : bc;
 
   const pad = (v: number | string) => String(v).padStart(3, '\u2007');
-  const textOnColor = (cssColor: string) => {
-    const m = cssColor.match(/(\d+)/g);
-    if (m && m.length >= 3) {
-      const [r, g, b] = m.map(Number);
-      return (r * 0.299 + g * 0.587 + b * 0.114) > 150 ? '#000' : '#fff';
-    }
-    // hex
-    const hex = cssColor.replace('#', '');
-    if (hex.length >= 6) {
-      const r = parseInt(hex.slice(0, 2), 16);
-      const g = parseInt(hex.slice(2, 4), 16);
-      const b = parseInt(hex.slice(4, 6), 16);
-      return (r * 0.299 + g * 0.587 + b * 0.114) > 150 ? '#000' : '#fff';
-    }
-    return '#fff';
-  };
-
-  const T = ({ color, title, bold, children }: { color: string; title: string; bold?: boolean; children: ReactNode }) => (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span style={{ color }} className={`cursor-default ${bold ? 'font-bold' : ''}`}>{children}</span>
-      </TooltipTrigger>
-      <TooltipContent side="top" className="text-xs font-semibold border-0" style={{ '--tooltip-bg': color, backgroundColor: color, color: textOnColor(color) } as CSSProperties}>
-        {title}
-      </TooltipContent>
-    </Tooltip>
-  );
   const R = <T color={rc} title="Red channel">R</T>;
   const G = <T color={gc} title="Green channel">G</T>;
   const B_ = <T color={bc} title="Blue channel">B</T>;
   const rv = <T color={rc} title={`Red = ${rgb.r}`}>{pad(rgb.r)}</T>;
   const gv = <T color={gc} title={`Green = ${rgb.g}`}>{pad(rgb.g)}</T>;
   const bv = <T color={bc} title={`Blue = ${rgb.b}`}>{pad(rgb.b)}</T>;
-  const maxChLabel = maxChKey === 'r' ? R : maxChKey === 'g' ? G : B_;
   const chr = <T color={oc} title={`Chroma = ${delta}`}>chroma</T>;
   const H = <span className="text-foreground">H</span>;
   const Hr = <T color={rc} title="Hue (red dominant)">H</T>;

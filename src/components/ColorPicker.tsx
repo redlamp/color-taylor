@@ -42,7 +42,7 @@ export default function ColorPicker() {
     try {
       const saved = localStorage.getItem('color-taylor-hsb');
       if (saved) return JSON.parse(saved);
-    } catch {}
+    } catch { /* localStorage unavailable */ }
     return { h: 327, s: 12, b: 98 };
   });
   const [hslMode, setHslMode] = useState<HslMode>('hsb');
@@ -56,7 +56,7 @@ export default function ColorPicker() {
     try { return localStorage.getItem('color-taylor-muted') === '1'; } catch { return false; }
   });
   useEffect(() => {
-    try { localStorage.setItem('color-taylor-muted', muted ? '1' : '0'); } catch {}
+    try { localStorage.setItem('color-taylor-muted', muted ? '1' : '0'); } catch { /* localStorage unavailable */ }
   }, [muted]);
   useEffect(() => { toneController.setMuted(muted); }, [muted]);
   const { settings, updateSynth } = useSettings();
