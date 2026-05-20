@@ -920,7 +920,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           }
         }
       }
-      if (dragChanged) hapticTap(2, 80);
+      if (dragChanged) hapticTap(3, 25);
     };
     const onPointerUp = (e) => {
       if (hexPointerDown.current && !hexPointerDown.current.isDragging) {
