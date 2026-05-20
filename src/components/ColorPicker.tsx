@@ -84,7 +84,7 @@ export default function ColorPicker() {
   }, []);
   const animRef = useRef<number | null>(null);
   const hsbRef = useRef(hsb);
-  hsbRef.current = hsb;
+  useEffect(() => { hsbRef.current = hsb; }, [hsb]);
   const rgbOverride = useRef<RGB | null>(null);
   const topRowRef = useRef<HTMLDivElement | null>(null);
   const [topRowWidth, setTopRowWidth] = useState<number | null>(null);
@@ -102,6 +102,7 @@ export default function ColorPicker() {
   const undoStack = useRef<HSB[]>([]);
   const redoStack = useRef<HSB[]>([]);
   const lastPushed = useRef<string | null>(null);
+  const isUndoRedoing = useRef(false);
 
   // Push to undo stack (debounced — only if value changed significantly)
   useEffect(() => {
@@ -120,8 +121,6 @@ export default function ColorPicker() {
     return () => clearTimeout(timeout);
   }, [hsb.h, hsb.s, hsb.b]);
 
-  const isUndoRedoing = useRef(false);
-
   useEffect(() => {
     const handleKeyDown = (e) => {
       const isMac = navigator.platform.includes('Mac');
@@ -129,6 +128,7 @@ export default function ColorPicker() {
       if (mod && e.key === 'z' && !e.shiftKey) {
         e.preventDefault();
         if (undoStack.current.length > 0) {
+          if (navigator.vibrate) navigator.vibrate(10);
           redoStack.current.push({ ...hsbRef.current });
           const prev = undoStack.current.pop();
           lastPushed.current = `${prev.h},${prev.s},${prev.b}`;
@@ -166,6 +166,7 @@ export default function ColorPicker() {
       } else if (mod && ((e.key === 'z' && e.shiftKey) || e.key === 'y')) {
         e.preventDefault();
         if (redoStack.current.length > 0) {
+          if (navigator.vibrate) navigator.vibrate(10);
           undoStack.current.push({ ...hsbRef.current });
           const next = redoStack.current.pop();
           lastPushed.current = `${next.h},${next.s},${next.b}`;
@@ -252,6 +253,11 @@ export default function ColorPicker() {
     animRef.current = requestAnimationFrame(tick);
   }, []);
   const rgbFromHsb = useMemo(() => hsbToRgb(hsb.h, hsb.s, hsb.b), [hsb.h, hsb.s, hsb.b]);
+  // Read of rgbOverride.current during render is intentional — see CLAUDE.md
+  // "HSB is canonical, RGB has an override ref" pattern. Lifting to state would
+  // double-render every slider input. Refs are safe to read during render for
+  // values that don't drive re-renders themselves.
+  // eslint-disable-next-line react-hooks/refs
   const rgb = rgbOverride.current || rgbFromHsb;
   const hex = useMemo(() => rgbToHex(rgb.r, rgb.g, rgb.b), [rgb.r, rgb.g, rgb.b]);
   const hsl = useMemo(() => rgbToHsl(rgb.r, rgb.g, rgb.b), [rgb.r, rgb.g, rgb.b]);
@@ -316,7 +322,7 @@ export default function ColorPicker() {
   // ── Color cycle animation (same as presentation intro) ────────────
   const [colorAnimActive, setColorAnimActive] = useState(false);
   const colorAnimActiveStateRef = useRef(colorAnimActive);
-  colorAnimActiveStateRef.current = colorAnimActive;
+  useEffect(() => { colorAnimActiveStateRef.current = colorAnimActive; }, [colorAnimActive]);
   useEffect(() => {
     const wasOn = prevSynthEnabledRef.current;
     const nowOn = settings.synth.synthEnabled;
@@ -327,7 +333,7 @@ export default function ColorPicker() {
   }, [settings.synth.synthEnabled]);
   const [colorAnimHolding, setColorAnimHolding] = useState(false);
   const colorAnimRaf = useRef<number | null>(null);
-  colorAnimActiveRef.current = colorAnimActive;
+  useEffect(() => { colorAnimActiveRef.current = colorAnimActive; }, [colorAnimActive]);
 
   // Matches the DEFAULT_RECENT colors from ColorHexagon
   const COLOR_KEYFRAMES = [
