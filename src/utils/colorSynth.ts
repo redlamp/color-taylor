@@ -1,70 +1,10 @@
 import { hsbToRgb, type HSB } from './colorConversions';
+import type { Scale, OscType, SynthMode, Chord, SynthConfig } from './synthConfig';
+import { DEFAULT_SYNTH_CONFIG, midiToFreq } from './synthConfig';
 
-export type Scale = 'pentatonic' | 'chromatic' | 'major' | 'continuous';
-export type OscType = 'sine' | 'triangle' | 'sawtooth' | 'square';
-export type SynthMode = 'hue-voice' | 'rgb-chord';
-export type Chord = 'major' | 'minor' | 'stacked-fifths' | 'octaves';
-export type VoiceOrder = 'r-low' | 'r-high';
-
-export interface SynthConfig {
-  scale: Scale;
-  oscType: OscType;
-  baseOctave: number;
-  octaveRange: number;
-  attackMs: number;
-  releaseMs: number;
-  glideMs: number;
-  cutoffMin: number;
-  cutoffMax: number;
-  gainPeak: number;
-  gainCurve: number;
-
-  mode: SynthMode;
-  chord: Chord;
-  rootMidi: number;
-  voiceOrder: VoiceOrder;
-  masterGain: number;
-  holdMs: number;
-  sustainLatch: boolean;
-  oscLinked: boolean;
-  oscR: OscType;
-  oscG: OscType;
-  oscB: OscType;
-  tuning: 'just' | 'equal';
-  detuneCents: number;
-  compressorOn: boolean;
-  synthEnabled: boolean;
-}
-
-export const DEFAULT_SYNTH_CONFIG: SynthConfig = {
-  scale: 'continuous',
-  oscType: 'sine',
-  baseOctave: 3,
-  octaveRange: 1,
-  attackMs: 20,
-  releaseMs: 900,
-  glideMs: 30,
-  cutoffMin: 200,
-  cutoffMax: 8000,
-  gainPeak: 0.15,
-  gainCurve: 1.5,
-
-  mode: 'rgb-chord',
-  chord: 'major',
-  rootMidi: 48,
-  voiceOrder: 'r-low',
-  masterGain: 1,
-  holdMs: 300,
-  sustainLatch: false,
-  oscLinked: true,
-  oscR: 'sine',
-  oscG: 'sine',
-  oscB: 'sine',
-  tuning: 'just',
-  detuneCents: 3,
-  compressorOn: true,
-  synthEnabled: false,
-};
+// Re-export types so existing internal references in this file keep working.
+export type { Scale, OscType, SynthMode, Chord, VoiceOrder, SynthConfig } from './synthConfig';
+export { DEFAULT_SYNTH_CONFIG, midiToFreq, midiToName } from './synthConfig';
 
 const OSC_LOUDNESS: Record<OscType, number> = {
   sine: 1.0,
@@ -108,17 +48,6 @@ export const CHORD_INTERVALS = JUST_INTERVALS;
 function intervalsFor(cfg: SynthConfig): [number, number, number] {
   const table = cfg.tuning === 'equal' ? EQUAL_INTERVALS : JUST_INTERVALS;
   return table[cfg.chord] ?? table.major;
-}
-
-export function midiToFreq(midi: number): number {
-  return 440 * Math.pow(2, (midi - 69) / 12);
-}
-
-const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-export function midiToName(midi: number): string {
-  const octave = Math.floor(midi / 12) - 1;
-  const name = NOTE_NAMES[((midi % 12) + 12) % 12];
-  return `${name}${octave}`;
 }
 
 function baseFreq(octave: number): number {
@@ -184,35 +113,8 @@ function detuneFor(channel: 'r' | 'g' | 'b' | null, cfg: SynthConfig): number {
   return 0;
 }
 
-let ctx: AudioContext | null = null;
-let masterGainNode: GainNode | null = null;
-let masterCompressor: DynamicsCompressorNode | null = null;
-export function getAudioCtx(): AudioContext {
-  if (!ctx) {
-    const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    ctx = new AC();
-  }
-  if (ctx.state === 'suspended') ctx.resume();
-  return ctx;
-}
-export function getMasterGain(): GainNode {
-  const audio = getAudioCtx();
-  if (!masterCompressor) {
-    masterCompressor = audio.createDynamicsCompressor();
-    masterCompressor.threshold.value = -3;
-    masterCompressor.knee.value = 20;
-    masterCompressor.ratio.value = 2;
-    masterCompressor.attack.value = 0.02;
-    masterCompressor.release.value = 0.25;
-    masterCompressor.connect(audio.destination);
-  }
-  if (!masterGainNode) {
-    masterGainNode = audio.createGain();
-    masterGainNode.gain.value = 1;
-    masterGainNode.connect(masterCompressor);
-  }
-  return masterGainNode;
-}
+import { getAudioCtx, getMasterGain, _getMasterCompressor } from './audioContext';
+export { getAudioCtx, getMasterGain } from './audioContext';
 
 interface Voice {
   osc: OscillatorNode;
@@ -245,10 +147,11 @@ export class ToneController {
     }
     if (patch.compressorOn !== undefined && patch.compressorOn !== prev.compressorOn) {
       try {
-        if (masterCompressor) {
+        const mc = _getMasterCompressor();
+        if (mc) {
           const tNow = getAudioCtx().currentTime;
-          masterCompressor.ratio.setTargetAtTime(patch.compressorOn ? 2 : 1, tNow, 0.02);
-          masterCompressor.threshold.setTargetAtTime(patch.compressorOn ? -3 : 0, tNow, 0.02);
+          mc.ratio.setTargetAtTime(patch.compressorOn ? 2 : 1, tNow, 0.02);
+          mc.threshold.setTargetAtTime(patch.compressorOn ? -3 : 0, tNow, 0.02);
         }
       } catch { /* compressor set failed */ }
     }

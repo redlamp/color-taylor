@@ -6,10 +6,11 @@ import { Label } from '@/components/ui/label';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
 import { Volume, Volume1, Volume2, VolumeOff } from 'lucide-react';
 import { hsbToRgb, rgbToHex } from '@/utils/colorConversions';
+import { toneController } from '@/utils/toneControllerLazy';
 import {
-  toneController, midiToName, midiToFreq,
+  midiToName, midiToFreq,
   type Scale, type OscType, type SynthMode, type Chord, type VoiceOrder,
-} from '@/utils/colorSynth';
+} from '@/utils/synthConfig';
 
 const MODES: { value: SynthMode; label: string }[] = [
   { value: 'rgb-chord', label: 'RGB chord' },
