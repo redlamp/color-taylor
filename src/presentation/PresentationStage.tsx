@@ -20,11 +20,13 @@ export default function PresentationStage({ slide, slideIndex }) {
   // ── Color state (persists across all slides) ──────────────────────
   const [hsb, setHsb] = useState({ h: 0, s: 100, b: 100 });
   const hsbRef = useRef(hsb);
-  hsbRef.current = hsb;
+  useEffect(() => { hsbRef.current = hsb; }, [hsb]);
   const animRef = useRef(null);
   const rgbOverride = useRef(null);
 
   const rgbFromHsb = useMemo(() => hsbToRgb(hsb.h, hsb.s, hsb.b), [hsb.h, hsb.s, hsb.b]);
+  // HSB-canonical + RGB-override-ref pattern (see CLAUDE.md). Intentional read.
+  // eslint-disable-next-line react-hooks/refs
   const rgb = rgbOverride.current || rgbFromHsb;
   const hex = useMemo(() => rgbToHex(rgb.r, rgb.g, rgb.b), [rgb.r, rgb.g, rgb.b]);
   const hsl = useMemo(() => rgbToHsl(rgb.r, rgb.g, rgb.b), [rgb.r, rgb.g, rgb.b]);
@@ -88,7 +90,6 @@ export default function PresentationStage({ slide, slideIndex }) {
   const isNarrative = slide.type === 'narrative';
   const panels = slide.props?.visiblePanels || [];
   const has = (p) => panels.includes(p);
-  const hasLargePreview = has('large-preview');
   const hasHexagon = has('hexagon');
   const locked = slide.props?.lockedChannels || [];
   const hasSliders = has('rgb-sliders') || has('hsb-sliders') || has('hex-input') || has('equations') || has('conversions');
@@ -149,7 +150,7 @@ export default function PresentationStage({ slide, slideIndex }) {
   const [sineActive, setSineActive] = useState(false);
   const [sinePeriods] = useState({ h: 15000, s: 11000, b: 9000 });
   const sinePeriodsRef = useRef(sinePeriods);
-  sinePeriodsRef.current = sinePeriods;
+  useEffect(() => { sinePeriodsRef.current = sinePeriods; }, [sinePeriods]);
   const sineRaf = useRef(null);
 
   // Reset sine wave when leaving the slide
@@ -373,9 +374,10 @@ export default function PresentationStage({ slide, slideIndex }) {
 
   // ── Color Taylor App reveal — scales up from presentation width ───
   if (has('color-taylor-app')) {
-    // Measure actual app width to compute accurate start scale
+    /* eslint-disable react-hooks/refs -- intentional measurement read for scale */
     const appWidth = appRef.current?.offsetWidth || 1150;
     const startScale = PANEL_W / appWidth;
+    /* eslint-enable react-hooks/refs */
     return (
       <div
         ref={appRef}
@@ -602,6 +604,7 @@ export default function PresentationStage({ slide, slideIndex }) {
 
         {/* Intro / Acronyms — shared elements that tween between slides */}
         {(slide.props?.mode === 'intro' || slide.props?.mode === 'acronyms' || introExiting) && (
+          // eslint-disable-next-line react-hooks/refs
           <IntroPanel mode={introExiting ? introExitMode.current : slide.props.mode} exiting={introExiting} />
         )}
 

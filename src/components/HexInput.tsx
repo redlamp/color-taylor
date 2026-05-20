@@ -8,6 +8,8 @@ export default function HexInput({ hex, onChange }) {
 
   useEffect(() => {
     if (!focused) {
+      // Sync prop to local input text when user isn't actively typing.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setText(hex.toUpperCase());
     }
   }, [hex, focused]);
