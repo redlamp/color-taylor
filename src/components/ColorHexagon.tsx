@@ -1273,7 +1273,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
 
           <BrightnessBar
             hue={hue} saturation={saturation} brightness={brightness} hsl={hsl}
-            blMode={blMode} blPointerDown={blPointerDown} draggingBL={draggingBL}
+            blMode={blMode} blPointerDownRef={blPointerDown} draggingBLRef={draggingBL}
             animateBLToValue={animateBLToValue} colorSpace={colorSpace}
           />
         </svg>
