@@ -86,10 +86,13 @@ export default function PresentationShell({ navigate }) {
   }, [isLastSlide]);
 
   useEffect(() => {
-    if (!isLastSlide) { setChromeFading(false); return; }
+    if (!isLastSlide) return;
     // Caption stays visible longer on last slide
     const tid = setTimeout(() => setChromeFading(true), 6000);
-    return () => clearTimeout(tid);
+    return () => {
+      clearTimeout(tid);
+      setChromeFading(false);
+    };
   }, [isLastSlide]);
 
   useEffect(() => {
