@@ -864,7 +864,11 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
         const newH = hueFromMouse(e);
         if (typeof newH === 'number') updateTone({ h: newH });
       }
-      if (draggingDot.current) handleDotDrag(e);
+      if (draggingDot.current) {
+        ensureToneStart();
+        handleDotDrag(e);
+        updateTone({});
+      }
       if (draggingBL.current) {
         ensureToneStart();
         const val = getBLValueFromClientY(e.clientY);
