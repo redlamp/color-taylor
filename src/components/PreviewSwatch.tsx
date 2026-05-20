@@ -7,6 +7,7 @@ function PreviewSwatch({ hex }: { hex: string }) {
   const handleClick = useCallback(() => {
     navigator.clipboard.writeText(hex.toUpperCase()).then(() => {
       toast('Copied!', { duration: 2000 });
+      if (navigator.vibrate) navigator.vibrate(8);
     });
   }, [hex]);
 

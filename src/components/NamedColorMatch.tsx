@@ -45,6 +45,7 @@ function NamedColorMatch({ rgb, onAnimateToHsb, onHoverMatch, hoveredHtmlColor, 
   const handleClick = () => {
     if (isMatch && onAnimateToHsb) {
       onAnimateToHsb(rgbToHsb(matchR, matchG, matchB));
+      if (navigator.vibrate) navigator.vibrate(10);
     }
   };
 
