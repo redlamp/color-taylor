@@ -365,11 +365,13 @@ export default function PresentationStage({ slide, slideIndex }) {
 
   const showCircle = has('hsb-circle');
 
+  // Must be declared above ALL early returns — rules-of-hooks
+  const appRef = useRef(null);
+
   // ── Narrative slides ──────────────────────────────────────────────
   if (isNarrative) return <NarrativeSlide {...(slide.props || {})} />;
 
   // ── Color Taylor App reveal — scales up from presentation width ───
-  const appRef = useRef(null);
   if (has('color-taylor-app')) {
     // Measure actual app width to compute accurate start scale
     const appWidth = appRef.current?.offsetWidth || 1150;
