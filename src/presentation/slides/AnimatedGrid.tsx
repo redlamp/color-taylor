@@ -252,7 +252,7 @@ export default function AnimatedGrid({ mode, swatchColor, enterColor }) {
   );
   const prevMode = useRef(mode);
   const latestSwatch = useRef(swatchColor);
-  latestSwatch.current = swatchColor; // always tracks the latest color
+  useEffect(() => { latestSwatch.current = swatchColor; }, [swatchColor]);
   const isTransitioning = useRef(false); // true while a mode transition is in flight
   const timers = useRef([]);
   const rafs = useRef([]);
@@ -355,7 +355,7 @@ export default function AnimatedGrid({ mode, swatchColor, enterColor }) {
     // before we apply transitions (React 18 batching can swallow double-rAF)
     const raf1 = requestAnimationFrame(() => {
       // Force layout read to flush step 1 to the DOM
-      containerRef.current?.offsetHeight;
+      void containerRef.current?.offsetHeight;
       const tid = setTimeout(() => {
         if (generation.current !== gen) return; // stale
         const pairMap = new Map(pairs.map(p => [p.key, p.to]));
@@ -425,6 +425,7 @@ export default function AnimatedGrid({ mode, swatchColor, enterColor }) {
   // Skip during transitions so the cell tween from small→large isn't overwritten
   useEffect(() => {
     if (mode !== 'swatch' || !swatchColor || isTransitioning.current) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCells([{
       id: swatchColor.toLowerCase(),
       color: swatchColor,
