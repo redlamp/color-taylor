@@ -500,8 +500,9 @@ export default function ColorPicker() {
 
       <div className="flex flex-col">
       <div ref={topRowRef} className="flex flex-col md:flex-row gap-4 items-stretch md:items-start">
-        {/* Left column: Color Hexagon — flex-grows, shrinks before sliders */}
-        <div className="w-full md:flex-1 md:min-w-0">
+        {/* Left column: Color Hexagon — basis matches HEX_PANEL_WIDTH (614), shrinks alongside the sliders col.
+            Tailwind arbitrary values below must stay in sync with HEX_PANEL_WIDTH. */}
+        <div className="w-full md:w-auto md:basis-[614px] md:max-w-[614px] md:min-w-0 md:shrink md:grow-0">
           <ColorHexagon
             rgb={rgb}
             hue={hsb.h}
