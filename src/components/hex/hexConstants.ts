@@ -7,7 +7,7 @@ export const HEX_SIZE = 540;
 // the panel snug; internal coords stay anchored to HEX_SIZE.
 export const DISPLAY_HEIGHT = 460;
 export const BL_BAR_WIDTH = 22;
-export const BL_BAR_GAP = -10;
+export const BL_BAR_GAP = -20;
 export const BL_ARROW_SIZE = 8;
 export const BL_LABEL_SPACE = 40;
 export const SIZE = HEX_SIZE + BL_BAR_GAP + BL_BAR_WIDTH + BL_ARROW_SIZE + BL_LABEL_SPACE;

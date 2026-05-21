@@ -420,7 +420,7 @@ export default function ColorPicker() {
   }, [colorAnimActive]);
 
   return (
-    <div id="color-picker-root" className="mx-auto w-full max-w-[1120px] px-0.5 py-1 sm:p-6">
+    <div id="color-picker-root" className="mx-auto w-full max-w-[1050px] px-0.5 py-1 sm:p-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
         <h1 id="color-picker-title" className="text-2xl font-semibold tracking-tight text-primary">Color Taylor 🎨🧵</h1>
         <div className="flex items-center justify-end gap-2">
