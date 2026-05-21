@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { useTheme } from '../../hooks/useTheme';
-import { CENTER, RADIUS, PI, SIZE, HEX_SIZE } from './hexConstants';
+import { CENTER_X, CENTER_Y, RADIUS, PI, SIZE, HEX_SIZE } from './hexConstants';
 
 const COLORS = [
   { label: 'R', name: 'Red', deg: 0, color: '#ff0000', lightColor: '#e00000' },
@@ -19,8 +19,8 @@ export default function ColorLabels({ onColorClick }) {
     const displayColor = isDark ? color : lightColor;
     const rad = (deg * PI) / 180;
     const offset = RADIUS + 20;
-    const x = CENTER + offset * Math.cos(rad);
-    const y = CENTER - offset * Math.sin(rad);
+    const x = CENTER_X + offset * Math.cos(rad);
+    const y = CENTER_Y - offset * Math.sin(rad);
     const textColor = (deg > 30 && deg < 200) ? '#000' : '#fff';
     return (
       <div

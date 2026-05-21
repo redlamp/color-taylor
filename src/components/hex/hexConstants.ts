@@ -1,15 +1,23 @@
 import { hsbToRgb, type RGB } from '../../utils/colorConversions';
 
 export const HEX_SIZE = 540;
+// Visible vertical extent of the hex panel. The hex polygon is only
+// RADIUS·√3 ≈ 363.7 tall inside HEX_SIZE=540, so the rest is empty SVG
+// canvas. Crop the top/bottom with an overflow-hidden wrapper to make
+// the panel snug; internal coords stay anchored to HEX_SIZE.
+export const DISPLAY_HEIGHT = 460;
 export const BL_BAR_WIDTH = 22;
-export const BL_BAR_GAP = -6;
+export const BL_BAR_GAP = -20;
 export const BL_ARROW_SIZE = 8;
 export const BL_LABEL_SPACE = 40;
 export const SIZE = HEX_SIZE + BL_BAR_GAP + BL_BAR_WIDTH + BL_ARROW_SIZE + BL_LABEL_SPACE;
-export const CENTER = HEX_SIZE / 2;
+// Hex panel width including its p-3 padding on both sides (12 + 12 = 24)
+export const HEX_PANEL_WIDTH = SIZE + 24;
+export const CENTER_X = 260;
+export const CENTER_Y = HEX_SIZE / 2;
 export const RADIUS = 210;
 export const BL_BAR_X = HEX_SIZE + BL_BAR_GAP;
-export const BL_BAR_TOP = CENTER - RADIUS;
+export const BL_BAR_TOP = CENTER_Y - RADIUS;
 export const BL_BAR_HEIGHT = RADIUS * 2;
 export const SQRT3_2 = Math.sqrt(3) / 2;
 export const PI = Math.PI;
@@ -37,8 +45,8 @@ export function hexPoints(cx: number, cy: number, r: number): string {
 }
 
 export function colorAtPoint(px: number, py: number, brightness: number): RGB {
-  const dx = px - CENTER;
-  const dy = py - CENTER;
+  const dx = px - CENTER_X;
+  const dy = py - CENTER_Y;
   const dist = Math.sqrt(dx * dx + dy * dy);
   const angle = Math.atan2(-dy, dx);
   const edgeDist = hexEdgeDist(angle, RADIUS);
