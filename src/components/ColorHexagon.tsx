@@ -70,14 +70,17 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       const raw = localStorage.getItem('color-taylor-saved');
       if (raw) {
         const parsed = JSON.parse(raw);
-        return parsed.map((v: unknown) => {
+        const seen = new Set<number>();
+        return parsed.map((v: unknown, i: number) => {
           if (!v) return null;
-          if (typeof v === 'string') return { hex: v, addedAt: 0 };
-          return v as { hex: string; addedAt: number };
+          const slot = typeof v === 'string' ? { hex: v, addedAt: -(i + 1) } : (v as { hex: string; addedAt: number });
+          if (seen.has(slot.addedAt)) slot.addedAt = -(i + 1) * 1000;
+          seen.add(slot.addedAt);
+          return slot;
         });
       }
     } catch { /* localStorage unavailable */ }
-    const defaults: SavedSlot[] = DEFAULT_RECENT.map(hex => ({ hex, addedAt: 0 }));
+    const defaults: SavedSlot[] = DEFAULT_RECENT.map((hex, i) => ({ hex, addedAt: -(i + 1) }));
     while (defaults.length < 12) defaults.push(null);
     return defaults;
   });
@@ -340,7 +343,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   useEffect(() => {
     const onReset = () => {
       setRecentColors([]);
-      const defaults: SavedSlot[] = DEFAULT_RECENT.map(hex => ({ hex, addedAt: 0 }));
+      const defaults: SavedSlot[] = DEFAULT_RECENT.map((hex, i) => ({ hex, addedAt: -(i + 1) }));
       while (defaults.length < 12) defaults.push(null);
       setSavedSlots(defaults);
       setSelectedRecentIdx(null);
@@ -699,7 +702,12 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       }
     }, 1000);
 
-    return () => {};
+    return () => {
+      if (addRecentTimer.current) {
+        clearTimeout(addRecentTimer.current);
+        addRecentTimer.current = null;
+      }
+    };
   }, [currentHex]);
 
   const addToRecent = useCallback((hex) => {
@@ -1397,7 +1405,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                 className="px-2 py-0.5 text-xs rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none"
                 onClick={(e) => {
                   e.stopPropagation();
-                  const defaults: SavedSlot[] = DEFAULT_RECENT.map(hex => ({ hex, addedAt: 0 }));
+                  const defaults: SavedSlot[] = DEFAULT_RECENT.map((hex, i) => ({ hex, addedAt: -(i + 1) }));
                   while (defaults.length < 12) defaults.push(null);
                   setSavedSlots(defaults);
                   setSavedSortMode('user');
