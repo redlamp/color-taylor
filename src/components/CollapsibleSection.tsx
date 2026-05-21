@@ -13,12 +13,13 @@ interface CollapsibleSectionProps {
   title: string;
   level?: Level;
   defaultOpen?: boolean;
+  headerLeft?: ReactNode;
   headerRight?: ReactNode;
   className?: string;
   children: ReactNode;
 }
 
-export default function CollapsibleSection({ id, title, level = 'h3', defaultOpen = true, headerRight, className: extraClass, children }: CollapsibleSectionProps) {
+export default function CollapsibleSection({ id, title, level = 'h3', defaultOpen = true, headerLeft, headerRight, className: extraClass, children }: CollapsibleSectionProps) {
   const [open, setOpen] = useState(defaultOpen);
   const Tag = level;
 
@@ -43,6 +44,11 @@ export default function CollapsibleSection({ id, title, level = 'h3', defaultOpe
         <Tag className={levelStyles[level]}>
           {title}
         </Tag>
+        {open && headerLeft && (
+          <div onClick={(e) => e.stopPropagation()}>
+            {headerLeft}
+          </div>
+        )}
         {open && headerRight && (
           <div className="ml-auto" onClick={(e) => e.stopPropagation()}>
             {headerRight}

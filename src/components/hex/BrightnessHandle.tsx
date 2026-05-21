@@ -14,7 +14,7 @@ interface BrightnessHandleProps {
 export default function BrightnessHandle({ hue, saturation, brightness, hsl, blMode, onMouseDown }: BrightnessHandleProps) {
   const blValue = blMode === 'brightness' ? brightness : (hsl?.l ?? 50);
   const y = BL_BAR_TOP + (1 - blValue / 100) * BL_BAR_HEIGHT;
-  const x = BL_BAR_X + BL_BAR_WIDTH + 4;
+  const x = BL_BAR_X + BL_BAR_WIDTH;
 
   const bgRgb = hsbToRgb(hue, saturation, brightness);
   const bgColor = rgbToHex(bgRgb.r, bgRgb.g, bgRgb.b);

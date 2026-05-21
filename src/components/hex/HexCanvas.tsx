@@ -1,6 +1,6 @@
 import { useRef, useEffect } from 'react';
 import { hsbToRgb, linearToSrgb } from '../../utils/colorConversions';
-import { HEX_SIZE, SIZE, CENTER, RADIUS, PI, hexEdgeDist } from './hexConstants';
+import { HEX_SIZE, SIZE, CENTER_X, CENTER_Y, RADIUS, PI, hexEdgeDist } from './hexConstants';
 
 export default function HexCanvas({ brightness, colorSpace }) {
   const canvasRef = useRef(null);
@@ -16,8 +16,8 @@ export default function HexCanvas({ brightness, colorSpace }) {
 
       for (let py = 0; py < HEX_SIZE; py++) {
         for (let px = 0; px < HEX_SIZE; px++) {
-          const dx = px - CENTER;
-          const dy = py - CENTER;
+          const dx = px - CENTER_X;
+          const dy = py - CENTER_Y;
           const dist = Math.sqrt(dx * dx + dy * dy);
 
           if (dist > RADIUS) continue;

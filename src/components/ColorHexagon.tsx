@@ -10,7 +10,7 @@ import NAMED_COLORS from '../utils/namedColors';
 import { getAudioCtx, getMasterGain } from '../utils/audioContext';
 import { toneController } from '../utils/toneControllerLazy';
 import {
-  HEX_SIZE, SIZE, CENTER, RADIUS, PI, DIRS,
+  HEX_SIZE, SIZE, CENTER_X, CENTER_Y, RADIUS, PI, DIRS, DISPLAY_HEIGHT,
   BL_BAR_X, BL_BAR_TOP, BL_BAR_HEIGHT, BL_ARROW_SIZE,
   hexEdgeDist, hexPoints, colorAtPoint, getOrder,
 } from './hex/hexConstants';
@@ -60,7 +60,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       const saved = localStorage.getItem('color-taylor-recent');
       if (saved) return JSON.parse(saved);
     } catch { /* localStorage unavailable */ }
-    return [...DEFAULT_RECENT];
+    return [];
   });
   const [selectedRecentIdx, setSelectedRecentIdx] = useState(null);
   type SavedSlot = { hex: string; addedAt: number } | null;
@@ -339,7 +339,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   // Listen for global "reset all" — restore recent + saved to defaults.
   useEffect(() => {
     const onReset = () => {
-      setRecentColors([...DEFAULT_RECENT]);
+      setRecentColors([]);
       const defaults: SavedSlot[] = DEFAULT_RECENT.map(hex => ({ hex, addedAt: 0 }));
       while (defaults.length < 12) defaults.push(null);
       setSavedSlots(defaults);
@@ -547,8 +547,8 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   }, []);
 
   const getHsbFromPosition = useCallback((svgX, svgY, clampOnly = false) => {
-    const dx = svgX - CENTER;
-    const dy = svgY - CENTER;
+    const dx = svgX - CENTER_X;
+    const dy = svgY - CENTER_Y;
     const dist = Math.sqrt(dx * dx + dy * dy);
     const angle = Math.atan2(-dy, dx);
     const edgeDist = hexEdgeDist(angle, RADIUS);
@@ -574,7 +574,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
 
   const hueFromMouse = useCallback((e) => {
     const { x, y } = getSvgCoords(e);
-    let angle = Math.atan2(-(y - CENTER), x - CENTER) * (180 / PI);
+    let angle = Math.atan2(-(y - CENTER_Y), x - CENTER_X) * (180 / PI);
     if (angle < 0) angle += 360;
     const h = Math.round(angle);
     onHueChange(h);
@@ -585,7 +585,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   const order = useMemo(() => getOrder(vectorMode, rgb), [vectorMode, rgb.r, rgb.g, rgb.b]);
   const scale = RADIUS / 255;
   const { points, dotNames } = useMemo(() => {
-    const p0 = { x: CENTER, y: CENTER };
+    const p0 = { x: CENTER_X, y: CENTER_Y };
     const pts = [p0];
     const names = ['origin'];
     let current = p0;
@@ -611,12 +611,12 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     const rad = (hue * PI) / 180;
     return {
       hueEnd: {
-        x: CENTER + RADIUS * Math.cos(rad),
-        y: CENTER - RADIUS * Math.sin(rad),
+        x: CENTER_X + RADIUS * Math.cos(rad),
+        y: CENTER_Y - RADIUS * Math.sin(rad),
       },
       hueLabel: {
-        x: CENTER + (RADIUS + 28) * Math.cos(rad),
-        y: CENTER - (RADIUS + 28) * Math.sin(rad),
+        x: CENTER_X + (RADIUS + 28) * Math.cos(rad),
+        y: CENTER_Y - (RADIUS + 28) * Math.sin(rad),
       },
     };
   }, [hue]);
@@ -628,8 +628,8 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     const edgeDist = hexEdgeDist(rad, RADIUS);
     const dist = (hsb.s / 100) * edgeDist;
     return {
-      x: CENTER + dist * Math.cos(rad),
-      y: CENTER - dist * Math.sin(rad),
+      x: CENTER_X + dist * Math.cos(rad),
+      y: CENTER_Y - dist * Math.sin(rad),
       hex: rgbToHex(hoverMatchRgb.r, hoverMatchRgb.g, hoverMatchRgb.b),
     };
   }, [hoverMatchRgb]);
@@ -649,8 +649,8 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       const edgeDist = hexEdgeDist(rad, colorLimitRadius);
       const dist = (hsb.s / 100) * edgeDist;
       return {
-        x: CENTER + dist * Math.cos(rad),
-        y: CENTER - dist * Math.sin(rad),
+        x: CENTER_X + dist * Math.cos(rad),
+        y: CENTER_Y - dist * Math.sin(rad),
         hex: rgbToHex(c.r, c.g, c.b),
         name: c.name,
       };
@@ -714,8 +714,8 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
 
   // Solve for multiple channel values given a target 2D position
   const solveChannels = useCallback((targetX, targetY, channelKeys) => {
-    const dx = targetX - CENTER;
-    const dy = targetY - CENTER;
+    const dx = targetX - CENTER_X;
+    const dy = targetY - CENTER_Y;
     const n = channelKeys.length;
 
     if (n === 1) {
@@ -774,7 +774,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       // Segment drag (relative): adjust only this dot's channel
       const { x, y } = getSvgCoords(e);
       const { startValue, startProjection } = draggingDot.current;
-      let prev = { x: CENTER, y: CENTER };
+      let prev = { x: CENTER_X, y: CENTER_Y };
       for (let i = 0; i < index - 1; i++) {
         const ch = order[i];
         const dir = DIRS[ch];
@@ -1001,7 +1001,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     setHoveredDot(dotIndex);
     const channel = order[dotIndex - 1];
     const { x, y } = getSvgCoords(e);
-    let prev = { x: CENTER, y: CENTER };
+    let prev = { x: CENTER_X, y: CENTER_Y };
     for (let i = 0; i < dotIndex - 1; i++) {
       const ch = order[i];
       const dir = DIRS[ch];
@@ -1025,8 +1025,8 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
 
   const handleHexMouseDown = useCallback((e) => {
     const { x, y } = getSvgCoords(e);
-    const dx = x - CENTER;
-    const dy = y - CENTER;
+    const dx = x - CENTER_X;
+    const dy = y - CENTER_Y;
     const dist = Math.sqrt(dx * dx + dy * dy);
     const angle = Math.atan2(-dy, dx);
     const edgeDist = hexEdgeDist(angle, RADIUS);
@@ -1064,16 +1064,16 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     const blValue = blMode === 'brightness' ? brightness : (hsl?.l ?? 50);
     const arrowY = BL_BAR_TOP + (1 - blValue / 100) * BL_BAR_HEIGHT;
     const arrowTipX = BL_BAR_X - BL_ARROW_SIZE - 2;
-    const dx = CENTER - arrowTipX;
-    const dy = CENTER - arrowY;
+    const dx = CENTER_X - arrowTipX;
+    const dy = CENTER_Y - arrowY;
     const dist = Math.sqrt(dx * dx + dy * dy);
     const angle = Math.atan2(-dy, dx);
     const edgeDist = hexEdgeDist(angle, limitRadius);
     return {
       limitScale,
       limitRadius,
-      perimX: CENTER - (dx / dist) * edgeDist,
-      perimY: CENTER - (dy / dist) * edgeDist,
+      perimX: CENTER_X - (dx / dist) * edgeDist,
+      perimY: CENTER_Y - (dy / dist) * edgeDist,
       arrowTipX,
       arrowY,
     };
@@ -1114,7 +1114,8 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
         )}
       </div>
       {hexOpen && <>
-      <div className="relative w-full" style={{ maxWidth: SIZE, aspectRatio: `${SIZE} / ${HEX_SIZE}` }}>
+      <div className="w-full relative m-4" style={{ maxWidth: SIZE, aspectRatio: `${SIZE} / ${DISPLAY_HEIGHT}` }}>
+      <div className="absolute left-0 top-1/2 w-full -translate-y-1/2" style={{ aspectRatio: `${SIZE} / ${HEX_SIZE}` }}>
         <HexCanvas brightness={brightness} colorSpace={colorSpace} />
         <svg
           id="hex-svg"
@@ -1126,14 +1127,14 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           className="absolute inset-0 z-[5] w-full h-full touch-none"
           onPointerDown={handleHexMouseDown}
         >
-          <circle id="hex-circumscribe" cx={CENTER} cy={CENTER} r={RADIUS} fill="none" stroke="var(--input)" strokeWidth={1.5} />
-          <polygon id="hex-outline" points={hexPoints(CENTER, CENTER, RADIUS)} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth={1} />
+          <circle id="hex-circumscribe" cx={CENTER_X} cy={CENTER_Y} r={RADIUS} fill="none" stroke="var(--input)" strokeWidth={1.5} />
+          <polygon id="hex-outline" points={hexPoints(CENTER_X, CENTER_Y, RADIUS)} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth={1} />
 
           {/* Brightness limit hex + connector */}
           {limitHex.limitScale < 1 && (
             <polygon
               id="hex-brightness-limit"
-              points={hexPoints(CENTER, CENTER, limitHex.limitRadius)}
+              points={hexPoints(CENTER_X, CENTER_Y, limitHex.limitRadius)}
               fill="none" stroke="rgba(128,128,128,0.5)" strokeWidth={2} strokeDasharray="1 4" strokeLinecap="round"
             />
           )}
@@ -1172,7 +1173,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
 
           {/* Hue line */}
           {showHueLine && (
-            <line id="hue-line" x1={CENTER} y1={CENTER} x2={hueEnd.x} y2={hueEnd.y}
+            <line id="hue-line" x1={CENTER_X} y1={CENTER_Y} x2={hueEnd.x} y2={hueEnd.y}
               stroke="rgba(255,255,255,0.5)" strokeWidth={1.5} strokeDasharray="4 4"
             />
           )}
@@ -1324,21 +1325,16 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           }}
         />
       </div>
+      </div>
 
       {/* Recent Colors + Named Color Match */}
       <div className="w-full mt-2">
         <CollapsibleSection
           id="recent-colors"
           title="Recent"
-          defaultOpen={false}
+          defaultOpen={true}
           headerRight={
             <div className="flex gap-1">
-              <button
-                className="px-2 py-0.5 text-xs rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none"
-                onClick={(e) => { e.stopPropagation(); setRecentColors([...DEFAULT_RECENT]); setSelectedRecentIdx(null); }}
-              >
-                Defaults
-              </button>
               <button
                 className="px-2 py-0.5 text-xs rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none"
                 onClick={(e) => { e.stopPropagation(); setRecentColors([]); setSelectedRecentIdx(null); }}
@@ -1386,14 +1382,29 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
         <CollapsibleSection
           id="saved-colors"
           title="Saved"
+          headerLeft={
+            <button
+              className="px-2 py-0.5 text-xs rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none tabular-nums"
+              onClick={(e) => { e.stopPropagation(); cycleSavedSort(); }}
+              aria-label={`Sort by ${SORT_LABELS[savedSortMode]} (click to cycle)`}
+            >
+              Sort: {SORT_LABELS[savedSortMode]}
+            </button>
+          }
           headerRight={
             <div className="flex gap-1">
               <button
-                className="px-2 py-0.5 text-xs rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none tabular-nums"
-                onClick={(e) => { e.stopPropagation(); cycleSavedSort(); }}
-                aria-label={`Sort by ${SORT_LABELS[savedSortMode]} (click to cycle)`}
+                className="px-2 py-0.5 text-xs rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const defaults: SavedSlot[] = DEFAULT_RECENT.map(hex => ({ hex, addedAt: 0 }));
+                  while (defaults.length < 12) defaults.push(null);
+                  setSavedSlots(defaults);
+                  setSavedSortMode('user');
+                  setSelectedSavedIdx(null);
+                }}
               >
-                Sort: {SORT_LABELS[savedSortMode]}
+                Defaults
               </button>
               <button
                 className="px-2 py-0.5 text-xs rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none"

@@ -1,7 +1,7 @@
 import { hsbToRgb, rgbToHex, linearToSrgb } from '../../utils/colorConversions';
 import type { ColorSpace } from '../../utils/sliderGradients';
 import type { HSL } from '../../utils/colorConversions';
-import { RADIUS, CENTER, BL_BAR_X, BL_BAR_TOP, BL_BAR_HEIGHT, BL_BAR_WIDTH, BL_ARROW_SIZE } from './hexConstants';
+import { BL_BAR_X, BL_BAR_TOP, BL_BAR_HEIGHT, BL_BAR_WIDTH, BL_ARROW_SIZE } from './hexConstants';
 import type { MutableRefObject } from 'react';
 
 function hsbToDisplayHex(h: number, s: number, b: number, colorSpace: ColorSpace) {
