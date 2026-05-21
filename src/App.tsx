@@ -34,7 +34,7 @@ function AppInner() {
     } else {
       restore()
     }
-  }, [isPresentation])
+  }, [isPresentation, setDark, restore])
 
   return (
     <>
