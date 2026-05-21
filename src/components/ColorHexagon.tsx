@@ -365,7 +365,9 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       const br = parseInt(b.slot.hex.slice(1, 3), 16), bg = parseInt(b.slot.hex.slice(3, 5), 16), bb = parseInt(b.slot.hex.slice(5, 7), 16);
       const aHsb = rgbToHsb(ar, ag, ab);
       const bHsb = rgbToHsb(br, bg, bb);
-      if (savedSortMode === 'hue') return aHsb.h - bHsb.h;
+      if (savedSortMode === 'hue') {
+        return (aHsb.h - bHsb.h) || (aHsb.s - bHsb.s) || (aHsb.b - bHsb.b);
+      }
       if (savedSortMode === 'saturation') return bHsb.s - aHsb.s;
       return bHsb.b - aHsb.b;
     });
