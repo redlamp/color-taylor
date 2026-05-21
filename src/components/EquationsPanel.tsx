@@ -117,7 +117,7 @@ function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }: Equat
   });
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-[1.4fr_1.2fr_1fr_1fr] gap-2 w-full text-sm font-mono text-muted-foreground">
+    <div className="grid grid-cols-1 md:grid-cols-[1fr_1.2fr_1fr_0.8fr] gap-2 w-full text-sm font-mono text-muted-foreground">
       <div className="flex flex-col gap-1 border border-input rounded-lg p-1.5 min-w-0">
         <span className="text-sm font-semibold font-sans text-foreground">Variables</span>
         <hr className="border-input" />
