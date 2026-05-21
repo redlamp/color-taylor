@@ -18,6 +18,13 @@ import {
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ColorSlider from './ColorSlider';
 import ColorHexagon from './ColorHexagon';
+import { HEX_PANEL_WIDTH } from './hex/hexConstants';
+
+// Top-row layout constants — root max-width and shrink behavior derive from these
+const SLIDERS_PANEL_WIDTH = 420;          // px, target width of the right column on md+
+const SLIDERS_PANEL_MIN_WIDTH = 280;      // px, floor before sliders content gets too tight
+const TOP_ROW_GAP_PX = 16;                // Tailwind gap-4
+const TOP_ROW_MAX_WIDTH = HEX_PANEL_WIDTH + SLIDERS_PANEL_WIDTH + TOP_ROW_GAP_PX;
 import SBBox from './SBBox';
 import HSlider from './HSlider';
 import HexInput from './HexInput';
@@ -420,7 +427,7 @@ export default function ColorPicker() {
   }, [colorAnimActive]);
 
   return (
-    <div id="color-picker-root" className="mx-auto w-full max-w-[1050px] px-0.5 py-1 sm:p-6">
+    <div id="color-picker-root" className="mx-auto w-full px-0.5 py-1 sm:p-6" style={{ maxWidth: TOP_ROW_MAX_WIDTH }}>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
         <h1 id="color-picker-title" className="text-2xl font-semibold tracking-tight text-primary">Color Taylor 🎨🧵</h1>
         <div className="flex items-center justify-end gap-2">
@@ -518,8 +525,9 @@ export default function ColorPicker() {
           />
         </div>
 
-        {/* Right column: Controls */}
-        <div id="picker-layout" className="w-full md:w-[420px] md:shrink-0 border border-input rounded-lg p-2.5">
+        {/* Right column: Controls — sized to SLIDERS_PANEL_WIDTH (420), shrinks to SLIDERS_PANEL_MIN_WIDTH (280).
+            Tailwind arbitrary values below must stay in sync with the JS constants above. */}
+        <div id="picker-layout" className="w-full md:w-auto md:basis-[420px] md:max-w-[420px] md:min-w-[280px] md:shrink md:grow-0 border border-input rounded-lg p-2.5">
         <CollapsibleSection id="sliders-group" title="Sliders" level="h2">
           <div className="flex flex-col gap-3">
         {/* Color Editor: Swatch + SB Box + H Slider */}

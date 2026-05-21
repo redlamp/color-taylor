@@ -10,7 +10,7 @@ import NAMED_COLORS from '../utils/namedColors';
 import { getAudioCtx, getMasterGain } from '../utils/audioContext';
 import { toneController } from '../utils/toneControllerLazy';
 import {
-  HEX_SIZE, SIZE, CENTER_X, CENTER_Y, RADIUS, PI, DIRS, DISPLAY_HEIGHT,
+  HEX_SIZE, SIZE, HEX_PANEL_WIDTH, CENTER_X, CENTER_Y, RADIUS, PI, DIRS, DISPLAY_HEIGHT,
   BL_BAR_X, BL_BAR_TOP, BL_BAR_HEIGHT, BL_ARROW_SIZE,
   hexEdgeDist, hexPoints, colorAtPoint, getOrder,
 } from './hex/hexConstants';
@@ -1080,7 +1080,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   }, [blMode, brightness, hsl?.l]);
 
   return (
-    <div id="color-hexagon" className="flex flex-col items-center gap-1 border border-input rounded-lg p-3 max-w-full" style={{ width: SIZE + 24 }}>
+    <div id="color-hexagon" className="flex flex-col items-center gap-1 border border-input rounded-lg p-3 max-w-full" style={{ width: HEX_PANEL_WIDTH }}>
       <div className="flex items-start gap-1.5 w-full">
         <div
           className="flex items-center gap-1.5 flex-1 min-w-0 cursor-pointer select-none"

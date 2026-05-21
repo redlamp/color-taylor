@@ -117,31 +117,36 @@ function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }: Equat
   });
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-[1fr_1.1fr_1fr_1fr] gap-2 w-full text-sm font-mono text-muted-foreground">
-      <div className="flex flex-col gap-1 border border-input rounded-lg p-1.5">
+    <div className="grid grid-cols-1 md:grid-cols-[1.4fr_1.2fr_1fr_1fr] gap-2 w-full text-sm font-mono text-muted-foreground">
+      <div className="flex flex-col gap-1 border border-input rounded-lg p-1.5 min-w-0">
         <span className="text-sm font-semibold font-sans text-foreground">Variables</span>
         <hr className="border-input" />
-        <div className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-1">
-          <span className="text-right"><span
-            className="rounded px-1.5 py-0.5"
-            style={{
-              backgroundColor: rgbToHex(rgb.r, rgb.g, rgb.b),
-              color: (rgb.r * 0.299 + rgb.g * 0.587 + rgb.b * 0.114) > 150 ? '#000' : '#fff',
-            }}
-          >Color</span>:</span>
-          <span>rgb({rv}, {gv}, {bv})</span>
-
-          <span className="text-right"><T color={mc} title="Maximum RGB value">max</T>:</span>
-          <span>max({maxMinList(true)})</span>
-
-          <span className="text-right"><T color={cc} title="Minimum RGB value">min</T>:</span>
-          <span>min({maxMinList(false)})</span>
-
-          <span className="text-right">{chr}:</span>
-          <span>{maxT(pad(maxVal))}-{minT(pad(minVal))} = {chrT(pad(delta))}</span>
+        <div className="flex flex-col gap-1">
+          <div className="flex flex-wrap items-baseline gap-x-2">
+            <span><span
+              className="rounded px-1.5 py-0.5"
+              style={{
+                backgroundColor: rgbToHex(rgb.r, rgb.g, rgb.b),
+                color: (rgb.r * 0.299 + rgb.g * 0.587 + rgb.b * 0.114) > 150 ? '#000' : '#fff',
+              }}
+            >Color</span>:</span>
+            <span>rgb({rv}, {gv}, {bv})</span>
+          </div>
+          <div className="flex flex-wrap items-baseline gap-x-2">
+            <span><T color={mc} title="Maximum RGB value">max</T>:</span>
+            <span>max({maxMinList(true)})</span>
+          </div>
+          <div className="flex flex-wrap items-baseline gap-x-2">
+            <span><T color={cc} title="Minimum RGB value">min</T>:</span>
+            <span>min({maxMinList(false)})</span>
+          </div>
+          <div className="flex flex-wrap items-baseline gap-x-2">
+            <span>{chr}:</span>
+            <span>{maxT(pad(maxVal))}-{minT(pad(minVal))} = {chrT(pad(delta))}</span>
+          </div>
         </div>
       </div>
-      <div className="flex flex-col gap-1 border border-input rounded-lg p-1.5">
+      <div className="flex flex-col gap-1 border border-input rounded-lg p-1.5 min-w-0">
         <Row
           left={<span className="text-sm font-semibold font-sans text-foreground">Hue</span>}
           right={`${hue}°`}
@@ -152,7 +157,7 @@ function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }: Equat
         <span className={maxChKey === 'g' ? '' : 'opacity-30'}>{Hg}: 60(({bv}-{rv})/{chrT(pad(delta))}+2){maxChKey === 'g' && <> = <span className="text-white underline" style={{ textDecorationColor: 'white', textUnderlineOffset: '2px', textDecorationThickness: '2px' }}>{hue}°</span></>}</span>
         <span className={maxChKey === 'b' ? '' : 'opacity-30'}>{Hb}: 60(({rv}-{gv})/{chrT(pad(delta))}+4){maxChKey === 'b' && <> = <span className="text-white underline" style={{ textDecorationColor: 'white', textUnderlineOffset: '2px', textDecorationThickness: '2px' }}>{hue}°</span></>}</span>
       </div>
-      <div className="flex flex-col gap-1 border border-input rounded-lg p-1.5">
+      <div className="flex flex-col gap-1 border border-input rounded-lg p-1.5 min-w-0">
         <Row
           left={<span className="text-sm font-semibold font-sans text-foreground">Saturation</span>}
           right={blMode === 'brightness' ? `${saturation}%` : `${hsl?.s ?? 0}%`}
