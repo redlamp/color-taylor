@@ -3,7 +3,7 @@ import { findNearestNamedColor } from '../utils/namedColors';
 import NAMED_COLORS from '../utils/namedColors';
 import { rgbToHex, rgbToHsb } from '../utils/colorConversions';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
-import { Search } from 'lucide-react';
+import { Search, Eye, EyeOff } from 'lucide-react';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Command, CommandInput, CommandList, CommandEmpty, CommandItem } from '@/components/ui/command';
 
@@ -50,11 +50,11 @@ function NamedColorMatch({ rgb, onAnimateToHsb, onHoverMatch, hoveredHtmlColor, 
   };
 
   return (
-    <div className="flex flex-col gap-2">
-      <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: 8, alignItems: 'stretch' }}>
+    <div className="flex flex-col gap-2 @container/match">
+      <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] gap-2 items-stretch">
         <Popover open={comboOpen} onOpenChange={setComboOpen}>
           <PopoverTrigger asChild>
-            <button className="flex items-center justify-center h-8 border border-input rounded-md bg-transparent text-muted-foreground cursor-pointer hover:text-foreground" style={{ width: 50 }}>
+            <button className="flex items-center justify-center h-8 w-[50px] @max-xs/match:w-9 border border-input rounded-md bg-transparent text-muted-foreground cursor-pointer hover:text-foreground">
               <Search className="!size-4" />
             </button>
           </PopoverTrigger>
@@ -110,11 +110,11 @@ function NamedColorMatch({ rgb, onAnimateToHsb, onHoverMatch, hoveredHtmlColor, 
                 onHoverMatch?.(null);
               }}
             >
-              <span className={`text-sm ${isMatch ? 'font-semibold' : 'italic text-xs'}`}>
+              <span className={`text-sm truncate min-w-0 ${isMatch ? 'font-semibold' : 'italic text-xs'}`}>
                 {isMatch ? display.name : 'No match'}
               </span>
               {isMatch && !isExact && (
-                <span className="text-xs opacity-70">~{display.distance}</span>
+                <span className="text-xs opacity-70 shrink-0 @max-xs/match:hidden">~{display.distance}</span>
               )}
             </button>
           </TooltipTrigger>
@@ -129,12 +129,28 @@ function NamedColorMatch({ rgb, onAnimateToHsb, onHoverMatch, hoveredHtmlColor, 
             </TooltipContent>
           )}
         </Tooltip>
-        <Tabs value={showOnHex ? 'show' : 'hide'} onValueChange={(v) => onShowOnHexChange?.(v === 'show')}>
+        <Tabs value={showOnHex ? 'show' : 'hide'} onValueChange={(v) => onShowOnHexChange?.(v === 'show')} className="@max-xs/match:hidden">
           <TabsList>
             <TabsTrigger value="show" className="w-12">Show</TabsTrigger>
             <TabsTrigger value="hide" className="w-12">Hide</TabsTrigger>
           </TabsList>
         </Tabs>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              aria-pressed={showOnHex}
+              aria-label={showOnHex ? 'Hide HTML colors on hex' : 'Show HTML colors on hex'}
+              onClick={() => onShowOnHexChange?.(!showOnHex)}
+              className="hidden @max-xs/match:flex items-center justify-center w-9 h-8 rounded-md border border-input text-muted-foreground hover:text-foreground cursor-pointer"
+            >
+              {showOnHex ? <Eye className="!size-4" /> : <EyeOff className="!size-4" />}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="top" sideOffset={4} className="text-xs font-semibold">
+            {showOnHex ? 'Hide HTML colors on hex' : 'Show HTML colors on hex'}
+          </TooltipContent>
+        </Tooltip>
       </div>
     </div>
   );
