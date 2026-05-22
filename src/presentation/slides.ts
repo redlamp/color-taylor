@@ -1,4 +1,34 @@
-export const slides = [
+interface SlideProps {
+  mode?: string;
+  visiblePanels?: string[];
+  lockedChannels?: ('r' | 'g' | 'b')[];
+  initialHsb?: { h: number; s: number; b: number };
+  showRgbAnimate?: boolean;
+  showHexInPreview?: boolean;
+  showHsbInPreview?: boolean;
+  showSteppers?: boolean;
+  hsbCircleShape?: 'circle' | 'hexagon';
+  showSineWave?: boolean;
+  heading?: string;
+  subheading?: string;
+  body?: string;
+  introText?: string[];
+  palette?: 'cga16' | 'websafe256';
+  bitDepth?: number;
+}
+
+export interface Slide {
+  id: string;
+  title?: string;
+  type?: string;
+  component?: string;
+  props?: SlideProps;
+  subtitle?: string;
+  caption?: string;
+  titleMeta?: { bits: number; colorCount: number; year: number; os: string };
+}
+
+export const slides: Slide[] = [
   {
     id: '00-intro',
     title: 'Hi, I\u2019m Taylor',

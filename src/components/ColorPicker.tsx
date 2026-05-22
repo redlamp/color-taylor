@@ -146,7 +146,7 @@ export default function ColorPicker() {
   }, [hsb.h, hsb.s, hsb.b]);
 
   useEffect(() => {
-    const handleKeyDown = (e) => {
+    const handleKeyDown = (e: KeyboardEvent) => {
       const isMac = navigator.platform.includes('Mac');
       const mod = isMac ? e.metaKey : e.ctrlKey;
       if (mod && e.key === 'z' && !e.shiftKey) {
@@ -162,11 +162,11 @@ export default function ColorPicker() {
           if (animRef.current) cancelAnimationFrame(animRef.current);
           const from = { ...hsbRef.current };
           const duration = 400;
-          let start = null;
-          const easeInOut = (t) => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+          let start: number | null = null;
+          const easeInOut = (t: number) => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
           toneController.start(from);
-          const tick = (ts) => {
-            if (!start) start = ts;
+          const tick = (ts: number) => {
+            if (start === null) start = ts;
             const t = easeInOut(Math.min((ts - start) / duration, 1));
             let dh = prev.h - from.h;
             if (dh > 180) dh -= 360;
@@ -199,11 +199,11 @@ export default function ColorPicker() {
           if (animRef.current) cancelAnimationFrame(animRef.current);
           const from = { ...hsbRef.current };
           const duration = 400;
-          let start = null;
-          const easeInOut = (t) => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+          let start: number | null = null;
+          const easeInOut = (t: number) => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
           toneController.start(from);
-          const tick = (ts) => {
-            if (!start) start = ts;
+          const tick = (ts: number) => {
+            if (start === null) start = ts;
             const t = easeInOut(Math.min((ts - start) / duration, 1));
             let dh = next.h - from.h;
             if (dh > 180) dh -= 360;
@@ -241,14 +241,14 @@ export default function ColorPicker() {
     }
     const duration = 1000;
     const from = { ...hsbRef.current };
-    let start = null;
+    let start: number | null = null;
 
-    const easeInOut = (t) => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+    const easeInOut = (t: number) => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
 
     toneController.start(from);
 
-    const tick = (timestamp) => {
-      if (!start) start = timestamp;
+    const tick = (timestamp: number) => {
+      if (start === null) start = timestamp;
       const elapsed = timestamp - start;
       const progress = Math.min(elapsed / duration, 1);
       const t = easeInOut(progress);
@@ -379,9 +379,9 @@ export default function ColorPicker() {
     const timeOffset = bestIdx * ANIM_STEP_DUR;
 
     const start = performance.now() - timeOffset;
-    let wasHolding = null;
+    let wasHolding: boolean | null = null;
     toneController.start(hsbRef.current);
-    const tick = (ts) => {
+    const tick = (ts: number) => {
       // Check if user interaction requested a stop
       if (colorAnimActiveRef.current === 'stop') {
         colorAnimActiveRef.current = false;

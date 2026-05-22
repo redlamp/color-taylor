@@ -1,9 +1,10 @@
 import { useRef, useEffect } from 'react';
 import { hsbToRgb, linearToSrgb } from '../../utils/colorConversions';
+import type { ColorSpace } from '../../utils/sliderGradients';
 import { HEX_SIZE, SIZE, CENTER_X, CENTER_Y, RADIUS, PI, hexEdgeDist } from './hexConstants';
 
-export default function HexCanvas({ brightness, colorSpace }) {
-  const canvasRef = useRef(null);
+export default function HexCanvas({ brightness, colorSpace }: { brightness: number; colorSpace: ColorSpace }) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
     const rafId = requestAnimationFrame(() => {

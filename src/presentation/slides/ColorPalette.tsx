@@ -28,7 +28,7 @@ function generateWebSafe256() {
   return colors.slice(0, 256);
 }
 
-export default function ColorPalette({ palette }) {
+export default function ColorPalette({ palette }: { palette: 'cga16' | 'websafe256' }) {
   const colors = useMemo(() => {
     if (palette === 'cga16') return CGA_16;
     if (palette === 'websafe256') return generateWebSafe256();

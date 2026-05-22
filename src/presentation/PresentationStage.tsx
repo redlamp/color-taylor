@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
-import { hsbToRgb, rgbToHsb, rgbToHex, rgbToHsl, getContrastTextColor } from '../utils/colorConversions';
+import { hsbToRgb, rgbToHsb, rgbToHex, rgbToHsl, getContrastTextColor, type HSB, type RGB } from '../utils/colorConversions';
+import type { Slide } from './slides';
 import {
   hueGradient, saturationGradient, brightnessGradient,
   redChannelGradient, greenChannelGradient, blueChannelGradient,
@@ -31,13 +32,13 @@ const RED_KEYFRAMES = [
   { r: 255, g: 0,   b: 0   },
 ];
 
-export default function PresentationStage({ slide, slideIndex }) {
+export default function PresentationStage({ slide, slideIndex }: { slide: Slide; slideIndex: number }) {
   // ── Color state (persists across all slides) ──────────────────────
-  const [hsb, setHsb] = useState({ h: 0, s: 100, b: 100 });
+  const [hsb, setHsb] = useState<HSB>({ h: 0, s: 100, b: 100 });
   const hsbRef = useRef(hsb);
   useEffect(() => { hsbRef.current = hsb; }, [hsb]);
-  const animRef = useRef(null);
-  const rgbOverride = useRef(null);
+  const animRef = useRef<number | null>(null);
+  const rgbOverride = useRef<RGB | null>(null);
 
   const rgbFromHsb = useMemo(() => hsbToRgb(hsb.h, hsb.s, hsb.b), [hsb.h, hsb.s, hsb.b]);
   // HSB-canonical + RGB-override-ref pattern (see CLAUDE.md). Intentional read.
@@ -46,15 +47,15 @@ export default function PresentationStage({ slide, slideIndex }) {
   const hex = useMemo(() => rgbToHex(rgb.r, rgb.g, rgb.b), [rgb.r, rgb.g, rgb.b]);
   const hsl = useMemo(() => rgbToHsl(rgb.r, rgb.g, rgb.b), [rgb.r, rgb.g, rgb.b]);
 
-  const animateToHsb = useCallback((target) => {
+  const animateToHsb = useCallback((target: HSB) => {
     rgbOverride.current = null;
     if (animRef.current) cancelAnimationFrame(animRef.current);
     const duration = 1000;
     const from = { ...hsbRef.current };
-    let start = null;
-    const easeInOut = (t) => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
-    const tick = (ts) => {
-      if (!start) start = ts;
+    let start: number | null = null;
+    const easeInOut = (t: number) => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+    const tick = (ts: number) => {
+      if (start === null) start = ts;
       const t = easeInOut(Math.min((ts - start) / duration, 1));
       let dh = target.h - from.h;
       if (dh > 180) dh -= 360;
@@ -73,7 +74,7 @@ export default function PresentationStage({ slide, slideIndex }) {
 
   // ── User interaction pause for RGB animation ───────────────────────
   const userInteracting = useRef(false);
-  const userResumeTimer = useRef(null);
+  const userResumeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const RESUME_DELAY = 4000; // ms before animation resumes after user stops
 
   const signalUserInteraction = useCallback(() => {
@@ -84,13 +85,13 @@ export default function PresentationStage({ slide, slideIndex }) {
     }, RESUME_DELAY);
   }, []);
 
-  const setHsbClear = useCallback((valOrFn) => {
+  const setHsbClear = useCallback((valOrFn: HSB | ((prev: HSB) => HSB)) => {
     signalUserInteraction();
     rgbOverride.current = null;
     setHsb(valOrFn);
   }, [signalUserInteraction]);
 
-  const handleRgbChange = useCallback((channel, value) => {
+  const handleRgbChange = useCallback((channel: 'r' | 'g' | 'b', value: number) => {
     signalUserInteraction();
     setHsb((prev) => {
       const cur = rgbOverride.current || hsbToRgb(prev.h, prev.s, prev.b);
@@ -104,7 +105,7 @@ export default function PresentationStage({ slide, slideIndex }) {
   const isStatic = slide.type === 'static';
   const isNarrative = slide.type === 'narrative';
   const panels = slide.props?.visiblePanels || [];
-  const has = (p) => panels.includes(p);
+  const has = (p: string) => panels.includes(p);
   const hasHexagon = has('hexagon');
   const locked = slide.props?.lockedChannels || [];
   const hasSliders = has('rgb-sliders') || has('hsb-sliders') || has('hex-input') || has('equations') || has('conversions');
@@ -129,7 +130,8 @@ export default function PresentationStage({ slide, slideIndex }) {
   }, [slideIndex, slide.props?.initialHsb, isStatic]);
 
   // ── Track previous panel mode for gradient transitions ─────────────
-  const panelMode = isStatic ? slide.props?.mode || 'bw' : 'swatch';
+  const panelMode = (isStatic ? slide.props?.mode || 'bw' : 'swatch') as
+    'intro' | 'acronyms' | 'bw' | 'c16' | 'c256' | 'thousands' | 'millions' | 'hsl-gradient' | 'swatch';
   const prevPanelMode = useRef(panelMode);
   const [leavingGradient, setLeavingGradient] = useState(false);
   const [introExiting, setIntroExiting] = useState(false);
@@ -180,7 +182,7 @@ export default function PresentationStage({ slide, slideIndex }) {
       return;
     }
     const start = performance.now();
-    const tick = (ts) => {
+    const tick = (ts: number) => {
       const elapsed = ts - start;
       const p = sinePeriodsRef.current;
       const h = Math.round(((elapsed % p.h) / p.h) * 360);
@@ -258,10 +260,10 @@ export default function PresentationStage({ slide, slideIndex }) {
 
     const start = performance.now() - timeOffset;
     const LERP_DUR = 1500; // ms to lerp from user color back to animation
-    let resumeStart = null; // when the user stopped interacting
-    let resumeFrom = null; // the user's color when they stopped
+    let resumeStart: number | null = null; // when the user stopped interacting
+    let resumeFrom: RGB | null = null; // the user's color when they stopped
 
-    function getAnimColor(ts) {
+    function getAnimColor(ts: number) {
       const elapsed = ts - start;
       const t = elapsed % CYCLE_DUR;
       const frameIdx = Math.floor(t / STEP_DUR);
@@ -280,7 +282,7 @@ export default function PresentationStage({ slide, slideIndex }) {
       };
     }
 
-    const tick = (ts) => {
+    const tick = (ts: number) => {
       if (userInteracting.current) {
         // Paused — user is dragging. Reset resume state.
         resumeStart = null;
@@ -762,7 +764,20 @@ const B_HSB_STYLE = {
 // Letter rendered height = 67px (96px font with cap-height trim).
 // Row spacing in acronyms: 87px between letter tops.
 
-const LETTER_DATA = [
+type LetterGroup = 'rgb' | 'hsb';
+type LetterId = 'r' | 'g' | 'b1' | 'h' | 's' | 'b2';
+interface Letter {
+  id: LetterId;
+  char: string;
+  style: React.CSSProperties;
+  group: LetterGroup;
+  row: number;
+  introX: number;
+  introXOff: number;
+  label: string;
+}
+
+const LETTER_DATA: Letter[] = [
   // Intro: absolute position within panel. Acronyms: stacked column positions.
   // introX = parent frame x, introXOff = letter offset within group (tuned for Barlow)
   { id: 'r',  char: 'R', style: R_STYLE, group: 'rgb', row: 0, introX: 85,  introXOff: 0,   label: 'Red' },
@@ -774,9 +789,9 @@ const LETTER_DATA = [
 ];
 
 // Acronyms letter frame positions
-const ACRO_LETTER_X = { rgb: 60, hsb: 423 };
+const ACRO_LETTER_X: Record<LetterGroup, number> = { rgb: 60, hsb: 423 };
 // Letter x-offsets within the 80px-wide frame (centered per letter width)
-const ACRO_LETTER_XOFF = {
+const ACRO_LETTER_XOFF: Record<LetterId, number> = {
   r: 10, g: 5, b1: 10,
   h: 7, s: 12, b2: 10,
 };
@@ -784,11 +799,11 @@ const ACRO_LETTER_Y = 40; // top of letter frame
 const ROW_STEP = 87; // y distance between letter rows
 
 // Acronyms label positions
-const ACRO_LABEL_X = { rgb: 160, hsb: 523 };
+const ACRO_LABEL_X: Record<LetterGroup, number> = { rgb: 160, hsb: 523 };
 const ACRO_LABEL_Y = 65; // top of label frame
 
 // Intro label positions (hidden, with x-offsets for slide-in animation)
-const INTRO_LABEL_XOFF = {
+const INTRO_LABEL_XOFF: Record<LetterGroup, number[]> = {
   rgb: [0, 50, 120],   // Red, Green, Blue x-offsets within frame
   hsb: [0, 50, 100],   // Hue, Saturation, Brightness x-offsets within frame
 };
@@ -797,11 +812,11 @@ const INTRO_Y = 111; // top of letters in intro (125 - 14 line-height compensati
 const LETTER_H = 67; // rendered cap-height
 const ACRO_Y_OFFSET = -14; // compensation for lineHeight:1 vs cap-height trim
 
-function IntroPanel({ mode, exiting = false }) {
+function IntroPanel({ mode, exiting = false }: { mode: string; exiting?: boolean }) {
   const exp = mode === 'acronyms';
 
   // When exiting, hold positions in place (BW cells will expand over them)
-  function getLetterPos(l) {
+  function getLetterPos(l: Letter) {
     if (exiting || exp) {
       return {
         x: ACRO_LETTER_X[l.group] + (ACRO_LETTER_XOFF[l.id] || 0),
@@ -811,7 +826,7 @@ function IntroPanel({ mode, exiting = false }) {
     return { x: l.introX + l.introXOff, y: INTRO_Y };
   }
 
-  function getLabelPos(l) {
+  function getLabelPos(l: Letter) {
     if (exiting || exp) {
       return { x: ACRO_LABEL_X[l.group], y: ACRO_LABEL_Y + l.row * ROW_STEP };
     }

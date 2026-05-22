@@ -1,8 +1,8 @@
-import { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, useCallback, type ReactNode } from 'react';
 
 const ThemeContext = createContext({ isDark: false, toggle: () => {}, setDark: () => {}, restore: () => {}, reset: () => {} });
 
-export function ThemeProvider({ children }) {
+export function ThemeProvider({ children }: { children: ReactNode }) {
   const [isDark, setIsDark] = useState(() => {
     const saved = localStorage.getItem('color-taylor-theme');
     if (saved !== null) return saved === 'dark';

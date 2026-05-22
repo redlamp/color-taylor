@@ -13,7 +13,7 @@ const MAC_16 = [
 ];
 
 const GRID_256_REV = [...MAC_CLUT8].reverse();
-const GRID_256 = [];
+const GRID_256: string[][] = [];
 for (let r = 0; r < 8; r++) GRID_256.push(GRID_256_REV.slice(r * 32, (r + 1) * 32));
 
 // Thousands: 4 gradient rows — R, G, B channels + grayscale
@@ -51,8 +51,10 @@ const THOUSANDS_ROWS = generateThousandsRows(64);
 const PANEL_W = 726;
 const PANEL_H = 320;
 
+type MonitorMode = 'bw' | 'c16' | 'c256' | 'thousands' | 'millions';
+
 // Standalone wrapper (used by slideComponents registry)
-export default function MonitorPanel({ mode }) {
+export default function MonitorPanel({ mode }: { mode: MonitorMode }) {
   return (
     <div className="flex flex-col items-center">
       <div style={{ width: PANEL_W, height: PANEL_H, borderRadius: 6, overflow: 'hidden' }}>
@@ -63,7 +65,7 @@ export default function MonitorPanel({ mode }) {
 }
 
 // Grid content only — used by PresentationStage inside the persistent panel
-export function MonitorPanelContent({ mode }) {
+export function MonitorPanelContent({ mode }: { mode: MonitorMode }) {
   if (mode === 'bw') return <BWLayout />;
   if (mode === 'c16') return <SixteenLayout />;
   if (mode === 'c256') return <Grid256Layout />;

@@ -1,4 +1,11 @@
-export default function NarrativeSlide({ heading, subheading, body, introText }) {
+interface NarrativeSlideProps {
+  heading?: string;
+  subheading?: string;
+  body?: string;
+  introText?: string[];
+}
+
+export default function NarrativeSlide({ heading, subheading, body, introText }: NarrativeSlideProps) {
   return (
     <div className="flex flex-col items-center justify-center gap-4 text-center max-w-2xl mx-auto">
       {heading && (
@@ -12,7 +19,7 @@ export default function NarrativeSlide({ heading, subheading, body, introText })
       )}
       {introText && (
         <div className="flex flex-col gap-4 mt-6 text-left">
-          {introText.map((para, i) => (
+          {introText.map((para: string, i: number) => (
             <p key={i} className="text-base text-muted-foreground/90 leading-relaxed">{para}</p>
           ))}
         </div>
