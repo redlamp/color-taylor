@@ -419,13 +419,14 @@ export default function AnimatedGrid({ mode, swatchColor, enterColor }) {
       timers.current.forEach(clearTimeout);
       timers.current = [];
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- transition runs on mode change only; enterColor/swatchColor read at that moment
   }, [mode]);
 
   // Reactively update swatch color and ensure visibility
   // Skip during transitions so the cell tween from small→large isn't overwritten
   useEffect(() => {
     if (mode !== 'swatch' || !swatchColor || isTransitioning.current) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+     
     setCells([{
       id: swatchColor.toLowerCase(),
       color: swatchColor,

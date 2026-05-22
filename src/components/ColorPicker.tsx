@@ -44,6 +44,23 @@ type HslMode = 'hsb' | 'hsl' | 'both';
 type RgbGradientMode = 'channel' | 'mixed';
 type BlMode = 'brightness' | 'lightness';
 
+// Color-cycle animation constants (mirror DEFAULT_RECENT in ColorHexagon)
+const COLOR_KEYFRAMES = [
+  { r: 255, g: 0,   b: 0   },
+  { r: 255, g: 255, b: 0   },
+  { r: 0,   g: 255, b: 0   },
+  { r: 0,   g: 255, b: 255 },
+  { r: 0,   g: 0,   b: 255 },
+  { r: 255, g: 0,   b: 255 },
+  { r: 255, g: 255, b: 255 },
+  { r: 128, g: 128, b: 128 },
+  { r: 0,   g: 0,   b: 0   },
+];
+const ANIM_TRANSITION_DUR = 1200;
+const ANIM_HOLD_DUR = 800;
+const ANIM_STEP_DUR = ANIM_TRANSITION_DUR + ANIM_HOLD_DUR;
+const ANIM_CYCLE_DUR = COLOR_KEYFRAMES.length * ANIM_STEP_DUR;
+
 export default function ColorPicker() {
   const [hsb, setHsb] = useState<HSB>(() => {
     try {
@@ -272,7 +289,7 @@ export default function ColorPicker() {
   // Persist HSB to localStorage
   useEffect(() => {
     localStorage.setItem('color-taylor-hsb', JSON.stringify(hsb));
-  }, [hsb.h, hsb.s, hsb.b]);
+  }, [hsb]);
 
   const handleRgbChange = useCallback((channel: 'r' | 'g' | 'b', value: number) => {
     if (colorAnimActiveRef.current) colorAnimActiveRef.current = 'stop';
@@ -341,23 +358,6 @@ export default function ColorPicker() {
   const [colorAnimHolding, setColorAnimHolding] = useState(false);
   const colorAnimRaf = useRef<number | null>(null);
   useEffect(() => { colorAnimActiveRef.current = colorAnimActive; }, [colorAnimActive]);
-
-  // Matches the DEFAULT_RECENT colors from ColorHexagon
-  const COLOR_KEYFRAMES = [
-    { r: 255, g: 0,   b: 0   }, // #ff0000
-    { r: 255, g: 255, b: 0   }, // #ffff00
-    { r: 0,   g: 255, b: 0   }, // #00ff00
-    { r: 0,   g: 255, b: 255 }, // #00ffff
-    { r: 0,   g: 0,   b: 255 }, // #0000ff
-    { r: 255, g: 0,   b: 255 }, // #ff00ff
-    { r: 255, g: 255, b: 255 }, // #ffffff
-    { r: 128, g: 128, b: 128 }, // #808080
-    { r: 0,   g: 0,   b: 0   }, // #000000
-  ];
-  const ANIM_TRANSITION_DUR = 1200;
-  const ANIM_HOLD_DUR = 800;
-  const ANIM_STEP_DUR = ANIM_TRANSITION_DUR + ANIM_HOLD_DUR;
-  const ANIM_CYCLE_DUR = COLOR_KEYFRAMES.length * ANIM_STEP_DUR;
 
   useEffect(() => {
     if (!colorAnimActive) {
