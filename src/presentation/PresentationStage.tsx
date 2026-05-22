@@ -16,6 +16,21 @@ import NarrativeSlide from './slides/NarrativeSlide';
 import HsbCircle from './HsbCircle';
 import ColorPicker from '../components/ColorPicker';
 
+const FULL_KEYFRAMES = [
+  { r: 0,   g: 0,   b: 0   },
+  { r: 255, g: 0,   b: 0   },
+  { r: 255, g: 255, b: 0   },
+  { r: 0,   g: 255, b: 0   },
+  { r: 0,   g: 255, b: 255 },
+  { r: 0,   g: 0,   b: 255 },
+  { r: 255, g: 0,   b: 255 },
+  { r: 255, g: 255, b: 255 },
+];
+const RED_KEYFRAMES = [
+  { r: 0,   g: 0,   b: 0   },
+  { r: 255, g: 0,   b: 0   },
+];
+
 export default function PresentationStage({ slide, slideIndex }) {
   // ── Color state (persists across all slides) ──────────────────────
   const [hsb, setHsb] = useState({ h: 0, s: 100, b: 100 });
@@ -26,7 +41,7 @@ export default function PresentationStage({ slide, slideIndex }) {
 
   const rgbFromHsb = useMemo(() => hsbToRgb(hsb.h, hsb.s, hsb.b), [hsb.h, hsb.s, hsb.b]);
   // HSB-canonical + RGB-override-ref pattern (see CLAUDE.md). Intentional read.
-  // eslint-disable-next-line react-hooks/refs
+   
   const rgb = rgbOverride.current || rgbFromHsb;
   const hex = useMemo(() => rgbToHex(rgb.r, rgb.g, rgb.b), [rgb.r, rgb.g, rgb.b]);
   const hsl = useMemo(() => rgbToHsl(rgb.r, rgb.g, rgb.b), [rgb.r, rgb.g, rgb.b]);
@@ -83,7 +98,7 @@ export default function PresentationStage({ slide, slideIndex }) {
       rgbOverride.current = next;
       return rgbToHsb(next.r, next.g, next.b);
     });
-  }, []);
+  }, [signalUserInteraction]);
 
   // ── Slide classification ──────────────────────────────────────────
   const isStatic = slide.type === 'static';
@@ -190,21 +205,6 @@ export default function PresentationStage({ slide, slideIndex }) {
   const rgbAnimRaf = useRef(null);
   const rgbAnimKeyframesRef = useRef(null); // track current keyframe set
 
-  const FULL_KEYFRAMES = [
-    { r: 0,   g: 0,   b: 0   }, // Black
-    { r: 255, g: 0,   b: 0   }, // Red
-    { r: 255, g: 255, b: 0   }, // Yellow
-    { r: 0,   g: 255, b: 0   }, // Green
-    { r: 0,   g: 255, b: 255 }, // Cyan
-    { r: 0,   g: 0,   b: 255 }, // Blue
-    { r: 255, g: 0,   b: 255 }, // Magenta
-    { r: 255, g: 255, b: 255 }, // White
-  ];
-  const RED_KEYFRAMES = [
-    { r: 0,   g: 0,   b: 0   },
-    { r: 255, g: 0,   b: 0   },
-  ];
-
   const rgbAnimDelay = useRef(null);
   const prevHadRgbAnim = useRef(false);
   useEffect(() => {
@@ -225,6 +225,7 @@ export default function PresentationStage({ slide, slideIndex }) {
       prevHadRgbAnim.current = true;
     }
     return () => { if (rgbAnimDelay.current) clearTimeout(rgbAnimDelay.current); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- rgbAnimActive intentionally read at slide-change time only
   }, [slideIndex, slide.props?.showRgbAnimate]);
 
   useEffect(() => {
@@ -324,7 +325,7 @@ export default function PresentationStage({ slide, slideIndex }) {
     return () => {
       if (rgbAnimRaf.current) cancelAnimationFrame(rgbAnimRaf.current);
     };
-  }, [rgbAnimActive, slideIndex]);
+  }, [rgbAnimActive, slideIndex, slide.props?.lockedChannels]);
 
   // ── Derived values (must be above early returns to keep hook order stable) ──
   const enterColor = useMemo(() => {
@@ -340,7 +341,8 @@ export default function PresentationStage({ slide, slideIndex }) {
   const [appReady, setAppReady] = useState(false);  // true = painted at start scale
   const [appExpanded, setAppExpanded] = useState(false); // true = scale up + fade in
   useEffect(() => {
-    if (!has('color-taylor-app')) { setAppReady(false); setAppExpanded(false); return; }
+    const hasApp = (slide.props?.visiblePanels || []).includes('color-taylor-app');
+    if (!hasApp) { setAppReady(false); setAppExpanded(false); return; }
     // Step 1: render at start scale, invisible (no transition)
     setAppReady(false);
     setAppExpanded(false);
@@ -353,16 +355,17 @@ export default function PresentationStage({ slide, slideIndex }) {
       });
     });
     return () => cancelAnimationFrame(raf);
-  }, [slideIndex]);
+  }, [slideIndex, slide.props?.visiblePanels]);
 
   // ── HSB Circle entrance animation (must be above ALL early returns) ──
   const [circleIn, setCircleIn] = useState(false);
   useEffect(() => {
-    if (!has('hsb-circle')) { setCircleIn(false); return; }
+    const hasCircle = (slide.props?.visiblePanels || []).includes('hsb-circle');
+    if (!hasCircle) { setCircleIn(false); return; }
     setCircleIn(false);
     const id = requestAnimationFrame(() => requestAnimationFrame(() => setCircleIn(true)));
     return () => cancelAnimationFrame(id);
-  }, [slideIndex]);
+  }, [slideIndex, slide.props?.visiblePanels]);
 
   const showCircle = has('hsb-circle');
 
@@ -374,10 +377,10 @@ export default function PresentationStage({ slide, slideIndex }) {
 
   // ── Color Taylor App reveal — scales up from presentation width ───
   if (has('color-taylor-app')) {
-    /* eslint-disable react-hooks/refs -- intentional measurement read for scale */
+     
     const appWidth = appRef.current?.offsetWidth || 1150;
     const startScale = PANEL_W / appWidth;
-    /* eslint-enable react-hooks/refs */
+     
     return (
       <div
         ref={appRef}
@@ -604,7 +607,7 @@ export default function PresentationStage({ slide, slideIndex }) {
 
         {/* Intro / Acronyms — shared elements that tween between slides */}
         {(slide.props?.mode === 'intro' || slide.props?.mode === 'acronyms' || introExiting) && (
-          // eslint-disable-next-line react-hooks/refs
+           
           <IntroPanel mode={introExiting ? introExitMode.current : slide.props.mode} exiting={introExiting} />
         )}
 

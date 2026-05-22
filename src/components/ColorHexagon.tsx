@@ -54,7 +54,7 @@ interface HoveredMarker {
 export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, animHolding, onHoverHtmlColor, muted }: ColorHexagonProps) {
   const [hexOpen, setHexOpen] = useState(true);
   const [vectorMode] = useState<ChannelOrder>('rgb');
-  const initialHex = useMemo(() => rgbToHex(rgb.r, rgb.g, rgb.b), []);
+  const [initialHex] = useState(() => rgbToHex(rgb.r, rgb.g, rgb.b));
   const [recentColors, setRecentColors] = useState(() => {
     try {
       const saved = localStorage.getItem('color-taylor-recent');
@@ -587,6 +587,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   }, [onHueChange, getSvgCoords]);
 
   // Vector chain
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- rgb accessed via dynamic key; r/g/b deps cover all reads
   const order = useMemo(() => getOrder(vectorMode, rgb), [vectorMode, rgb.r, rgb.g, rgb.b]);
   const scale = RADIUS / 255;
   const { points, dotNames } = useMemo(() => {
@@ -605,6 +606,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       names.push(ch === 'r' ? 'red' : ch === 'g' ? 'green' : 'blue');
     }
     return { points: pts, dotNames: names };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- rgb accessed via dynamic key; r/g/b deps cover all reads
   }, [order, rgb.r, rgb.g, rgb.b, scale]);
 
   const dotColors = useMemo(() => points.map((p) => {
@@ -666,6 +668,10 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   // Exception: highlight immediately during animation hold phases.
   const currentHex = rgbToHex(rgb.r, rgb.g, rgb.b);
   const addRecentTimer = useRef(null);
+  const recentColorsRef = useRef(recentColors);
+  recentColorsRef.current = recentColors;
+  const animHoldingRef = useRef(animHolding);
+  animHoldingRef.current = animHolding;
 
   // Immediate highlight during animation holds
   useEffect(() => {
@@ -673,11 +679,12 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       const matchIdx = recentColors.indexOf(currentHex);
       setSelectedRecentIdx(matchIdx !== -1 ? matchIdx : null);
     }
-  }, [animHolding, currentHex]);
+  }, [animHolding, currentHex, recentColors]);
 
+  // Reset debounce on currentHex change only; reads latest recentColors via ref
+  // to avoid restarting the timer when the recent list updates.
   useEffect(() => {
-    // Clear highlight when color starts changing (unless animation is holding)
-    if (!animHolding) setSelectedRecentIdx(null);
+    if (!animHoldingRef.current) setSelectedRecentIdx(null);
 
     if (addRecentTimer.current) clearTimeout(addRecentTimer.current);
     addRecentTimer.current = setTimeout(() => {
@@ -686,14 +693,12 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
         lastHex.current = currentHex;
         return;
       }
-      // Highlight if it matches an existing recent color
-      const matchIdx = recentColors.indexOf(currentHex);
+      const matchIdx = recentColorsRef.current.indexOf(currentHex);
       if (matchIdx !== -1) {
         setSelectedRecentIdx(matchIdx);
         lastHex.current = currentHex;
         return;
       }
-      // New color — add to front
       if (currentHex !== lastHex.current) {
         lastHex.current = currentHex;
         setRecentColors((prev) => {
@@ -968,7 +973,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       window.removeEventListener('pointerup', onPointerUp);
       document.documentElement.removeEventListener('pointerleave', onPointerLeave);
     };
-  }, [hueFromMouse, handleDotDrag, handleHexSurfaceDrag, getBLValueFromClientY, applyBLValue, animateBLToValue, getSvgCoords, getHsbFromPosition, onAnimateToHsb, onHsbChange, addToRecent, blMode]);
+  }, [hueFromMouse, handleDotDrag, handleHexSurfaceDrag, getBLValueFromClientY, applyBLValue, animateBLToValue, getSvgCoords, getHsbFromPosition, onAnimateToHsb, onHsbChange, addToRecent, blMode, cancelHoldTone]);
 
   // Non-passive wheel listener to prevent page scroll
   useEffect(() => {
