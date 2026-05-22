@@ -1,24 +1,25 @@
 import { useMemo } from 'react';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import CollapsibleSection from './CollapsibleSection';
-import { complementary, lighter, darker, hsbToRgb, rgbToHex } from '../utils/colorConversions';
+import { complementary, lighter, darker, hsbToRgb, rgbToHex, type HSB } from '../utils/colorConversions';
 
-const OPS = [
+type OpId = 'inverse' | 'lighten' | 'darken';
+
+const OPS: { id: OpId; label: string; tooltip: string }[] = [
   { id: 'inverse',  label: 'Inverse/Complimentary',  tooltip: 'Rotate hue 180°' },
   { id: 'lighten',  label: 'Lighten',  tooltip: 'Brightness +15%' },
   { id: 'darken',   label: 'Darken',   tooltip: 'Brightness -15%' },
 ];
 
-function computeResult(opId, hsb) {
+function computeResult(opId: OpId, hsb: HSB): HSB {
   switch (opId) {
     case 'inverse': return complementary(hsb.h, hsb.s, hsb.b);
     case 'lighten': return lighter(hsb.h, hsb.s, hsb.b);
     case 'darken':  return darker(hsb.h, hsb.s, hsb.b);
-    default: return null;
   }
 }
 
-export default function ColorOperations({ hsb, onAnimateToHsb }) {
+export default function ColorOperations({ hsb, onAnimateToHsb }: { hsb: HSB; onAnimateToHsb: (target: HSB) => void }) {
   const results = useMemo(() => {
     return OPS.map(op => {
       const resultHsb = computeResult(op.id, hsb);

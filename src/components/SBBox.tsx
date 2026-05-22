@@ -1,10 +1,18 @@
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, type PointerEvent as ReactPointerEvent } from 'react';
 import useDrag from '../hooks/useDrag';
 
-export default function SBBox({ hue, saturation, brightness, onChange }) {
-  const ref = useRef(null);
+interface SBBoxProps {
+  hue: number;
+  saturation: number;
+  brightness: number;
+  onChange: (s: number, b: number) => void;
+}
 
-  const update = useCallback((clientX, clientY) => {
+export default function SBBox({ hue, saturation, brightness, onChange }: SBBoxProps) {
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  const update = useCallback((clientX: number, clientY: number) => {
+    if (!ref.current) return;
     const rect = ref.current.getBoundingClientRect();
     const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
     const y = Math.max(0, Math.min(clientY - rect.top, rect.height));
@@ -13,7 +21,7 @@ export default function SBBox({ hue, saturation, brightness, onChange }) {
     onChange(s, b);
   }, [onChange]);
 
-  const { startDrag } = useDrag(useCallback((e) => {
+  const { startDrag } = useDrag(useCallback((e: PointerEvent | ReactPointerEvent) => {
     update(e.clientX, e.clientY);
   }, [update]));
 

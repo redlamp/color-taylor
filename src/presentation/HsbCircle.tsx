@@ -1,16 +1,20 @@
-import { useMemo, useRef, useCallback, useEffect } from 'react';
-import { hsbToRgb, rgbToHex } from '../utils/colorConversions';
+import { useMemo, useRef, useCallback, useEffect, type MouseEvent as ReactMouseEvent } from 'react';
+import { hsbToRgb, rgbToHex, type HSB } from '../utils/colorConversions';
 
 // HSB color wheel with brightness bar.
 // Supports shape='circle' or shape='hexagon' with CSS clip-path morph.
 // Red faces east (0° = right). Hue increases counter-clockwise.
 // Hexagon mode shows linked RGB chain segments like the main app.
 
+type Channel = 'r' | 'g' | 'b';
+type Shape = 'circle' | 'hexagon';
+type PointerLike = MouseEvent | ReactMouseEvent;
+
 const PI = Math.PI;
 const SQRT3_2 = Math.sqrt(3) / 2;
 
 // RGB channel directions on the hex grid (same as main app)
-const DIRS = {
+const DIRS: Record<Channel, { x: number; y: number }> = {
   r: { x: 1, y: 0 },
   g: { x: -0.5, y: -SQRT3_2 },
   b: { x: -0.5, y: SQRT3_2 },
@@ -20,8 +24,8 @@ const DIRS = {
 // Circle = 48 evenly spaced points on circumference (nearly perfect circle).
 // Hexagon = 48 points along 6 straight edges (8 per edge).
 const N_PTS = 48;
-function makeClipPath(shape) {
-  const pts = [];
+function makeClipPath(shape: Shape) {
+  const pts: string[] = [];
   if (shape === 'hexagon') {
     // 6 edges, 8 points per edge (48 total). Vertices at 0°,60°,120°,...
     for (let edge = 0; edge < 6; edge++) {
@@ -48,13 +52,22 @@ function makeClipPath(shape) {
 const CIRCLE_CLIP = makeClipPath('circle');
 const HEX_CLIP = makeClipPath('hexagon');
 
-function hexEdgeDist(angle) {
+function hexEdgeDist(angle: number) {
   const a = ((angle % (2 * PI)) + 2 * PI) % (2 * PI);
   const sectorAngle = a % (PI / 3);
   return SQRT3_2 / Math.cos(sectorAngle - PI / 6);
 }
 
-export default function HsbCircle({ size = 280, hue, saturation, brightness, onHsbChange, shape = 'circle' }) {
+interface HsbCircleProps {
+  size?: number;
+  hue: number;
+  saturation: number;
+  brightness: number;
+  onHsbChange?: (partial: Partial<HSB>) => void;
+  shape?: Shape;
+}
+
+export default function HsbCircle({ size = 280, hue, saturation, brightness, onHsbChange, shape = 'circle' }: HsbCircleProps) {
   const barWidth = 20;
   const barGap = 16;
   const arrowSize = 8;
@@ -62,7 +75,7 @@ export default function HsbCircle({ size = 280, hue, saturation, brightness, onH
   const totalW = size + barGap + barWidth + arrowSize + 4;
   const isHex = shape === 'hexagon';
 
-  const svgRef = useRef(null);
+  const svgRef = useRef<SVGSVGElement | null>(null);
   const draggingWheel = useRef(false);
   const draggingBar = useRef(false);
 
@@ -80,7 +93,7 @@ export default function HsbCircle({ size = 280, hue, saturation, brightness, onH
   // Linked RGB chain: center → +R → +G → +B (like main app)
   const scale = radius / 255;
   const chainPoints = useMemo(() => {
-    const order = ['r', 'g', 'b'];
+    const order: Channel[] = ['r', 'g', 'b'];
     const pts = [{ x: radius, y: radius }]; // origin = center
     let cur = { x: radius, y: radius };
     for (const ch of order) {
@@ -117,7 +130,7 @@ export default function HsbCircle({ size = 280, hue, saturation, brightness, onH
   const arrowY = (1 - brightness / 100) * barH;
 
   // Mouse handling
-  const svgPoint = useCallback((e) => {
+  const svgPoint = useCallback((e: PointerLike) => {
     const svg = svgRef.current;
     if (!svg) return null;
     const rect = svg.getBoundingClientRect();
@@ -127,7 +140,7 @@ export default function HsbCircle({ size = 280, hue, saturation, brightness, onH
     };
   }, [totalW, size]);
 
-  const handleWheelDrag = useCallback((e) => {
+  const handleWheelDrag = useCallback((e: PointerLike) => {
     const pt = svgPoint(e);
     if (!pt) return;
     const dx = pt.x - radius;
@@ -140,7 +153,7 @@ export default function HsbCircle({ size = 280, hue, saturation, brightness, onH
     onHsbChange?.({ h: Math.round(h), s: Math.round(s) });
   }, [svgPoint, radius, isHex, onHsbChange]);
 
-  const handleBarDrag = useCallback((e) => {
+  const handleBarDrag = useCallback((e: PointerLike) => {
     const pt = svgPoint(e);
     if (!pt) return;
     const b = Math.round(Math.max(0, Math.min(100, (1 - pt.y / barH) * 100)));
@@ -148,7 +161,7 @@ export default function HsbCircle({ size = 280, hue, saturation, brightness, onH
   }, [svgPoint, barH, onHsbChange]);
 
   useEffect(() => {
-    const onMove = (e) => {
+    const onMove = (e: MouseEvent) => {
       if (draggingWheel.current) handleWheelDrag(e);
       else if (draggingBar.current) handleBarDrag(e);
     };
@@ -165,7 +178,7 @@ export default function HsbCircle({ size = 280, hue, saturation, brightness, onH
   }, [handleWheelDrag, handleBarDrag]);
 
   const clipPath = isHex ? HEX_CLIP : CIRCLE_CLIP;
-  const channelMeta = [
+  const channelMeta: { ch: Channel; color: string; hoverColor: string }[] = [
     { ch: 'r', color: '#FF4444', hoverColor: '#FF6666' },
     { ch: 'g', color: '#44DD44', hoverColor: '#66FF66' },
     { ch: 'b', color: '#6688FF', hoverColor: '#88AAFF' },

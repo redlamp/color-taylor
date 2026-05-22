@@ -1,14 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { slides } from './slides';
+import { slides, type Slide } from './slides';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { useTheme } from '../hooks/useTheme';
 import PresentationStage from './PresentationStage';
 
 // Animated number counter — tweens from previous value to target
-function useAnimatedNumber(target, duration = 800) {
+function useAnimatedNumber(target: number, duration = 800) {
   const [display, setDisplay] = useState(target);
   const prevTarget = useRef(target);
-  const rafRef = useRef(null);
+  const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
     const from = prevTarget.current;
@@ -17,7 +17,7 @@ function useAnimatedNumber(target, duration = 800) {
 
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     const start = performance.now();
-    const tick = (ts) => {
+    const tick = (ts: number) => {
       const t = Math.min((ts - start) / duration, 1);
       const eased = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
       setDisplay(Math.round(from + (target - from) * eased));
@@ -31,12 +31,12 @@ function useAnimatedNumber(target, duration = 800) {
   return display;
 }
 
-export default function PresentationShell({ navigate }) {
+export default function PresentationShell({ navigate }: { navigate: (hash: string) => void }) {
   const [currentSlide, setCurrentSlide] = useState(0);
   const slide = slides[currentSlide];
   const total = slides.length;
 
-  const goTo = useCallback((idx) => {
+  const goTo = useCallback((idx: number) => {
     const clamped = Math.max(0, Math.min(total - 1, idx));
     setCurrentSlide(clamped);
   }, [total]);
@@ -46,7 +46,7 @@ export default function PresentationShell({ navigate }) {
 
   // Keyboard navigation
   useEffect(() => {
-    const onKey = (e) => {
+    const onKey = (e: KeyboardEvent) => {
       if (e.key === 'ArrowRight' || e.key === ' ') {
         e.preventDefault();
         next();
@@ -203,7 +203,7 @@ export default function PresentationShell({ navigate }) {
   );
 }
 
-function SlideTitle({ slide }) {
+function SlideTitle({ slide }: { slide: Slide }) {
   const meta = slide.titleMeta;
   const animatedBits = useAnimatedNumber(meta?.bits || 0, 400);
   const animatedYear = useAnimatedNumber(meta?.year || 0, 600);

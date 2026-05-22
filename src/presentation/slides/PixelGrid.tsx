@@ -12,7 +12,7 @@ const DITHER_8x8 = [
   [1,1,1,0,1,1,0,1],
 ];
 
-export default function PixelGrid({ bitDepth }) {
+export default function PixelGrid({ bitDepth }: { bitDepth: number }) {
   const rows = 8;
   const cols = 8;
   const cellSize = 40;

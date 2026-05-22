@@ -1,6 +1,24 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, type CSSProperties } from 'react';
 import { rgbToHex, hslToRgb } from '../../utils/colorConversions';
 import { MAC_CLUT8 } from '../../utils/palettes';
+
+type GridMode = 'intro' | 'acronyms' | 'bw' | 'c16' | 'c256' | 'thousands' | 'millions' | 'hsl-gradient' | 'swatch';
+
+interface LayoutCell {
+  id: string;
+  color: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  opacity?: number;
+}
+
+interface RenderCell extends LayoutCell {
+  opacity: number;
+  z: number;
+  transition: string;
+}
 
 // ── Palette data ────────────────────────────────────────────────────
 
@@ -11,21 +29,21 @@ const MAC_16 = [
 
 function generate256() {
   const reversed = [...MAC_CLUT8].reverse();
-  const grid = [];
+  const grid: string[][] = [];
   for (let r = 0; r < 8; r++) grid.push(reversed.slice(r * 32, (r + 1) * 32));
   return grid;
 }
 
 function generateThousands(count = 64) {
-  const make = (fn) => Array.from({ length: count }, (_, i) => {
+  const make = (fn: (v: number) => string) => Array.from({ length: count }, (_, i) => {
     const v = Math.round((i / (count - 1)) * 255);
     return fn(v);
   });
   return [
-    make(v => rgbToHex(v, 0, 0)),
-    make(v => rgbToHex(0, v, 0)),
-    make(v => rgbToHex(0, 0, v)),
-    make(v => rgbToHex(v, v, v)),
+    make((v: number) => rgbToHex(v, 0, 0)),
+    make((v: number) => rgbToHex(0, v, 0)),
+    make((v: number) => rgbToHex(0, 0, v)),
+    make((v: number) => rgbToHex(v, v, v)),
   ];
 }
 
@@ -37,9 +55,9 @@ const THOUSANDS = generateThousands(64);
 // IDs use the hex color; duplicates get a suffix so only the first
 // occurrence of each color matches across layouts.
 
-function assignIds(cells) {
-  const seen = {};
-  return cells.map(c => {
+function assignIds(cells: Omit<LayoutCell, 'id'>[]): LayoutCell[] {
+  const seen: Record<string, number> = {};
+  return cells.map((c) => {
     const key = c.color.toLowerCase();
     const n = seen[key] || 0;
     seen[key] = n + 1;
@@ -50,7 +68,7 @@ function assignIds(cells) {
 // For an unmatched HSL cell, compute a "birth" position within the millions bars
 // based on the cell's dominant RGB channel. The cell appears to emerge from the
 // relevant color bar before tweening to its HSL grid position.
-function getMillionsBirthPos(color) {
+function getMillionsBirthPos(color: string) {
   const raw = color.replace('#', '');
   const r = parseInt(raw.slice(0, 2), 16);
   const g = parseInt(raw.slice(2, 4), 16);
@@ -58,7 +76,7 @@ function getMillionsBirthPos(color) {
   const max = Math.max(r, g, b);
   const lum = (r + g + b) / 3;
   // Pick the bar row based on dominant channel
-  let barRow;
+  let barRow: number;
   if (max === r && r > g && r > b) barRow = 0;      // red bar
   else if (max === g && g > r && g > b) barRow = 1;  // green bar
   else if (max === b) barRow = 2;                     // blue bar
@@ -68,7 +86,7 @@ function getMillionsBirthPos(color) {
   return { x, y: barRow / 4 + 0.125, w: 1 / 64, h: 1 / 8 };
 }
 
-function getLayout(mode, swatchColor) {
+function getLayout(mode: GridMode, swatchColor?: string): LayoutCell[] {
   switch (mode) {
     case 'intro':
     case 'acronyms':
@@ -161,34 +179,34 @@ const SWATCH_EXPAND_TOTAL_MS = 900;
 const FADEOUT_TRANS = `opacity 0.6s ${EASE}`;
 
 // Compute a stagger delay from hex color: bright = early, dark = late
-function colorDelay(hexColor, maxDelay) {
+function colorDelay(hexColor: string, maxDelay: number) {
   const raw = hexColor.replace('#', '').replace(/:.*/, '');
   const n = parseInt(raw, 16) || 0;
   return maxDelay * (1 - n / 0xFFFFFF);
 }
 
 // Staggered fade-in for new cells
-function staggeredFade(hexColor, maxDelay = STAGGER_MAX) {
+function staggeredFade(hexColor: string, maxDelay = STAGGER_MAX) {
   const delay = colorDelay(hexColor, maxDelay);
   return `opacity ${FADE_DUR} ${EASE} ${delay.toFixed(3)}s`;
 }
 
 // Staggered move for matched cells (shorter max delay so they lead)
 const MOVE_STAGGER_MAX = 0.2; // seconds
-function staggeredMove(hexColor) {
+function staggeredMove(hexColor: string) {
   const delay = colorDelay(hexColor, MOVE_STAGGER_MAX);
   return `left 0.4s ${EASE} ${delay.toFixed(3)}s, width 0.4s ${EASE} ${delay.toFixed(3)}s, top 0.6s ${EASE} ${(0.4 + delay).toFixed(3)}s, height 0.6s ${EASE} ${(0.4 + delay).toFixed(3)}s, background-color 1s ${EASE} ${delay.toFixed(3)}s`;
 }
 
 // ── Nearest-neighbor color matching ─────────────────────────────────
 
-function parseRgb(hex) {
+function parseRgb(hex: string): [number, number, number] {
   const raw = hex.replace('#', '').replace(/:.*/, '');
   const n = parseInt(raw, 16) || 0;
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 
-function colorDist(a, b) {
+function colorDist(a: string, b: string) {
   const [r1, g1, b1] = parseRgb(a);
   const [r2, g2, b2] = parseRgb(b);
   return Math.sqrt((r1 - r2) ** 2 + (g1 - g2) ** 2 + (b1 - b2) ** 2);
@@ -197,12 +215,14 @@ function colorDist(a, b) {
 const MAX_MATCH_DIST = 80; // max RGB distance for nearest-neighbor pairing
 
 // Build transition pairs: exact matches, nearest-neighbor matches, and unmatched
-function buildPairs(fromLayout, toLayout) {
-  const fromMap = new Map(fromLayout.map(c => [c.id, c]));
-  const toMap = new Map(toLayout.map(c => [c.id, c]));
+interface Pair { key: string; from: LayoutCell; to: LayoutCell }
 
-  const pairs = [];      // { key, from, to }
-  const usedTo = new Set();
+function buildPairs(fromLayout: LayoutCell[], toLayout: LayoutCell[]) {
+  const fromMap = new Map(fromLayout.map((c: LayoutCell) => [c.id, c]));
+  const toMap = new Map(toLayout.map((c: LayoutCell) => [c.id, c]));
+
+  const pairs: Pair[] = [];
+  const usedTo = new Set<string>();
 
   // 1. Exact ID matches
   for (const [id, from] of fromMap) {
@@ -214,11 +234,11 @@ function buildPairs(fromLayout, toLayout) {
   }
 
   // 2. Nearest-neighbor matches for unmatched source cells
-  const unmatchedFrom = fromLayout.filter(c => !toMap.has(c.id));
-  const unmatchedTo = toLayout.filter(c => !fromMap.has(c.id) && !usedTo.has(c.id));
+  const unmatchedFrom = fromLayout.filter((c: LayoutCell) => !toMap.has(c.id));
+  const unmatchedTo = toLayout.filter((c: LayoutCell) => !fromMap.has(c.id) && !usedTo.has(c.id));
 
   // Build candidates sorted by distance (greedy closest-first)
-  const candidates = [];
+  const candidates: { from: LayoutCell; to: LayoutCell; dist: number }[] = [];
   for (const from of unmatchedFrom) {
     for (const to of unmatchedTo) {
       candidates.push({ from, to, dist: colorDist(from.color, to.color) });
@@ -226,8 +246,8 @@ function buildPairs(fromLayout, toLayout) {
   }
   candidates.sort((a, b) => a.dist - b.dist);
 
-  const pairedFrom = new Set();
-  const pairedTo = new Set();
+  const pairedFrom = new Set<string>();
+  const pairedTo = new Set<string>();
   for (const c of candidates) {
     if (pairedFrom.has(c.from.id) || pairedTo.has(c.to.id)) continue;
     if (c.dist > MAX_MATCH_DIST) continue;
@@ -245,10 +265,16 @@ function buildPairs(fromLayout, toLayout) {
 
 // ── Component ───────────────────────────────────────────────────────
 
-export default function AnimatedGrid({ mode, swatchColor, enterColor }) {
-  const containerRef = useRef(null);
-  const [cells, setCells] = useState(() =>
-    getLayout(mode, swatchColor).map(c => ({ ...c, opacity: 1, z: 1, transition: 'none' }))
+interface AnimatedGridProps {
+  mode: GridMode;
+  swatchColor?: string;
+  enterColor?: string;
+}
+
+export default function AnimatedGrid({ mode, swatchColor, enterColor }: AnimatedGridProps) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [cells, setCells] = useState<RenderCell[]>(() =>
+    getLayout(mode, swatchColor).map((c: LayoutCell) => ({ ...c, opacity: 1, z: 1, transition: 'none' }))
   );
   const prevMode = useRef(mode);
   const latestSwatch = useRef(swatchColor);

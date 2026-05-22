@@ -1,9 +1,18 @@
 import { useRef, useEffect, useCallback } from 'react';
 import { hsbToRgb, rgbToHex } from '../../utils/colorConversions';
 
+type PaletteMode = 'bw' | 'c16' | 'c256' | 'thousands' | 'millions';
+
+interface Frame {
+  startColor: string;
+  endColor: string;
+  startFlex: number;
+  endFlex: number;
+}
+
 // --- Palette definitions (easy to swap/modify) ---
 
-function hueSpectrum(n) {
+function hueSpectrum(n: number) {
   return Array.from({ length: n }, (_, i) => {
     const h = Math.round((i / n) * 360);
     const { r, g, b } = hsbToRgb(h, 100, 100);
@@ -19,7 +28,7 @@ const MAC_16 = [
   '#DD0806', '#FF6502', '#FBFA00', '#1FB714',
 ];
 
-export const PALETTES = {
+export const PALETTES: Record<PaletteMode, string[]> = {
   bw:        ['#000000', '#FFFFFF'],
   c16:       MAC_16,
   c256:      hueSpectrum(48),
@@ -29,12 +38,12 @@ export const PALETTES = {
 
 // --- Color math helpers ---
 
-function parseHex(hex) {
+function parseHex(hex: string): [number, number, number] {
   const n = parseInt(hex.replace('#', ''), 16);
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 
-function lerpColor(a, b, t) {
+function lerpColor(a: string, b: string, t: number) {
   const [r1, g1, b1] = parseHex(a);
   const [r2, g2, b2] = parseHex(b);
   const r = Math.round(r1 + (r2 - r1) * t);
@@ -43,7 +52,7 @@ function lerpColor(a, b, t) {
   return `rgb(${r},${g},${bl})`;
 }
 
-function easeInOut(t) {
+function easeInOut(t: number) {
   return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
 }
 
@@ -53,7 +62,7 @@ function easeInOut(t) {
 // and shrink to 1. Non-anchors expand from 0 to 1.
 // The visual effect: each source block "splits" into multiple target blocks.
 
-function buildTransition(from, to) {
+function buildTransition(from: string[], to: string[]): Frame[] {
   const n = from.length;
   const m = to.length;
   const expanding = m >= n;
@@ -62,7 +71,7 @@ function buildTransition(from, to) {
   const sn = small.length;
   const ln = large.length;
 
-  const frames = [];
+  const frames: Frame[] = [];
   for (let i = 0; i < sn; i++) {
     const startIdx = Math.round(i * ln / sn);
     const endIdx = Math.round((i + 1) * ln / sn);
@@ -83,36 +92,44 @@ function buildTransition(from, to) {
 
 // --- Component ---
 
-export default function MonitorColorStrip({ mode, height = 32, duration = 1500 }) {
-  const canvasRef = useRef(null);
-  const prevMode = useRef(mode);
-  const animRef = useRef(null);
-  const currentPalette = useRef(PALETTES[mode]);
+interface MonitorColorStripProps {
+  mode: PaletteMode;
+  height?: number;
+  duration?: number;
+}
 
-  const drawPalette = useCallback((palette) => {
+export default function MonitorColorStrip({ mode, height = 32, duration = 1500 }: MonitorColorStripProps) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const prevMode = useRef<PaletteMode>(mode);
+  const animRef = useRef<number | null>(null);
+  const currentPalette = useRef<string[]>(PALETTES[mode]);
+
+  const drawPalette = useCallback((palette: string[]) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
+    if (!ctx) return;
     const w = canvas.width;
     const h = canvas.height;
     const cellW = w / palette.length;
     ctx.clearRect(0, 0, w, h);
-    palette.forEach((color, i) => {
+    palette.forEach((color: string, i: number) => {
       ctx.fillStyle = color;
       ctx.fillRect(Math.floor(i * cellW), 0, Math.ceil(cellW) + 1, h);
     });
   }, []);
 
-  const drawFrame = useCallback((frames, t) => {
+  const drawFrame = useCallback((frames: Frame[], t: number) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
+    if (!ctx) return;
     const w = canvas.width;
     const h = canvas.height;
     const et = easeInOut(t);
 
     let totalFlex = 0;
-    const cells = frames.map(f => {
+    const cells = frames.map((f: Frame) => {
       const flex = Math.max(0, f.startFlex + (f.endFlex - f.startFlex) * et);
       totalFlex += flex;
       return { color: lerpColor(f.startColor, f.endColor, et), flex };
@@ -160,9 +177,9 @@ export default function MonitorColorStrip({ mode, height = 32, duration = 1500 }
 
     if (animRef.current) cancelAnimationFrame(animRef.current);
 
-    let start = null;
-    const tick = (ts) => {
-      if (!start) start = ts;
+    let start: number | null = null;
+    const tick = (ts: number) => {
+      if (start === null) start = ts;
       const t = Math.min((ts - start) / duration, 1);
       drawFrame(frames, t);
       if (t < 1) {
