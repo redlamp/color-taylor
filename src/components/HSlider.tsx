@@ -1,10 +1,11 @@
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, type PointerEvent as ReactPointerEvent } from 'react';
 import useDrag from '../hooks/useDrag';
 
-export default function HSlider({ hue, onChange }) {
-  const ref = useRef(null);
+export default function HSlider({ hue, onChange }: { hue: number; onChange: (h: number) => void }) {
+  const ref = useRef<HTMLDivElement | null>(null);
 
-  const update = useCallback((clientY) => {
+  const update = useCallback((clientY: number) => {
+    if (!ref.current) return;
     const rect = ref.current.getBoundingClientRect();
     const rawY = clientY - rect.top;
     const wrapped = ((rawY % rect.height) + rect.height) % rect.height;
@@ -12,7 +13,7 @@ export default function HSlider({ hue, onChange }) {
     onChange(Math.min(h, 360));
   }, [onChange]);
 
-  const { startDrag } = useDrag(useCallback((e) => {
+  const { startDrag } = useDrag(useCallback((e: PointerEvent | ReactPointerEvent) => {
     update(e.clientY);
   }, [update]));
 

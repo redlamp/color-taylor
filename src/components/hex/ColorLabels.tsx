@@ -12,7 +12,7 @@ const COLORS = [
   { label: 'M', name: 'Magenta', deg: 300, color: '#ff00ff', lightColor: '#d000d0' },
 ];
 
-export default function ColorLabels({ onColorClick }) {
+export default function ColorLabels({ onColorClick }: { onColorClick: (deg: number) => void }) {
   const { isDark } = useTheme();
 
   return COLORS.map(({ label, name, deg, color, lightColor }) => {

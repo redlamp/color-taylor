@@ -1,8 +1,8 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, type ChangeEvent } from 'react';
 import { Input } from '@/components/ui/input';
-import { hexToRgb } from '../utils/colorConversions';
+import { hexToRgb, type RGB } from '../utils/colorConversions';
 
-export default function HexInput({ hex, onChange }) {
+export default function HexInput({ hex, onChange }: { hex: string; onChange: (rgb: RGB) => void }) {
   const [text, setText] = useState(hex.toUpperCase());
   const [focused, setFocused] = useState(false);
 
@@ -19,7 +19,7 @@ export default function HexInput({ hex, onChange }) {
     return hexToRgb(text) !== null;
   }, [text, focused]);
 
-  const handleChange = (e) => {
+  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value;
     setText(raw);
     const parsed = hexToRgb(raw);
