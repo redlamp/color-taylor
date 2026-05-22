@@ -1,10 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { slides } from './slides';
+import { slides, type Slide } from './slides';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { useTheme } from '../hooks/useTheme';
 import PresentationStage from './PresentationStage';
-
-type Slide = typeof slides[number];
 
 // Animated number counter — tweens from previous value to target
 function useAnimatedNumber(target: number, duration = 800) {
