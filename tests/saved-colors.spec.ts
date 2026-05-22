@@ -15,15 +15,17 @@ const EXPECTED_HUE_ORDER = [
   '#ff00ff', // magenta   h=300
 ];
 
+function clearStorage() {
+  try {
+    localStorage.removeItem('color-taylor-saved');
+    localStorage.removeItem('color-taylor-recent');
+    localStorage.removeItem('color-taylor-hsb');
+  } catch { /* ignore */ }
+}
+
 test.describe('Saved colors row', () => {
   test.beforeEach(async ({ page }) => {
-    // Start from a clean slot grid so the test always sees the 9 defaults.
-    await page.addInitScript(() => {
-      try {
-        localStorage.removeItem('color-taylor-saved');
-        localStorage.removeItem('color-taylor-recent');
-      } catch { /* ignore */ }
-    });
+    await page.addInitScript(clearStorage);
   });
 
   test('renders defaults without duplicate-key console warnings', async ({ page }) => {
@@ -59,5 +61,52 @@ test.describe('Saved colors row', () => {
       })
     );
     expect(renderedOrder).toEqual(EXPECTED_HUE_ORDER);
+  });
+
+  test('drag-drop swaps two saved slots', async ({ page }) => {
+    await page.goto('/');
+    const section = page.locator('#saved-colors');
+    const slot0 = section.locator('[data-saved-idx="0"]');
+    const slot1 = section.locator('[data-saved-idx="1"]');
+    await slot0.waitFor();
+
+    const before = await Promise.all([
+      slot0.getAttribute('aria-label'),
+      slot1.getAttribute('aria-label'),
+    ]);
+    expect(before[0]).toMatch(/^Load /);
+    expect(before[1]).toMatch(/^Load /);
+
+    await slot0.dragTo(slot1);
+
+    const after = await Promise.all([
+      slot0.getAttribute('aria-label'),
+      slot1.getAttribute('aria-label'),
+    ]);
+    // After dropping 0 onto 1 (center-zone replace), the dragged color
+    // should now sit in slot 1; the original slot 1 content is overwritten.
+    // At minimum, the row must not be in its original arrangement.
+    expect(after).not.toEqual(before);
+  });
+});
+
+test.describe('Recent colors row', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(clearStorage);
+  });
+
+  test('debounce adds a new color to recent after 1s', async ({ page }) => {
+    await page.goto('/');
+    const hexInput = page.getByLabel('Hex color value');
+    await hexInput.waitFor();
+
+    // Use a fully-saturated pure-channel color so the HSB↔RGB roundtrip
+    // is lossless and the recent entry exactly matches what we type.
+    await hexInput.click();
+    await hexInput.fill('00FF80');
+    await hexInput.blur();
+
+    const recentSlot0 = page.locator('#recent-colors button[aria-label^="Select "]').first();
+    await expect(recentSlot0).toHaveAttribute('aria-label', /#00ff80/i, { timeout: 3000 });
   });
 });
