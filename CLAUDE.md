@@ -13,10 +13,9 @@ Package manager: **bun**. `bun.lock` is the source of truth; no `package-lock.js
 - `bun run typecheck` — `tsc --noEmit`
 - `bun run preview` — serve last build
 - `bun run deploy` — GitHub Pages build + publish via `gh-pages`. The script uses POSIX inline env var syntax (`GITHUB_PAGES=1 vite build`); bun's built-in shell handles this on Windows, so no PowerShell `$env:` workaround is needed when invoked via `bun run`.
+- `bun run test` — Playwright e2e against a Vite dev server (auto-started; reuses an existing one on :5173). Use `bun run test:ui` for the inspector and `bun run test:headed` to watch the browser. Specs live in `tests/`.
 
 The `GITHUB_PAGES` env var flips `vite.config.js`'s `base` between `./` (default, works for local file:// preview) and `/color-taylor/` (gh-pages subpath). Don't hardcode either.
-
-No test runner is configured.
 
 ## Stack
 
