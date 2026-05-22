@@ -1,11 +1,11 @@
-import type { MouseEventHandler } from 'react';
+import type { PointerEventHandler } from 'react';
 import { hsbToRgb, rgbToHex } from '../../utils/colorConversions';
 import { SIZE, HEX_SIZE } from './hexConstants';
 
 interface HueHandleProps {
   hue: number;
   hueLabel: { x: number; y: number };
-  onMouseDown: MouseEventHandler<HTMLDivElement>;
+  onMouseDown: PointerEventHandler<HTMLDivElement>;
 }
 
 export default function HueHandle({ hue, hueLabel, onMouseDown }: HueHandleProps) {
