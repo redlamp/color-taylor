@@ -11,9 +11,13 @@
  */
 @source "../../src";
 
+/*
+ * Height is intrinsic, not 100%. The window is sized to the content (see
+ * AutoHeight in main.tsx), so the content must be free to report its own
+ * height - pinning it to the viewport would make the measurement circular.
+ */
 html,
 body {
-  height: 100%;
   margin: 0;
   overflow: hidden;
 }
@@ -29,7 +33,6 @@ body {
 }
 
 .figma-root {
-  height: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -37,10 +40,6 @@ body {
   padding: 8px;
   /* clip, not hidden: no scroll container, so nothing can scroll sideways. */
   overflow-x: clip;
-  overflow-y: auto;
-  /* Reserve the vertical scrollbar's gutter so content does not jump when it
-     appears. */
-  scrollbar-gutter: stable;
 }
 
 .figma-root > #color-hexagon {
@@ -104,13 +103,14 @@ body {
   background: var(--background);
 }
 
+/* Width only - the height is content-driven, so this is an ew-resize. */
 .figma-grip {
   position: fixed;
   right: 0;
   bottom: 0;
   width: 16px;
   height: 16px;
-  cursor: nwse-resize;
+  cursor: ew-resize;
   touch-action: none;
   z-index: 50;
 }

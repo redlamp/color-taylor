@@ -78,6 +78,33 @@ function PluginApp() {
     post({ type: 'apply', hex });
   }, [hex, selectionCount]);
 
+  // Keep the window's height tied to the content's. Figma clamps the result to
+  // what fits on screen, so this is a request, not a guarantee - if the content
+  // is taller than the cap the panel scrolls as before.
+  //
+  // Measuring only works because nothing in the layout is height:100%; if it
+  // were, content height would follow window height and this would oscillate.
+  // The last-sent guard is a second line of defence against that.
+  const rootRef = useRef<HTMLDivElement>(null);
+  const lastHeightRef = useRef(0);
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    const measure = () => {
+      // The root element's own laid-out height. Not documentElement.scrollHeight:
+      // that is floored at the viewport height, so it would report the window
+      // back to us and the panel could never shrink.
+      const h = Math.ceil(el.offsetHeight);
+      if (h === lastHeightRef.current) return;
+      lastHeightRef.current = h;
+      post({ type: 'autosize', height: h });
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   // One undo entry per gesture rather than per frame of a drag.
   useEffect(() => {
     const commit = () => post({ type: 'commit' });
@@ -181,7 +208,7 @@ function PluginApp() {
   }, []);
 
   return (
-    <div className="figma-root">
+    <div className="figma-root" ref={rootRef}>
       <ColorHexagon
         rgb={rgb}
         hue={hsb.h}
@@ -214,16 +241,15 @@ function PluginApp() {
 }
 
 /**
- * The sandbox owns the window size, so stream drag deltas to it. Without this
- * the panel is a fixed rectangle and the hexagon can never grow.
+ * Width only. Height follows the content (see the autosize effect), so letting
+ * the grip set it too would just be overwritten on the next measurement.
  */
 function ResizeGrip() {
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault();
     const el = e.currentTarget;
     el.setPointerCapture(e.pointerId);
-    const move = (ev: PointerEvent) =>
-      post({ type: 'resize', width: Math.round(ev.clientX + 8), height: Math.round(ev.clientY + 8) });
+    const move = (ev: PointerEvent) => post({ type: 'resize', width: Math.round(ev.clientX + 8) });
     const up = (ev: PointerEvent) => {
       try {
         el.releasePointerCapture(ev.pointerId);

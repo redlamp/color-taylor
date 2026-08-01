@@ -10,7 +10,9 @@
  */
 
 const MIN_W = 300;
-const MIN_H = 380;
+// Low, because height tracks content: collapse every section and the panel
+// should shrink to match rather than leave dead space.
+const MIN_H = 160;
 const MAX_W = 900;
 const MAX_H = 1200;
 // The UI scales down from HEX_PANEL_WIDTH (614), so a wider default means
@@ -93,11 +95,24 @@ function applyFill(hex) {
   }
 }
 
-function clampSize(w, h) {
-  return {
-    w: Math.min(MAX_W, Math.max(MIN_W, Math.round(w))),
-    h: Math.min(MAX_H, Math.max(MIN_H, Math.round(h))),
-  };
+// Width is the user's (the grip); height follows the content. Tracked here
+// because figma.ui.resize takes both and there is no way to read them back.
+const size = { w: DEFAULT_W, h: DEFAULT_H };
+
+function clampW(w) {
+  return Math.min(MAX_W, Math.max(MIN_W, Math.round(w)));
+}
+
+function clampH(h) {
+  return Math.min(MAX_H, Math.max(MIN_H, Math.round(h)));
+}
+
+function applySize(w, h) {
+  const next = { w: clampW(w), h: clampH(h) };
+  if (next.w === size.w && next.h === size.h) return;
+  size.w = next.w;
+  size.h = next.h;
+  figma.ui.resize(size.w, size.h);
 }
 
 figma.on('selectionchange', postSelection);
@@ -120,12 +135,17 @@ figma.ui.onmessage = (msg) => {
       figma.commitUndo();
       break;
 
-    case 'resize': {
-      const size = clampSize(msg.width, msg.height);
-      figma.ui.resize(size.w, size.h);
-      figma.clientStorage.setAsync('windowSize', size);
+    // The grip. Width only, and remembered between runs.
+    case 'resize':
+      applySize(msg.width, size.h);
+      figma.clientStorage.setAsync('windowWidth', size.w);
       break;
-    }
+
+    // The UI reporting how tall its content is. Clamped to MAX_H, past which
+    // the panel scrolls rather than growing off-screen.
+    case 'autosize':
+      applySize(size.w, msg.height);
+      break;
 
     case 'close':
       figma.closePlugin();
@@ -133,11 +153,9 @@ figma.ui.onmessage = (msg) => {
   }
 };
 
-// Restore the last window size. Runs after showUI so the default is never
-// visible for more than a frame.
-figma.clientStorage.getAsync('windowSize').then((saved) => {
-  if (saved && saved.w && saved.h) {
-    const size = clampSize(saved.w, saved.h);
-    figma.ui.resize(size.w, size.h);
-  }
+// Restore the last width. Height is not restored - the UI reports its content
+// height as soon as it mounts, which is a better answer than whatever the
+// window happened to be last time.
+figma.clientStorage.getAsync('windowWidth').then((saved) => {
+  if (typeof saved === 'number') applySize(saved, size.h);
 });
