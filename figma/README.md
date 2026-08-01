@@ -66,6 +66,30 @@ Deliberately thin, so that app changes flow through untouched:
   off `dark`. A MutationObserver mirrors one onto the other so flipping Figma's
   theme mid-session works.
 
+## Window sizing
+
+Width is dragged from a lane down the right edge; height is always the
+content's. Two constraints shaped that, both learned the hard way:
+
+- **Only the east edge.** Resizing from the west or north needs
+  `figma.ui.reposition` alongside `resize` - two non-atomic calls per frame,
+  anchored to a position captured at drag start. The moment Figma clamps the
+  window itself that anchor is stale and the panel walks across the screen. It
+  is not worth having.
+- **The lane owns a column.** `.figma-scroll` stops where the lane begins. When
+  the handles floated over the content at `right: 0` they sat on the same pixels
+  as the scrollbar, so neither could be grabbed reliably.
+
+Height has exactly one source - the `ResizeObserver` in `main.tsx` reporting
+`.figma-root`'s `offsetHeight`. That is what makes dead space below the content
+structurally impossible rather than something to keep fixing. It also means
+nothing in the layout may be `height: 100%`, or the measurement becomes
+circular. If the fitted height exceeds the screen, Figma clamps it and
+`.figma-scroll` scrolls.
+
+There is no published recipe for this; the official docs and
+`create-figma-plugin` both only cover drag-resize between fixed bounds.
+
 ## Deliberate details
 
 - **Undo.** Figma groups all of a plugin's edits into one undo step. The UI

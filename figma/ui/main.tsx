@@ -104,23 +104,19 @@ function PluginApp() {
     post({ type: 'target', target });
   }, [target]);
 
-  // Keep the window's height tied to the content's. Figma clamps the result to
-  // what fits on screen, so this is a request, not a guarantee - if the content
-  // is taller than the cap the panel scrolls as before.
+  // The single source of the window's height. Nothing else sets it, which is
+  // why dead space below the content cannot happen.
   //
   // Measuring only works because nothing in the layout is height:100%; if it
   // were, content height would follow window height and this would oscillate.
-  // The last-sent guard is a second line of defence against that.
+  // The last-sent guard is a second line of defence against that. Figma clamps
+  // the result to what fits on screen, so a very tall panel scrolls instead.
   const rootRef = useRef<HTMLDivElement>(null);
   const lastHeightRef = useRef(0);
-  // Set once the user drags a horizontal edge: an explicit height beats a
-  // fitted one, so stop reporting content height from then on.
-  const manualHeightRef = useRef(false);
   useEffect(() => {
     const el = rootRef.current;
     if (!el) return;
     const measure = () => {
-      if (manualHeightRef.current) return;
       // The root element's own laid-out height. Not documentElement.scrollHeight:
       // that is floored at the viewport height, so it would report the window
       // back to us and the panel could never shrink.
@@ -240,8 +236,13 @@ function PluginApp() {
   }, []);
 
   return (
-    <div className="figma-root" ref={rootRef}>
-      <ColorHexagon
+    <>
+      {/* The scroll container stops short of the resize lane, so the scrollbar
+          and the drag target occupy different columns and never fight for the
+          same pixels. */}
+      <div className="figma-scroll">
+        <div className="figma-root" ref={rootRef}>
+          <ColorHexagon
         rgb={rgb}
         hue={hsb.h}
         brightness={hsb.b}
@@ -286,60 +287,36 @@ function PluginApp() {
             />
           </div>
         }
-      />
-      <ResizeHandles onVerticalDrag={() => { manualHeightRef.current = true; }} />
-    </div>
+          />
+        </div>
+      </div>
+      <WidthHandle />
+    </>
   );
 }
 
-const EDGES = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'] as const;
-type Edge = (typeof EDGES)[number];
-
 /**
- * Resize from any edge or corner, like a normal panel.
+ * The width lane: a dedicated strip down the right edge.
  *
- * Figma draws no resize chrome of its own, so all eight zones are ours. Two
- * details make it behave:
+ * It owns its own column rather than floating over the content, which is the
+ * whole point - the scroll container stops where this begins, so the scrollbar
+ * and the resize target can never land on the same pixels.
  *
- * - Deltas come from screenX/screenY, not clientX/clientY. Dragging the west or
- *   north edge moves the window, and client coords are relative to that moving
- *   iframe - they would chase themselves. Screen coords are absolute.
- * - Growing west or north needs the window's origin to move as it grows, which
- *   is figma.ui.reposition. The sandbox owns that; here we just flag which
- *   edges are anchored.
+ * East only. West/north resizing needs figma.ui.reposition alongside resize,
+ * two non-atomic calls per frame against an anchor that goes stale as soon as
+ * Figma clamps the window - the panel visibly walks. Height is the content's,
+ * so there is nothing to drag vertically.
  */
-function ResizeHandles({ onVerticalDrag }: { onVerticalDrag: () => void }) {
-  const start = (edge: Edge) => (e: React.PointerEvent<HTMLDivElement>) => {
+function WidthHandle() {
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault();
     const el = e.currentTarget;
     el.setPointerCapture(e.pointerId);
-
     const originX = e.screenX;
-    const originY = e.screenY;
     const startW = window.innerWidth;
-    const startH = window.innerHeight;
-    const fromLeft = edge.includes('w');
-    const fromTop = edge.includes('n');
-    const horizontal = edge.includes('e') || edge.includes('w');
-    const vertical = edge.includes('n') || edge.includes('s');
-
-    // A deliberate height drag takes the wheel from the content-fit logic.
-    if (vertical) onVerticalDrag();
-    post({ type: 'resizeStart' });
 
     const move = (ev: PointerEvent) => {
-      const dx = ev.screenX - originX;
-      const dy = ev.screenY - originY;
-      post({
-        type: 'resizeTo',
-        width: horizontal ? Math.round(fromLeft ? startW - dx : startW + dx) : undefined,
-        // Omitted on a purely horizontal drag. Sending the frozen start height
-        // every frame would out-vote the content fit, which is why the panel
-        // used to stop wrapping its content as soon as you touched the width.
-        height: vertical ? Math.round(fromTop ? startH - dy : startH + dy) : undefined,
-        fromLeft,
-        fromTop,
-      });
+      post({ type: 'resizeWidth', width: Math.round(startW + (ev.screenX - originX)) });
     };
     const up = (ev: PointerEvent) => {
       try {
@@ -355,24 +332,7 @@ function ResizeHandles({ onVerticalDrag }: { onVerticalDrag: () => void }) {
     el.addEventListener('pointerup', up);
   };
 
-  return (
-    <>
-      {EDGES.map((edge) => {
-        const vertical = edge.includes('n') || edge.includes('s');
-        return (
-          <div
-            key={edge}
-            className={`figma-rz figma-rz-${edge}`}
-            title={vertical ? 'Drag to set a height limit, double-click to fit content' : undefined}
-            onPointerDown={start(edge)}
-            // Recovers from a pinned height without having to drag it back to
-            // exactly the content's size.
-            onDoubleClick={vertical ? () => post({ type: 'refit' }) : undefined}
-          />
-        );
-      })}
-    </>
-  );
+  return <div className="figma-width-handle" title="Drag to resize" onPointerDown={onPointerDown} />;
 }
 
 /**
