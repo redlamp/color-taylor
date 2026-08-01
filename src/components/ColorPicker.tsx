@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import { hsbToRgb, rgbToHsb, rgbToHex, rgbToHsl, hslToRgb, type HSB, type RGB } from '../utils/colorConversions';
 import type { ColorSpace } from '../utils/sliderGradients';
+import { HSB_TWEEN_MS, hsbAtProgress } from '../utils/colorTween';
 import {
   hueGradient,
   saturationGradient,
@@ -239,28 +240,18 @@ export default function ColorPicker() {
       cancelAnimationFrame(animRef.current);
       isUndoRedoing.current = false;
     }
-    const duration = 1000;
     const from = { ...hsbRef.current };
     let start: number | null = null;
-
-    const easeInOut = (t: number) => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
 
     toneController.start(from);
 
     const tick = (timestamp: number) => {
       if (start === null) start = timestamp;
       const elapsed = timestamp - start;
-      const progress = Math.min(elapsed / duration, 1);
-      const t = easeInOut(progress);
-
-      // Handle hue wrap — take the shortest path
-      let dh = target.h - from.h;
-      if (dh > 180) dh -= 360;
-      if (dh < -180) dh += 360;
-
-      const h = Math.round(((from.h + dh * t) % 360 + 360) % 360);
-      const s = Math.round(from.s + (target.s - from.s) * t);
-      const b = Math.round(from.b + (target.b - from.b) * t);
+      const progress = Math.min(elapsed / HSB_TWEEN_MS, 1);
+      // Duration, easing, hue wrap and rounding live in utils/colorTween so the
+      // Figma plugin animates identically.
+      const { h, s, b } = hsbAtProgress(from, target, progress);
 
       rgbOverride.current = null;
       setHsb({ h, s, b });

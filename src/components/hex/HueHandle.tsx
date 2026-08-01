@@ -26,7 +26,7 @@ export default function HueHandle({ hue, hueLabel, onMouseDown }: HueHandleProps
         className="text-sm font-mono font-normal pointer-events-none"
         style={{ color: hue > 30 && hue < 200 ? '#000' : '#fff' }}
       >
-        {hue}°
+        {Math.round(hue)}°
       </span>
     </div>
   );

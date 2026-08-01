@@ -13,8 +13,10 @@ const MIN_W = 300;
 const MIN_H = 380;
 const MAX_W = 900;
 const MAX_H = 1200;
-const DEFAULT_W = 420;
-const DEFAULT_H = 560;
+// The UI scales down from HEX_PANEL_WIDTH (614), so a wider default means
+// larger, more legible type out of the box. Users can drag it either way.
+const DEFAULT_W = 500;
+const DEFAULT_H = 680;
 
 figma.showUI(__html__, { width: DEFAULT_W, height: DEFAULT_H, themeColors: true });
 

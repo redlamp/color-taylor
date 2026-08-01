@@ -18,9 +18,14 @@ body {
   overflow: hidden;
 }
 
+/*
+ * Figma injects --figma-color-* when the manifest asks for themeColors, so the
+ * panel can be the exact shade of the surrounding UI rather than merely
+ * light-or-dark like it. Falls back to the app's own tokens outside Figma.
+ */
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--figma-color-bg, var(--background));
+  color: var(--figma-color-text, var(--foreground));
 }
 
 .figma-root {
@@ -30,17 +35,36 @@ body {
   align-items: center;
   gap: 6px;
   padding: 8px;
-  overflow: auto;
+  /* clip, not hidden: no scroll container, so nothing can scroll sideways. */
+  overflow-x: clip;
+  overflow-y: auto;
+  /* Reserve the vertical scrollbar's gutter so content does not jump when it
+     appears. */
+  scrollbar-gutter: stable;
+}
+
+.figma-root > #color-hexagon {
+  flex: 0 0 auto;
 }
 
 /*
- * No scaling hacks needed. #color-hexagon carries `max-w-full`, the SVG uses a
- * viewBox with aspect-ratio, and getSvgCoords() divides by the rendered rect -
- * so the whole thing already tracks whatever width the panel gives it. The
- * plugin window *is* the size control.
+ * Keep the hue badge and brightness pill on screen without scaling the type.
+ *
+ * Both are absolutely positioned against #hex-stage at percentage offsets but
+ * sized in fixed pixels, so the narrower the panel the further they hang out -
+ * by an amount that changes with the colour, which is why a horizontal
+ * scrollbar used to appear and disappear and the layout jumped between hues.
+ *
+ * Capping the stage and centring it leaves a fixed gutter on each side. With
+ * gutter g on each side and stage width W = A - 2g, the pill (anchored at
+ * ~0.92 of W, ~57px wide) needs 0.92W + 57 <= A - g, which for g = 58 holds at
+ * every panel width we allow. The hue badge on the left needs less, so the
+ * pill governs. !important because the element carries an inline max-width.
  */
-.figma-root > #color-hexagon {
-  flex: 0 0 auto;
+#hex-stage {
+  max-width: calc(100% - 116px) !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
 }
 
 .figma-status {

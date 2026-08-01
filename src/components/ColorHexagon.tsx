@@ -1,10 +1,10 @@
-import { useRef, useEffect, useCallback, useLayoutEffect, useState, useMemo, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
+import { useRef, useEffect, useCallback, useLayoutEffect, useState, useMemo, type ComponentType, type CSSProperties, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { hsbToRgb, rgbToHsb, rgbToHex, rgbToHsl, hslToRgb, type RGB, type HSB, type HSL } from '../utils/colorConversions';
 import type { ColorSpace } from '../utils/sliderGradients';
 import type { Channel, ChannelOrder } from './hex/hexConstants';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, RefreshCw, Trash2 } from 'lucide-react';
 import CollapsibleSection from './CollapsibleSection';
 import NAMED_COLORS from '../utils/namedColors';
 import { getAudioCtx, getMasterGain } from '../utils/audioContext';
@@ -21,6 +21,32 @@ import HueHandle from './hex/HueHandle';
 import BrightnessHandle from './hex/BrightnessHandle';
 
 const DEFAULT_RECENT = ['#ff0000', '#ffff00', '#00ff00', '#00ffff', '#0000ff', '#ff00ff', '#ffffff', '#808080', '#000000'];
+
+const ACTION_BTN_CLASS =
+  'px-2 py-0.5 text-xs rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none inline-flex items-center';
+
+/**
+ * Header action for the Recent / Saved sections. Renders its label as text, or
+ * as an icon where horizontal room is scarce (`iconActions`, used by the Figma
+ * plugin). The label stays on as title/aria-label either way.
+ */
+function ActionButton({
+  label,
+  icon: Icon,
+  iconOnly,
+  onClick,
+}: {
+  label: string;
+  icon: ComponentType<{ className?: string }>;
+  iconOnly?: boolean;
+  onClick: (e: ReactMouseEvent) => void;
+}) {
+  return (
+    <button className={ACTION_BTN_CLASS} title={label} aria-label={label} onClick={onClick}>
+      {iconOnly ? <Icon className="!size-3.5" /> : label}
+    </button>
+  );
+}
 
 interface ColorHexagonProps {
   rgb: RGB;
@@ -42,6 +68,10 @@ interface ColorHexagonProps {
   animHolding?: boolean;
   onHoverHtmlColor?: (marker: HoveredMarker | null) => void;
   muted?: boolean;
+  /** Render Recent/Saved header actions as icons - for narrow hosts (Figma). */
+  iconActions?: boolean;
+  /** Drop the card border and "Hexagon" title: the host already frames it. */
+  bare?: boolean;
 }
 
 interface HoveredMarker {
@@ -51,7 +81,7 @@ interface HoveredMarker {
   name: string;
 }
 
-export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, animHolding, onHoverHtmlColor, muted }: ColorHexagonProps) {
+export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, animHolding, onHoverHtmlColor, muted, iconActions, bare }: ColorHexagonProps) {
   const [hexOpen, setHexOpen] = useState(true);
   const [vectorMode] = useState<ChannelOrder>('rgb');
   const [initialHex] = useState(() => rgbToHex(rgb.r, rgb.g, rgb.b));
@@ -1102,15 +1132,25 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   }, [blMode, brightness, hsl?.l]);
 
   return (
-    <div id="color-hexagon" className="flex flex-col items-center gap-1 border border-input rounded-lg p-3 max-w-full" style={{ width: HEX_PANEL_WIDTH }}>
+    <div
+      id="color-hexagon"
+      className={`flex flex-col items-center gap-1 max-w-full${bare ? ' w-full' : ' border border-input rounded-lg p-3'}`}
+      style={bare ? undefined : { width: HEX_PANEL_WIDTH }}
+    >
       <div className="flex items-start gap-1.5 w-full">
-        <div
-          className="flex items-center gap-1.5 flex-1 min-w-0 cursor-pointer select-none"
-          onClick={() => setHexOpen((o) => !o)}
-        >
-          <ChevronRight className={`!size-4 text-muted-foreground transition-transform duration-200 ${hexOpen ? 'rotate-90' : ''}`} />
-          <h2 className="text-lg font-semibold tracking-tight text-foreground">Hexagon</h2>
-        </div>
+        {/* In `bare` hosts the surrounding chrome is the container, so the
+            title and its collapse affordance are redundant. The Bright/Light
+            tabs stay - they are a control, not decoration. */}
+        {!bare && (
+          <div
+            className="flex items-center gap-1.5 flex-1 min-w-0 cursor-pointer select-none"
+            onClick={() => setHexOpen((o) => !o)}
+          >
+            <ChevronRight className={`!size-4 text-muted-foreground transition-transform duration-200 ${hexOpen ? 'rotate-90' : ''}`} />
+            <h2 className="text-lg font-semibold tracking-tight text-foreground">Hexagon</h2>
+          </div>
+        )}
+        {bare && <div className="flex-1 min-w-0" />}
         {hexOpen && (
           <div className="flex items-start gap-2" onClick={(e) => e.stopPropagation()}>
             <div className="flex flex-col items-center gap-0.5">
@@ -1136,7 +1176,13 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
         )}
       </div>
       {hexOpen && <>
-      <div className="w-full relative m-4" style={{ maxWidth: SIZE, aspectRatio: `${SIZE} / ${DISPLAY_HEIGHT}` }}>
+      {/* id is a styling hook for narrow hosts. The hue badge and brightness
+          pill are absolutely positioned against this element at percentage
+          offsets but sized in fixed px, so anything narrower than
+          HEX_PANEL_WIDTH must cap this width to keep them on screen. Padding
+          cannot do it - abs-positioned children resolve against the padding
+          box. See figma/ui/figma.css. */}
+      <div id="hex-stage" className="w-full relative m-4" style={{ maxWidth: SIZE, aspectRatio: `${SIZE} / ${DISPLAY_HEIGHT}` }}>
       <div className="absolute left-0 top-1/2 w-full -translate-y-1/2" style={{ aspectRatio: `${SIZE} / ${HEX_SIZE}` }}>
         <HexCanvas brightness={brightness} colorSpace={colorSpace} />
         <svg
@@ -1357,12 +1403,12 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           defaultOpen={true}
           headerRight={
             <div className="flex gap-1">
-              <button
-                className="px-2 py-0.5 text-xs rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none"
+              <ActionButton
+                label="Clear"
+                icon={Trash2}
+                iconOnly={iconActions}
                 onClick={(e) => { e.stopPropagation(); setRecentColors([]); setSelectedRecentIdx(null); }}
-              >
-                Clear
-              </button>
+              />
             </div>
           }
         >
@@ -1415,8 +1461,10 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           }
           headerRight={
             <div className="flex gap-1">
-              <button
-                className="px-2 py-0.5 text-xs rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none"
+              <ActionButton
+                label="Defaults"
+                icon={RefreshCw}
+                iconOnly={iconActions}
                 onClick={(e) => {
                   e.stopPropagation();
                   const defaults: SavedSlot[] = DEFAULT_RECENT.map((hex, i) => ({ hex, addedAt: -(i + 1) }));
@@ -1425,15 +1473,13 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                   setSavedSortMode('user');
                   setSelectedSavedIdx(null);
                 }}
-              >
-                Defaults
-              </button>
-              <button
-                className="px-2 py-0.5 text-xs rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none"
+              />
+              <ActionButton
+                label="Clear"
+                icon={Trash2}
+                iconOnly={iconActions}
                 onClick={(e) => { e.stopPropagation(); setSavedSlots(Array(12).fill(null)); setSelectedSavedIdx(null); }}
-              >
-                Clear
-              </button>
+              />
             </div>
           }
         >

@@ -34,6 +34,7 @@ import {
   type RGB,
 } from '../../src/utils/colorConversions';
 import type { ColorSpace } from '../../src/utils/sliderGradients';
+import { HSB_TWEEN_MS, hsbAtProgress } from '../../src/utils/colorTween';
 import ColorHexagon from '../../src/components/ColorHexagon';
 // figma.css imports the app's index.css, so this is the only stylesheet entry.
 import './figma.css';
@@ -138,26 +139,18 @@ function PluginApp() {
 
   // Clicking the 100/50/0 bar markers or a vertex letter goes through
   // onAnimateToHsb. Without it ColorHexagon early-returns and those are dead
-  // controls. Manual rAF with a quadratic ease and shortest-path hue, matching
-  // the app's animateToHsb.
+  // controls. Duration, easing, hue wrap and rounding come from
+  // utils/colorTween - the same module ColorPicker's animateToHsb uses - so
+  // the plugin cannot drift from the app's feel.
   const animRef = useRef<number | null>(null);
   const onAnimateToHsb = useCallback((target: HSB) => {
     if (animRef.current !== null) cancelAnimationFrame(animRef.current);
     rgbOverride.current = null;
     setHsb((from) => {
-      let dh = target.h - from.h;
-      if (dh > 180) dh -= 360;
-      if (dh < -180) dh += 360;
       const start = performance.now();
-      const DURATION = 260;
       const step = (now: number) => {
-        const t = Math.min(1, (now - start) / DURATION);
-        const e = t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
-        setHsb({
-          h: ((from.h + dh * e) % 360 + 360) % 360,
-          s: from.s + (target.s - from.s) * e,
-          b: from.b + (target.b - from.b) * e,
-        });
+        const t = Math.min(1, (now - start) / HSB_TWEEN_MS);
+        setHsb(hsbAtProgress(from, target, t));
         if (t < 1) {
           animRef.current = requestAnimationFrame(step);
         } else {
@@ -204,6 +197,8 @@ function PluginApp() {
         onBlModeChange={setBlMode}
         colorSpace={colorSpace}
         onColorSpaceChange={setColorSpace}
+        iconActions
+        bare
         muted
       />
       <p className="figma-status">
