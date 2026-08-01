@@ -1138,7 +1138,14 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   return (
     <div
       id="color-hexagon"
-      className={`flex flex-col items-center gap-1 max-w-full${bare ? ' w-full' : ' border border-input rounded-lg p-3'}`}
+      // Built by joining whole strings, not by interpolating into one. Tailwind
+      // scans raw source text: `...max-w-full${cond}` makes the extractor read
+      // `max-w-full${cond` as the candidate, so the utility is never generated
+      // and the card silently overflows its column.
+      className={[
+        'flex flex-col items-center gap-1 max-w-full',
+        bare ? 'w-full' : 'border border-input rounded-lg p-3',
+      ].join(' ')}
       style={bare ? undefined : { width: HEX_PANEL_WIDTH }}
     >
       <div className="flex items-start gap-1.5 w-full">
