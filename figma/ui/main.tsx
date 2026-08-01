@@ -11,7 +11,17 @@
  *   2. The bridge to the plugin sandbox: push every colour change to the
  *      selection, pull the selection's fill back in.
  */
-import { StrictMode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Component,
+  StrictMode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ErrorInfo,
+  type ReactNode,
+} from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   hsbToRgb,
@@ -232,10 +242,51 @@ function ResizeGrip() {
   return <div className="figma-grip" title="Resize" onPointerDown={onPointerDown} />;
 }
 
+/**
+ * Without this a startup throw unmounts the tree and the panel is just black,
+ * which is indistinguishable from "the plugin didn't load" and impossible to
+ * debug without opening Figma's console. React surfaces effect errors here too.
+ */
+class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state = { error: null as Error | null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error('Color Taylor plugin crashed:', error, info.componentStack);
+  }
+
+  render() {
+    if (!this.state.error) return this.props.children;
+    return (
+      <pre className="figma-error">
+        {this.state.error.message}
+        {'\n\n'}
+        {this.state.error.stack?.split('\n').slice(1, 6).join('\n')}
+      </pre>
+    );
+  }
+}
+
 const root = document.getElementById('root');
 if (!root) throw new Error('Root element not found');
+
+// Anything that escapes React entirely (a throw before mount) still needs to be
+// readable in the panel.
+window.addEventListener('error', (e) => {
+  if (document.querySelector('.figma-error')) return;
+  const pre = document.createElement('pre');
+  pre.className = 'figma-error';
+  pre.textContent = String(e.message);
+  document.body.appendChild(pre);
+});
+
 createRoot(root).render(
   <StrictMode>
-    <PluginApp />
+    <ErrorBoundary>
+      <PluginApp />
+    </ErrorBoundary>
   </StrictMode>,
 );

@@ -331,12 +331,19 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   const lastHex = useRef(initialHex);
   const skipNextRecent = useRef(false);
 
-  // Persist recent + saved colors
+  // Persist recent + saved colors. Guarded like every read above: storage can
+  // throw, not merely return null. A null-origin iframe — which is what the
+  // Figma plugin host gives us — raises SecurityError on access, and an
+  // uncaught throw inside an effect unmounts the entire tree.
   useEffect(() => {
-    localStorage.setItem('color-taylor-recent', JSON.stringify(recentColors));
+    try {
+      localStorage.setItem('color-taylor-recent', JSON.stringify(recentColors));
+    } catch { /* localStorage unavailable */ }
   }, [recentColors]);
   useEffect(() => {
-    localStorage.setItem('color-taylor-saved', JSON.stringify(savedSlots));
+    try {
+      localStorage.setItem('color-taylor-saved', JSON.stringify(savedSlots));
+    } catch { /* localStorage unavailable */ }
   }, [savedSlots]);
 
   // Listen for global "reset all" — restore recent + saved to defaults.

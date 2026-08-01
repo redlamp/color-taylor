@@ -51,6 +51,17 @@ body {
   text-align: center;
 }
 
+.figma-error {
+  margin: 0;
+  padding: 12px;
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #f24822;
+  background: var(--background);
+}
+
 .figma-grip {
   position: fixed;
   right: 0;
