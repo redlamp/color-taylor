@@ -41,24 +41,39 @@ function paintColorToHex(color) {
   return '#' + channelToHex(color.r) + channelToHex(color.g) + channelToHex(color.b);
 }
 
-/** First visible solid fill in the selection, so the picker opens on it. */
-function selectionHex() {
+// Which paint the picker reads and writes. Driven by the UI's Fill/Stroke tabs.
+let target = 'fill';
+
+function paintProp() {
+  return target === 'stroke' ? 'strokes' : 'fills';
+}
+
+/** First visible solid paint in the selection, so the picker opens on it. */
+function selectionPaint() {
+  const prop = paintProp();
   for (const node of figma.currentPage.selection) {
-    const fills = node.fills;
-    // fills is figma.mixed (a symbol) on mixed-fill text; Array.isArray guards it.
-    if (!Array.isArray(fills)) continue;
-    for (const paint of fills) {
-      if (paint.type === 'SOLID' && paint.visible !== false) return paintColorToHex(paint.color);
+    const paints = node[prop];
+    // May be figma.mixed (a symbol) on mixed-paint text; Array.isArray guards it.
+    if (!Array.isArray(paints)) continue;
+    for (const paint of paints) {
+      if (paint.type === 'SOLID' && paint.visible !== false) {
+        return {
+          hex: paintColorToHex(paint.color),
+          opacity: paint.opacity === undefined ? 1 : paint.opacity,
+        };
+      }
     }
   }
   return null;
 }
 
 function postSelection() {
+  const paint = selectionPaint();
   figma.ui.postMessage({
     type: 'selection',
     count: figma.currentPage.selection.length,
-    hex: selectionHex(),
+    hex: paint ? paint.hex : null,
+    opacity: paint ? paint.opacity : 1,
   });
 }
 
@@ -69,24 +84,30 @@ function postSelection() {
  *
  * Called on every colour change, so it stays silent - no notify() per frame.
  */
-function applyFill(hex) {
+function applyPaint(hex, opacity) {
   const color = hexToPaintColor(hex);
   if (!color) return;
+  const alpha = typeof opacity === 'number' ? Math.min(1, Math.max(0, opacity)) : 1;
+  const prop = paintProp();
 
   for (const node of figma.currentPage.selection) {
-    if (!('fills' in node)) continue;
-    const current = node.fills;
+    if (!(prop in node)) continue;
+    const current = node[prop];
     let next;
     if (Array.isArray(current) && current.length > 0) {
       next = current.slice();
       const idx = next.findIndex((p) => p.type === 'SOLID');
-      if (idx >= 0) next[idx] = Object.assign({}, next[idx], { color });
-      else next.push({ type: 'SOLID', color });
+      if (idx >= 0) next[idx] = Object.assign({}, next[idx], { color, opacity: alpha });
+      else next.push({ type: 'SOLID', color, opacity: alpha });
     } else {
-      next = [{ type: 'SOLID', color }];
+      next = [{ type: 'SOLID', color, opacity: alpha }];
     }
     try {
-      node.fills = next;
+      node[prop] = next;
+      // A stroke on a zero-weight node paints nothing, which reads as the
+      // plugin being broken. Give it the Figma default rather than leave the
+      // user wondering.
+      if (prop === 'strokes' && node.strokeWeight === 0) node.strokeWeight = 1;
     } catch (err) {
       // Locked layer, or a read-only node inside an instance. Skip silently:
       // this runs continuously while dragging.
@@ -126,7 +147,14 @@ figma.ui.onmessage = (msg) => {
       break;
 
     case 'apply':
-      applyFill(msg.hex);
+      applyPaint(msg.hex, msg.opacity);
+      break;
+
+    // Fill/Stroke switch. Re-seed so the picker shows what that paint already
+    // is, rather than immediately overwriting it.
+    case 'target':
+      target = msg.target === 'stroke' ? 'stroke' : 'fill';
+      postSelection();
       break;
 
     // Figma groups every edit a plugin makes into one undo step. Committing on

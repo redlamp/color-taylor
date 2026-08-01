@@ -35,6 +35,8 @@ import {
 } from '../../src/utils/colorConversions';
 import type { ColorSpace } from '../../src/utils/sliderGradients';
 import { HSB_TWEEN_MS, hsbAtProgress } from '../../src/utils/colorTween';
+import ColorSlider from '../../src/components/ColorSlider';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ColorHexagon from '../../src/components/ColorHexagon';
 // figma.css imports the app's index.css, so this is the only stylesheet entry.
 import './figma.css';
@@ -43,11 +45,24 @@ function post(msg: Record<string, unknown>) {
   parent.postMessage({ pluginMessage: msg }, '*');
 }
 
+type PaintTarget = 'fill' | 'stroke';
+
+/** Checkerboard under a transparent-to-colour ramp, so alpha reads as alpha. */
+function alphaGradient(rgb: RGB) {
+  const solid = `rgb(${rgb.r},${rgb.g},${rgb.b})`;
+  return (
+    `linear-gradient(to right, transparent, ${solid}),` +
+    'repeating-conic-gradient(rgba(128,128,128,.45) 0% 25%, transparent 0% 50%) 0 0/10px 10px'
+  );
+}
+
 function PluginApp() {
   const [hsb, setHsb] = useState<HSB>({ h: 0, s: 100, b: 100 });
   const [blMode, setBlMode] = useState<'brightness' | 'lightness'>('brightness');
   const [colorSpace, setColorSpace] = useState<ColorSpace>('srgb');
   const [selectionCount, setSelectionCount] = useState(0);
+  const [alpha, setAlpha] = useState(100);
+  const [target, setTarget] = useState<PaintTarget>('fill');
 
   // hsbToRgb(rgbToHsb(rgb)) is lossy at low saturation/brightness, so an exact
   // RGB coming from outside (a selection, a hex field) is stashed here and read
@@ -58,7 +73,10 @@ function PluginApp() {
   // seeds the picker from its fill, which changes `hex`, which fires the
   // live-apply effect and repaints the layer with the colour it already had -
   // a wasted write and a junk undo entry.
-  const seededHexRef = useRef<string | null>(null);
+  const seededKeyRef = useRef<string | null>(null);
+  // Read inside the apply effect so switching target does not itself trigger a
+  // paint - that is a mode change, and it re-seeds from the new target instead.
+  const targetRef = useRef<PaintTarget>('fill');
 
   const rgbFromHsb = useMemo(() => hsbToRgb(hsb.h, hsb.s, hsb.b), [hsb.h, hsb.s, hsb.b]);
   // Reading rgbOverride.current during render is intentional - same pattern as
@@ -69,14 +87,22 @@ function PluginApp() {
   const hex = useMemo(() => rgbToHex(rgb.r, rgb.g, rgb.b), [rgb.r, rgb.g, rgb.b]);
 
   // Live-apply. No button: picking a colour *is* the action.
+  const paintKey = `${hex}|${alpha}`;
   useEffect(() => {
     if (selectionCount === 0) return;
-    if (seededHexRef.current === hex) {
-      seededHexRef.current = null;
+    if (seededKeyRef.current === paintKey) {
+      seededKeyRef.current = null;
       return;
     }
-    post({ type: 'apply', hex });
-  }, [hex, selectionCount]);
+    post({ type: 'apply', hex, opacity: alpha / 100, target: targetRef.current });
+  }, [paintKey, hex, alpha, selectionCount]);
+
+  // Switching Fill/Stroke re-reads the selection through the new target rather
+  // than painting it, so you see what is already there before changing it.
+  useEffect(() => {
+    targetRef.current = target;
+    post({ type: 'target', target });
+  }, [target]);
 
   // Keep the window's height tied to the content's. Figma clamps the result to
   // what fits on screen, so this is a request, not a guarantee - if the content
@@ -133,8 +159,10 @@ function PluginApp() {
         if (msg.hex) {
           const next = hexToRgb(msg.hex);
           if (next) {
-            seededHexRef.current = rgbToHex(next.r, next.g, next.b);
+            const a = Math.round((msg.opacity ?? 1) * 100);
+            seededKeyRef.current = `${rgbToHex(next.r, next.g, next.b)}|${a}`;
             rgbOverride.current = next;
+            setAlpha(a);
             setHsb(rgbToHsb(next.r, next.g, next.b));
           }
         }
@@ -233,6 +261,27 @@ function PluginApp() {
           <span className="figma-status text-sm font-medium text-foreground/60">
             Selected: {selectionCount}
           </span>
+        }
+        belowStage={
+          <div className="flex flex-col gap-1 px-1">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-medium text-foreground/60">Apply to</span>
+              <Tabs value={target} onValueChange={(v) => setTarget(v as PaintTarget)}>
+                <TabsList>
+                  <TabsTrigger value="fill" className="w-14">Fill</TabsTrigger>
+                  <TabsTrigger value="stroke" className="w-14">Stroke</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
+            <ColorSlider
+              label="A"
+              value={alpha}
+              max={100}
+              suffix="%"
+              gradient={alphaGradient(rgb)}
+              onChange={setAlpha}
+            />
+          </div>
         }
       />
       <ResizeGrip />

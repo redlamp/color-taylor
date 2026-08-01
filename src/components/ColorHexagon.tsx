@@ -74,6 +74,8 @@ interface ColorHexagonProps {
   bare?: boolean;
   /** Content for the header slot the title vacates in `bare` mode. */
   headerLeft?: ReactNode;
+  /** Extra controls rendered directly under the hexagon, above Recent. */
+  belowStage?: ReactNode;
 }
 
 interface HoveredMarker {
@@ -83,7 +85,7 @@ interface HoveredMarker {
   name: string;
 }
 
-export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, animHolding, onHoverHtmlColor, muted, iconActions, bare, headerLeft }: ColorHexagonProps) {
+export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, animHolding, onHoverHtmlColor, muted, iconActions, bare, headerLeft, belowStage }: ColorHexagonProps) {
   const [hexOpen, setHexOpen] = useState(true);
   const [vectorMode] = useState<ChannelOrder>('rgb');
   const [initialHex] = useState(() => rgbToHex(rgb.r, rgb.g, rgb.b));
@@ -1396,6 +1398,8 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
         />
       </div>
       </div>
+
+      {belowStage && <div className="w-full">{belowStage}</div>}
 
       {/* Recent Colors + Named Color Match */}
       <div className="w-full mt-2">
