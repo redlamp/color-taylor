@@ -54,26 +54,29 @@ body {
  * by an amount that changes with the colour, which is why a horizontal
  * scrollbar used to appear and disappear and the layout jumped between hues.
  *
- * Solve for the gutter rather than hard-coding it. The overhang is
- * (fixed px - fraction of stage width), so it shrinks as the stage grows and a
- * constant gutter is badly over-provisioned - at 300px a fixed 58px each side
- * ate a third of the panel.
+ * Solve for each gutter separately - they are not the same size. The overhang
+ * is (fixed px - fraction of stage width), so it shrinks as the stage grows,
+ * and the two sides need very different amounts:
  *
- * With panel width A, gutter g each side and stage W = A - 2g, the brightness
- * pill (anchored at ~0.92W, ~60px wide) needs:
+ *   left   hue badge, 48px wide, anchored at 0.037W at its extreme (hue 180)
+ *          => L >= 24 - 0.037 * W
+ *   right  brightness pill, ~60px wide, anchored at 0.92W
+ *          => R >= 60 - 0.081 * W
  *
- *     g >= 60 - 0.081 * W  =>  g >= 72 - 0.097 * A
+ * Sizing both sides to the larger (the pill) wasted ~35px on the left at every
+ * width. Substituting into A = L + W + R and solving:
  *
- * clamped at zero, so the stage goes edge to edge once the panel is wide
- * enough (~740px) to need no gutter at all. The hue badge on the left wants
- * less than this, so the pill governs both sides and centring stays honest.
+ *   W = (A - 84) / 0.882 = 1.134 * (A - 84)
+ *
+ * with L derived from that and R taking the remainder via margin-right:auto.
+ * Both clamp at zero, so the stage runs edge to edge once the panel is wide
+ * enough (~740px) to need no gutter at all.
  *
  * !important because the element carries an inline max-width from the app.
  */
 #hex-stage {
-  --chx-gutter: max(0px, 72px - 9.7%);
-  max-width: calc(100% - 2 * var(--chx-gutter)) !important;
-  margin-left: auto !important;
+  max-width: min(100%, calc((100% - 84px) * 1.134)) !important;
+  margin-left: max(0px, calc(24px - 0.0423 * (100% - 84px))) !important;
   margin-right: auto !important;
 }
 
