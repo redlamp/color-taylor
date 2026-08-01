@@ -35,6 +35,14 @@ export default defineConfig([
     },
   },
   {
+    // Figma plugin sandbox: QuickJS, not a browser. `figma` and `__html__` are
+    // injected by the host.
+    files: ['figma/code.js'],
+    languageOptions: {
+      globals: { ...globals.browser, figma: 'readonly', __html__: 'readonly' },
+    },
+  },
+  {
     files: ['**/*.{ts,tsx}'],
     extends: [
       js.configs.recommended,

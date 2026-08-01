@@ -1,0 +1,74 @@
+/*
+ * The single CSS entry for the plugin. Pulls in the app's real theme, then adds
+ * only what a Figma panel needs on top.
+ */
+@import "../../src/index.css";
+
+/*
+ * Vite's root for this build is figma/ui, so Tailwind's automatic source
+ * detection would scan only this folder and emit none of the utilities the
+ * app's components actually use. Point it at src explicitly.
+ */
+@source "../../src";
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+.figma-root {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  overflow: auto;
+}
+
+/*
+ * No scaling hacks needed. #color-hexagon carries `max-w-full`, the SVG uses a
+ * viewBox with aspect-ratio, and getSvgCoords() divides by the rendered rect -
+ * so the whole thing already tracks whatever width the panel gives it. The
+ * plugin window *is* the size control.
+ */
+.figma-root > #color-hexagon {
+  flex: 0 0 auto;
+}
+
+.figma-status {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--muted-foreground);
+  text-align: center;
+}
+
+.figma-grip {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  width: 16px;
+  height: 16px;
+  cursor: nwse-resize;
+  touch-action: none;
+  z-index: 50;
+}
+
+.figma-grip::after {
+  content: "";
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 7px;
+  height: 7px;
+  border-right: 1.5px solid var(--muted-foreground);
+  border-bottom: 1.5px solid var(--muted-foreground);
+}

@@ -1,0 +1,12 @@
+{
+  "name": "Color Taylor",
+  "id": "color-taylor-local-dev",
+  "api": "1.0.0",
+  "main": "code.js",
+  "ui": "ui.html",
+  "editorType": ["figma"],
+  "networkAccess": {
+    "allowedDomains": ["none"],
+    "reasoning": "Fully offline. The picker renders locally and nothing leaves the plugin."
+  }
+}
