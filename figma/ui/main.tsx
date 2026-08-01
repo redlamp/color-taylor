@@ -113,10 +113,14 @@ function PluginApp() {
   // The last-sent guard is a second line of defence against that.
   const rootRef = useRef<HTMLDivElement>(null);
   const lastHeightRef = useRef(0);
+  // Set once the user drags a horizontal edge: an explicit height beats a
+  // fitted one, so stop reporting content height from then on.
+  const manualHeightRef = useRef(false);
   useEffect(() => {
     const el = rootRef.current;
     if (!el) return;
     const measure = () => {
+      if (manualHeightRef.current) return;
       // The root element's own laid-out height. Not documentElement.scrollHeight:
       // that is floored at the viewport height, so it would report the window
       // back to us and the panel could never shrink.
@@ -283,21 +287,57 @@ function PluginApp() {
           </div>
         }
       />
-      <ResizeGrip />
+      <ResizeHandles onVerticalDrag={() => { manualHeightRef.current = true; }} />
     </div>
   );
 }
 
+const EDGES = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'] as const;
+type Edge = (typeof EDGES)[number];
+
 /**
- * Width only. Height follows the content (see the autosize effect), so letting
- * the grip set it too would just be overwritten on the next measurement.
+ * Resize from any edge or corner, like a normal panel.
+ *
+ * Figma draws no resize chrome of its own, so all eight zones are ours. Two
+ * details make it behave:
+ *
+ * - Deltas come from screenX/screenY, not clientX/clientY. Dragging the west or
+ *   north edge moves the window, and client coords are relative to that moving
+ *   iframe - they would chase themselves. Screen coords are absolute.
+ * - Growing west or north needs the window's origin to move as it grows, which
+ *   is figma.ui.reposition. The sandbox owns that; here we just flag which
+ *   edges are anchored.
  */
-function ResizeGrip() {
-  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+function ResizeHandles({ onVerticalDrag }: { onVerticalDrag: () => void }) {
+  const start = (edge: Edge) => (e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault();
     const el = e.currentTarget;
     el.setPointerCapture(e.pointerId);
-    const move = (ev: PointerEvent) => post({ type: 'resize', width: Math.round(ev.clientX + 8) });
+
+    const originX = e.screenX;
+    const originY = e.screenY;
+    const startW = window.innerWidth;
+    const startH = window.innerHeight;
+    const fromLeft = edge.includes('w');
+    const fromTop = edge.includes('n');
+    const horizontal = edge.includes('e') || edge.includes('w');
+    const vertical = edge.includes('n') || edge.includes('s');
+
+    // A deliberate height drag takes the wheel from the content-fit logic.
+    if (vertical) onVerticalDrag();
+    post({ type: 'resizeStart' });
+
+    const move = (ev: PointerEvent) => {
+      const dx = ev.screenX - originX;
+      const dy = ev.screenY - originY;
+      post({
+        type: 'resizeTo',
+        width: Math.round(horizontal ? (fromLeft ? startW - dx : startW + dx) : startW),
+        height: Math.round(vertical ? (fromTop ? startH - dy : startH + dy) : startH),
+        fromLeft,
+        fromTop,
+      });
+    };
     const up = (ev: PointerEvent) => {
       try {
         el.releasePointerCapture(ev.pointerId);
@@ -306,11 +346,19 @@ function ResizeGrip() {
       }
       el.removeEventListener('pointermove', move);
       el.removeEventListener('pointerup', up);
+      post({ type: 'resizeEnd' });
     };
     el.addEventListener('pointermove', move);
     el.addEventListener('pointerup', up);
   };
-  return <div className="figma-grip" title="Resize" onPointerDown={onPointerDown} />;
+
+  return (
+    <>
+      {EDGES.map((edge) => (
+        <div key={edge} className={`figma-rz figma-rz-${edge}`} onPointerDown={start(edge)} />
+      ))}
+    </>
+  );
 }
 
 /**

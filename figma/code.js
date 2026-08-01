@@ -136,6 +136,31 @@ function applySize(w, h) {
   figma.ui.resize(size.w, size.h);
 }
 
+// getPosition/reposition are newer than the rest of what we use; degrade to
+// east/south-only resizing rather than throwing on an older host.
+function readPosition() {
+  try {
+    return typeof figma.ui.getPosition === 'function' ? figma.ui.getPosition() : null;
+  } catch (err) {
+    void err;
+    return null;
+  }
+}
+
+function moveTo(x, y) {
+  try {
+    if (typeof figma.ui.reposition === 'function') {
+      figma.ui.reposition(Math.round(x), Math.round(y));
+    }
+  } catch (err) {
+    void err;
+  }
+}
+
+// Captured at drag start. Anchoring every frame to where the drag began keeps
+// west/north edges from accumulating rounding error as the window walks.
+let drag = null;
+
 figma.on('selectionchange', postSelection);
 
 figma.ui.onmessage = (msg) => {
@@ -163,10 +188,27 @@ figma.ui.onmessage = (msg) => {
       figma.commitUndo();
       break;
 
-    // The grip. Width only, and remembered between runs.
-    case 'resize':
-      applySize(msg.width, size.h);
-      figma.clientStorage.setAsync('windowWidth', size.w);
+    case 'resizeStart':
+      drag = { pos: readPosition(), w: size.w, h: size.h };
+      break;
+
+    case 'resizeTo': {
+      if (!drag) drag = { pos: readPosition(), w: size.w, h: size.h };
+      applySize(msg.width, msg.height);
+      // Growing west or north means the origin has to travel the same distance
+      // the edge did, or the opposite edge appears to move instead.
+      if (drag.pos && (msg.fromLeft || msg.fromTop)) {
+        moveTo(
+          drag.pos.x + (msg.fromLeft ? drag.w - size.w : 0),
+          drag.pos.y + (msg.fromTop ? drag.h - size.h : 0),
+        );
+      }
+      break;
+    }
+
+    case 'resizeEnd':
+      drag = null;
+      figma.clientStorage.setAsync('windowSize', { w: size.w, h: size.h });
       break;
 
     // The UI reporting how tall its content is. Clamped to MAX_H, past which
@@ -181,9 +223,9 @@ figma.ui.onmessage = (msg) => {
   }
 };
 
-// Restore the last width. Height is not restored - the UI reports its content
-// height as soon as it mounts, which is a better answer than whatever the
-// window happened to be last time.
-figma.clientStorage.getAsync('windowWidth').then((saved) => {
-  if (typeof saved === 'number') applySize(saved, size.h);
+// Restore the last size. Height is only a starting point: unless the user has
+// dragged a horizontal edge this run, the UI reports its content height as soon
+// as it mounts and that wins.
+figma.clientStorage.getAsync('windowSize').then((saved) => {
+  if (saved && saved.w && saved.h) applySize(saved.w, saved.h);
 });

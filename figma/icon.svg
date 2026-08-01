@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!--
+    Plugin icon. Figma's manifest has no icon field - the icon is uploaded in
+    the publish modal as a 128x128 raster, so this is the source to export from
+    rather than something the plugin loads. Local dev plugins always show
+    Figma's own </> badge regardless.
+  -->
+  <text
+    x="64"
+    y="68"
+    font-size="96"
+    text-anchor="middle"
+    dominant-baseline="central"
+  >🧵</text>
+</svg>

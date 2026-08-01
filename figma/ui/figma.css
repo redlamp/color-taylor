@@ -91,19 +91,75 @@ body {
   background: var(--background);
 }
 
-/* Width only - the height is content-driven, so this is an ew-resize. */
-.figma-grip {
+/*
+ * Resize zones on all four edges and corners. Figma draws no resize chrome, so
+ * these are the whole affordance. Thin enough to sit inside .figma-root's 8px
+ * padding rather than over any control.
+ */
+.figma-rz {
   position: fixed;
-  right: 0;
-  bottom: 0;
-  width: 16px;
-  height: 16px;
-  cursor: ew-resize;
+  z-index: 60;
   touch-action: none;
-  z-index: 50;
 }
 
-.figma-grip::after {
+.figma-rz-n,
+.figma-rz-s {
+  left: 10px;
+  right: 10px;
+  height: 5px;
+  cursor: ns-resize;
+}
+.figma-rz-n {
+  top: 0;
+}
+.figma-rz-s {
+  bottom: 0;
+}
+
+.figma-rz-w,
+.figma-rz-e {
+  top: 10px;
+  bottom: 10px;
+  width: 5px;
+  cursor: ew-resize;
+}
+.figma-rz-w {
+  left: 0;
+}
+.figma-rz-e {
+  right: 0;
+}
+
+.figma-rz-nw,
+.figma-rz-ne,
+.figma-rz-sw,
+.figma-rz-se {
+  width: 12px;
+  height: 12px;
+}
+.figma-rz-nw {
+  top: 0;
+  left: 0;
+  cursor: nwse-resize;
+}
+.figma-rz-ne {
+  top: 0;
+  right: 0;
+  cursor: nesw-resize;
+}
+.figma-rz-sw {
+  bottom: 0;
+  left: 0;
+  cursor: nesw-resize;
+}
+.figma-rz-se {
+  bottom: 0;
+  right: 0;
+  cursor: nwse-resize;
+}
+
+/* Only the conventional corner gets a visible mark. */
+.figma-rz-se::after {
   content: "";
   position: absolute;
   right: 3px;
