@@ -332,8 +332,11 @@ function ResizeHandles({ onVerticalDrag }: { onVerticalDrag: () => void }) {
       const dy = ev.screenY - originY;
       post({
         type: 'resizeTo',
-        width: Math.round(horizontal ? (fromLeft ? startW - dx : startW + dx) : startW),
-        height: Math.round(vertical ? (fromTop ? startH - dy : startH + dy) : startH),
+        width: horizontal ? Math.round(fromLeft ? startW - dx : startW + dx) : undefined,
+        // Omitted on a purely horizontal drag. Sending the frozen start height
+        // every frame would out-vote the content fit, which is why the panel
+        // used to stop wrapping its content as soon as you touched the width.
+        height: vertical ? Math.round(fromTop ? startH - dy : startH + dy) : undefined,
         fromLeft,
         fromTop,
       });
@@ -354,9 +357,20 @@ function ResizeHandles({ onVerticalDrag }: { onVerticalDrag: () => void }) {
 
   return (
     <>
-      {EDGES.map((edge) => (
-        <div key={edge} className={`figma-rz figma-rz-${edge}`} onPointerDown={start(edge)} />
-      ))}
+      {EDGES.map((edge) => {
+        const vertical = edge.includes('n') || edge.includes('s');
+        return (
+          <div
+            key={edge}
+            className={`figma-rz figma-rz-${edge}`}
+            title={vertical ? 'Drag to set a height limit, double-click to fit content' : undefined}
+            onPointerDown={start(edge)}
+            // Recovers from a pinned height without having to drag it back to
+            // exactly the content's size.
+            onDoubleClick={vertical ? () => post({ type: 'refit' }) : undefined}
+          />
+        );
+      })}
     </>
   );
 }

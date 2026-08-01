@@ -118,9 +118,26 @@ function applyPaint(hex, opacity) {
   }
 }
 
-// Width is the user's (the grip); height follows the content. Tracked here
-// because figma.ui.resize takes both and there is no way to read them back.
+// Tracked here because figma.ui.resize takes both and there is no way to read
+// them back.
 const size = { w: DEFAULT_W, h: DEFAULT_H };
+
+/**
+ * Height is min(content, cap).
+ *
+ * `contentH` is whatever the UI last measured itself at; `capH` is null until
+ * the user drags a vertical edge, after which it is their ceiling. Taking the
+ * minimum is what guarantees no dead space: dragging the bottom edge *down*
+ * past the content raises a cap nothing reaches, so the window stays wrapped
+ * to the content. Dragging it up puts the cap below the content, and the UI
+ * scrolls.
+ */
+let contentH = DEFAULT_H;
+let capH = null;
+
+function desiredH() {
+  return capH === null ? contentH : Math.min(contentH, capH);
+}
 
 function clampW(w) {
   return Math.min(MAX_W, Math.max(MIN_W, Math.round(w)));
@@ -140,9 +157,15 @@ function applySize(w, h) {
 
 // getPosition/reposition are newer than the rest of what we use; degrade to
 // east/south-only resizing rather than throwing on an older host.
+// getPosition returns { windowSpace: Vector, canvasSpace: Vector } - NOT a bare
+// {x, y}. Reading .x off the outer object yields undefined, which turns the
+// reposition arithmetic into NaN and silently does nothing: the window resizes
+// from the west edge without ever moving.
 function readPosition() {
   try {
-    return typeof figma.ui.getPosition === 'function' ? figma.ui.getPosition() : null;
+    if (typeof figma.ui.getPosition !== 'function') return null;
+    const pos = figma.ui.getPosition();
+    return pos && pos.windowSpace ? pos.windowSpace : null;
   } catch (err) {
     void err;
     return null;
@@ -150,6 +173,7 @@ function readPosition() {
 }
 
 function moveTo(x, y) {
+  if (!isFinite(x) || !isFinite(y)) return;
   try {
     if (typeof figma.ui.reposition === 'function') {
       figma.ui.reposition(Math.round(x), Math.round(y));
@@ -196,7 +220,11 @@ figma.ui.onmessage = (msg) => {
 
     case 'resizeTo': {
       if (!drag) drag = { pos: readPosition(), w: size.w, h: size.h };
-      applySize(msg.width, msg.height);
+      // A vertical drag sets the ceiling. A purely horizontal one sends no
+      // height at all, so the content fit keeps governing as the width - and
+      // therefore the hexagon, and therefore the content height - changes.
+      if (typeof msg.height === 'number') capH = msg.height;
+      applySize(typeof msg.width === 'number' ? msg.width : size.w, desiredH());
       // Growing west or north means the origin has to travel the same distance
       // the edge did, or the opposite edge appears to move instead.
       if (drag.pos && (msg.fromLeft || msg.fromTop)) {
@@ -216,10 +244,17 @@ figma.ui.onmessage = (msg) => {
       figma.clientStorage.setAsync('windowWidth', size.w);
       break;
 
-    // The UI reporting how tall its content is. Clamped to MAX_H, past which
-    // the panel scrolls rather than growing off-screen.
+    // The UI reporting how tall its content is.
     case 'autosize':
-      applySize(size.w, msg.height);
+      contentH = msg.height;
+      applySize(size.w, desiredH());
+      break;
+
+    // Double-click on a vertical edge: forget the cap and wrap the content
+    // again. Without this a pinned height would be permanent for the session.
+    case 'refit':
+      capH = null;
+      applySize(size.w, desiredH());
       break;
 
     case 'close':

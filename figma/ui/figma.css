@@ -12,14 +12,20 @@
 @source "../../src";
 
 /*
- * Height is intrinsic, not 100%. The window is sized to the content (see
- * AutoHeight in main.tsx), so the content must be free to report its own
- * height - pinning it to the viewport would make the measurement circular.
+ * Height is intrinsic, not 100%. The window is sized to the content, so the
+ * content must be free to report its own height - pinning it to the viewport
+ * would make the measurement circular.
+ *
+ * Vertical overflow is left at its default so the document scrolls when the
+ * content cannot fit: either because the user capped the height by dragging an
+ * edge, or because the fitted height is taller than the screen and Figma
+ * clamped it. `clip` horizontally rather than `hidden`, so no scroll container
+ * is created and vertical scrolling stays on the viewport.
  */
 html,
 body {
   margin: 0;
-  overflow: hidden;
+  overflow-x: clip;
 }
 
 /*
