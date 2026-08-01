@@ -55,24 +55,41 @@ body {
  * by an amount that changes with the colour, which is why a horizontal
  * scrollbar used to appear and disappear and the layout jumped between hues.
  *
- * Capping the stage and centring it leaves a fixed gutter on each side. With
- * gutter g on each side and stage width W = A - 2g, the pill (anchored at
- * ~0.92 of W, ~57px wide) needs 0.92W + 57 <= A - g, which for g = 58 holds at
- * every panel width we allow. The hue badge on the left needs less, so the
- * pill governs. !important because the element carries an inline max-width.
+ * Solve for the gutter rather than hard-coding it. The overhang is
+ * (fixed px - fraction of stage width), so it shrinks as the stage grows and a
+ * constant gutter is badly over-provisioned - at 300px a fixed 58px each side
+ * ate a third of the panel.
+ *
+ * With panel width A, gutter g each side and stage W = A - 2g, the brightness
+ * pill (anchored at ~0.92W, ~60px wide) needs:
+ *
+ *     g >= 60 - 0.081 * W  =>  g >= 72 - 0.097 * A
+ *
+ * clamped at zero, so the stage goes edge to edge once the panel is wide
+ * enough (~740px) to need no gutter at all. The hue badge on the left wants
+ * less than this, so the pill governs both sides and centring stays honest.
+ *
+ * !important because the element carries an inline max-width from the app.
  */
 #hex-stage {
-  max-width: calc(100% - 116px) !important;
+  --chx-gutter: max(0px, 72px - 9.7%);
+  max-width: calc(100% - 2 * var(--chx-gutter)) !important;
   margin-left: auto !important;
   margin-right: auto !important;
 }
 
+/*
+ * Sits in the header slot the "Hexagon" title vacates in bare mode, so it is
+ * typeset to match the Bright/Light tabs beside it (shadcn text-sm
+ * font-medium: 14px/20px, weight 500).
+ */
 .figma-status {
-  margin: 0;
-  font-size: 11px;
-  line-height: 1.4;
+  display: block;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
   color: var(--muted-foreground);
-  text-align: center;
+  white-space: nowrap;
 }
 
 .figma-error {

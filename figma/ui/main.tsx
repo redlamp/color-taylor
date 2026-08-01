@@ -200,12 +200,8 @@ function PluginApp() {
         iconActions
         bare
         muted
+        headerLeft={<span className="figma-status">Selected: {selectionCount}</span>}
       />
-      <p className="figma-status">
-        {selectionCount === 0
-          ? 'Select a layer to paint it'
-          : `Painting ${selectionCount} layer${selectionCount === 1 ? '' : 's'}`}
-      </p>
       <ResizeGrip />
     </div>
   );

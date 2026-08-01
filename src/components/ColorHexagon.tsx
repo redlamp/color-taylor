@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback, useLayoutEffect, useState, useMemo, type ComponentType, type CSSProperties, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react';
+import { useRef, useEffect, useCallback, useLayoutEffect, useState, useMemo, type ComponentType, type CSSProperties, type ReactNode, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { hsbToRgb, rgbToHsb, rgbToHex, rgbToHsl, hslToRgb, type RGB, type HSB, type HSL } from '../utils/colorConversions';
 import type { ColorSpace } from '../utils/sliderGradients';
 import type { Channel, ChannelOrder } from './hex/hexConstants';
@@ -72,6 +72,8 @@ interface ColorHexagonProps {
   iconActions?: boolean;
   /** Drop the card border and "Hexagon" title: the host already frames it. */
   bare?: boolean;
+  /** Content for the header slot the title vacates in `bare` mode. */
+  headerLeft?: ReactNode;
 }
 
 interface HoveredMarker {
@@ -81,7 +83,7 @@ interface HoveredMarker {
   name: string;
 }
 
-export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, animHolding, onHoverHtmlColor, muted, iconActions, bare }: ColorHexagonProps) {
+export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, animHolding, onHoverHtmlColor, muted, iconActions, bare, headerLeft }: ColorHexagonProps) {
   const [hexOpen, setHexOpen] = useState(true);
   const [vectorMode] = useState<ChannelOrder>('rgb');
   const [initialHex] = useState(() => rgbToHex(rgb.r, rgb.g, rgb.b));
@@ -1150,7 +1152,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             <h2 className="text-lg font-semibold tracking-tight text-foreground">Hexagon</h2>
           </div>
         )}
-        {bare && <div className="flex-1 min-w-0" />}
+        {bare && <div className="flex-1 min-w-0 self-center">{headerLeft}</div>}
         {hexOpen && (
           <div className="flex items-start gap-2" onClick={(e) => e.stopPropagation()}>
             <div className="flex flex-col items-center gap-0.5">
