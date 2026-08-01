@@ -200,7 +200,13 @@ function PluginApp() {
         iconActions
         bare
         muted
-        headerLeft={<span className="figma-status">Selected: {selectionCount}</span>}
+        headerLeft={
+          // Same type utilities as TabsTrigger, so it reads as part of the
+          // same header rather than as a caption.
+          <span className="figma-status text-sm font-medium text-foreground/60">
+            Selected: {selectionCount}
+          </span>
+        }
       />
       <ResizeGrip />
     </div>

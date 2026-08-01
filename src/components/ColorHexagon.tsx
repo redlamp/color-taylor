@@ -1152,7 +1152,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             <h2 className="text-lg font-semibold tracking-tight text-foreground">Hexagon</h2>
           </div>
         )}
-        {bare && <div className="flex-1 min-w-0 self-center">{headerLeft}</div>}
+        {bare && <div className="flex-1 min-w-0">{headerLeft}</div>}
         {hexOpen && (
           <div className="flex items-start gap-2" onClick={(e) => e.stopPropagation()}>
             <div className="flex flex-col items-center gap-0.5">

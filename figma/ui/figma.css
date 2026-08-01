@@ -79,16 +79,17 @@ body {
 }
 
 /*
- * Sits in the header slot the "Hexagon" title vacates in bare mode, so it is
- * typeset to match the Bright/Light tabs beside it (shadcn text-sm
- * font-medium: 14px/20px, weight 500).
+ * Sits in the header slot the "Hexagon" title vacates in bare mode. Type comes
+ * from the same utilities TabsTrigger uses (see main.tsx); this only sets the
+ * box, so the text centres on the tab switch beside it rather than on the
+ * taller column that also holds the "Luminance" caption.
+ *
+ * 32px is the shadcn TabsList height (h-8).
  */
 .figma-status {
-  display: block;
-  font-size: 14px;
-  line-height: 20px;
-  font-weight: 500;
-  color: var(--muted-foreground);
+  display: flex;
+  align-items: center;
+  height: 32px;
   white-space: nowrap;
 }
 
