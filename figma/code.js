@@ -15,10 +15,12 @@ const MIN_W = 300;
 const MIN_H = 160;
 const MAX_W = 900;
 const MAX_H = 1200;
-// The UI scales down from HEX_PANEL_WIDTH (614), so a wider default means
-// larger, more legible type out of the box. Users can drag it either way.
+// A wider default means a larger hexagon out of the box; users can drag either
+// way. DEFAULT_H is the measured content height at DEFAULT_W, so the window
+// opens already fitted instead of jumping when the UI reports its first
+// measurement. Content height tracks width, since the hexagon keeps its ratio.
 const DEFAULT_W = 500;
-const DEFAULT_H = 680;
+const DEFAULT_H = 765;
 
 figma.showUI(__html__, { width: DEFAULT_W, height: DEFAULT_H, themeColors: true });
 
@@ -208,7 +210,10 @@ figma.ui.onmessage = (msg) => {
 
     case 'resizeEnd':
       drag = null;
-      figma.clientStorage.setAsync('windowSize', { w: size.w, h: size.h });
+      // Width only. Height belongs to the content; persisting it means a stale
+      // value races the UI's first measurement on the next run and wins,
+      // leaving dead space under the content.
+      figma.clientStorage.setAsync('windowWidth', size.w);
       break;
 
     // The UI reporting how tall its content is. Clamped to MAX_H, past which
@@ -223,9 +228,9 @@ figma.ui.onmessage = (msg) => {
   }
 };
 
-// Restore the last size. Height is only a starting point: unless the user has
-// dragged a horizontal edge this run, the UI reports its content height as soon
-// as it mounts and that wins.
-figma.clientStorage.getAsync('windowSize').then((saved) => {
-  if (saved && saved.w && saved.h) applySize(saved.w, saved.h);
+// Restore the last width only. Height always starts as a fit to the content -
+// the UI measures itself on mount and reports it. Restoring a stored height
+// here would land after that measurement and overwrite it.
+figma.clientStorage.getAsync('windowWidth').then((saved) => {
+  if (typeof saved === 'number') applySize(saved, size.h);
 });
