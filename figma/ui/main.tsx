@@ -256,23 +256,22 @@ function PluginApp() {
         bare
         muted
         headerLeft={
-          // Same type utilities as TabsTrigger, so it reads as part of the
-          // same header rather than as a caption.
-          <span className="figma-status text-sm font-medium text-foreground/60">
-            Selected: {selectionCount}
-          </span>
+          // Mirrors the Bright/Light group opposite: tabs with a caption
+          // underneath, same classes so the two read as a matched pair.
+          <div className="inline-flex flex-col items-center gap-0.5">
+            <Tabs value={target} onValueChange={(v) => setTarget(v as PaintTarget)}>
+              <TabsList>
+                <TabsTrigger value="fill" className="w-14">Fill</TabsTrigger>
+                <TabsTrigger value="stroke" className="w-14">Stroke</TabsTrigger>
+              </TabsList>
+            </Tabs>
+            <span className="text-[10px] text-muted-foreground">
+              Selected: {selectionCount}
+            </span>
+          </div>
         }
         belowStage={
-          <div className="flex flex-col gap-1 px-1">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-sm font-medium text-foreground/60">Apply to</span>
-              <Tabs value={target} onValueChange={(v) => setTarget(v as PaintTarget)}>
-                <TabsList>
-                  <TabsTrigger value="fill" className="w-14">Fill</TabsTrigger>
-                  <TabsTrigger value="stroke" className="w-14">Stroke</TabsTrigger>
-                </TabsList>
-              </Tabs>
-            </div>
+          <div className="px-1">
             <ColorSlider
               label="A"
               value={alpha}
