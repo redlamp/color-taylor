@@ -1,7 +1,8 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { hsbToRgb, linearToSrgb } from '../../utils/colorConversions';
 import type { ColorSpace } from '../../utils/sliderGradients';
 import { HEX_SIZE, SIZE, CENTER_X, CENTER_Y, RADIUS, PI, hexEdgeDist } from './hexConstants';
+import { createHexGL, type HexGL } from './hexShader';
 
 /**
  * The field at full brightness. 540x540 with an atan2 and a sqrt per pixel is
@@ -71,18 +72,53 @@ function buildBase(isLinear: boolean): Uint8ClampedArray {
 export default function HexCanvas({ brightness, colorSpace, extent = SIZE }: { brightness: number; colorSpace: ColorSpace; extent?: number }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const baseRef = useRef<{ space: ColorSpace; data: Uint8ClampedArray } | null>(null);
+  const glRef = useRef<HexGL | null | undefined>(undefined);
+  const [box, setBox] = useState({ w: HEX_SIZE, h: HEX_SIZE });
+
+  // Render at the size actually shown. The 2D path used to paint a fixed
+  // 540x540 bitmap and let CSS stretch it, which is why a wide panel looked
+  // soft.
+  useEffect(() => {
+    const el = canvasRef.current;
+    if (!el) return;
+    const measure = () => {
+      const r = el.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      const w = Math.max(1, Math.round(r.width * dpr));
+      const h = Math.max(1, Math.round(r.height * dpr));
+      setBox((prev) => (prev.w === w && prev.h === h ? prev : { w, h }));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   useEffect(() => {
     const rafId = requestAnimationFrame(() => {
       const canvas = canvasRef.current;
       if (!canvas) return;
+
+      if (glRef.current === undefined) glRef.current = createHexGL(canvas);
+      const gl = glRef.current;
+
+      if (gl) {
+        if (canvas.width !== box.w || canvas.height !== box.h) gl.resize(box.w, box.h);
+        gl.draw(brightness, colorSpace === 'linear');
+        return;
+      }
+
+      // No WebGL: the original per-pixel path, at the fixed 540 grid.
+      if (canvas.width !== HEX_SIZE) {
+        canvas.width = HEX_SIZE;
+        canvas.height = HEX_SIZE;
+      }
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
       // HSB is linear in brightness: rgb(h, s, b) === (b/100) * rgb(h, s, 100).
       // So the trig-heavy pass runs once per colour space and a brightness
-      // change becomes a per-channel multiply. That is the difference between
-      // keeping up with a colour being dragged elsewhere and not.
+      // change becomes a per-channel multiply.
       if (!baseRef.current || baseRef.current.space !== colorSpace) {
         baseRef.current = { space: colorSpace, data: buildBase(colorSpace === 'linear') };
       }
@@ -95,7 +131,6 @@ export default function HexCanvas({ brightness, colorSpace, extent = SIZE }: { b
       for (let i = 0; i < base.length; i += 4) {
         if (base[i + 3] === 0) continue;
         if (isLinear) {
-          // linearToSrgb is not linear, so it has to come after the scale.
           data[i] = linearToSrgb((base[i] / 255) * k);
           data[i + 1] = linearToSrgb((base[i + 1] / 255) * k);
           data[i + 2] = linearToSrgb((base[i + 2] / 255) * k);
@@ -106,18 +141,17 @@ export default function HexCanvas({ brightness, colorSpace, extent = SIZE }: { b
         }
         data[i + 3] = 255;
       }
-
       ctx.putImageData(out, 0, 0);
     });
     return () => cancelAnimationFrame(rafId);
-  }, [brightness, colorSpace]);
+  }, [brightness, colorSpace, box]);
+
+  useEffect(() => () => glRef.current?.dispose(), []);
 
   return (
     <canvas
       id="hex-canvas"
       ref={canvasRef}
-      width={HEX_SIZE}
-      height={HEX_SIZE}
       className="absolute top-0 left-0 rounded-sm"
       style={{ width: `${(HEX_SIZE / extent) * 100}%`, height: '100%' }}
     />

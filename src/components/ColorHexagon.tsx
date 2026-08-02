@@ -1165,6 +1165,9 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     const dist = Math.sqrt(dx * dx + dy * dy);
     const angle = Math.atan2(-dy, dx);
     const edgeDist = hexEdgeDist(angle, limitRadius);
+    // Straight down from the centre to the limit hexagon's lower boundary, and
+    // the x along the bottom edge that the brightness value maps to.
+    const downEdge = hexEdgeDist(-PI / 2, limitRadius);
     return {
       limitScale,
       limitRadius,
@@ -1172,6 +1175,9 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       perimY: CENTER_Y - (dy / dist) * edgeDist,
       arrowTipX,
       arrowY,
+      downX: CENTER_X,
+      downY: CENTER_Y + downEdge,
+      sliderX: (blValue / 100) * HEX_SIZE,
     };
   }, [blMode, brightness, hsl?.l]);
 
@@ -1257,11 +1263,18 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
               fill="none" stroke="rgba(128,128,128,0.5)" strokeWidth={2} strokeDasharray="1 4" strokeLinecap="round"
             />
           )}
-          {/* Connects the bar's arrow to the limit hexagon; meaningless without
-              the bar. */}
-          {blBar && (
+          {/* Ties the brightness control to the limit hexagon. With the bar it
+              runs to the bar's arrow; without it, down to the bottom edge at
+              the x the brightness value sits at, which is where the horizontal
+              slider's handle is. */}
+          {blBar ? (
             <line
               x1={limitHex.arrowTipX} y1={limitHex.arrowY} x2={limitHex.perimX} y2={limitHex.perimY}
+              stroke="rgba(128,128,128,0.5)" strokeWidth={2} strokeDasharray="1 4" strokeLinecap="round"
+            />
+          ) : (
+            <line
+              x1={limitHex.sliderX} y1={HEX_SIZE} x2={limitHex.downX} y2={limitHex.downY}
               stroke="rgba(128,128,128,0.5)" strokeWidth={2} strokeDasharray="1 4" strokeLinecap="round"
             />
           )}

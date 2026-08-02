@@ -85,13 +85,13 @@ function ColorSlider({ label, value, max, gradient, suffix, wrap, onChange, hide
   const sliderId = `slider-${label.toLowerCase()}`;
 
   return (
-    <div id={sliderId} className="flex items-start gap-2">
-      <span id={`${sliderId}-label`} className="w-3 shrink-0 pt-0.5 text-right text-xs font-semibold text-muted-foreground">
+    <div id={sliderId} className={`flex gap-2 ${handle === 'ring' ? 'items-center' : 'items-start'}`}>
+      <span id={`${sliderId}-label`} className={`w-3 shrink-0 text-right text-xs font-semibold text-muted-foreground ${handle === 'ring' ? '' : 'pt-0.5'}`}>
         {label}
       </span>
 
       {/* Track + arrow */}
-      <div id={`${sliderId}-body`} className="flex-1 min-w-0 pb-3 relative">
+      <div id={`${sliderId}-body`} className={`flex-1 min-w-0 relative ${handle === 'ring' ? '' : 'pb-3'}`}>
         <div
           id={`${sliderId}-track`}
           ref={trackRef}
