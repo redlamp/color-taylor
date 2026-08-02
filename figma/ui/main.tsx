@@ -290,6 +290,8 @@ function PluginApp() {
       <ResizeEdge side="w" />
       <ResizeEdge side="e" />
       <ResizeEdge side="s" />
+      <ResizeEdge side="sw" />
+      <ResizeEdge side="se" />
     </>
   );
 }
@@ -320,7 +322,9 @@ const HEIGHT_PER_WIDTH = 0.887;
  * The west edge also moves the window; that lives in the sandbox, which probes
  * whether it can position accurately before trying.
  */
-function ResizeEdge({ side }: { side: 'w' | 'e' | 's' }) {
+type Side = 'w' | 'e' | 's' | 'sw' | 'se';
+
+function ResizeEdge({ side }: { side: Side }) {
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault();
     const el = e.currentTarget;
@@ -329,7 +333,7 @@ function ResizeEdge({ side }: { side: 'w' | 'e' | 's' }) {
     const originY = e.screenY;
     const startW = window.innerWidth;
     const startH = window.innerHeight;
-    const fromLeft = side === 'w';
+    const fromLeft = side === 'w' || side === 'sw';
 
     const move = (ev: PointerEvent) => {
       let width: number;
@@ -337,6 +341,10 @@ function ResizeEdge({ side }: { side: 'w' | 'e' | 's' }) {
         const targetH = startH + (ev.screenY - originY);
         width = window.innerWidth + (targetH - window.innerHeight) / HEIGHT_PER_WIDTH;
       } else {
+        // Corners included: horizontal only, same as their edge. Height follows
+        // width anyway, so a diagonal drag still grows the panel in both
+        // directions - the corner cursor is honest without needing to fold the
+        // vertical delta in as a second driver for the same one output.
         const dx = ev.screenX - originX;
         width = fromLeft ? startW - dx : startW + dx;
       }

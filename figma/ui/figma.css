@@ -136,11 +136,32 @@ body {
 /* South drives the width too - height follows the content, so this is the
    inverse of "content height as a function of width". See main.tsx. */
 .figma-edge-s {
-  left: 0;
-  right: 0;
+  left: 14px;
+  right: 14px;
   bottom: 0;
   height: 6px;
   cursor: ns-resize;
+}
+
+/* Corners sit above the edges they overlap, and are a bigger target. They
+   resize width like their own side; height follows, so a diagonal drag grows
+   the panel both ways. */
+.figma-edge-sw,
+.figma-edge-se {
+  bottom: 0;
+  width: 14px;
+  height: 14px;
+  z-index: 61;
+}
+
+.figma-edge-sw {
+  left: 0;
+  cursor: nesw-resize;
+}
+
+.figma-edge-se {
+  right: 0;
+  cursor: nwse-resize;
 }
 
 /*
