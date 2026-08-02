@@ -33,7 +33,7 @@ import {
   type HSB,
   type RGB,
 } from '../../src/utils/colorConversions';
-import type { ColorSpace } from '../../src/utils/sliderGradients';
+import { brightnessGradient, type ColorSpace } from '../../src/utils/sliderGradients';
 import { HSB_TWEEN_MS, hsbAtProgress } from '../../src/utils/colorTween';
 import ColorSlider from '../../src/components/ColorSlider';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -297,6 +297,7 @@ function PluginApp() {
         iconActions
         bare
         collapsedSections
+        blBar={false}
         muted
         headerLeft={
           // Mirrors the Bright/Light group opposite: tabs with a caption
@@ -329,7 +330,25 @@ function PluginApp() {
           </div>
         }
         belowStage={
-          <div className="px-1">
+          <div className="flex flex-col gap-1 px-1">
+            {/* Brightness moves out of the hexagon and onto its own track, which
+                is also what frees the width the vertical bar was reserving. */}
+            <ColorSlider
+              label="B"
+              value={Math.round(hsb.b)}
+              max={100}
+              suffix="%"
+              gradient={brightnessGradient(hsb.h, hsb.s, colorSpace)}
+              onChange={(v) => onHsbChange({ b: v })}
+              stepper="value"
+              round
+              handle="ring"
+              handleFill={rgbToHex(
+                hsbToRgb(hsb.h, hsb.s, Math.round(hsb.b)).r,
+                hsbToRgb(hsb.h, hsb.s, Math.round(hsb.b)).g,
+                hsbToRgb(hsb.h, hsb.s, Math.round(hsb.b)).b,
+              )}
+            />
             <ColorSlider
               label="A"
               value={alpha}

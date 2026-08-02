@@ -68,7 +68,7 @@ function buildBase(isLinear: boolean): Uint8ClampedArray {
   return data;
 }
 
-export default function HexCanvas({ brightness, colorSpace }: { brightness: number; colorSpace: ColorSpace }) {
+export default function HexCanvas({ brightness, colorSpace, extent = SIZE }: { brightness: number; colorSpace: ColorSpace; extent?: number }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const baseRef = useRef<{ space: ColorSpace; data: Uint8ClampedArray } | null>(null);
 
@@ -119,7 +119,7 @@ export default function HexCanvas({ brightness, colorSpace }: { brightness: numb
       width={HEX_SIZE}
       height={HEX_SIZE}
       className="absolute top-0 left-0 rounded-sm"
-      style={{ width: `${(HEX_SIZE / SIZE) * 100}%`, height: '100%' }}
+      style={{ width: `${(HEX_SIZE / extent) * 100}%`, height: '100%' }}
     />
   );
 }

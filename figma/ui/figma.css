@@ -63,36 +63,23 @@ body {
 }
 
 /*
- * Keep the hue badge and brightness pill on screen without scaling the type.
+ * Keep the hue badge on screen without scaling the type.
  *
- * Both are absolutely positioned against #hex-stage at percentage offsets but
- * sized in fixed pixels, so the narrower the panel the further they hang out -
- * by an amount that changes with the colour, which is why a horizontal
- * scrollbar used to appear and disappear and the layout jumped between hues.
+ * The badge is absolutely positioned against #hex-stage at a percentage offset
+ * but sized in fixed pixels, so the narrower the panel the further it hangs
+ * out. With the brightness bar moved onto its own track there is no pill on the
+ * right any more, so the two sides now need nearly the same small gutter -
+ * roughly 24px less a twenty-fifth of the width, which solves to:
  *
- * Solve for each gutter separately - they are not the same size. The overhang
- * is (fixed px - fraction of stage width), so it shrinks as the stage grows,
- * and the two sides need very different amounts:
+ *   g >= 27px - 4.5% of panel width
  *
- *   left   hue badge, 48px wide, anchored at 0.037W at its extreme (hue 180)
- *          => L >= 24 - 0.037 * W
- *   right  brightness pill, ~60px wide, anchored at 0.92W
- *          => R >= 60 - 0.081 * W
- *
- * Sizing both sides to the larger (the pill) wasted ~35px on the left at every
- * width. Substituting into A = L + W + R and solving:
- *
- *   W = (A - 84) / 0.882 = 1.134 * (A - 84)
- *
- * with L derived from that and R taking the remainder via margin-right:auto.
- * Both clamp at zero, so the stage runs edge to edge once the panel is wide
- * enough (~740px) to need no gutter at all.
- *
- * !important because the element carries an inline max-width from the app.
+ * clamped at zero. Far less than the 84px the pill used to demand, which is
+ * where the extra hexagon width comes from.
  */
 #hex-stage {
-  max-width: min(100%, calc((100% - 84px) * 1.134)) !important;
-  margin-left: max(0px, calc(24px - 0.0423 * (100% - 84px))) !important;
+  --chx-gutter: max(0px, 27px - 4.5%);
+  max-width: calc(100% - 2 * var(--chx-gutter)) !important;
+  margin-left: auto !important;
   margin-right: auto !important;
 }
 

@@ -5,17 +5,19 @@ import { SIZE, HEX_SIZE } from './hexConstants';
 interface HueHandleProps {
   hue: number;
   hueLabel: { x: number; y: number };
+  /** Horizontal extent of the coordinate space; narrows when the BL bar is off. */
+  extent?: number;
   onMouseDown: PointerEventHandler<HTMLDivElement>;
 }
 
-export default function HueHandle({ hue, hueLabel, onMouseDown }: HueHandleProps) {
+export default function HueHandle({ hue, hueLabel, extent = SIZE, onMouseDown }: HueHandleProps) {
   const rgb = hsbToRgb(hue, 100, 100);
   return (
     <div
       id="hue-handle"
       className="absolute z-10 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center w-12 h-7 rounded-full cursor-pointer select-none shadow-md touch-none"
       style={{
-        left: `${(hueLabel.x / SIZE) * 100}%`,
+        left: `${(hueLabel.x / extent) * 100}%`,
         top: `${(hueLabel.y / HEX_SIZE) * 100}%`,
         backgroundColor: rgbToHex(rgb.r, rgb.g, rgb.b),
         border: '2px solid var(--background)',

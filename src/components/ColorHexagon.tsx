@@ -1,5 +1,5 @@
 import { useRef, useEffect, useCallback, useLayoutEffect, useState, useMemo, type ComponentType, type CSSProperties, type ReactNode, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react';
-import { hsbToRgb, rgbToHsb, rgbToHex, rgbToHsl, hslToRgb, type RGB, type HSB, type HSL } from '../utils/colorConversions';
+import { hsbToRgb, rgbToHsb, rgbToHex, hexToRgb, rgbToHsl, hslToRgb, lighter, type RGB, type HSB, type HSL } from '../utils/colorConversions';
 import type { ColorSpace } from '../utils/sliderGradients';
 import type { Channel, ChannelOrder } from './hex/hexConstants';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -80,6 +80,12 @@ interface ColorHexagonProps {
   belowStage?: ReactNode;
   /** Start Recent and Saved closed - they cost a lot of height in a panel. */
   collapsedSections?: boolean;
+  /**
+   * Draw the vertical brightness bar beside the hexagon. Off lets a host put
+   * brightness on its own horizontal slider, and hands the width the bar was
+   * reserving back to the hexagon.
+   */
+  blBar?: boolean;
 }
 
 interface HoveredMarker {
@@ -89,7 +95,10 @@ interface HoveredMarker {
   name: string;
 }
 
-export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, animHolding, onHoverHtmlColor, muted, iconActions, bare, headerLeft, belowStage, collapsedSections }: ColorHexagonProps) {
+export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, animHolding, onHoverHtmlColor, muted, iconActions, bare, headerLeft, belowStage, collapsedSections, blBar = true }: ColorHexagonProps) {
+  // Horizontal extent of the SVG coordinate space. Without the bar the hexagon
+  // is the whole picture, so the reserved 50px to its right goes away.
+  const EXTENT = blBar ? SIZE : HEX_SIZE;
   const [hexOpen, setHexOpen] = useState(true);
   const [vectorMode] = useState<ChannelOrder>('rgb');
   const [initialHex] = useState(() => rgbToHex(rgb.r, rgb.g, rgb.b));
@@ -583,18 +592,35 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   const startingBrightness = useRef(null); // brightness at drag start for rubber-band
   const blPointerDown = useRef(null);
   const [hoveredDot, setHoveredDot] = useState(null); // index of hovered dot
+  // SVG user units per rendered pixel. The hexagon and its legs scale with the
+  // viewBox, but the handles should stay the same physical size, so their radii
+  // and strokes are multiplied by this.
+  const [uiScale, setUiScale] = useState(1);
   const [isHexDragging, setIsHexDragging] = useState(false);
   const [hoveredMarker, setHoveredMarker] = useState<HoveredMarker | null>(null);
 
   const dragTriggerDistance = 4;
   const clickMaxDuration = 200;
 
+  useLayoutEffect(() => {
+    const el = svgRef.current;
+    if (!el) return;
+    const measure = () => {
+      const w = el.getBoundingClientRect().width;
+      if (w > 0) setUiScale(EXTENT / w);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [EXTENT]);
+
   const getSvgCoords = useCallback((e: { clientX: number; clientY: number }) => {
     const rect = svgRef.current!.getBoundingClientRect();
-    const sx = SIZE / rect.width;
+    const sx = EXTENT / rect.width;
     const sy = HEX_SIZE / rect.height;
     return { x: (e.clientX - rect.left) * sx, y: (e.clientY - rect.top) * sy };
-  }, []);
+  }, [EXTENT]);
 
   const getHsbFromPosition = useCallback((svgX: number, svgY: number, clampOnly = false) => {
     const dx = svgX - CENTER_X;
@@ -653,6 +679,16 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     return { points: pts, dotNames: names };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- rgb accessed via dynamic key; r/g/b deps cover all reads
   }, [order, rgb.r, rgb.g, rgb.b, scale]);
+
+  /** Same hue, lifted - the hover state of any element is its own colour, lighter. */
+  const lift = useCallback((hex: string, amount = 22) => {
+    const c = hexToRgb(hex);
+    if (!c) return hex;
+    const h = rgbToHsb(c.r, c.g, c.b);
+    const next = lighter(h.h, h.s, h.b, amount);
+    const out = hsbToRgb(next.h, next.s, next.b);
+    return rgbToHex(out.r, out.g, out.b);
+  }, []);
 
   const dotColors = useMemo(() => points.map((p) => {
     const c = colorAtPoint(p.x, p.y, brightness);
@@ -1197,13 +1233,13 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           HEX_PANEL_WIDTH must cap this width to keep them on screen. Padding
           cannot do it - abs-positioned children resolve against the padding
           box. See figma/ui/figma.css. */}
-      <div id="hex-stage" className="w-full relative m-4" style={{ maxWidth: SIZE, aspectRatio: `${SIZE} / ${DISPLAY_HEIGHT}` }}>
-      <div className="absolute left-0 top-1/2 w-full -translate-y-1/2" style={{ aspectRatio: `${SIZE} / ${HEX_SIZE}` }}>
-        <HexCanvas brightness={brightness} colorSpace={colorSpace} />
+      <div id="hex-stage" className="w-full relative m-4" style={{ maxWidth: EXTENT, aspectRatio: `${EXTENT} / ${DISPLAY_HEIGHT}` }}>
+      <div className="absolute left-0 top-1/2 w-full -translate-y-1/2" style={{ aspectRatio: `${EXTENT} / ${HEX_SIZE}` }}>
+        <HexCanvas brightness={brightness} colorSpace={colorSpace} extent={EXTENT} />
         <svg
           id="hex-svg"
           ref={svgRef}
-          viewBox={`0 0 ${SIZE} ${HEX_SIZE}`}
+          viewBox={`0 0 ${EXTENT} ${HEX_SIZE}`}
           preserveAspectRatio="xMidYMid meet"
           role="img"
           aria-label="Color hexagon with RGB vector visualization"
@@ -1221,10 +1257,14 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
               fill="none" stroke="rgba(128,128,128,0.5)" strokeWidth={2} strokeDasharray="1 4" strokeLinecap="round"
             />
           )}
-          <line
-            x1={limitHex.arrowTipX} y1={limitHex.arrowY} x2={limitHex.perimX} y2={limitHex.perimY}
-            stroke="rgba(128,128,128,0.5)" strokeWidth={2} strokeDasharray="1 4" strokeLinecap="round"
-          />
+          {/* Connects the bar's arrow to the limit hexagon; meaningless without
+              the bar. */}
+          {blBar && (
+            <line
+              x1={limitHex.arrowTipX} y1={limitHex.arrowY} x2={limitHex.perimX} y2={limitHex.perimY}
+              stroke="rgba(128,128,128,0.5)" strokeWidth={2} strokeDasharray="1 4" strokeLinecap="round"
+            />
+          )}
 
           {/* HTML named color markers */}
           {htmlColorMarkers.map((m) => (
@@ -1270,11 +1310,9 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             if (isHexDragging && chValue === 0 && ch !== 'r') return null;
             const bright = brightness > 50;
             const baseColor = bright
-              ? (ch === 'r' ? 'rgba(220,50,50,0.8)' : ch === 'g' ? 'rgba(50,180,50,0.8)' : 'rgba(50,50,220,0.8)')
-              : (ch === 'r' ? 'rgba(255,120,120,0.8)' : ch === 'g' ? 'rgba(120,230,120,0.8)' : 'rgba(120,120,255,0.8)');
-            const hoverColor = bright
-              ? (ch === 'r' ? 'rgba(240,90,90,1)' : ch === 'g' ? 'rgba(90,200,90,1)' : 'rgba(90,90,240,1)')
-              : (ch === 'r' ? 'rgba(255,160,160,1)' : ch === 'g' ? 'rgba(160,255,160,1)' : 'rgba(160,160,255,1)');
+              ? (ch === 'r' ? '#dc3232' : ch === 'g' ? '#32b432' : '#3232dc')
+              : (ch === 'r' ? '#ff7878' : ch === 'g' ? '#78e678' : '#7878ff');
+            const hoverColor = lift(baseColor);
             const isHighlighted = hoveredDot === i + 1;
             const dotIndex = i + 1;
             return (
@@ -1335,6 +1373,11 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             // treatment: hairline, white ring, hairline. The others are the
             // channel vectors' own grab points and keep their channel-coloured
             // rings, which carry meaning a white ring would erase.
+            // uiScale keeps the handles a constant size on screen while the
+            // hexagon and its legs scale with the viewBox.
+            const k = uiScale;
+            const fill = isHighlighted ? lift(dotColors[i]) : dotColors[i];
+
             if (isLast) {
               return (
                 <g
@@ -1345,16 +1388,16 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                 >
                   <circle
                     id={`rgb-dot-${dotNames[i]}`} cx={p.x} cy={p.y}
-                    r={HANDLE.core + HANDLE.ring / 2 + 0.5}
-                    fill="none" stroke={HANDLE.outer} strokeWidth={1}
+                    r={(HANDLE.core + HANDLE.ring / 2 + 0.5) * k}
+                    fill="none" stroke={HANDLE.outer} strokeWidth={k}
                   />
                   <circle
-                    cx={p.x} cy={p.y} r={HANDLE.core + HANDLE.ring / 2 - 0.5}
-                    fill="none" stroke={HANDLE.inner} strokeWidth={1}
+                    cx={p.x} cy={p.y} r={(HANDLE.core + HANDLE.ring / 2 - 0.5) * k}
+                    fill="none" stroke={HANDLE.inner} strokeWidth={k}
                   />
                   <circle
-                    cx={p.x} cy={p.y} r={HANDLE.core}
-                    fill={dotColors[i]} stroke="#fff" strokeWidth={HANDLE.ring}
+                    cx={p.x} cy={p.y} r={HANDLE.core * k}
+                    fill={fill} stroke="#fff" strokeWidth={HANDLE.ring * k}
                   />
                 </g>
               );
@@ -1363,10 +1406,10 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             return (
               <circle
                 key={i} id={`rgb-dot-${dotNames[i]}`} cx={p.x} cy={p.y}
-                r={isOrigin ? 3 : 5}
-                fill={isOrigin ? '#ff0000' : dotColors[i]}
+                r={(isOrigin ? 3 : 5) * k}
+                fill={isOrigin ? '#ff0000' : fill}
                 stroke={isOrigin ? 'none' : ringColor}
-                strokeWidth={isOrigin ? 0 : isHighlighted ? 3 : 2}
+                strokeWidth={isOrigin ? 0 : (isHighlighted ? 3 : 2) * k}
                 className={isDraggable ? 'cursor-pointer touch-none' : ''}
                 {...handlers}
               />
@@ -1388,11 +1431,13 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             />
           )}
 
-          <BrightnessBar
-            hue={hue} saturation={saturation} brightness={brightness} hsl={hsl}
-            blMode={blMode} blPointerDownRef={blPointerDown} draggingBLRef={draggingBL}
-            animateBLToValue={animateBLToValue} colorSpace={colorSpace}
-          />
+          {blBar && (
+            <BrightnessBar
+              hue={hue} saturation={saturation} brightness={brightness} hsl={hsl}
+              blMode={blMode} blPointerDownRef={blPointerDown} draggingBLRef={draggingBL}
+              animateBLToValue={animateBLToValue} colorSpace={colorSpace}
+            />
+          )}
         </svg>
 
         <ColorLabels onColorClick={handleColorLabelClick} />
@@ -1425,21 +1470,23 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             </div>
           );
         })()}
-        {showHueLine && <HueHandle hue={hue} hueLabel={hueLabel} onMouseDown={handleHueDragStart} />}
-        <BrightnessMarkers onPick={animateBLToValue} />
-        <BrightnessHandle
-          hue={hue}
-          saturation={saturation}
-          brightness={brightness}
-          hsl={hsl}
-          blMode={blMode}
-          onMouseDown={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            draggingBL.current = true;
-            scheduleHoldTone();
-          }}
-        />
+        {showHueLine && <HueHandle hue={hue} hueLabel={hueLabel} extent={EXTENT} onMouseDown={handleHueDragStart} />}
+        {blBar && <BrightnessMarkers onPick={animateBLToValue} />}
+        {blBar && (
+          <BrightnessHandle
+            hue={hue}
+            saturation={saturation}
+            brightness={brightness}
+            hsl={hsl}
+            blMode={blMode}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              draggingBL.current = true;
+              scheduleHoldTone();
+            }}
+          />
+        )}
       </div>
       </div>
 
