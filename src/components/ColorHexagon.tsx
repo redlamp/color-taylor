@@ -1172,9 +1172,15 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     const dist = Math.sqrt(dx * dx + dy * dy);
     const angle = Math.atan2(-dy, dx);
     const edgeDist = hexEdgeDist(angle, limitRadius);
-    // Straight down from the centre to the limit hexagon's lower boundary, and
-    // the x along the bottom edge that the brightness value maps to.
-    const downEdge = hexEdgeDist(-PI / 2, limitRadius);
+    // Where the horizontal slider's handle meets the bottom edge, and the point
+    // where the line from there to the centre crosses the limit hexagon - so
+    // the connector points at the middle rather than dropping straight down.
+    const sliderX = (blHandleX ?? blValue / 100) * HEX_SIZE;
+    const sdx = CENTER_X - sliderX;
+    const sdy = CENTER_Y - HEX_SIZE;
+    const sdist = Math.sqrt(sdx * sdx + sdy * sdy) || 1;
+    const sEdge = hexEdgeDist(Math.atan2(-sdy, sdx), limitRadius);
+
     return {
       limitScale,
       limitRadius,
@@ -1182,9 +1188,9 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       perimY: CENTER_Y - (dy / dist) * edgeDist,
       arrowTipX,
       arrowY,
-      downX: CENTER_X,
-      downY: CENTER_Y + downEdge,
-      sliderX: (blHandleX ?? blValue / 100) * HEX_SIZE,
+      sliderX,
+      downX: CENTER_X - (sdx / sdist) * sEdge,
+      downY: CENTER_Y - (sdy / sdist) * sEdge,
     };
   }, [blMode, brightness, hsl?.l, blHandleX]);
 

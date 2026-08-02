@@ -38,6 +38,13 @@ function ColorSlider({ label, value, max, gradient, suffix, wrap, onChange, hide
   const stepperMode = stepper ?? (hideStepper ? 'none' : 'full');
   const trackRef = useRef<HTMLDivElement | null>(null);
 
+  // Figma keeps its thumb within the track rather than letting it hang off each
+  // end. That means the usable span is inset by the handle's radius, and both
+  // the rendered position and the click mapping have to use the same inset or
+  // the handle lands somewhere other than where you pressed.
+  const inset = handle === 'ring' ? HANDLE_SIZE / 2 : 0;
+
+
   const clamp = (v: number) => Math.max(0, Math.min(max, v));
 
   const updateValue = useCallback((clientX: number) => {
@@ -45,16 +52,18 @@ function ColorSlider({ label, value, max, gradient, suffix, wrap, onChange, hide
     const rect = trackRef.current.getBoundingClientRect();
     const rawX = clientX - rect.left;
 
+    const span = Math.max(1, rect.width - inset * 2);
+
     if (wrap) {
       const wrapped = ((rawX % rect.width) + rect.width) % rect.width;
       const newValue = Math.round((wrapped / rect.width) * max);
       onChange(Math.min(newValue, max));
     } else {
-      const x = Math.max(0, Math.min(rawX, rect.width));
-      const newValue = Math.round((x / rect.width) * max);
+      const x = Math.max(0, Math.min(rawX - inset, span));
+      const newValue = Math.round((x / span) * max);
       onChange(Math.min(newValue, max));
     }
-  }, [max, wrap, onChange]);
+  }, [max, wrap, onChange, inset]);
 
   const { startDrag } = useDrag(useCallback((e: PointerEvent) => {
     updateValue(e.clientX);
@@ -91,7 +100,13 @@ function ColorSlider({ label, value, max, gradient, suffix, wrap, onChange, hide
       </span>
 
       {/* Track + arrow */}
-      <div id={`${sliderId}-body`} className={`flex-1 min-w-0 relative ${handle === 'ring' ? 'px-[10px]' : 'pb-3'}`}>
+      <div id={`${sliderId}-body`} className={`flex-1 min-w-0 ${handle === 'ring' ? '' : 'pb-3'}`}>
+        {/* The positioning context is this inner box, not the padded body.
+            An absolutely positioned child resolves against the padding box,
+            so with padding on the body the handle's 0-100% ran 10px wider
+            than the track at each end - it rendered offset from the value
+            you had just clicked. */}
+        <div className="relative">
         <div
           id={`${sliderId}-track`}
           ref={trackRef}
@@ -112,7 +127,7 @@ function ColorSlider({ label, value, max, gradient, suffix, wrap, onChange, hide
             id={`${sliderId}-handle`}
             className="absolute top-2 -translate-x-1/2 -translate-y-1/2 cursor-pointer touch-none rounded-full"
             style={{
-              left: `${pct}%`,
+              left: `calc(${inset}px + ${value / max} * (100% - ${inset * 2}px))`,
               width: HANDLE_SIZE,
               height: HANDLE_SIZE,
               border: '3px solid #fff',
@@ -145,6 +160,7 @@ function ColorSlider({ label, value, max, gradient, suffix, wrap, onChange, hide
             />
           </div>
         )}
+        </div>
       </div>
 
       {/* Stepper */}
