@@ -46,6 +46,8 @@ function paintColorToHex(color) {
 // Which paint the picker reads and writes. Driven by the UI's Fill/Stroke tabs.
 let target = 'fill';
 
+// 'none' still reads from fills so the picker keeps showing the selection; it
+// just never writes. applyPaint is simply not called in that mode.
 function paintProp() {
   return target === 'stroke' ? 'strokes' : 'fills';
 }
@@ -308,7 +310,7 @@ figma.ui.onmessage = (msg) => {
     // Fill/Stroke switch. Re-seed so the picker shows what that paint already
     // is, rather than immediately overwriting it.
     case 'target':
-      target = msg.target === 'stroke' ? 'stroke' : 'fill';
+      target = msg.target === 'stroke' || msg.target === 'none' ? msg.target : 'fill';
       postSelection();
       break;
 

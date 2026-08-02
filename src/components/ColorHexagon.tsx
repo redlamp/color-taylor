@@ -1173,13 +1173,13 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                 <TabsList>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <span><TabsTrigger value="brightness" className="w-14">Bright</TabsTrigger></span>
+                      <span><TabsTrigger value="brightness" className="w-14">HSB</TabsTrigger></span>
                     </TooltipTrigger>
                     <TooltipContent side="bottom" sideOffset={8} className="text-xs font-semibold">HSB brightness</TooltipContent>
                   </Tooltip>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <span><TabsTrigger value="lightness" className="w-14">Light</TabsTrigger></span>
+                      <span><TabsTrigger value="lightness" className="w-14">HSL</TabsTrigger></span>
                     </TooltipTrigger>
                     <TooltipContent side="bottom" sideOffset={8} className="text-xs font-semibold">HSL lightness</TooltipContent>
                   </Tooltip>

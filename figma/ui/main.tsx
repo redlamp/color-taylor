@@ -37,6 +37,7 @@ import type { ColorSpace } from '../../src/utils/sliderGradients';
 import { HSB_TWEEN_MS, hsbAtProgress } from '../../src/utils/colorTween';
 import ColorSlider from '../../src/components/ColorSlider';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Ban } from 'lucide-react';
 import ColorHexagon from '../../src/components/ColorHexagon';
 // figma.css imports the app's index.css, so this is the only stylesheet entry.
 import './figma.css';
@@ -45,7 +46,7 @@ function post(msg: Record<string, unknown>) {
   parent.postMessage({ pluginMessage: msg }, '*');
 }
 
-type PaintTarget = 'fill' | 'stroke';
+type PaintTarget = 'fill' | 'stroke' | 'none';
 
 const CHECKER =
   'repeating-conic-gradient(rgba(128,128,128,.45) 0% 25%, transparent 0% 50%) 0 0/10px 10px';
@@ -82,7 +83,11 @@ function PluginApp() {
   // seeds the picker from its fill, which changes `hex`, which fires the
   // live-apply effect and repaints the layer with the colour it already had -
   // a wasted write and a junk undo entry.
-  const seededKeyRef = useRef<string | null>(null);
+  // Set by the picker's own change handlers. Painting keys off this rather than
+  // off the colour changing, because the colour also changes when we seed from
+  // a selection - and applying then meant that selecting or pasting a layer
+  // silently repainted it with whatever was already in the picker.
+  const userEditRef = useRef(false);
   // Read inside the apply effect so switching target does not itself trigger a
   // paint - that is a mode change, and it re-seeds from the new target instead.
   const targetRef = useRef<PaintTarget>('fill');
@@ -95,21 +100,18 @@ function PluginApp() {
   const hsl = useMemo(() => rgbToHsl(rgb.r, rgb.g, rgb.b), [rgb.r, rgb.g, rgb.b]);
   const hex = useMemo(() => rgbToHex(rgb.r, rgb.g, rgb.b), [rgb.r, rgb.g, rgb.b]);
 
-  // Live-apply. No button: picking a colour *is* the action.
+  // Live-apply. No button: picking a colour *is* the action - but only picking.
   const paintKey = `${hex}|${alpha}`;
   useEffect(() => {
-    if (selectionCount === 0) return;
-    if (seededKeyRef.current === paintKey) {
-      seededKeyRef.current = null;
-      return;
-    }
+    if (!userEditRef.current) return;
+    userEditRef.current = false;
+    if (selectionCount === 0 || targetRef.current === 'none') return;
     post({ type: 'apply', hex, opacity: alpha / 100, target: targetRef.current });
   }, [paintKey, hex, alpha, selectionCount]);
 
   // Switching Fill/Stroke re-reads the selection through the new target rather
   // than painting it, so you see what is already there before changing it.
   useEffect(() => {
-    targetRef.current = target;
     post({ type: 'target', target });
   }, [target]);
 
@@ -160,39 +162,66 @@ function PluginApp() {
   }, []);
 
   useEffect(() => {
-    const onMessage = (event: MessageEvent) => {
-      const msg = event.data?.pluginMessage;
-      if (!msg) return;
-      if (msg.type === 'selection') {
+    // Figma can emit document changes faster than the hexagon can repaint, so
+    // keep only the newest and apply it once per frame.
+    let queued: { count: number; hex?: string; opacity?: number } | null = null;
+    let frame = 0;
+    const flush = () => {
+      frame = 0;
+      const msg = queued;
+      queued = null;
+      if (msg) applySelection(msg);
+    };
+    const applySelection = (msg: { count: number; hex?: string; opacity?: number }) => {
         setSelectionCount(msg.count);
         if (msg.hex) {
           const next = hexToRgb(msg.hex);
           if (next) {
-            const a = Math.round((msg.opacity ?? 1) * 100);
-            seededKeyRef.current = `${rgbToHex(next.r, next.g, next.b)}|${a}`;
+            // Snap. A tween left running from a marker click would keep writing
+            // its own frames over the incoming value and read as stutter.
+            if (animRef.current !== null) {
+              cancelAnimationFrame(animRef.current);
+              animRef.current = null;
+            }
             rgbOverride.current = next;
-            setAlpha(a);
+            setAlpha(Math.round((msg.opacity ?? 1) * 100));
             setHsb(rgbToHsb(next.r, next.g, next.b));
           }
         }
-      }
+    };
+    const onMessage = (event: MessageEvent) => {
+      const msg = event.data?.pluginMessage;
+      if (!msg || msg.type !== 'selection') return;
+      queued = msg;
+      if (!frame) frame = requestAnimationFrame(flush);
     };
     window.addEventListener('message', onMessage);
     post({ type: 'ready' });
-    return () => window.removeEventListener('message', onMessage);
+    return () => {
+      window.removeEventListener('message', onMessage);
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, []);
+
+  const onAlphaChange = useCallback((v: number) => {
+    userEditRef.current = true;
+    setAlpha(v);
   }, []);
 
   const onHsbChange = useCallback((next: Partial<HSB>) => {
+    userEditRef.current = true;
     rgbOverride.current = null;
     setHsb((prev) => ({ ...prev, ...next }));
   }, []);
 
   const onHueChange = useCallback((h: number) => {
+    userEditRef.current = true;
     rgbOverride.current = null;
     setHsb((prev) => ({ ...prev, h }));
   }, []);
 
   const onRgbChange = useCallback((channel: 'r' | 'g' | 'b', value: number) => {
+    userEditRef.current = true;
     setHsb((prev) => {
       const current = rgbOverride.current || hsbToRgb(prev.h, prev.s, prev.b);
       const next = { ...current, [channel]: value };
@@ -208,12 +237,14 @@ function PluginApp() {
   // the plugin cannot drift from the app's feel.
   const animRef = useRef<number | null>(null);
   const onAnimateToHsb = useCallback((target: HSB) => {
+    userEditRef.current = true;
     if (animRef.current !== null) cancelAnimationFrame(animRef.current);
     rgbOverride.current = null;
     setHsb((from) => {
       const start = performance.now();
       const step = (now: number) => {
         const t = Math.min(1, (now - start) / HSB_TWEEN_MS);
+        userEditRef.current = true;
         setHsb(hsbAtProgress(from, target, t));
         if (t < 1) {
           animRef.current = requestAnimationFrame(step);
@@ -234,6 +265,7 @@ function PluginApp() {
   }, []);
 
   const onHslChange = useCallback((channel: 'h' | 's' | 'l', value: number) => {
+    userEditRef.current = true;
     rgbOverride.current = null;
     setHsb((prev) => {
       const current = hsbToRgb(prev.h, prev.s, prev.b);
@@ -270,10 +302,25 @@ function PluginApp() {
           // Mirrors the Bright/Light group opposite: tabs with a caption
           // underneath, same classes so the two read as a matched pair.
           <div className="inline-flex flex-col items-center gap-0.5">
-            <Tabs value={target} onValueChange={(v) => setTarget(v as PaintTarget)}>
+            <Tabs
+              value={target}
+              onValueChange={(v) => {
+                // Synchronously, not via the effect below: the effect lands a
+                // render later, so a colour change in the same tick would still
+                // paint through the old target.
+                targetRef.current = v as PaintTarget;
+                setTarget(v as PaintTarget);
+              }}
+            >
               <TabsList>
-                <TabsTrigger value="fill" className="w-14">Fill</TabsTrigger>
-                <TabsTrigger value="stroke" className="w-14">Stroke</TabsTrigger>
+                <TabsTrigger value="fill" className="w-12">Fill</TabsTrigger>
+                <TabsTrigger value="stroke" className="w-12">Stroke</TabsTrigger>
+                {/* Browse without painting. The paste problem is fixed at
+                    source - selecting never applies now - but an explicit off
+                    is still worth having while picking against a reference. */}
+                <TabsTrigger value="none" className="w-9" aria-label="Do not apply">
+                  <Ban className="!size-3.5" />
+                </TabsTrigger>
               </TabsList>
             </Tabs>
             <span className="text-[10px] text-muted-foreground">
@@ -289,8 +336,9 @@ function PluginApp() {
               max={100}
               suffix="%"
               gradient={alphaGradient(rgb)}
-              onChange={setAlpha}
-              hideStepper
+              onChange={onAlphaChange}
+              stepper="value"
+              round
               handle="ring"
               handleFill={alphaSwatch(rgb, alpha)}
             />

@@ -3,17 +3,15 @@ import { hsbToRgb, linearToSrgb } from '../../utils/colorConversions';
 import type { ColorSpace } from '../../utils/sliderGradients';
 import { HEX_SIZE, SIZE, CENTER_X, CENTER_Y, RADIUS, PI, hexEdgeDist } from './hexConstants';
 
-export default function HexCanvas({ brightness, colorSpace }: { brightness: number; colorSpace: ColorSpace }) {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-
-  useEffect(() => {
-    const rafId = requestAnimationFrame(() => {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      const ctx = canvas.getContext('2d');
-      const imageData = ctx.createImageData(HEX_SIZE, HEX_SIZE);
-      const data = imageData.data;
-      const isLinear = colorSpace === 'linear';
+/**
+ * The field at full brightness. 540x540 with an atan2 and a sqrt per pixel is
+ * ~292k iterations, so this is the expensive pass - and it only has to run when
+ * the colour space changes.
+ */
+function buildBase(isLinear: boolean): Uint8ClampedArray {
+  const data = new Uint8ClampedArray(HEX_SIZE * HEX_SIZE * 4);
+  {
+    const brightness = 100;
 
       for (let py = 0; py < HEX_SIZE; py++) {
         for (let px = 0; px < HEX_SIZE; px++) {
@@ -47,9 +45,11 @@ export default function HexCanvas({ brightness, colorSpace }: { brightness: numb
             else if (h < 240) { [r1, g1, b1] = [0, x, c]; }
             else if (h < 300) { [r1, g1, b1] = [x, 0, c]; }
             else { [r1, g1, b1] = [c, 0, x]; }
-            r = linearToSrgb(r1 + m);
-            g = linearToSrgb(g1 + m);
-            b = linearToSrgb(b1 + m);
+            // Stored linear and un-transferred; linearToSrgb is applied after
+            // the brightness scale, since the two do not commute.
+            r = (r1 + m) * 255;
+            g = (g1 + m) * 255;
+            b = (b1 + m) * 255;
           } else {
             const color = hsbToRgb(h, s, brightness);
             r = color.r;
@@ -64,7 +64,50 @@ export default function HexCanvas({ brightness, colorSpace }: { brightness: numb
         }
       }
 
-      ctx.putImageData(imageData, 0, 0);
+  }
+  return data;
+}
+
+export default function HexCanvas({ brightness, colorSpace }: { brightness: number; colorSpace: ColorSpace }) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const baseRef = useRef<{ space: ColorSpace; data: Uint8ClampedArray } | null>(null);
+
+  useEffect(() => {
+    const rafId = requestAnimationFrame(() => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      // HSB is linear in brightness: rgb(h, s, b) === (b/100) * rgb(h, s, 100).
+      // So the trig-heavy pass runs once per colour space and a brightness
+      // change becomes a per-channel multiply. That is the difference between
+      // keeping up with a colour being dragged elsewhere and not.
+      if (!baseRef.current || baseRef.current.space !== colorSpace) {
+        baseRef.current = { space: colorSpace, data: buildBase(colorSpace === 'linear') };
+      }
+      const base = baseRef.current.data;
+      const out = ctx.createImageData(HEX_SIZE, HEX_SIZE);
+      const data = out.data;
+      const k = brightness / 100;
+      const isLinear = colorSpace === 'linear';
+
+      for (let i = 0; i < base.length; i += 4) {
+        if (base[i + 3] === 0) continue;
+        if (isLinear) {
+          // linearToSrgb is not linear, so it has to come after the scale.
+          data[i] = linearToSrgb((base[i] / 255) * k);
+          data[i + 1] = linearToSrgb((base[i + 1] / 255) * k);
+          data[i + 2] = linearToSrgb((base[i + 2] / 255) * k);
+        } else {
+          data[i] = base[i] * k;
+          data[i + 1] = base[i + 1] * k;
+          data[i + 2] = base[i + 2] * k;
+        }
+        data[i + 3] = 255;
+      }
+
+      ctx.putImageData(out, 0, 0);
     });
     return () => cancelAnimationFrame(rafId);
   }, [brightness, colorSpace]);

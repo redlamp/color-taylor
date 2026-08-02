@@ -24,9 +24,18 @@ interface ColorSliderProps {
   handle?: 'triangle' | 'ring';
   /** Background for a ring handle's core. Defaults to the track's gradient. */
   handleFill?: string;
+  /** Fully rounded track, the way Figma draws its sliders. */
+  round?: boolean;
+  /**
+   * 'full' is the app's -/+ pair around an input. 'value' is the input alone,
+   * for panels where the buttons cost more width than they earn. 'none' drops
+   * the readout entirely. Defaults to hideStepper's meaning.
+   */
+  stepper?: 'full' | 'value' | 'none';
 }
 
-function ColorSlider({ label, value, max, gradient, suffix, wrap, onChange, hideStepper, handle = 'triangle', handleFill }: ColorSliderProps) {
+function ColorSlider({ label, value, max, gradient, suffix, wrap, onChange, hideStepper, handle = 'triangle', handleFill, round, stepper }: ColorSliderProps) {
+  const stepperMode = stepper ?? (hideStepper ? 'none' : 'full');
   const trackRef = useRef<HTMLDivElement | null>(null);
 
   const clamp = (v: number) => Math.max(0, Math.min(max, v));
@@ -91,7 +100,7 @@ function ColorSlider({ label, value, max, gradient, suffix, wrap, onChange, hide
           aria-valuemin={0}
           aria-valuemax={max}
           aria-valuenow={value}
-          className="h-4 w-full rounded cursor-pointer select-none touch-none"
+          className={`h-4 w-full cursor-pointer select-none touch-none ${round ? 'rounded-full' : 'rounded'}`}
           style={{ background: gradient, boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.1)' }}
           onPointerDown={(e) => {
             startDrag();
@@ -139,18 +148,20 @@ function ColorSlider({ label, value, max, gradient, suffix, wrap, onChange, hide
       </div>
 
       {/* Stepper */}
-      {!hideStepper && <div id={`${sliderId}-stepper`} className="flex items-center h-6 shrink-0">
-        <div className="flex items-center border border-input rounded-md overflow-hidden h-6 w-[84px]">
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            className="h-6 w-5 rounded-none border-none"
-            tabIndex={-1}
-            onClick={() => onChange(clamp(value - 1))}
-            aria-label={`Decrease ${label}`}
-          >
-            <Minus className="!size-3" />
-          </Button>
+      {stepperMode !== 'none' && <div id={`${sliderId}-stepper`} className="flex items-center h-6 shrink-0">
+        <div className={`flex items-center border border-input rounded-md overflow-hidden h-6 ${stepperMode === 'value' ? 'w-[46px]' : 'w-[84px]'}`}>
+          {stepperMode === 'full' && (
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              className="h-6 w-5 rounded-none border-none"
+              tabIndex={-1}
+              onClick={() => onChange(clamp(value - 1))}
+              aria-label={`Decrease ${label}`}
+            >
+              <Minus className="!size-3" />
+            </Button>
+          )}
           <Input
             type="text"
             inputMode="numeric"
@@ -173,16 +184,18 @@ function ColorSlider({ label, value, max, gradient, suffix, wrap, onChange, hide
             }}
             className="h-6 w-full border-none rounded-none text-right text-xs px-1 font-mono tabular-nums focus-visible:ring-0 focus-visible:border-transparent cursor-ew-resize"
           />
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            className="h-6 w-5 rounded-none border-none"
-            tabIndex={-1}
-            onClick={() => onChange(clamp(value + 1))}
-            aria-label={`Increase ${label}`}
-          >
-            <Plus className="!size-3" />
-          </Button>
+          {stepperMode === 'full' && (
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              className="h-6 w-5 rounded-none border-none"
+              tabIndex={-1}
+              onClick={() => onChange(clamp(value + 1))}
+              aria-label={`Increase ${label}`}
+            >
+              <Plus className="!size-3" />
+            </Button>
+          )}
         </div>
         {suffix && (
           <span className="text-xs text-muted-foreground ml-1 w-3">{suffix}</span>
