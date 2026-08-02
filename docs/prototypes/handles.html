@@ -238,7 +238,8 @@
       /**
        * Refined: slightly smaller core, thicker white ring, and a dark hairline
        * *outside* the white. The hairline is what makes it survive on a pale
-       * field - without it the white ring dissolves into white.
+       * field - without it the white ring dissolves into white. A second, fainter
+       * hairline inside the ring stops a pale core bleeding into it the other way.
        */
       function refined(fill, scale) {
         const r = 7 * scale;
@@ -247,6 +248,8 @@
           <g style="filter: drop-shadow(0 1px 2.5px rgba(0,0,0,0.45))">
             <circle r="${r + ring / 2 + 0.5 * scale}" fill="none"
               stroke="rgba(0,0,0,0.28)" stroke-width="${1 * scale}" />
+            <circle r="${r + ring / 2 - 0.5 * scale}" fill="none"
+              stroke="rgba(0,0,0,0.12)" stroke-width="${1 * scale}" />
             <circle r="${r}" fill="${fill}" stroke="#fff" stroke-width="${ring}" />
           </g></svg>`;
       }

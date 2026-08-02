@@ -7,6 +7,7 @@ import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip
 import { ChevronRight, RefreshCw, Trash2 } from 'lucide-react';
 import CollapsibleSection from './CollapsibleSection';
 import NAMED_COLORS from '../utils/namedColors';
+import { HANDLE } from '../utils/handleStyle';
 import { getAudioCtx, getMasterGain } from '../utils/audioContext';
 import { toneController } from '../utils/toneControllerLazy';
 import {
@@ -1322,20 +1323,52 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
               ? (isHighlighted ? hoverRing : baseRing)
               : 'white';
             const isOrigin = i === 0;
+            const handlers = isDraggable ? {
+              onPointerDown: (e: ReactPointerEvent) => handleDotMouseDown(e, i),
+              onPointerEnter: () => setHoveredDot(i),
+              onPointerLeave: () => {
+                if (!draggingDot.current && !draggingFree.current) setHoveredDot(null);
+              },
+            } : {};
+
+            // The last dot is the picked colour, so it gets the full handle
+            // treatment: hairline, white ring, hairline. The others are the
+            // channel vectors' own grab points and keep their channel-coloured
+            // rings, which carry meaning a white ring would erase.
+            if (isLast) {
+              return (
+                <g
+                  key={i}
+                  className={isDraggable ? 'cursor-pointer touch-none' : ''}
+                  style={{ filter: `drop-shadow(${HANDLE.shadow})` }}
+                  {...handlers}
+                >
+                  <circle
+                    id={`rgb-dot-${dotNames[i]}`} cx={p.x} cy={p.y}
+                    r={HANDLE.core + HANDLE.ring / 2 + 0.5}
+                    fill="none" stroke={HANDLE.outer} strokeWidth={1}
+                  />
+                  <circle
+                    cx={p.x} cy={p.y} r={HANDLE.core + HANDLE.ring / 2 - 0.5}
+                    fill="none" stroke={HANDLE.inner} strokeWidth={1}
+                  />
+                  <circle
+                    cx={p.x} cy={p.y} r={HANDLE.core}
+                    fill={dotColors[i]} stroke="#fff" strokeWidth={HANDLE.ring}
+                  />
+                </g>
+              );
+            }
+
             return (
               <circle
                 key={i} id={`rgb-dot-${dotNames[i]}`} cx={p.x} cy={p.y}
-                r={isOrigin ? 3 : isLast ? 8 : 5}
+                r={isOrigin ? 3 : 5}
                 fill={isOrigin ? '#ff0000' : dotColors[i]}
                 stroke={isOrigin ? 'none' : ringColor}
                 strokeWidth={isOrigin ? 0 : isHighlighted ? 3 : 2}
                 className={isDraggable ? 'cursor-pointer touch-none' : ''}
-                style={isLast ? { filter: 'drop-shadow(0 0 1px rgba(0,0,0,0.3))' } : undefined}
-                onPointerDown={isDraggable ? (e) => handleDotMouseDown(e, i) : undefined}
-                onPointerEnter={isDraggable ? () => setHoveredDot(i) : undefined}
-                onPointerLeave={isDraggable ? () => {
-                  if (!draggingDot.current && !draggingFree.current) setHoveredDot(null);
-                } : undefined}
+                {...handlers}
               />
             );
           })}

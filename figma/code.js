@@ -91,6 +91,7 @@ function applyPaint(hex, opacity) {
   if (!color) return;
   const alpha = typeof opacity === 'number' ? Math.min(1, Math.max(0, opacity)) : 1;
   const prop = paintProp();
+  lastWritten = paintKey(hex, alpha);
 
   for (const node of figma.currentPage.selection) {
     if (!(prop in node)) continue;
@@ -245,7 +246,52 @@ function resizeWidth(width, fromLeft) {
   applySize(width, size.h);
 }
 
+/**
+ * Live-update when the colour is changed outside the plugin - Figma's own
+ * picker, the right rail, another plugin.
+ *
+ * The docs only exempt changes a plugin makes *inside* a documentchange
+ * callback, so our own paints do come back through here. lastWritten is how we
+ * tell an echo from a genuine edit; without it every drag frame would bounce
+ * back and fight the picker.
+ */
+let lastWritten = null;
+
+function paintKey(hex, opacity) {
+  return String(hex).toLowerCase() + '|' + Math.round(opacity * 1000);
+}
+
+function onDocumentChange(event) {
+  const selected = new Set(figma.currentPage.selection.map((n) => n.id));
+  if (selected.size === 0) return;
+  const prop = paintProp();
+  const touched = event.documentChanges.some(
+    (c) =>
+      c.type === 'PROPERTY_CHANGE' &&
+      selected.has(c.id) &&
+      Array.isArray(c.properties) &&
+      c.properties.indexOf(prop) !== -1,
+  );
+  if (!touched) return;
+
+  const paint = selectionPaint();
+  if (paint && lastWritten === paintKey(paint.hex, paint.opacity)) return;
+  postSelection();
+}
+
 figma.on('selectionchange', postSelection);
+
+// documentchange needs documentAccess: "dynamic-page" in the manifest, and the
+// pages loaded first. Registered after the load so a slow document delays the
+// listener rather than throwing.
+(async () => {
+  try {
+    if (typeof figma.loadAllPagesAsync === 'function') await figma.loadAllPagesAsync();
+    figma.on('documentchange', onDocumentChange);
+  } catch (err) {
+    console.warn('[Color Taylor] documentchange unavailable:', err && err.message);
+  }
+})();
 
 figma.ui.onmessage = (msg) => {
   if (!msg || typeof msg.type !== 'string') return;

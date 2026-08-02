@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Minus, Plus } from 'lucide-react';
 import useDrag from '../hooks/useDrag';
+import { HANDLE_SIZE, HANDLE_SHADOW } from '../utils/handleStyle';
 
 interface ColorSliderProps {
   label: string;
@@ -14,9 +15,18 @@ interface ColorSliderProps {
   wrap?: boolean;
   onChange: (v: number) => void;
   hideStepper?: boolean;
+  /**
+   * 'triangle' points at the track from below and never covers it - right when
+   * a stepper beside the slider already shows the value. 'ring' sits on the
+   * track and shows the colour itself, which is what you want when there is no
+   * numeric readout to fall back on.
+   */
+  handle?: 'triangle' | 'ring';
+  /** Background for a ring handle's core. Defaults to the track's gradient. */
+  handleFill?: string;
 }
 
-function ColorSlider({ label, value, max, gradient, suffix, wrap, onChange, hideStepper }: ColorSliderProps) {
+function ColorSlider({ label, value, max, gradient, suffix, wrap, onChange, hideStepper, handle = 'triangle', handleFill }: ColorSliderProps) {
   const trackRef = useRef<HTMLDivElement | null>(null);
 
   const clamp = (v: number) => Math.max(0, Math.min(max, v));
@@ -88,24 +98,44 @@ function ColorSlider({ label, value, max, gradient, suffix, wrap, onChange, hide
             updateValue(e.clientX);
           }}
         />
-        <div
-          id={`${sliderId}-arrow`}
-          className="absolute top-4 -translate-x-1/2 cursor-pointer px-1 py-0.5 touch-none"
-          style={{ left: `${pct}%` }}
-          onPointerDown={(e) => {
-            e.preventDefault();
-            startDrag();
-          }}
-        >
+        {handle === 'ring' ? (
           <div
-            className="w-0 h-0"
+            id={`${sliderId}-handle`}
+            className="absolute top-2 -translate-x-1/2 -translate-y-1/2 cursor-pointer touch-none rounded-full"
             style={{
-              borderLeft: '5px solid transparent',
-              borderRight: '5px solid transparent',
-              borderBottom: '6px solid var(--foreground)',
+              left: `${pct}%`,
+              width: HANDLE_SIZE,
+              height: HANDLE_SIZE,
+              border: '3px solid #fff',
+              boxShadow: HANDLE_SHADOW,
+              background: handleFill ?? gradient,
+              backgroundPosition: 'center',
+            }}
+            onPointerDown={(e) => {
+              e.preventDefault();
+              startDrag();
             }}
           />
-        </div>
+        ) : (
+          <div
+            id={`${sliderId}-arrow`}
+            className="absolute top-4 -translate-x-1/2 cursor-pointer px-1 py-0.5 touch-none"
+            style={{ left: `${pct}%` }}
+            onPointerDown={(e) => {
+              e.preventDefault();
+              startDrag();
+            }}
+          >
+            <div
+              className="w-0 h-0"
+              style={{
+                borderLeft: '5px solid transparent',
+                borderRight: '5px solid transparent',
+                borderBottom: '6px solid var(--foreground)',
+              }}
+            />
+          </div>
+        )}
       </div>
 
       {/* Stepper */}

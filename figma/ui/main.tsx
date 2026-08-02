@@ -47,13 +47,22 @@ function post(msg: Record<string, unknown>) {
 
 type PaintTarget = 'fill' | 'stroke';
 
+const CHECKER =
+  'repeating-conic-gradient(rgba(128,128,128,.45) 0% 25%, transparent 0% 50%) 0 0/10px 10px';
+
 /** Checkerboard under a transparent-to-colour ramp, so alpha reads as alpha. */
 function alphaGradient(rgb: RGB) {
-  const solid = `rgb(${rgb.r},${rgb.g},${rgb.b})`;
-  return (
-    `linear-gradient(to right, transparent, ${solid}),` +
-    'repeating-conic-gradient(rgba(128,128,128,.45) 0% 25%, transparent 0% 50%) 0 0/10px 10px'
-  );
+  return `linear-gradient(to right, transparent, rgb(${rgb.r},${rgb.g},${rgb.b})),${CHECKER}`;
+}
+
+/**
+ * The ring handle's core: the colour at its actual alpha over a checkerboard,
+ * so the handle itself shows the transparency rather than only marking where
+ * on the track you are. A flat swatch would look opaque at every value.
+ */
+function alphaSwatch(rgb: RGB, alpha: number) {
+  const c = `rgba(${rgb.r},${rgb.g},${rgb.b},${alpha / 100})`;
+  return `linear-gradient(${c},${c}),${CHECKER}`;
 }
 
 function PluginApp() {
@@ -282,6 +291,8 @@ function PluginApp() {
               gradient={alphaGradient(rgb)}
               onChange={setAlpha}
               hideStepper
+              handle="ring"
+              handleFill={alphaSwatch(rgb, alpha)}
             />
           </div>
         }
