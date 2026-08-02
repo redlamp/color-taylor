@@ -122,6 +122,29 @@ function PluginApp() {
   // were, content height would follow window height and this would oscillate.
   // The last-sent guard is a second line of defence against that. Figma clamps
   // the result to what fits on screen, so a very tall panel scrolls instead.
+  // Where the brightness handle actually is, as a fraction of the hexagon's
+  // width, so the limit-hexagon connector lands on it. Measured rather than
+  // derived: the slider's track is inset by its label and value entry, so the
+  // same percentage is a different x on each element.
+  const [blHandleX, setBlHandleX] = useState<number | null>(null);
+  useEffect(() => {
+    const measure = () => {
+      const handle = document.getElementById('slider-b-handle');
+      const svg = document.getElementById('hex-svg');
+      if (!handle || !svg) return;
+      const h = handle.getBoundingClientRect();
+      const s = svg.getBoundingClientRect();
+      if (!s.width) return;
+      setBlHandleX((h.left + h.width / 2 - s.left) / s.width);
+    };
+    const frame = requestAnimationFrame(measure);
+    window.addEventListener('resize', measure);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener('resize', measure);
+    };
+  }, [hsb.b, selectionCount]);
+
   const rootRef = useRef<HTMLDivElement>(null);
   const lastHeightRef = useRef(0);
   useEffect(() => {
@@ -298,6 +321,7 @@ function PluginApp() {
         bare
         collapsedSections
         blBar={false}
+        blHandleX={blHandleX}
         muted
         headerLeft={
           // Mirrors the Bright/Light group opposite: tabs with a caption

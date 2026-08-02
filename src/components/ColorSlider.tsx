@@ -91,7 +91,7 @@ function ColorSlider({ label, value, max, gradient, suffix, wrap, onChange, hide
       </span>
 
       {/* Track + arrow */}
-      <div id={`${sliderId}-body`} className={`flex-1 min-w-0 relative ${handle === 'ring' ? '' : 'pb-3'}`}>
+      <div id={`${sliderId}-body`} className={`flex-1 min-w-0 relative ${handle === 'ring' ? 'px-[10px]' : 'pb-3'}`}>
         <div
           id={`${sliderId}-track`}
           ref={trackRef}

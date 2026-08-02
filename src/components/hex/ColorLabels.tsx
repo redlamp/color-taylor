@@ -12,7 +12,14 @@ const COLORS = [
   { label: 'M', name: 'Magenta', deg: 300, color: '#ff00ff', lightColor: '#d000d0' },
 ];
 
-export default function ColorLabels({ onColorClick }: { onColorClick: (deg: number) => void }) {
+export default function ColorLabels({
+  onColorClick,
+  extent = SIZE,
+}: {
+  onColorClick: (deg: number) => void;
+  /** Horizontal extent of the coordinate space; narrows when the BL bar is off. */
+  extent?: number;
+}) {
   const { isDark } = useTheme();
 
   return COLORS.map(({ label, name, deg, color, lightColor }) => {
@@ -26,7 +33,7 @@ export default function ColorLabels({ onColorClick }: { onColorClick: (deg: numb
       <div
         key={label}
         className="absolute -translate-x-1/2 -translate-y-1/2 z-[8]"
-        style={{ left: `${(x / SIZE) * 100}%`, top: `${(y / HEX_SIZE) * 100}%` }}
+        style={{ left: `${(x / extent) * 100}%`, top: `${(y / HEX_SIZE) * 100}%` }}
       >
         <Tooltip>
           <TooltipTrigger asChild>

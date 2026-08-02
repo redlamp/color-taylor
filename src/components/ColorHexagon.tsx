@@ -86,6 +86,13 @@ interface ColorHexagonProps {
    * reserving back to the hexagon.
    */
   blBar?: boolean;
+  /**
+   * Where the host's brightness handle sits, as a fraction of the hexagon's
+   * width. Only used when blBar is off, to land the limit-hexagon connector on
+   * the handle rather than near it - the slider's track and the hexagon are
+   * different widths, so the value alone is not enough.
+   */
+  blHandleX?: number | null;
 }
 
 interface HoveredMarker {
@@ -95,7 +102,7 @@ interface HoveredMarker {
   name: string;
 }
 
-export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, animHolding, onHoverHtmlColor, muted, iconActions, bare, headerLeft, belowStage, collapsedSections, blBar = true }: ColorHexagonProps) {
+export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, animHolding, onHoverHtmlColor, muted, iconActions, bare, headerLeft, belowStage, collapsedSections, blBar = true, blHandleX = null }: ColorHexagonProps) {
   // Horizontal extent of the SVG coordinate space. Without the bar the hexagon
   // is the whole picture, so the reserved 50px to its right goes away.
   const EXTENT = blBar ? SIZE : HEX_SIZE;
@@ -1177,9 +1184,9 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       arrowY,
       downX: CENTER_X,
       downY: CENTER_Y + downEdge,
-      sliderX: (blValue / 100) * HEX_SIZE,
+      sliderX: (blHandleX ?? blValue / 100) * HEX_SIZE,
     };
-  }, [blMode, brightness, hsl?.l]);
+  }, [blMode, brightness, hsl?.l, blHandleX]);
 
   return (
     <div
@@ -1274,6 +1281,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             />
           ) : (
             <line
+              id="hex-brightness-connector"
               x1={limitHex.sliderX} y1={HEX_SIZE} x2={limitHex.downX} y2={limitHex.downY}
               stroke="rgba(128,128,128,0.5)" strokeWidth={2} strokeDasharray="1 4" strokeLinecap="round"
             />
@@ -1389,7 +1397,8 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             // uiScale keeps the handles a constant size on screen while the
             // hexagon and its legs scale with the viewBox.
             const k = uiScale;
-            const fill = isHighlighted ? lift(dotColors[i]) : dotColors[i];
+            const own = isLast ? rgbToHex(rgb.r, rgb.g, rgb.b) : dotColors[i];
+            const fill = isHighlighted ? lift(own) : own;
 
             if (isLast) {
               return (
@@ -1453,7 +1462,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           )}
         </svg>
 
-        <ColorLabels onColorClick={handleColorLabelClick} />
+        <ColorLabels onColorClick={handleColorLabelClick} extent={EXTENT} />
 
         {/* HTML color marker tooltip */}
         {hoveredMarker && (() => {
