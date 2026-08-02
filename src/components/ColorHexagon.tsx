@@ -19,6 +19,7 @@ import BrightnessBar from './hex/BrightnessBar';
 import ColorLabels from './hex/ColorLabels';
 import HueHandle from './hex/HueHandle';
 import BrightnessHandle from './hex/BrightnessHandle';
+import BrightnessMarkers from './hex/BrightnessMarkers';
 
 const DEFAULT_RECENT = ['#ff0000', '#ffff00', '#00ff00', '#00ffff', '#0000ff', '#ff00ff', '#ffffff', '#808080', '#000000'];
 
@@ -76,6 +77,8 @@ interface ColorHexagonProps {
   headerLeft?: ReactNode;
   /** Extra controls rendered directly under the hexagon, above Recent. */
   belowStage?: ReactNode;
+  /** Start Recent and Saved closed - they cost a lot of height in a panel. */
+  collapsedSections?: boolean;
 }
 
 interface HoveredMarker {
@@ -85,7 +88,7 @@ interface HoveredMarker {
   name: string;
 }
 
-export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, animHolding, onHoverHtmlColor, muted, iconActions, bare, headerLeft, belowStage }: ColorHexagonProps) {
+export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, animHolding, onHoverHtmlColor, muted, iconActions, bare, headerLeft, belowStage, collapsedSections }: ColorHexagonProps) {
   const [hexOpen, setHexOpen] = useState(true);
   const [vectorMode] = useState<ChannelOrder>('rgb');
   const [initialHex] = useState(() => rgbToHex(rgb.r, rgb.g, rgb.b));
@@ -1390,6 +1393,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           );
         })()}
         {showHueLine && <HueHandle hue={hue} hueLabel={hueLabel} onMouseDown={handleHueDragStart} />}
+        <BrightnessMarkers onPick={animateBLToValue} />
         <BrightnessHandle
           hue={hue}
           saturation={saturation}
@@ -1413,7 +1417,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
         <CollapsibleSection
           id="recent-colors"
           title="Recent"
-          defaultOpen={true}
+          defaultOpen={!collapsedSections}
           headerRight={
             <div className="flex gap-1">
               <ActionButton
@@ -1463,6 +1467,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
         <CollapsibleSection
           id="saved-colors"
           title="Saved"
+          defaultOpen={!collapsedSections}
           headerLeft={
             <button
               className="px-2 py-0.5 text-xs rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none tabular-nums"

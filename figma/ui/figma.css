@@ -11,22 +11,31 @@
  */
 @source "../../src";
 
-/* Width of the resize lane down the right edge. */
-:root {
-  --chx-lane: 12px;
-}
-
 /*
- * The viewport itself never scrolls - .figma-scroll does, so that the scrollbar
- * lands inside the content column rather than under the resize lane. The
- * measured element inside it keeps an intrinsic height, which is what lets the
- * window be sized to the content without the measurement going circular.
+ * The panel never scrolls: its height is the content's, so everything always
+ * fits. Nothing may be height:100% either, or the height measurement in
+ * main.tsx becomes circular.
  */
 html,
 body {
   margin: 0;
-  height: 100%;
   overflow: hidden;
+}
+
+/*
+ * Nothing here is prose. Stray selections on the tab labels and captions while
+ * dragging just look broken.
+ */
+* {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Except the fields you are meant to be able to select in. */
+input,
+textarea {
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 /*
@@ -99,42 +108,41 @@ body {
 }
 
 /*
- * The resize lane owns a column of its own down the right edge, and
- * .figma-scroll stops where it begins. That separation is the point: when the
- * handles floated over the content at right:0 they landed on the same pixels
- * as the scrollbar, so neither could be grabbed reliably.
+ * Resize edges. No widget - a plain strip with the cursor, the way an app panel
+ * edge behaves. The west edge also moves the window; the sandbox does that.
  */
-.figma-scroll {
-  position: fixed;
-  inset: 0 var(--chx-lane) 0 0;
-  overflow-y: auto;
-  overflow-x: clip;
-}
-
-.figma-width-handle {
+.figma-edge {
   position: fixed;
   top: 0;
   bottom: 0;
-  right: 0;
-  width: var(--chx-lane);
+  width: 6px;
   cursor: ew-resize;
   touch-action: none;
   z-index: 60;
 }
 
-/* A pair of rules, centred vertically, so the lane reads as a grip. */
-.figma-width-handle::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  right: 4px;
-  width: 4px;
-  height: 28px;
-  transform: translateY(-50%);
-  border-left: 1px solid var(--figma-color-border, rgba(128, 128, 128, 0.5));
-  border-right: 1px solid var(--figma-color-border, rgba(128, 128, 128, 0.5));
+.figma-edge-w {
+  left: 0;
 }
 
-.figma-width-handle:hover::after {
-  border-color: var(--figma-color-text-tertiary, rgba(128, 128, 128, 0.9));
+.figma-edge-e {
+  right: 0;
+}
+
+/*
+ * Recent and Saved swatch grids: two rows of six until the panel reaches 512px,
+ * then one row of twelve. The plugin iframe's viewport *is* the panel, so a
+ * plain media query measures the right thing. Overrides the app's own
+ * md:grid-cols-12, which keys off a 768px viewport that means nothing here.
+ */
+#recent-colors .grid,
+#saved-colors .grid {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+@media (min-width: 512px) {
+  #recent-colors .grid,
+  #saved-colors .grid {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+  }
 }

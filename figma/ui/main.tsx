@@ -237,12 +237,8 @@ function PluginApp() {
 
   return (
     <>
-      {/* The scroll container stops short of the resize lane, so the scrollbar
-          and the drag target occupy different columns and never fight for the
-          same pixels. */}
-      <div className="figma-scroll">
-        <div className="figma-root" ref={rootRef}>
-          <ColorHexagon
+      <div className="figma-root" ref={rootRef}>
+        <ColorHexagon
         rgb={rgb}
         hue={hsb.h}
         brightness={hsb.b}
@@ -259,6 +255,7 @@ function PluginApp() {
         onColorSpaceChange={setColorSpace}
         iconActions
         bare
+        collapsedSections
         muted
         headerLeft={
           // Mirrors the Bright/Light group opposite: tabs with a caption
@@ -284,39 +281,43 @@ function PluginApp() {
               suffix="%"
               gradient={alphaGradient(rgb)}
               onChange={setAlpha}
+              hideStepper
             />
           </div>
         }
-          />
-        </div>
+        />
       </div>
-      <WidthHandle />
+      <ResizeEdge side="w" />
+      <ResizeEdge side="e" />
     </>
   );
 }
 
 /**
- * The width lane: a dedicated strip down the right edge.
+ * Invisible resize strips on the east and west edges - no widget, just the
+ * cursor, the way a normal app panel edge behaves.
  *
- * It owns its own column rather than floating over the content, which is the
- * whole point - the scroll container stops where this begins, so the scrollbar
- * and the resize target can never land on the same pixels.
- *
- * East only. West/north resizing needs figma.ui.reposition alongside resize,
- * two non-atomic calls per frame against an anchor that goes stale as soon as
- * Figma clamps the window - the panel visibly walks. Height is the content's,
- * so there is nothing to drag vertically.
+ * The west edge moves the window as it resizes; the sandbox handles that, and
+ * does it by shifting the *current* position by the width actually applied
+ * rather than recomputing an absolute x from a snapshot taken at drag start.
+ * The snapshot version walked whenever Figma nudged the window itself.
  */
-function WidthHandle() {
+function ResizeEdge({ side }: { side: 'w' | 'e' }) {
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault();
     const el = e.currentTarget;
     el.setPointerCapture(e.pointerId);
     const originX = e.screenX;
     const startW = window.innerWidth;
+    const fromLeft = side === 'w';
 
     const move = (ev: PointerEvent) => {
-      post({ type: 'resizeWidth', width: Math.round(startW + (ev.screenX - originX)) });
+      const dx = ev.screenX - originX;
+      post({
+        type: 'resizeWidth',
+        width: Math.round(fromLeft ? startW - dx : startW + dx),
+        fromLeft,
+      });
     };
     const up = (ev: PointerEvent) => {
       try {
@@ -332,7 +333,7 @@ function WidthHandle() {
     el.addEventListener('pointerup', up);
   };
 
-  return <div className="figma-width-handle" title="Drag to resize" onPointerDown={onPointerDown} />;
+  return <div className={`figma-edge figma-edge-${side}`} onPointerDown={onPointerDown} />;
 }
 
 /**

@@ -18,9 +18,9 @@ const MAX_H = 1200;
 // A wider default means a larger hexagon out of the box; users can drag either
 // way. DEFAULT_H is the measured content height at DEFAULT_W, so the window
 // opens already fitted instead of jumping when the UI reports its first
-// measurement. Content height tracks width, since the hexagon keeps its ratio.
+// measurement. Measured with Recent and Saved collapsed, which is how they open.
 const DEFAULT_W = 500;
-const DEFAULT_H = 765;
+const DEFAULT_H = 595;
 
 figma.showUI(__html__, { width: DEFAULT_W, height: DEFAULT_H, themeColors: true });
 
@@ -122,11 +122,7 @@ function applyPaint(hex, opacity) {
 // them back.
 const size = { w: DEFAULT_W, h: DEFAULT_H };
 
-// Height is always the content's. There is deliberately no manual height and no
-// reposition: west/north resizing needs resize+reposition, which are two
-// non-atomic calls per frame against an anchor that goes stale the moment Figma
-// clamps the window itself - the panel walks. Width-only from one edge is what
-// the platform actually supports cleanly.
+// Height is always the content's - there is deliberately no manual height.
 function clampW(w) {
   return Math.min(MAX_W, Math.max(MIN_W, Math.round(w)));
 }
@@ -142,6 +138,48 @@ function applySize(w, h) {
   size.w = nw;
   size.h = nh;
   figma.ui.resize(nw, nh);
+}
+
+// getPosition returns { windowSpace, canvasSpace } - not a bare {x, y}.
+function readPosition() {
+  try {
+    if (typeof figma.ui.getPosition !== 'function') return null;
+    const pos = figma.ui.getPosition();
+    return pos && pos.windowSpace ? pos.windowSpace : null;
+  } catch (err) {
+    void err;
+    return null;
+  }
+}
+
+function moveTo(x, y) {
+  if (!isFinite(x) || !isFinite(y)) return;
+  try {
+    if (typeof figma.ui.reposition === 'function') figma.ui.reposition(Math.round(x), Math.round(y));
+  } catch (err) {
+    void err;
+  }
+}
+
+/**
+ * Widen or narrow, optionally holding the east edge still.
+ *
+ * Dragging the west edge has to move the window as it resizes. The previous
+ * attempt anchored to the position captured when the drag began and recomputed
+ * an absolute x each frame; any nudge Figma made to the window itself left that
+ * anchor stale and the panel walked across the screen.
+ *
+ * This reads the *current* position each frame and shifts it by the width
+ * actually applied - post-clamp, so hitting MIN_W cannot desync it either. Each
+ * frame is self-correcting rather than trusting a snapshot.
+ */
+function resizeWidth(width, fromLeft) {
+  const before = size.w;
+  applySize(width, size.h);
+  const grew = size.w - before;
+  if (!fromLeft || grew === 0) return;
+  const pos = readPosition();
+  if (pos) moveTo(pos.x - grew, pos.y);
 }
 
 figma.on('selectionchange', postSelection);
@@ -177,9 +215,9 @@ figma.ui.onmessage = (msg) => {
       applySize(size.w, msg.height);
       break;
 
-    // The width lane. Width only - height stays whatever the content needs.
+    // An edge drag. Width only - height stays whatever the content needs.
     case 'resizeWidth':
-      applySize(msg.width, size.h);
+      resizeWidth(msg.width, msg.fromLeft === true);
       break;
 
     case 'resizeEnd':
