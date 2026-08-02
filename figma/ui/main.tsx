@@ -289,35 +289,58 @@ function PluginApp() {
       </div>
       <ResizeEdge side="w" />
       <ResizeEdge side="e" />
+      <ResizeEdge side="s" />
     </>
   );
 }
 
 /**
- * Invisible resize strips on the east and west edges - no widget, just the
- * cursor, the way a normal app panel edge behaves.
+ * Content height per pixel of panel width. The hexagon holds its ratio, so the
+ * content gets taller as the panel gets wider - measured at 453/524/595/701 for
+ * widths 340/420/500/620, i.e. a straight line at ~0.887.
  *
- * The west edge moves the window as it resizes; the sandbox handles that, and
- * does it by shifting the *current* position by the width actually applied
- * rather than recomputing an absolute x from a snapshot taken at drag start.
- * The snapshot version walked whenever Figma nudged the window itself.
+ * Only used as the gain of a feedback loop, never to predict an absolute size.
+ * At the measured value the loop lands on target in a single frame; it still
+ * converges anywhere from roughly 0.5x to 2x that, just over a few frames.
+ * Below about half it oscillates instead - so if the layout changes enough to
+ * move this slope, re-measure it rather than guess.
  */
-function ResizeEdge({ side }: { side: 'w' | 'e' }) {
+const HEIGHT_PER_WIDTH = 0.887;
+
+/**
+ * Invisible resize strips - no widget, just the cursor, the way a normal app
+ * panel edge behaves.
+ *
+ * East and west set the width directly. South sets it indirectly: height is
+ * always the content's, and the content's height is a function of the width, so
+ * dragging the bottom edge means solving that function backwards. Each frame
+ * nudges the width by the remaining height error rather than predicting a
+ * width outright, so the loop converges on the pointer even if the gain is off.
+ *
+ * The west edge also moves the window; that lives in the sandbox, which probes
+ * whether it can position accurately before trying.
+ */
+function ResizeEdge({ side }: { side: 'w' | 'e' | 's' }) {
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault();
     const el = e.currentTarget;
     el.setPointerCapture(e.pointerId);
     const originX = e.screenX;
+    const originY = e.screenY;
     const startW = window.innerWidth;
+    const startH = window.innerHeight;
     const fromLeft = side === 'w';
 
     const move = (ev: PointerEvent) => {
-      const dx = ev.screenX - originX;
-      post({
-        type: 'resizeWidth',
-        width: Math.round(fromLeft ? startW - dx : startW + dx),
-        fromLeft,
-      });
+      let width: number;
+      if (side === 's') {
+        const targetH = startH + (ev.screenY - originY);
+        width = window.innerWidth + (targetH - window.innerHeight) / HEIGHT_PER_WIDTH;
+      } else {
+        const dx = ev.screenX - originX;
+        width = fromLeft ? startW - dx : startW + dx;
+      }
+      post({ type: 'resizeWidth', width: Math.round(width), fromLeft });
     };
     const up = (ev: PointerEvent) => {
       try {

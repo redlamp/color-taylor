@@ -113,12 +113,16 @@ body {
  */
 .figma-edge {
   position: fixed;
-  top: 0;
-  bottom: 0;
-  width: 6px;
-  cursor: ew-resize;
   touch-action: none;
   z-index: 60;
+}
+
+.figma-edge-w,
+.figma-edge-e {
+  top: 0;
+  bottom: 6px;
+  width: 6px;
+  cursor: ew-resize;
 }
 
 .figma-edge-w {
@@ -127,6 +131,16 @@ body {
 
 .figma-edge-e {
   right: 0;
+}
+
+/* South drives the width too - height follows the content, so this is the
+   inverse of "content height as a function of width". See main.tsx. */
+.figma-edge-s {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 6px;
+  cursor: ns-resize;
 }
 
 /*
