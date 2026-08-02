@@ -13,7 +13,7 @@ import { toneController } from '../utils/toneControllerLazy';
 import {
   HEX_SIZE, SIZE, HEX_PANEL_WIDTH, CENTER_X, CENTER_Y, RADIUS, PI, DIRS, DISPLAY_HEIGHT,
   BL_BAR_X, BL_BAR_TOP, BL_BAR_HEIGHT, BL_ARROW_SIZE,
-  hexEdgeDist, hexPoints, colorAtPoint, getOrder,
+  hexEdgeDist, hexPoints, getOrder,
 } from './hex/hexConstants';
 import HexCanvas from './hex/HexCanvas';
 import BrightnessBar from './hex/BrightnessBar';
@@ -93,6 +93,8 @@ interface ColorHexagonProps {
    * different widths, so the value alone is not enough.
    */
   blHandleX?: number | null;
+  /** Draw the line tying the brightness control to the limit hexagon. */
+  blConnector?: boolean;
 }
 
 interface HoveredMarker {
@@ -102,10 +104,12 @@ interface HoveredMarker {
   name: string;
 }
 
-export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, animHolding, onHoverHtmlColor, muted, iconActions, bare, headerLeft, belowStage, collapsedSections, blBar = true, blHandleX = null }: ColorHexagonProps) {
+export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, animHolding, onHoverHtmlColor, muted, iconActions, bare, headerLeft, belowStage, collapsedSections, blBar = true, blHandleX = null, blConnector = true }: ColorHexagonProps) {
   // Horizontal extent of the SVG coordinate space. Without the bar the hexagon
-  // is the whole picture, so the reserved 50px to its right goes away.
-  const EXTENT = blBar ? SIZE : HEX_SIZE;
+  // is the whole picture, so the 50px reserved to its right goes away - and the
+  // extent becomes twice CENTER_X, which is what actually puts the hexagon in
+  // the middle. At HEX_SIZE it sat 10px left of centre.
+  const EXTENT = blBar ? SIZE : CENTER_X * 2;
   const [hexOpen, setHexOpen] = useState(true);
   const [vectorMode] = useState<ChannelOrder>('rgb');
   const [initialHex] = useState(() => rgbToHex(rgb.r, rgb.g, rgb.b));
@@ -599,6 +603,9 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   const startingBrightness = useRef(null); // brightness at drag start for rubber-band
   const blPointerDown = useRef(null);
   const [hoveredDot, setHoveredDot] = useState(null); // index of hovered dot
+  // Separate from hoveredDot: a segment and the handle at its end are different
+  // targets, and highlighting one should not light up the other.
+  const [hoveredLeg, setHoveredLeg] = useState<number | null>(null);
   // SVG user units per rendered pixel. The hexagon and its legs scale with the
   // viewBox, but the handles should stay the same physical size, so their radii
   // and strokes are multiplied by this.
@@ -696,11 +703,6 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     const out = hsbToRgb(next.h, next.s, next.b);
     return rgbToHex(out.r, out.g, out.b);
   }, []);
-
-  const dotColors = useMemo(() => points.map((p) => {
-    const c = colorAtPoint(p.x, p.y, brightness);
-    return rgbToHex(c.r, c.g, c.b);
-  }), [points, brightness]);
 
   const { hueEnd, hueLabel } = useMemo(() => {
     const rad = (hue * PI) / 180;
@@ -1285,13 +1287,13 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
               x1={limitHex.arrowTipX} y1={limitHex.arrowY} x2={limitHex.perimX} y2={limitHex.perimY}
               stroke="rgba(128,128,128,0.5)" strokeWidth={2} strokeDasharray="1 4" strokeLinecap="round"
             />
-          ) : (
+          ) : blConnector ? (
             <line
               id="hex-brightness-connector"
               x1={limitHex.sliderX} y1={HEX_SIZE} x2={limitHex.downX} y2={limitHex.downY}
               stroke="rgba(128,128,128,0.5)" strokeWidth={2} strokeDasharray="1 4" strokeLinecap="round"
             />
-          )}
+          ) : null}
 
           {/* HTML named color markers */}
           {htmlColorMarkers.map((m) => (
@@ -1340,7 +1342,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
               ? (ch === 'r' ? '#dc3232' : ch === 'g' ? '#32b432' : '#3232dc')
               : (ch === 'r' ? '#ff7878' : ch === 'g' ? '#78e678' : '#7878ff');
             const hoverColor = lift(baseColor);
-            const isHighlighted = hoveredDot === i + 1;
+            const isHighlighted = hoveredLeg === i;
             const dotIndex = i + 1;
             return (
               <g key={i}>
@@ -1351,9 +1353,12 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                   strokeWidth={12}
                   strokeLinecap="round"
                   className="cursor-pointer touch-none"
-                  onPointerEnter={() => setHoveredDot(dotIndex)}
+                  onPointerEnter={() => {
+                    if (draggingDot.current || draggingFree.current) return;
+                    setHoveredLeg(i);
+                  }}
                   onPointerLeave={() => {
-                    if (!draggingDot.current && !draggingFree.current) setHoveredDot(null);
+                    if (!draggingDot.current && !draggingFree.current) setHoveredLeg(null);
                   }}
                   onPointerDown={(e) => handleDotMouseDown(e, dotIndex, true)}
                 />
@@ -1371,26 +1376,18 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
 
           {/* Dots */}
           {points.map((p, i) => {
-            const isLast = i === points.length - 1;
             const isDraggable = i > 0;
             const ch = i > 0 ? order[i - 1] : null;
             // Hide zero-value dots during hex surface drag (except origin and red)
             if (isHexDragging && ch && ch !== 'r' && rgb[ch] === 0) return null;
-            const bright = brightness > 50;
-            const baseRing = !ch ? 'white' : bright
-              ? (ch === 'r' ? 'rgba(220,50,50,0.9)' : ch === 'g' ? 'rgba(50,180,50,0.9)' : 'rgba(50,50,220,0.9)')
-              : (ch === 'r' ? 'rgba(255,120,120,0.9)' : ch === 'g' ? 'rgba(120,230,120,0.9)' : 'rgba(120,120,255,0.9)');
-            const hoverRing = !ch ? 'white' : bright
-              ? (ch === 'r' ? 'rgba(240,90,90,1)' : ch === 'g' ? 'rgba(90,200,90,1)' : 'rgba(90,90,240,1)')
-              : (ch === 'r' ? 'rgba(255,160,160,1)' : ch === 'g' ? 'rgba(160,255,160,1)' : 'rgba(160,160,255,1)');
             const isHighlighted = isDraggable && hoveredDot === i;
-            const ringColor = isDraggable
-              ? (isHighlighted ? hoverRing : baseRing)
-              : 'white';
             const isOrigin = i === 0;
             const handlers = isDraggable ? {
               onPointerDown: (e: ReactPointerEvent) => handleDotMouseDown(e, i),
-              onPointerEnter: () => setHoveredDot(i),
+              onPointerEnter: () => {
+                if (draggingDot.current || draggingFree.current) return;
+                setHoveredDot(i);
+              },
               onPointerLeave: () => {
                 if (!draggingDot.current && !draggingFree.current) setHoveredDot(null);
               },
@@ -1403,44 +1400,44 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             // uiScale keeps the handles a constant size on screen while the
             // hexagon and its legs scale with the viewBox.
             const k = uiScale;
-            const own = isLast ? rgbToHex(rgb.r, rgb.g, rgb.b) : dotColors[i];
-            const fill = isHighlighted ? lift(own) : own;
 
-            if (isLast) {
+            if (isOrigin) {
               return (
-                <g
-                  key={i}
-                  className={isDraggable ? 'cursor-pointer touch-none' : ''}
-                  style={{ filter: `drop-shadow(${HANDLE.shadow})` }}
-                  {...handlers}
-                >
-                  <circle
-                    id={`rgb-dot-${dotNames[i]}`} cx={p.x} cy={p.y}
-                    r={(HANDLE.core + HANDLE.ring / 2 + 0.5) * k}
-                    fill="none" stroke={HANDLE.outer} strokeWidth={k}
-                  />
-                  <circle
-                    cx={p.x} cy={p.y} r={(HANDLE.core + HANDLE.ring / 2 - 0.5) * k}
-                    fill="none" stroke={HANDLE.inner} strokeWidth={k}
-                  />
-                  <circle
-                    cx={p.x} cy={p.y} r={HANDLE.core * k}
-                    fill={fill} stroke="#fff" strokeWidth={HANDLE.ring * k}
-                  />
-                </g>
+                <circle
+                  key={i} id={`rgb-dot-${dotNames[i]}`} cx={p.x} cy={p.y}
+                  r={3 * k} fill="#ff0000"
+                />
               );
             }
 
+            // Each handle carries its own channel's colour - the blue one is
+            // blue - rather than the colour of the field underneath it, which
+            // washes out to near-white wherever the field is pale.
+            const channel = ch === 'r' ? '#dc3232' : ch === 'g' ? '#32b432' : '#3232dc';
+            const ring = isHighlighted ? lift(channel, 34) : '#fff';
+
             return (
-              <circle
-                key={i} id={`rgb-dot-${dotNames[i]}`} cx={p.x} cy={p.y}
-                r={(isOrigin ? 3 : 5) * k}
-                fill={isOrigin ? '#ff0000' : fill}
-                stroke={isOrigin ? 'none' : ringColor}
-                strokeWidth={isOrigin ? 0 : (isHighlighted ? 3 : 2) * k}
+              <g
+                key={i}
                 className={isDraggable ? 'cursor-pointer touch-none' : ''}
+                style={{ filter: `drop-shadow(${HANDLE.shadow})` }}
                 {...handlers}
-              />
+              >
+                <circle
+                  id={`rgb-dot-${dotNames[i]}`} cx={p.x} cy={p.y}
+                  r={(HANDLE.core + HANDLE.ring / 2 + 0.5) * k}
+                  fill="none" stroke={HANDLE.outer} strokeWidth={k}
+                />
+                <circle
+                  cx={p.x} cy={p.y} r={HANDLE.core * k}
+                  fill={channel} stroke={ring} strokeWidth={HANDLE.ring * k}
+                />
+                {/* The tint inside the ring, matching the slider handles. */}
+                <circle
+                  cx={p.x} cy={p.y} r={(HANDLE.core + HANDLE.ring / 2 - 0.5) * k}
+                  fill="none" stroke={HANDLE.inner} strokeWidth={k}
+                />
+              </g>
             );
           })}
 

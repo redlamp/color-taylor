@@ -33,7 +33,15 @@ import {
   type HSB,
   type RGB,
 } from '../../src/utils/colorConversions';
-import { brightnessGradient, type ColorSpace } from '../../src/utils/sliderGradients';
+import {
+  brightnessGradient,
+  hueGradient,
+  saturationGradient,
+  hslHueGradient,
+  hslSaturationGradient,
+  lightnessGradient,
+  type ColorSpace,
+} from '../../src/utils/sliderGradients';
 import { HSB_TWEEN_MS, hsbAtProgress } from '../../src/utils/colorTween';
 import ColorSlider from '../../src/components/ColorSlider';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -101,6 +109,7 @@ function PluginApp() {
   const hex = useMemo(() => rgbToHex(rgb.r, rgb.g, rgb.b), [rgb.r, rgb.g, rgb.b]);
 
   // Live-apply. No button: picking a colour *is* the action - but only picking.
+  const isHsl = blMode === 'lightness';
   const paintKey = `${hex}|${alpha}`;
   useEffect(() => {
     if (!userEditRef.current) return;
@@ -122,29 +131,6 @@ function PluginApp() {
   // were, content height would follow window height and this would oscillate.
   // The last-sent guard is a second line of defence against that. Figma clamps
   // the result to what fits on screen, so a very tall panel scrolls instead.
-  // Where the brightness handle actually is, as a fraction of the hexagon's
-  // width, so the limit-hexagon connector lands on it. Measured rather than
-  // derived: the slider's track is inset by its label and value entry, so the
-  // same percentage is a different x on each element.
-  const [blHandleX, setBlHandleX] = useState<number | null>(null);
-  useEffect(() => {
-    const measure = () => {
-      const handle = document.getElementById('slider-b-handle');
-      const svg = document.getElementById('hex-svg');
-      if (!handle || !svg) return;
-      const h = handle.getBoundingClientRect();
-      const s = svg.getBoundingClientRect();
-      if (!s.width) return;
-      setBlHandleX((h.left + h.width / 2 - s.left) / s.width);
-    };
-    const frame = requestAnimationFrame(measure);
-    window.addEventListener('resize', measure);
-    return () => {
-      cancelAnimationFrame(frame);
-      window.removeEventListener('resize', measure);
-    };
-  }, [hsb.b, selectionCount]);
-
   const rootRef = useRef<HTMLDivElement>(null);
   const lastHeightRef = useRef(0);
   useEffect(() => {
@@ -321,7 +307,7 @@ function PluginApp() {
         bare
         collapsedSections
         blBar={false}
-        blHandleX={blHandleX}
+        blConnector={false}
         muted
         headerLeft={
           // Mirrors the Bright/Light group opposite: tabs with a caption
@@ -355,29 +341,53 @@ function PluginApp() {
         }
         belowStage={
           <div className="flex flex-col gap-1 px-1">
-            {/* Brightness moves out of the hexagon and onto its own track, which
-                is also what frees the width the vertical bar was reserving. */}
+            {/*
+              Which three channels these are follows the HSB/HSL switch, and they
+              have to move together: HSL's hue and saturation are not HSB's - the
+              same colour has a different S in each model - so reading one channel
+              from one model and another from the other would make them fight.
+            */}
             <ColorSlider
-              label="B"
-              value={Math.round(hsb.b)}
-              max={100}
-              suffix="%"
-              gradient={brightnessGradient(hsb.h, hsb.s, colorSpace)}
-              onChange={(v) => onHsbChange({ b: v })}
+              label={'H'}
+              value={Math.round(isHsl ? hsl.h : hsb.h)}
+              max={360}
+              suffix={'°'}
+              gradient={isHsl ? hslHueGradient(hsl.s, hsl.l, colorSpace) : hueGradient(hsb.s, hsb.b, colorSpace)}
+              onChange={(v) => (isHsl ? onHslChange('h', v) : onHsbChange({ h: v }))}
               stepper="value"
               round
               handle="ring"
-              handleFill={rgbToHex(
-                hsbToRgb(hsb.h, hsb.s, Math.round(hsb.b)).r,
-                hsbToRgb(hsb.h, hsb.s, Math.round(hsb.b)).g,
-                hsbToRgb(hsb.h, hsb.s, Math.round(hsb.b)).b,
-              )}
+              handleFill={hex}
             />
             <ColorSlider
-              label="A"
+              label={'S'}
+              value={Math.round(isHsl ? hsl.s : hsb.s)}
+              max={100}
+              suffix={'%'}
+              gradient={isHsl ? hslSaturationGradient(hsl.h, hsl.l, colorSpace) : saturationGradient(hsb.h, hsb.b, colorSpace)}
+              onChange={(v) => (isHsl ? onHslChange('s', v) : onHsbChange({ s: v }))}
+              stepper="value"
+              round
+              handle="ring"
+              handleFill={hex}
+            />
+            <ColorSlider
+              label={isHsl ? 'L' : 'B'}
+              value={Math.round(isHsl ? hsl.l : hsb.b)}
+              max={100}
+              suffix={'%'}
+              gradient={isHsl ? lightnessGradient(hsl.h, hsl.s, colorSpace) : brightnessGradient(hsb.h, hsb.s, colorSpace)}
+              onChange={(v) => (isHsl ? onHslChange('l', v) : onHsbChange({ b: v }))}
+              stepper="value"
+              round
+              handle="ring"
+              handleFill={hex}
+            />
+            <ColorSlider
+              label={'A'}
               value={alpha}
               max={100}
-              suffix="%"
+              suffix={'%'}
               gradient={alphaGradient(rgb)}
               onChange={onAlphaChange}
               stepper="value"
