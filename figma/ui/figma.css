@@ -140,6 +140,13 @@ body {
   grid-template-columns: repeat(6, minmax(0, 1fr));
 }
 
+/* The app sizes these swatches h-8 (32px) for a 614px column; a side panel
+   wants them tighter. Height only - width still divides the row. */
+#recent-colors .grid > button,
+#saved-colors .grid > button {
+  height: 22px;
+}
+
 @media (min-width: 512px) {
   #recent-colors .grid,
   #saved-colors .grid {

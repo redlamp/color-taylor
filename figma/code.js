@@ -164,32 +164,82 @@ function moveTo(x, y) {
 }
 
 /**
- * West-edge drag state: the window position and width when the drag began.
- * Null unless a west drag is in progress.
+ * West-edge dragging has to move the window as it resizes, and that has now
+ * broken three different ways. The cause is that figma.ui.reposition and
+ * figma.ui.getPosition are not documented as sharing a coordinate space -
+ * getPosition returns { windowSpace, canvasSpace } and reposition's docs say
+ * nothing at all - so every version of "read here, write there" has been a
+ * guess.
  *
- * Absolute, never relative. Reading the live position each frame and applying a
- * delta compounds: figma.ui.resize can nudge the window by itself, so Figma
- * moves it, then we move it again, and the panel accelerates off-screen. That
- * is what sent it to the bottom corner.
- *
- * Recomputing an absolute x from a fixed anchor cannot accumulate - the same
- * width always maps to the same x - so a wrong coordinate space would show up
- * as a constant offset instead of a runaway. Bounded by the width range either
- * way.
+ * So: prove it before relying on it. Nudge the window a known amount, read
+ * back, and only enable west anchoring if it actually moved by that amount. A
+ * stale readback and a mismatched space both fail the check, and a failure
+ * means we simply never reposition - the west edge then resizes like the east
+ * one. Degraded, but the panel can never be flung off-screen again.
  */
+const PROBE_PX = 8;
+let westCapable = null;
+let westBias = null;
 let westAnchor = null;
 
+/**
+ * Nudge a known amount, see where we actually land, and keep the difference as
+ * a correction. Then put the window back using that correction and check it
+ * worked. Three outcomes:
+ *
+ *   spaces agree        bias 0, verification exact, west anchoring on
+ *   constant offset     bias measured, verification exact, west anchoring on
+ *   anything else       verification fails, west anchoring off for the session
+ *
+ * The third case includes a stale readback and any non-translation transform.
+ * Off means the west edge resizes like the east one - the panel stays put and
+ * usable instead of being flung somewhere unrecoverable.
+ */
+function canReposition() {
+  if (westCapable !== null) return westCapable;
+  westCapable = false;
+  const p0 = readPosition();
+  if (!p0) return false;
+
+  moveTo(p0.x + PROBE_PX, p0.y);
+  const p1 = readPosition();
+  if (!p1) {
+    moveTo(p0.x, p0.y);
+    return false;
+  }
+
+  const bias = { x: p1.x - (p0.x + PROBE_PX), y: p1.y - p0.y };
+  moveTo(p0.x - bias.x, p0.y - bias.y);
+  const p2 = readPosition();
+  const err = p2 ? Math.abs(p2.x - p0.x) + Math.abs(p2.y - p0.y) : Infinity;
+
+  westCapable = err <= 1;
+  westBias = westCapable ? bias : null;
+  console.log(
+    '[Color Taylor] reposition probe:',
+    JSON.stringify({ p0, p1, p2, bias, err, usable: westCapable }),
+  );
+  return westCapable;
+}
+
+/**
+ * Holds the east edge still while the west edge moves.
+ *
+ * y is the anchor's, never re-read - re-reading and writing it back each frame
+ * is what let the window drift down out of the app. x is absolute from the
+ * anchor, so it cannot accumulate: the same width always maps to the same x.
+ */
 function holdWestAnchor() {
-  if (!westAnchor) return;
-  // Never off the left edge, whatever the coordinate space turns out to be.
-  moveTo(Math.max(0, westAnchor.x + (westAnchor.w - size.w)), westAnchor.y);
+  if (!westAnchor || !westBias) return;
+  moveTo(
+    Math.max(0, westAnchor.x + (westAnchor.w - size.w)) - westBias.x,
+    westAnchor.y - westBias.y,
+  );
 }
 
 function resizeWidth(width, fromLeft) {
-  if (fromLeft && !westAnchor) {
+  if (fromLeft && !westAnchor && canReposition()) {
     const pos = readPosition();
-    // No position API, no west anchoring: resize from the east instead of
-    // flinging the window somewhere unrecoverable.
     if (pos) westAnchor = { x: pos.x, y: pos.y, w: size.w };
   }
   applySize(width, size.h);
