@@ -138,6 +138,8 @@ function applySize(w, h) {
   size.w = nw;
   size.h = nh;
   figma.ui.resize(nw, nh);
+  // resize() can shift the window on its own, so re-assert after every one.
+  holdWestAnchor();
 }
 
 // getPosition returns { windowSpace, canvasSpace } - not a bare {x, y}.
@@ -162,24 +164,35 @@ function moveTo(x, y) {
 }
 
 /**
- * Widen or narrow, optionally holding the east edge still.
+ * West-edge drag state: the window position and width when the drag began.
+ * Null unless a west drag is in progress.
  *
- * Dragging the west edge has to move the window as it resizes. The previous
- * attempt anchored to the position captured when the drag began and recomputed
- * an absolute x each frame; any nudge Figma made to the window itself left that
- * anchor stale and the panel walked across the screen.
+ * Absolute, never relative. Reading the live position each frame and applying a
+ * delta compounds: figma.ui.resize can nudge the window by itself, so Figma
+ * moves it, then we move it again, and the panel accelerates off-screen. That
+ * is what sent it to the bottom corner.
  *
- * This reads the *current* position each frame and shifts it by the width
- * actually applied - post-clamp, so hitting MIN_W cannot desync it either. Each
- * frame is self-correcting rather than trusting a snapshot.
+ * Recomputing an absolute x from a fixed anchor cannot accumulate - the same
+ * width always maps to the same x - so a wrong coordinate space would show up
+ * as a constant offset instead of a runaway. Bounded by the width range either
+ * way.
  */
+let westAnchor = null;
+
+function holdWestAnchor() {
+  if (!westAnchor) return;
+  // Never off the left edge, whatever the coordinate space turns out to be.
+  moveTo(Math.max(0, westAnchor.x + (westAnchor.w - size.w)), westAnchor.y);
+}
+
 function resizeWidth(width, fromLeft) {
-  const before = size.w;
+  if (fromLeft && !westAnchor) {
+    const pos = readPosition();
+    // No position API, no west anchoring: resize from the east instead of
+    // flinging the window somewhere unrecoverable.
+    if (pos) westAnchor = { x: pos.x, y: pos.y, w: size.w };
+  }
   applySize(width, size.h);
-  const grew = size.w - before;
-  if (!fromLeft || grew === 0) return;
-  const pos = readPosition();
-  if (pos) moveTo(pos.x - grew, pos.y);
 }
 
 figma.on('selectionchange', postSelection);
@@ -221,6 +234,7 @@ figma.ui.onmessage = (msg) => {
       break;
 
     case 'resizeEnd':
+      westAnchor = null;
       figma.clientStorage.setAsync('windowWidth', size.w);
       break;
 
