@@ -103,6 +103,14 @@ interface ColorHexagonProps {
   blHandleX?: number | null;
   /** Draw the line tying the brightness control to the limit hexagon. */
   blConnector?: boolean;
+  /**
+   * Rendered stem thickness in CSS px as [min, max]. The stems scale with the
+   * hexagon, which across the plugin's range means 1.15px at the narrow end and
+   * 3.3px at the wide one - too thin to read, then heavier than the handles.
+   * Given a range they scale between those bounds instead. Omit for the plain
+   * 2-user-unit behaviour.
+   */
+  stemRange?: [number, number] | null;
 }
 
 interface HoveredMarker {
@@ -112,7 +120,7 @@ interface HoveredMarker {
   name: string;
 }
 
-export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, animHolding, onHoverHtmlColor, muted, iconActions, bare, headerLeft, belowStage, collapsedSections, blBar = true, blHandleX = null, blConnector = true }: ColorHexagonProps) {
+export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, animHolding, onHoverHtmlColor, muted, iconActions, bare, headerLeft, belowStage, collapsedSections, blBar = true, blHandleX = null, blConnector = true, stemRange = null }: ColorHexagonProps) {
   // Horizontal extent of the SVG coordinate space. Without the bar the hexagon
   // is the whole picture, so the 50px reserved to its right goes away - and the
   // extent becomes twice CENTER_X, which is what actually puts the hexagon in
@@ -1363,6 +1371,13 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             if (isHexDragging && chValue === 0 && ch !== 'r') return null;
             const baseColor = CHANNEL_COLOR[ch];
             const hoverColor = lift(baseColor);
+            // uiScale is user-units-per-rendered-px, so a target thickness in
+            // px converts by multiplying, and the natural size is where the
+            // upper bound lands.
+            const stemPx = stemRange
+              ? Math.min(stemRange[1], Math.max(stemRange[0], stemRange[1] / uiScale))
+              : 2 / uiScale;
+            const stemUnits = stemPx * uiScale;
             const isHighlighted = hoveredLeg === i;
             const dotIndex = i + 1;
             return (
@@ -1387,7 +1402,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                 <line
                   x1={prev.x} y1={prev.y} x2={p.x} y2={p.y}
                   stroke={isHighlighted ? hoverColor : baseColor}
-                  strokeWidth={isHighlighted ? 3 : 2}
+                  strokeWidth={isHighlighted ? stemUnits * 1.5 : stemUnits}
                   strokeLinecap="round"
                   className="pointer-events-none"
                 />

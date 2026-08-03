@@ -308,6 +308,7 @@ function PluginApp() {
         collapsedSections
         blBar={false}
         blConnector={false}
+        stemRange={[2, 4]}
         muted
         headerLeft={
           // Mirrors the Bright/Light group opposite: tabs with a caption
