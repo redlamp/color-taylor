@@ -12,14 +12,92 @@
 @source "../../src";
 
 /*
- * The panel never scrolls: its height is the content's, so everything always
- * fits. Nothing may be height:100% either, or the height measurement in
- * main.tsx becomes circular.
+ * Sideways, never: the layout is built to fit whatever width it is given.
  */
 html,
 body {
   margin: 0;
-  overflow: hidden;
+  overflow-x: hidden;
+}
+
+/*
+ * Vertically, only when it has to.
+ *
+ * Height still tracks content - code.js asks for exactly what main.tsx
+ * measures - but that request is clamped, by MAX_H and by what actually fits
+ * on screen. Turn every slider group on in a wide panel and the clamp bites;
+ * without this the last sliders and both swatch grids are unreachable.
+ *
+ * Only `body` gets the height. `.figma-root` must stay auto or the height
+ * measurement becomes circular - content height would follow window height.
+ */
+body {
+  height: 100vh;
+  overflow-y: auto;
+}
+
+/*
+ * The native scrollbar is hidden and drawn as an overlay instead, for two
+ * reasons that both come down to it occupying layout width.
+ *
+ * It would sit outside the padding, so the content would be inset 8px on the
+ * left and 18px on the right. And a fixed-position element cannot reach past
+ * the containing block, which excludes a classic scrollbar - so .figma-edge-e
+ * would be pushed 10px inboard and the east resize edge would land on the
+ * scrollbar instead of the panel edge.
+ *
+ * An overlay costs no width: padding stays symmetric, the resize edges stay
+ * where they are, and content never reflows when it appears - which is also
+ * what stops the scrollbar oscillating at the boundary.
+ */
+body::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+/*
+ * Draggable, and it shares the right-hand padding with .figma-edge-e.
+ *
+ * Both want that strip, and the order matters: resize stays out at the true
+ * edge and the scrollbar tucks in beside it, so the resize cursor only ever
+ * appears outboard of the bar. The other way round - resize stepped inboard -
+ * put the cursor on the wrong side of it.
+ *
+ * 8px of padding split 4/4 is what makes them fit without either crossing into
+ * the content box. That is why the bar is 4px and not the 6px it was: a wider
+ * bar here would either overlap the swatches or leave too little edge to grab.
+ *
+ * Stops 16px short of the bottom so the south-east corner grip stays clear.
+ */
+.figma-scrollbar {
+  position: fixed;
+  top: 4px;
+  bottom: 16px;
+  right: 4px;
+  width: 4px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 120ms ease-out;
+  z-index: 70;
+}
+
+html[data-overflow] .figma-scrollbar {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.figma-scrollbar-thumb {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  border-radius: 2px;
+  cursor: default;
+  background: color-mix(in srgb, var(--figma-color-text, var(--foreground)) 26%, transparent);
+}
+
+.figma-scrollbar-thumb:hover,
+.figma-scrollbar-thumb[data-dragging] {
+  background: color-mix(in srgb, var(--figma-color-text, var(--foreground)) 45%, transparent);
 }
 
 /*

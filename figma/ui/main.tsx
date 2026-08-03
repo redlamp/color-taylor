@@ -45,7 +45,7 @@ import {
   blueGradient,
   type ColorSpace,
 } from '../../src/utils/sliderGradients';
-import { HSB_TWEEN_MS, hsbAtProgress } from '../../src/utils/colorTween';
+import { HSB_TWEEN_MS, easeInOutQuad, hsbAtProgress } from '../../src/utils/colorTween';
 import ColorSlider from '../../src/components/ColorSlider';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
@@ -87,6 +87,105 @@ function alphaGradient(rgb: RGB) {
 function alphaSwatch(rgb: RGB, alpha: number) {
   const c = `rgba(${rgb.r},${rgb.g},${rgb.b},${alpha / 100})`;
   return `linear-gradient(${c},${c}),${CHECKER}`;
+}
+
+/**
+ * The panel's scroll position, drawn in the right-hand padding.
+ *
+ * Its own element rather than the browser's, because a real scrollbar takes
+ * layout width - see figma.css. Geometry is read straight off body, which is
+ * the scroll container.
+ */
+// Insets of the track within the fixed element, matching figma.css. The bottom
+// one is larger so the south-east resize grip stays clear.
+const TRACK_TOP = 4;
+const TRACK_BOTTOM = 16;
+
+function scrollMetrics() {
+  const el = document.body;
+  const view = el.clientHeight;
+  const total = el.scrollHeight;
+  const track = Math.max(0, view - TRACK_TOP - TRACK_BOTTOM);
+  const height = Math.min(track, Math.max(24, (view / total) * track));
+  return { el, view, total, track, height, scrollable: total - view };
+}
+
+function ScrollIndicator() {
+  const [bar, setBar] = useState<{ top: number; height: number } | null>(null);
+  const [dragging, setDragging] = useState(false);
+
+  useEffect(() => {
+    const measure = () => {
+      const m = scrollMetrics();
+      if (m.scrollable <= 2) {
+        setBar(null);
+        return;
+      }
+      const top = TRACK_TOP + ((m.track - m.height) * m.el.scrollTop) / m.scrollable;
+      setBar({ top, height: m.height });
+    };
+    measure();
+    document.addEventListener('scroll', measure, { passive: true, capture: true });
+    window.addEventListener('resize', measure);
+    const observer = new ResizeObserver(measure);
+    observer.observe(document.body);
+    return () => {
+      document.removeEventListener('scroll', measure, { capture: true });
+      window.removeEventListener('resize', measure);
+      observer.disconnect();
+    };
+  }, []);
+
+  /** Drag the thumb: pointer travel over the free track maps to scroll range. */
+  const onThumbDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const el = e.currentTarget;
+    el.setPointerCapture(e.pointerId);
+    const m = scrollMetrics();
+    const span = m.track - m.height;
+    const startY = e.clientY;
+    const startTop = m.el.scrollTop;
+    setDragging(true);
+
+    const move = (ev: PointerEvent) => {
+      if (span <= 0) return;
+      m.el.scrollTop = startTop + ((ev.clientY - startY) / span) * m.scrollable;
+    };
+    const up = (ev: PointerEvent) => {
+      try {
+        el.releasePointerCapture(ev.pointerId);
+      } catch {
+        /* pointer already gone */
+      }
+      el.removeEventListener('pointermove', move);
+      el.removeEventListener('pointerup', up);
+      setDragging(false);
+    };
+    el.addEventListener('pointermove', move);
+    el.addEventListener('pointerup', up);
+  };
+
+  /** Pressing the track jumps, centring the thumb where you pressed. */
+  const onTrackDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    const m = scrollMetrics();
+    const span = m.track - m.height;
+    if (span <= 0) return;
+    const y = e.clientY - e.currentTarget.getBoundingClientRect().top - TRACK_TOP - m.height / 2;
+    m.el.scrollTop = (Math.max(0, Math.min(span, y)) / span) * m.scrollable;
+  };
+
+  if (!bar) return null;
+  return (
+    <div className="figma-scrollbar" onPointerDown={onTrackDown}>
+      <div
+        className="figma-scrollbar-thumb"
+        data-dragging={dragging || undefined}
+        style={{ top: bar.top, height: bar.height }}
+        onPointerDown={onThumbDown}
+      />
+    </div>
+  );
 }
 
 function PluginApp() {
@@ -165,10 +264,41 @@ function PluginApp() {
       lastHeightRef.current = h;
       post({ type: 'autosize', height: h });
     };
+    /*
+     * Whether the scrollbar should actually be drawn.
+     *
+     * Content height and window height are never in step for the frame or two
+     * it takes an autosize to round-trip through the sandbox - grow the
+     * content and it overflows until Figma grants the new height. That is a
+     * real overflow, so `auto` faithfully draws a scrollbar for it, which is
+     * why one kept flashing during width drags and section toggles with
+     * everything perfectly visible either side.
+     *
+     * So wait for it to settle before believing it. Anything transient never
+     * survives the delay; a genuine clamp does, every time.
+     */
+    let settle: number | undefined;
+    const syncOverflow = () => {
+      window.clearTimeout(settle);
+      settle = window.setTimeout(() => {
+        const over = Math.ceil(el.offsetHeight) - window.innerHeight > 2;
+        document.documentElement.toggleAttribute('data-overflow', over);
+      }, 250);
+    };
+
     measure();
-    const observer = new ResizeObserver(measure);
+    syncOverflow();
+    const observer = new ResizeObserver(() => {
+      measure();
+      syncOverflow();
+    });
     observer.observe(el);
-    return () => observer.disconnect();
+    window.addEventListener('resize', syncOverflow);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', syncOverflow);
+      window.clearTimeout(settle);
+    };
   }, []);
 
   // One undo entry per gesture rather than per frame of a drag.
@@ -275,6 +405,19 @@ function PluginApp() {
     setAlpha(v);
   }, []);
 
+  /**
+   * A swatch's opacity, waiting for the tween that is about to start.
+   *
+   * ColorHexagon calls onAlphaRestore immediately before onAnimateToHsb, in
+   * the same tick, so the colour tween can pick the opacity up and carry both
+   * on one clock. Setting alpha directly here instead would snap it to the
+   * destination while the colour was still a second away from arriving.
+   */
+  const pendingAlpha = useRef<number | null>(null);
+  const onAlphaRestore = useCallback((v: number) => {
+    pendingAlpha.current = v;
+  }, []);
+
   const onHsbChange = useCallback((next: Partial<HSB>) => {
     userEditRef.current = true;
     rgbOverride.current = null;
@@ -307,12 +450,23 @@ function PluginApp() {
     userEditRef.current = true;
     if (animRef.current !== null) cancelAnimationFrame(animRef.current);
     rgbOverride.current = null;
+    const alphaTo = pendingAlpha.current;
+    pendingAlpha.current = null;
+    // Captured through setState rather than a ref, the same way the colour's
+    // own start value is: React holds the current alpha, and reading it back
+    // here cannot go stale.
+    let alphaFrom = 0;
+    if (alphaTo !== null) setAlpha((cur) => { alphaFrom = cur; return cur; });
     setHsb((from) => {
       const start = performance.now();
       const step = (now: number) => {
         const t = Math.min(1, (now - start) / HSB_TWEEN_MS);
         userEditRef.current = true;
         setHsb(hsbAtProgress(from, target, t));
+        // Same clock and same easing as the colour, so the two arrive together.
+        if (alphaTo !== null) {
+          setAlpha(Math.round(alphaFrom + (alphaTo - alphaFrom) * easeInOutQuad(t)));
+        }
         if (t < 1) {
           animRef.current = requestAnimationFrame(step);
         } else {
@@ -365,6 +519,9 @@ function PluginApp() {
         bare
         collapsedSections
         sectionVariant="flush"
+        alpha={alpha}
+        onAlphaRestore={onAlphaRestore}
+        wheelAdjusts={false}
         blBar={false}
         blConnector={false}
         stemRange={[2, 4]}
@@ -578,6 +735,7 @@ function PluginApp() {
         }
         />
       </div>
+      <ScrollIndicator />
       <ResizeEdge side="w" />
       <ResizeEdge side="e" />
       <ResizeEdge side="s" />

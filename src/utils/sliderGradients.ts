@@ -104,3 +104,35 @@ export function lightnessGradient(h: number, s: number, colorSpace: ColorSpace):
   });
   return `linear-gradient(to right, ${colors.join(', ')})`;
 }
+
+/**
+ * Small checks, sized for a swatch rather than a full-width track.
+ *
+ * Positioned at calc(50%% + 4px) rather than 0. A percentage aligns that point
+ * of the tile with the same point of the box, so plain 50%% would centre a tile
+ * on the split and leave the boundary cutting a check in half; half a tile of
+ * offset puts a tile edge exactly there instead.
+ */
+export const SWATCH_CHECKER =
+  'repeating-conic-gradient(rgba(128,128,128,.45) 0% 25%, transparent 0% 50%) calc(50% + 4px) 0/8px 8px';
+
+/**
+ * Figma's split swatch: the left half is the colour flat, the right half is
+ * the same colour at its alpha over a checkerboard. One chip then answers both
+ * "what colour is it" and "how transparent is it", which a flat chip cannot -
+ * a half-transparent colour over a dark panel just reads as a darker colour.
+ *
+ * A fully opaque colour gets a plain fill. Splitting a chip whose halves are
+ * identical is noise.
+ */
+export function swatchBackground(hex: string, alpha: number): string {
+  if (alpha >= 100) return hex;
+  const n = parseInt(hex.slice(1), 16);
+  const rgba = `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha / 100})`;
+  // border-box on each layer, carried inside the shorthand where nothing can
+  // reset it. background-origin defaults to padding-box while background-clip
+  // defaults to border-box, and a selected chip has a 2px transparent border -
+  // that mismatch made both layers tile, so the wrapped edge of the
+  // transparent half showed as checks running down the left side.
+  return `linear-gradient(to right, ${hex} 50%, ${rgba} 50%) border-box, ${SWATCH_CHECKER} border-box`;
+}

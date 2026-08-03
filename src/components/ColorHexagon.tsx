@@ -1,6 +1,6 @@
 import { useRef, useEffect, useCallback, useLayoutEffect, useState, useMemo, type ComponentType, type CSSProperties, type ReactNode, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { hsbToRgb, rgbToHsb, rgbToHex, hexToRgb, rgbToHsl, hslToRgb, lighter, type RGB, type HSB, type HSL } from '../utils/colorConversions';
-import type { ColorSpace } from '../utils/sliderGradients';
+import { swatchBackground, type ColorSpace } from '../utils/sliderGradients';
 import type { Channel, ChannelOrder } from './hex/hexConstants';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
@@ -29,6 +29,40 @@ const CHANNEL_COLOR: Record<'r' | 'g' | 'b', string> = {
   g: '#00ff00',
   b: '#0000ff',
 };
+
+/** A recorded colour. Opacity is part of it: two opacities are two paints. */
+export type Swatch = { hex: string; alpha: number };
+
+/** Stable identity for one, for the "have we just recorded this?" check. */
+function swatchKey(hex: string, alpha: number) {
+  return hex + '|' + alpha;
+}
+
+/**
+ * Opacity for a colour stored before swatches carried one.
+ *
+ * Two older shapes exist. Colours saved as bare hex predate alpha entirely and
+ * are opaque. Colours saved while alpha lived in a side map keyed by hex - a
+ * shape this replaced - have their opacity there, so read it across rather
+ * than silently flattening those to 100.
+ */
+let legacyAlphaMap: Record<string, number> | null = null;
+function legacyAlpha(hex: string): number {
+  if (legacyAlphaMap === null) {
+    try {
+      legacyAlphaMap = JSON.parse(localStorage.getItem('color-taylor-alpha') || '{}');
+    } catch {
+      legacyAlphaMap = {};
+    }
+  }
+  return legacyAlphaMap?.[hex] ?? 100;
+}
+
+function toSwatch(v: unknown): Swatch {
+  if (typeof v === 'string') return { hex: v, alpha: legacyAlpha(v) };
+  const o = v as Swatch;
+  return { hex: o.hex, alpha: typeof o.alpha === 'number' ? o.alpha : legacyAlpha(o.hex) };
+}
 
 const DEFAULT_RECENT = ['#ff0000', '#ffff00', '#00ff00', '#00ffff', '#0000ff', '#ff00ff', '#ffffff', '#808080', '#000000'];
 
@@ -95,6 +129,20 @@ interface ColorHexagonProps {
    */
   sectionVariant?: 'card' | 'flush';
   /**
+   * Opacity of the current colour, 0-100. Recorded alongside each Recent and
+   * Saved swatch and shown on its right half, the way Figma does. Hosts with
+   * no alpha concept leave it out and every swatch stays opaque.
+   */
+  alpha?: number;
+  /** Restore a swatch's stored alpha when it is clicked. */
+  onAlphaRestore?: (alpha: number) => void;
+  /**
+   * Let the wheel over the hexagon drive brightness/lightness. On a page that
+   * is the natural gesture; in a panel that scrolls, it steals the wheel from
+   * the panel, so a host with its own scroll turns it off.
+   */
+  wheelAdjusts?: boolean;
+  /**
    * Draw the vertical brightness bar beside the hexagon. Off lets a host put
    * brightness on its own horizontal slider, and hands the width the bar was
    * reserving back to the hexagon.
@@ -126,7 +174,7 @@ interface HoveredMarker {
   name: string;
 }
 
-export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, animHolding, onHoverHtmlColor, muted, iconActions, bare, headerLeft, belowStage, collapsedSections, sectionVariant = 'card', blBar = true, blHandleX = null, blConnector = true, stemRange = null }: ColorHexagonProps) {
+export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, animHolding, onHoverHtmlColor, muted, iconActions, bare, headerLeft, belowStage, collapsedSections, sectionVariant = 'card', alpha = 100, onAlphaRestore, wheelAdjusts = true, blBar = true, blHandleX = null, blConnector = true, stemRange = null }: ColorHexagonProps) {
   const flushSections = sectionVariant === 'flush';
   // Horizontal extent of the SVG coordinate space. Without the bar the hexagon
   // is the whole picture, so the 50px reserved to its right goes away - and the
@@ -136,15 +184,19 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   const [hexOpen, setHexOpen] = useState(true);
   const [vectorMode] = useState<ChannelOrder>('rgb');
   const [initialHex] = useState(() => rgbToHex(rgb.r, rgb.g, rgb.b));
-  const [recentColors, setRecentColors] = useState<string[]>(() => {
+  const [recentColors, setRecentColors] = useState<Swatch[]>(() => {
     try {
       const saved = localStorage.getItem('color-taylor-recent');
-      if (saved) return JSON.parse(saved);
+      if (saved) return JSON.parse(saved).map(toSwatch);
     } catch { /* localStorage unavailable */ }
     return [];
   });
   const [selectedRecentIdx, setSelectedRecentIdx] = useState<number | null>(null);
-  type SavedSlot = { hex: string; addedAt: number } | null;
+
+  const alphaRef = useRef(alpha);
+  alphaRef.current = alpha;
+
+  type SavedSlot = { hex: string; alpha: number; addedAt: number } | null;
   type SortMode = 'user' | 'hue' | 'saturation' | 'brightness';
   const [savedSlots, setSavedSlots] = useState<SavedSlot[]>(() => {
     try {
@@ -154,14 +206,17 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
         const seen = new Set<number>();
         return parsed.map((v: unknown, i: number) => {
           if (!v) return null;
-          const slot = typeof v === 'string' ? { hex: v, addedAt: -(i + 1) } : (v as { hex: string; addedAt: number });
+          const stored = typeof v === 'string'
+            ? { hex: v, addedAt: -(i + 1) }
+            : (v as { hex: string; alpha?: number; addedAt: number });
+          const slot = { ...stored, alpha: typeof stored.alpha === 'number' ? stored.alpha : legacyAlpha(stored.hex) };
           if (seen.has(slot.addedAt)) slot.addedAt = -(i + 1) * 1000;
           seen.add(slot.addedAt);
           return slot;
         });
       }
     } catch { /* localStorage unavailable */ }
-    const defaults: SavedSlot[] = DEFAULT_RECENT.map((hex, i) => ({ hex, addedAt: -(i + 1) }));
+    const defaults: SavedSlot[] = DEFAULT_RECENT.map((hex, i) => ({ hex, alpha: 100, addedAt: -(i + 1) }));
     while (defaults.length < 12) defaults.push(null);
     return defaults;
   });
@@ -409,7 +464,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     setDragHover(null);
   }, []);
 
-  const lastHex = useRef(initialHex);
+  const lastRecorded = useRef(swatchKey(initialHex, 100));
   const skipNextRecent = useRef(false);
 
   // Persist recent + saved colors. Guarded like every read above: storage can
@@ -431,7 +486,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   useEffect(() => {
     const onReset = () => {
       setRecentColors([]);
-      const defaults: SavedSlot[] = DEFAULT_RECENT.map((hex, i) => ({ hex, addedAt: -(i + 1) }));
+      const defaults: SavedSlot[] = DEFAULT_RECENT.map((hex, i) => ({ hex, alpha: 100, addedAt: -(i + 1) }));
       while (defaults.length < 12) defaults.push(null);
       setSavedSlots(defaults);
       setSelectedRecentIdx(null);
@@ -446,7 +501,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   const displaySlots = useMemo<{ slot: SavedSlot; userIdx: number }[]>(() => {
     const indexed = savedSlots.map((slot, userIdx) => ({ slot, userIdx }));
     if (savedSortMode === 'user') return indexed;
-    const filled = indexed.filter((x): x is { slot: { hex: string; addedAt: number }; userIdx: number } => x.slot !== null);
+    const filled = indexed.filter((x): x is { slot: NonNullable<SavedSlot>; userIdx: number } => x.slot !== null);
     const empties = indexed.filter((x) => x.slot === null);
     filled.sort((a, b) => {
       const ar = parseInt(a.slot.hex.slice(1, 3), 16), ag = parseInt(a.slot.hex.slice(3, 5), 16), ab = parseInt(a.slot.hex.slice(5, 7), 16);
@@ -805,10 +860,10 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   // Immediate highlight during animation holds
   useEffect(() => {
     if (animHolding) {
-      const matchIdx = recentColors.indexOf(currentHex);
+      const matchIdx = recentColors.findIndex((c) => c.hex === currentHex && c.alpha === alpha);
       setSelectedRecentIdx(matchIdx !== -1 ? matchIdx : null);
     }
-  }, [animHolding, currentHex, recentColors]);
+  }, [animHolding, currentHex, alpha, recentColors]);
 
   // Reset debounce on currentHex change only; reads latest recentColors via ref
   // to avoid restarting the timer when the recent list updates.
@@ -819,20 +874,21 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     addRecentTimer.current = setTimeout(() => {
       if (skipNextRecent.current) {
         skipNextRecent.current = false;
-        lastHex.current = currentHex;
+        lastRecorded.current = swatchKey(currentHex, alphaRef.current);
         return;
       }
-      const matchIdx = recentColorsRef.current.indexOf(currentHex);
+      const a = alphaRef.current;
+      const matchIdx = recentColorsRef.current.findIndex((c) => c.hex === currentHex && c.alpha === a);
       if (matchIdx !== -1) {
         setSelectedRecentIdx(matchIdx);
-        lastHex.current = currentHex;
+        lastRecorded.current = swatchKey(currentHex, a);
         return;
       }
-      if (currentHex !== lastHex.current) {
-        lastHex.current = currentHex;
+      if (swatchKey(currentHex, a) !== lastRecorded.current) {
+        lastRecorded.current = swatchKey(currentHex, a);
         setRecentColors((prev) => {
-          if (prev.includes(currentHex)) return prev;
-          return [currentHex, ...prev].slice(0, 12);
+          if (prev.some((c) => c.hex === currentHex && c.alpha === a)) return prev;
+          return [{ hex: currentHex, alpha: a }, ...prev].slice(0, 12);
         });
         setSelectedRecentIdx(0);
       }
@@ -844,14 +900,17 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
         addRecentTimer.current = null;
       }
     };
-  }, [currentHex]);
+    // Opacity is half of a swatch's identity now, so a change to it has to
+    // restart the debounce or a new opacity would never be recorded.
+  }, [currentHex, alpha]);
 
   const addToRecent = useCallback((hex: string) => {
+    const a = alphaRef.current;
     skipNextRecent.current = true;
-    lastHex.current = hex;
+    lastRecorded.current = swatchKey(hex, a);
     setRecentColors((prev) => {
-      const filtered = prev.filter((c) => c !== hex);
-      return [hex, ...filtered].slice(0, 12);
+      const filtered = prev.filter((c) => !(c.hex === hex && c.alpha === a));
+      return [{ hex, alpha: a }, ...filtered].slice(0, 12);
     });
     setSelectedRecentIdx(0);
   }, []);
@@ -1104,10 +1163,13 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     };
   }, [hueFromMouse, handleDotDrag, handleHexSurfaceDrag, getBLValueFromClientY, applyBLValue, animateBLToValue, getSvgCoords, getHsbFromPosition, onAnimateToHsb, onHsbChange, addToRecent, blMode, cancelHoldTone]);
 
-  // Non-passive wheel listener to prevent page scroll
+  // Non-passive wheel listener to prevent page scroll. Not registered at all
+  // when the host owns the wheel - a listener that conditionally declines to
+  // preventDefault still has to be non-passive, which costs the browser its
+  // scrolling fast path for no reason.
   useEffect(() => {
     const svg = svgRef.current;
-    if (!svg) return;
+    if (!svg || !wheelAdjusts) return;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const step = Math.abs(e.deltaY) > 50 ? 2 : 1;
@@ -1129,7 +1191,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     };
     svg.addEventListener('wheel', onWheel, { passive: false });
     return () => svg.removeEventListener('wheel', onWheel);
-  }, [blMode, brightness, hsl?.l, hue, saturation, onHsbChange, onHslChange]);
+  }, [wheelAdjusts, blMode, brightness, hsl?.l, hue, saturation, onHsbChange, onHslChange]);
 
   const handleHueDragStart = (e: ReactPointerEvent) => {
     e.preventDefault();
@@ -1579,22 +1641,24 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
         >
           <div className="grid grid-cols-6 md:grid-cols-12 gap-1.5">
             {Array.from({ length: 12 }, (_, i) => {
-              const color = recentColors[i];
+              const entry = recentColors[i];
+              const color = entry?.hex;
               return (
                 <button
                   key={i}
                   className="rounded-md cursor-pointer h-8 w-full transition-shadow duration-200 ease-in-out"
                   style={{
-                    backgroundColor: color || 'transparent',
+                    background: entry ? swatchBackground(entry.hex, entry.alpha) : 'transparent',
                     boxShadow: i === selectedRecentIdx && color ? '0 0 0 2px white' : 'none',
                     border: i === selectedRecentIdx && color ? '2px solid transparent' : '1px solid var(--input)',
                   }}
                   disabled={!color}
                   aria-label={color ? `Select ${color}` : 'Empty slot'}
                   onClick={() => {
-                    if (color && onAnimateToHsb) {
+                    if (entry && color && onAnimateToHsb) {
                       skipNextRecent.current = true;
                       setSelectedRecentIdx(i);
+                      onAlphaRestore?.(entry.alpha);
                       const parsed = rgbToHsb(
                         parseInt(color.slice(1, 3), 16),
                         parseInt(color.slice(3, 5), 16),
@@ -1634,7 +1698,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                 iconOnly={iconActions}
                 onClick={(e) => {
                   e.stopPropagation();
-                  const defaults: SavedSlot[] = DEFAULT_RECENT.map((hex, i) => ({ hex, addedAt: -(i + 1) }));
+                  const defaults: SavedSlot[] = DEFAULT_RECENT.map((hex, i) => ({ hex, alpha: 100, addedAt: -(i + 1) }));
                   while (defaults.length < 12) defaults.push(null);
                   setSavedSlots(defaults);
                   setSavedSortMode('user');
@@ -1671,7 +1735,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                   data-saved-idx={userIdx}
                   className="rounded-md cursor-pointer h-8 w-full transition-shadow duration-200 ease-in-out relative"
                   style={{
-                    backgroundColor: color || 'transparent',
+                    background: slot ? swatchBackground(slot.hex, slot.alpha) : 'transparent',
                     boxShadow: isReplaceTarget ? '0 0 0 2px #00BFFF' : isArmed ? '0 0 0 2px #00BFFF' : isSelected ? '0 0 0 2px white' : 'none',
                     border: (isReplaceTarget || isSelected || isArmed) ? '2px solid transparent' : color ? '1px solid var(--input)' : '2px dashed var(--input)',
                     opacity: isDragging && !isArmed ? 0.4 : 1,
@@ -1763,6 +1827,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                     if (color) {
                       if (!onAnimateToHsb) return;
                       setSelectedSavedIdx(userIdx);
+                      onAlphaRestore?.(slot?.alpha ?? 100);
                       const parsed = rgbToHsb(
                         parseInt(color.slice(1, 3), 16),
                         parseInt(color.slice(3, 5), 16),
@@ -1774,7 +1839,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                       // Adopt the currently displayed order as the new user arrangement,
                       // then place the new color at the clicked display position.
                       const flattened: SavedSlot[] = displaySlots.map((d) => d.slot);
-                      flattened[displayIdx] = { hex: currentHex, addedAt: Date.now() };
+                      flattened[displayIdx] = { hex: currentHex, alpha, addedAt: Date.now() };
                       setSavedSlots(flattened);
                       setSavedSortMode('user');
                       setSelectedSavedIdx(displayIdx);

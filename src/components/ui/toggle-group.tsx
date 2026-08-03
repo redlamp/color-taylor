@@ -19,7 +19,10 @@ function ToggleGroup({
     <ToggleGroupPrimitive
       data-slot="toggle-group"
       className={cn(
-        "inline-flex h-8 w-fit items-center justify-center rounded-lg bg-muted p-[3px] text-muted-foreground",
+        // gap-1 is 4px. Unlike tabs, more than one of these can be pressed at
+        // once, so the pressed pills need air between them or two neighbours
+        // read as a single wider pill.
+        "inline-flex h-8 w-fit items-center justify-center gap-1 rounded-lg bg-muted p-[3px] text-muted-foreground",
         className
       )}
       {...props}
