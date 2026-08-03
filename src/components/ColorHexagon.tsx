@@ -22,6 +22,14 @@ import HueHandle from './hex/HueHandle';
 import BrightnessHandle from './hex/BrightnessHandle';
 import BrightnessMarkers from './hex/BrightnessMarkers';
 
+/** The three channel vectors, at full strength. Stems and handle borders share
+ *  these so the two can never drift apart. */
+const CHANNEL_COLOR: Record<'r' | 'g' | 'b', string> = {
+  r: '#ff0000',
+  g: '#00ff00',
+  b: '#0000ff',
+};
+
 const DEFAULT_RECENT = ['#ff0000', '#ffff00', '#00ff00', '#00ffff', '#0000ff', '#ff00ff', '#ffffff', '#808080', '#000000'];
 
 const ACTION_BTN_CLASS =
@@ -694,12 +702,22 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     // eslint-disable-next-line react-hooks/exhaustive-deps -- rgb accessed via dynamic key; r/g/b deps cover all reads
   }, [order, rgb.r, rgb.g, rgb.b, scale]);
 
-  /** Same hue, lifted - the hover state of any element is its own colour, lighter. */
+  /**
+   * Same hue, lifted - the hover state of any element is its own colour,
+   * lighter.
+   *
+   * A pure primary is already at full brightness, so raising it does nothing
+   * and hover would be invisible. With no headroom left, lighten by pulling
+   * saturation out instead, which is what "lighter" means for a saturated
+   * colour.
+   */
   const lift = useCallback((hex: string, amount = 22) => {
     const c = hexToRgb(hex);
     if (!c) return hex;
     const h = rgbToHsb(c.r, c.g, c.b);
-    const next = lighter(h.h, h.s, h.b, amount);
+    const next = h.b >= 100
+      ? { h: h.h, s: Math.max(0, h.s - amount * 1.6), b: 100 }
+      : lighter(h.h, h.s, h.b, amount);
     const out = hsbToRgb(next.h, next.s, next.b);
     return rgbToHex(out.r, out.g, out.b);
   }, []);
@@ -1343,10 +1361,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             const chValue = rgb[ch];
             // Hide zero-value segments during hex surface drag
             if (isHexDragging && chValue === 0 && ch !== 'r') return null;
-            const bright = brightness > 50;
-            const baseColor = bright
-              ? (ch === 'r' ? '#dc3232' : ch === 'g' ? '#32b432' : '#3232dc')
-              : (ch === 'r' ? '#ff7878' : ch === 'g' ? '#78e678' : '#7878ff');
+            const baseColor = CHANNEL_COLOR[ch];
             const hoverColor = lift(baseColor);
             const isHighlighted = hoveredLeg === i;
             const dotIndex = i + 1;
@@ -1414,16 +1429,10 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
               },
             } : {};
 
-            // Border is the channel this handle belongs to; fill is the colour
-            // the field shows underneath it. Two light variants because a ring
-            // sized for a dark field disappears against a bright one.
-            const bright = brightness > 50;
-            const baseRing = bright
-              ? (ch === 'r' ? 'rgba(220,50,50,0.9)' : ch === 'g' ? 'rgba(50,180,50,0.9)' : 'rgba(50,50,220,0.9)')
-              : (ch === 'r' ? 'rgba(255,120,120,0.9)' : ch === 'g' ? 'rgba(120,230,120,0.9)' : 'rgba(120,120,255,0.9)');
-            const hoverRing = bright
-              ? (ch === 'r' ? 'rgba(240,90,90,1)' : ch === 'g' ? 'rgba(90,200,90,1)' : 'rgba(90,90,240,1)')
-              : (ch === 'r' ? 'rgba(255,160,160,1)' : ch === 'g' ? 'rgba(160,255,160,1)' : 'rgba(160,160,255,1)');
+            // Border is the channel this handle belongs to, at full strength;
+            // fill is the colour the field shows underneath it.
+            const baseRing = CHANNEL_COLOR[ch];
+            const hoverRing = lift(baseRing);
 
             return (
               <g
