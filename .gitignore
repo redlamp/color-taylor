@@ -35,3 +35,6 @@ figma/ui.html
 *.njsproj
 *.sln
 *.sw?
+
+# Obsidian vault config
+.obsidian/
