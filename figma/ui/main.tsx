@@ -6,9 +6,9 @@
  * `bun run build:figma` - there is no second copy of the picker.
  *
  * What this file owns, and nothing more:
- *   1. The colour state ColorHexagon expects as a controlled component,
+ *   1. The color state ColorHexagon expects as a controlled component,
  *      mirroring the HSB-canonical + rgbOverride pattern from ColorPicker.
- *   2. The bridge to the plugin sandbox: push every colour change to the
+ *   2. The bridge to the plugin sandbox: push every color change to the
  *      selection, pull the selection's fill back in.
  */
 import {
@@ -43,12 +43,16 @@ import {
   redGradient,
   greenGradient,
   blueGradient,
+  redChannelGradient,
+  greenChannelGradient,
+  blueChannelGradient,
   type ColorSpace,
 } from '../../src/utils/sliderGradients';
 import { HSB_TWEEN_MS, easeInOutQuad, hsbAtProgress } from '../../src/utils/colorTween';
 import ColorSlider from '../../src/components/ColorSlider';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import BlendIcon from './lite/BlendIcon';
 import { Ban, Brush, PaintBucket } from 'lucide-react';
 import ColorHexagon from '../../src/components/ColorHexagon';
 // figma.css imports the app's index.css, so this is the only stylesheet entry.
@@ -62,7 +66,7 @@ type PaintTarget = 'fill' | 'stroke' | 'none';
 
 /**
  * Which slider blocks are on show. Multi-select rather than tabs: these are
- * four views of one colour, and comparing two models side by side is the point
+ * four views of one color, and comparing two models side by side is the point
  * of the app - a tab strip could only ever show one at a time.
  */
 const SLIDER_GROUPS = ['RGB', 'HSB', 'HSL', 'A'] as const;
@@ -74,13 +78,13 @@ const HOT_MS = 2000;
 const CHECKER =
   'repeating-conic-gradient(rgba(128,128,128,.45) 0% 25%, transparent 0% 50%) 0 0/10px 10px';
 
-/** Checkerboard under a transparent-to-colour ramp, so alpha reads as alpha. */
+/** Checkerboard under a transparent-to-color ramp, so alpha reads as alpha. */
 function alphaGradient(rgb: RGB) {
   return `linear-gradient(to right, transparent, rgb(${rgb.r},${rgb.g},${rgb.b})),${CHECKER}`;
 }
 
 /**
- * The ring handle's core: the colour at its actual alpha over a checkerboard,
+ * The ring handle's core: the color at its actual alpha over a checkerboard,
  * so the handle itself shows the transparency rather than only marking where
  * on the track you are. A flat swatch would look opaque at every value.
  */
@@ -203,10 +207,10 @@ function PluginApp() {
   const rgbOverride = useRef<RGB | null>(null);
   // The hex we just adopted *from* a selection. Without this, selecting a layer
   // seeds the picker from its fill, which changes `hex`, which fires the
-  // live-apply effect and repaints the layer with the colour it already had -
+  // live-apply effect and repaints the layer with the color it already had -
   // a wasted write and a junk undo entry.
   // Set by the picker's own change handlers. Painting keys off this rather than
-  // off the colour changing, because the colour also changes when we seed from
+  // off the color changing, because the color also changes when we seed from
   // a selection - and applying then meant that selecting or pasting a layer
   // silently repainted it with whatever was already in the picker.
   const userEditRef = useRef(false);
@@ -222,13 +226,39 @@ function PluginApp() {
   const hsl = useMemo(() => rgbToHsl(rgb.r, rgb.g, rgb.b), [rgb.r, rgb.g, rgb.b]);
   const hex = useMemo(() => rgbToHex(rgb.r, rgb.g, rgb.b), [rgb.r, rgb.g, rgb.b]);
 
-  // Live-apply. No button: picking a colour *is* the action - but only picking.
+  // Live-apply. No button: picking a color *is* the action - but only picking.
   const isHsl = blMode === 'lightness';
 
   // Opens on what the panel showed before this control existed: one HS* block
   // plus alpha. Which of HSB/HSL follows the Bright/Light switch, so the
   // sliders agree with the hexagon on first paint.
   const [groups, setGroups] = useState<SliderGroup[]>(() => [isHsl ? 'HSL' : 'HSB', 'A']);
+
+  /**
+   * Whether the R/G/B tracks show the color they would actually produce, or a
+   * flat ramp for the channel on its own.
+   *
+   * Blended is the default and the more useful of the two - the track answers
+   * "what do I get if I drag here". The flat ramp answers "how much of this
+   * channel is there", which is what you want when reading a value rather than
+   * choosing one. Only meaningful while the RGB block is on show, so the
+   * control disables rather than disappears: a slot that empties as you toggle
+   * groups is more distracting than one that grays out.
+   */
+  const [blendTracks, setBlendTracks] = useState(true);
+  /**
+   * A handle's core. On a flat ramp it has to be the color that ramp actually
+   * shows at that point, or the handle is the one thing on the row still
+   * wearing the mixed color - a black-to-red track with a yellow dot on it.
+   *
+   * Alpha is the exception and keeps the source color either way: its track is
+   * transparent-to-current by definition, so there is no channel to isolate.
+   */
+  const asHex = (c: RGB) => rgbToHex(c.r, c.g, c.b);
+  const rgbFill = (channel: 'r' | 'g' | 'b') =>
+    blendTracks
+      ? hex
+      : `rgb(${channel === 'r' ? rgb.r : 0},${channel === 'g' ? rgb.g : 0},${channel === 'b' ? rgb.b : 0})`;
   const paintKey = `${hex}|${alpha}`;
   useEffect(() => {
     if (!userEditRef.current) return;
@@ -248,7 +278,7 @@ function PluginApp() {
   //
   // Measuring only works because nothing in the layout is height:100%; if it
   // were, content height would follow window height and this would oscillate.
-  // The last-sent guard is a second line of defence against that. Figma clamps
+  // The last-sent guard is a second line of defense against that. Figma clamps
   // the result to what fits on screen, so a very tall panel scrolls instead.
   const rootRef = useRef<HTMLDivElement>(null);
   const lastHeightRef = useRef(0);
@@ -349,7 +379,7 @@ function PluginApp() {
         }
     };
     /**
-     * The frame clock for following Figma's own colour picker.
+     * The frame clock for following Figma's own color picker.
      *
      * The sandbox cannot run this: it is a JavaScript VM with no display, so
      * it has no setInterval and no frames to hang a loop on. This iframe is a
@@ -359,7 +389,7 @@ function PluginApp() {
      *
      * It runs only while an edit is in flight. The sandbox says when one
      * starts (documentchange is late, but it is a reliable "something is
-     * happening"), and every colour that comes back extends the window; a
+     * happening"), and every color that comes back extends the window; a
      * couple of seconds of quiet and the loop stops. rAF also stands down on
      * its own when the panel is not being painted, which no interval would.
      */
@@ -386,7 +416,7 @@ function PluginApp() {
         return;
       }
       if (msg.type !== 'selection') return;
-      // An incoming colour means the edit is still going: keep asking.
+      // An incoming color means the edit is still going: keep asking.
       if (msg.hex) wake();
       queued = msg;
       if (!frame) frame = requestAnimationFrame(flush);
@@ -409,9 +439,9 @@ function PluginApp() {
    * A swatch's opacity, waiting for the tween that is about to start.
    *
    * ColorHexagon calls onAlphaRestore immediately before onAnimateToHsb, in
-   * the same tick, so the colour tween can pick the opacity up and carry both
+   * the same tick, so the color tween can pick the opacity up and carry both
    * on one clock. Setting alpha directly here instead would snap it to the
-   * destination while the colour was still a second away from arriving.
+   * destination while the color was still a second away from arriving.
    */
   const pendingAlpha = useRef<number | null>(null);
   const onAlphaRestore = useCallback((v: number) => {
@@ -452,7 +482,7 @@ function PluginApp() {
     rgbOverride.current = null;
     const alphaTo = pendingAlpha.current;
     pendingAlpha.current = null;
-    // Captured through setState rather than a ref, the same way the colour's
+    // Captured through setState rather than a ref, the same way the color's
     // own start value is: React holds the current alpha, and reading it back
     // here cannot go stale.
     let alphaFrom = 0;
@@ -463,7 +493,7 @@ function PluginApp() {
         const t = Math.min(1, (now - start) / HSB_TWEEN_MS);
         userEditRef.current = true;
         setHsb(hsbAtProgress(from, target, t));
-        // Same clock and same easing as the colour, so the two arrive together.
+        // Same clock and same easing as the color, so the two arrive together.
         if (alphaTo !== null) {
           setAlpha(Math.round(alphaFrom + (alphaTo - alphaFrom) * easeInOutQuad(t)));
         }
@@ -534,7 +564,7 @@ function PluginApp() {
               value={target}
               onValueChange={(v) => {
                 // Synchronously, not via the effect below: the effect lands a
-                // render later, so a colour change in the same tick would still
+                // render later, so a color change in the same tick would still
                 // paint through the old target.
                 targetRef.current = v as PaintTarget;
                 setTarget(v as PaintTarget);
@@ -562,18 +592,35 @@ function PluginApp() {
         }
         belowStage={
           <div className="flex flex-col gap-3 px-1">
-            <ToggleGroup
-              multiple
-              value={groups}
-              onValueChange={(v) => setGroups(v as SliderGroup[])}
-              className="self-start h-7"
-            >
-              {SLIDER_GROUPS.map((g) => (
-                <ToggleGroupItem key={g} value={g} className="px-2.5 text-xs">
-                  {g}
+            <div className="flex items-center justify-between gap-2">
+              <ToggleGroup
+                multiple
+                value={groups}
+                onValueChange={(v) => setGroups(v as SliderGroup[])}
+                className="h-7"
+              >
+                {SLIDER_GROUPS.map((g) => (
+                  <ToggleGroupItem key={g} value={g} className="px-2.5 text-xs">
+                    {g}
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroup>
+
+              <ToggleGroup
+                multiple
+                value={blendTracks ? ['blend'] : []}
+                onValueChange={(v) => setBlendTracks(v.length > 0)}
+                className="h-7"
+              >
+                <ToggleGroupItem
+                  value="blend"
+                  className="px-2"
+                  aria-label={blendTracks ? 'Show flat channel ramps' : 'Show blended tracks'}
+                >
+                  <BlendIcon filled={blendTracks} />
                 </ToggleGroupItem>
-              ))}
-            </ToggleGroup>
+              </ToggleGroup>
+            </div>
 
             {/*
               A rule between blocks, drawn by the block below rather than as a
@@ -583,10 +630,10 @@ function PluginApp() {
               off, so the first one on screen is the first one in the DOM.
 
               One block per model, never a blend of two. HSL's hue and saturation
-              are not HSB's - the same colour has a different S in each - so a
+              are not HSB's - the same color has a different S in each - so a
               block reads and writes entirely within its own model. Showing both
               at once is fine, and is why this is a toggle group: each stays
-              self-consistent, and edits round-trip through the shared colour.
+              self-consistent, and edits round-trip through the shared color.
             */}
             <div className="flex flex-col">
             {groups.includes('RGB') && (
@@ -597,12 +644,12 @@ function PluginApp() {
                   value={rgb.r}
                   max={255}
                   suffix={''}
-                  gradient={redGradient(rgb.g, rgb.b)}
+                  gradient={blendTracks ? redGradient(rgb.g, rgb.b) : redChannelGradient}
                   onChange={(v) => onRgbChange('r', v)}
                   stepper="value"
                   round
                   handle="ring"
-                  handleFill={hex}
+                  handleFill={rgbFill('r')}
                 />
                 <ColorSlider
                   label={'G'}
@@ -610,12 +657,12 @@ function PluginApp() {
                   value={rgb.g}
                   max={255}
                   suffix={''}
-                  gradient={greenGradient(rgb.r, rgb.b)}
+                  gradient={blendTracks ? greenGradient(rgb.r, rgb.b) : greenChannelGradient}
                   onChange={(v) => onRgbChange('g', v)}
                   stepper="value"
                   round
                   handle="ring"
-                  handleFill={hex}
+                  handleFill={rgbFill('g')}
                 />
                 <ColorSlider
                   label={'B'}
@@ -623,12 +670,12 @@ function PluginApp() {
                   value={rgb.b}
                   max={255}
                   suffix={''}
-                  gradient={blueGradient(rgb.r, rgb.g)}
+                  gradient={blendTracks ? blueGradient(rgb.r, rgb.g) : blueChannelGradient}
                   onChange={(v) => onRgbChange('b', v)}
                   stepper="value"
                   round
                   handle="ring"
-                  handleFill={hex}
+                  handleFill={rgbFill('b')}
                 />
               </div>
             )}
@@ -642,12 +689,12 @@ function PluginApp() {
                   max={360}
                   suffix={'°'}
                   wrap
-                  gradient={hueGradient(hsb.s, hsb.b, colorSpace)}
+                  gradient={hueGradient(blendTracks ? hsb.s : 100, blendTracks ? hsb.b : 100, colorSpace)}
                   onChange={(v) => onHsbChange({ h: v })}
                   stepper="value"
                   round
                   handle="ring"
-                  handleFill={hex}
+                  handleFill={blendTracks ? hex : asHex(hsbToRgb(hsb.h, 100, 100))}
                 />
                 <ColorSlider
                   label={'S'}
@@ -655,12 +702,12 @@ function PluginApp() {
                   value={Math.round(hsb.s)}
                   max={100}
                   suffix={'%'}
-                  gradient={saturationGradient(hsb.h, hsb.b, colorSpace)}
+                  gradient={saturationGradient(hsb.h, blendTracks ? hsb.b : 100, colorSpace)}
                   onChange={(v) => onHsbChange({ s: v })}
                   stepper="value"
                   round
                   handle="ring"
-                  handleFill={hex}
+                  handleFill={blendTracks ? hex : asHex(hsbToRgb(hsb.h, hsb.s, 100))}
                 />
                 <ColorSlider
                   label={'B'}
@@ -668,12 +715,12 @@ function PluginApp() {
                   value={Math.round(hsb.b)}
                   max={100}
                   suffix={'%'}
-                  gradient={brightnessGradient(hsb.h, hsb.s, colorSpace)}
+                  gradient={brightnessGradient(hsb.h, blendTracks ? hsb.s : 100, colorSpace)}
                   onChange={(v) => onHsbChange({ b: v })}
                   stepper="value"
                   round
                   handle="ring"
-                  handleFill={hex}
+                  handleFill={blendTracks ? hex : asHex(hsbToRgb(hsb.h, 100, hsb.b))}
                 />
               </div>
             )}
@@ -687,12 +734,12 @@ function PluginApp() {
                   max={360}
                   suffix={'°'}
                   wrap
-                  gradient={hslHueGradient(hsl.s, hsl.l, colorSpace)}
+                  gradient={hslHueGradient(blendTracks ? hsl.s : 100, blendTracks ? hsl.l : 50, colorSpace)}
                   onChange={(v) => onHslChange('h', v)}
                   stepper="value"
                   round
                   handle="ring"
-                  handleFill={hex}
+                  handleFill={blendTracks ? hex : asHex(hslToRgb(hsl.h, 100, 50))}
                 />
                 <ColorSlider
                   label={'S'}
@@ -700,12 +747,12 @@ function PluginApp() {
                   value={Math.round(hsl.s)}
                   max={100}
                   suffix={'%'}
-                  gradient={hslSaturationGradient(hsl.h, hsl.l, colorSpace)}
+                  gradient={hslSaturationGradient(hsl.h, blendTracks ? hsl.l : 50, colorSpace)}
                   onChange={(v) => onHslChange('s', v)}
                   stepper="value"
                   round
                   handle="ring"
-                  handleFill={hex}
+                  handleFill={blendTracks ? hex : asHex(hslToRgb(hsl.h, hsl.s, 50))}
                 />
                 <ColorSlider
                   label={'L'}
@@ -713,12 +760,12 @@ function PluginApp() {
                   value={Math.round(hsl.l)}
                   max={100}
                   suffix={'%'}
-                  gradient={lightnessGradient(hsl.h, hsl.s, colorSpace)}
+                  gradient={lightnessGradient(hsl.h, blendTracks ? hsl.s : 100, colorSpace)}
                   onChange={(v) => onHslChange('l', v)}
                   stepper="value"
                   round
                   handle="ring"
-                  handleFill={hex}
+                  handleFill={blendTracks ? hex : asHex(hslToRgb(hsl.h, 100, hsl.l))}
                 />
               </div>
             )}
@@ -831,8 +878,11 @@ function ResizeEdge({ side }: { side: Side }) {
  * which is indistinguishable from "the plugin didn't load" and impossible to
  * debug without opening Figma's console. React surfaces effect errors here too.
  */
-class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
-  state = { error: null as Error | null };
+class ErrorBoundary extends Component<
+  { children: ReactNode },
+  { error: Error | null; retried: boolean }
+> {
+  state = { error: null as Error | null, retried: false };
 
   static getDerivedStateFromError(error: Error) {
     return { error };
@@ -844,12 +894,33 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
 
   render() {
     if (!this.state.error) return this.props.children;
+
+    // Retry is worth offering once and only once.
+    //
+    // Clearing the error re-renders the tree from scratch, which fixes a
+    // transient fault and does nothing at all for a persistent one - the same
+    // render throws again and lands straight back here. Offering the button a
+    // second time would just look like the plugin was stuck in a loop, so after
+    // a retry that did not hold, it goes away and the copy says the thing that
+    // always works.
+    const canRetry = !this.state.retried;
+
+    // Figma's review guidelines rule out using developer error messages to
+    // communicate with end users. The message and stack still go to
+    // console.error above, which is where anyone debugging this will look.
     return (
-      <pre className="figma-error">
-        {this.state.error.message}
-        {'\n\n'}
-        {this.state.error.stack?.split('\n').slice(1, 6).join('\n')}
-      </pre>
+      <div className="figma-error" role="alert">
+        <p className="figma-error-title">The color picker stopped responding.</p>
+        <p className="figma-error-body">
+          Your saved and recent colors are safe.{' '}
+          {canRetry ? 'Try again, or close and reopen the plugin.' : 'Close and reopen the plugin to continue.'}
+        </p>
+        {canRetry && (
+          <button type="button" onClick={() => this.setState({ error: null, retried: true })}>
+            Try again
+          </button>
+        )}
+      </div>
     );
   }
 }
@@ -857,14 +928,23 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
 const root = document.getElementById('root');
 if (!root) throw new Error('Root element not found');
 
-// Anything that escapes React entirely (a throw before mount) still needs to be
-// readable in the panel.
+// A throw before mount never reaches the ErrorBoundary, so the panel would sit
+// blank. Same treatment: the detail goes to the console, the panel gets prose.
+// There is no retry here - nothing has mounted to retry into.
 window.addEventListener('error', (e) => {
+  console.error('Color Taylor plugin failed to start:', e.error ?? e.message);
   if (document.querySelector('.figma-error')) return;
-  const pre = document.createElement('pre');
-  pre.className = 'figma-error';
-  pre.textContent = String(e.message);
-  document.body.appendChild(pre);
+  const box = document.createElement('div');
+  box.className = 'figma-error';
+  box.setAttribute('role', 'alert');
+  const title = document.createElement('p');
+  title.className = 'figma-error-title';
+  title.textContent = 'The color picker could not start.';
+  const body = document.createElement('p');
+  body.className = 'figma-error-body';
+  body.textContent = 'Close and reopen the plugin. If it keeps happening, reinstall it.';
+  box.append(title, body);
+  document.body.appendChild(box);
 });
 
 createRoot(root).render(

@@ -12,6 +12,96 @@
 @source "../../src";
 
 /*
+ * Figma's own typeface, in place of the app's.
+ *
+ * The app asks for Barlow and Share Tech Mono, and the plugin build aliases
+ * @fontsource away rather than inline ~700 KB of woff2 - so both were falling
+ * through to whatever the browser picked for `sans-serif` and `monospace`,
+ * which is why the readouts looked nothing like the panel around them.
+ *
+ * Figma's UI is Inter, which the desktop app has locally, so naming it is
+ * enough - no font to ship. The stack behind it is the usual system chain for
+ * anywhere Inter is not resolvable.
+ *
+ * --mono maps to the same stack deliberately. Figma sets numbers in Inter with
+ * tabular figures rather than in a monospace face, and the hue badge and the
+ * slider readouts are the only things here that used mono at all.
+ */
+:root {
+  --sans: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --mono: var(--sans);
+  --font-sans: var(--sans);
+  --font-mono: var(--sans);
+}
+
+/*
+ * Digits that sit in a column - readouts, the hue badge, the Selected count -
+ * need equal advance widths, or the value jitters sideways as it changes.
+ * Inter's tabular figures are what Figma uses for exactly this.
+ */
+/*
+ * The variables above do not reach .font-mono on their own: the theme declares
+ * it under @theme inline, which bakes the literal stack into the utility
+ * rather than leaving a var() to override. So restate the utility here - this
+ * rule is unlayered, and unlayered CSS beats Tailwind's utilities layer.
+ */
+.font-mono {
+  font-family: var(--sans);
+}
+
+input,
+.font-mono,
+[class*='tabular-nums'] {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1, 'cv05' 1;
+}
+
+/*
+ * Figma's type scale.
+ *
+ * Figma injects color variables into the plugin iframe and nothing else - no
+ * typography tokens - so there is nothing to hook into and these are their
+ * published values, taken from figma-plugin-ds:
+ *
+ *   xsmall 11px   small 12px   large 13px   xlarge 14px
+ *   line-height 16px, tracking .005em at 11px
+ *   weights 400 / 500 / 600
+ *
+ * 11px is Figma's default for UI chrome, and almost everything in this panel
+ * is chrome. Hierarchy comes from weight rather than size, which is how their
+ * own panels read - so text-xs, text-sm and text-base all land on 11px here
+ * rather than preserving the app's three-step ramp.
+ *
+ * Restated as utilities, not variables: the theme declares its sizes under
+ * @theme inline, which bakes literals into the utility rather than leaving a
+ * var() to override. Unlayered CSS beats Tailwind's utilities layer.
+ */
+body {
+  font-size: 11px;
+  line-height: 16px;
+  letter-spacing: 0.005em;
+}
+
+.text-xs,
+.text-sm,
+.text-base {
+  font-size: 11px;
+  line-height: 16px;
+  letter-spacing: 0.005em;
+}
+
+.text-lg {
+  font-size: 13px;
+  line-height: 16px;
+  letter-spacing: -0.0025em;
+}
+
+/* Figma's bold is 600, not the browser's 700. */
+.font-bold {
+  font-weight: 600;
+}
+
+/*
  * Sideways, never: the layout is built to fit whatever width it is given.
  */
 html,
@@ -161,15 +251,45 @@ body {
   margin-right: auto !important;
 }
 
+/*
+ * The crash panel. Deliberately plain prose, not a stack trace - Figma's review
+ * guidelines rule out showing developer error messages to end users, and the
+ * detail is in console.error where it is actually useful.
+ */
 .figma-error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
   margin: 0;
-  padding: 12px;
-  font-size: 11px;
-  line-height: 1.5;
-  white-space: pre-wrap;
-  word-break: break-word;
-  color: #f24822;
-  background: var(--background);
+  padding: 16px;
+  background: var(--figma-color-bg, var(--background));
+  color: var(--figma-color-text, var(--foreground));
+}
+
+.figma-error-title {
+  margin: 0;
+  font-weight: 600;
+}
+
+.figma-error-body {
+  margin: 0;
+  color: var(--figma-color-text-secondary, var(--muted-foreground));
+  max-width: 40ch;
+}
+
+.figma-error button {
+  font: inherit;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--figma-color-border, var(--input));
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.figma-error button:hover {
+  background: var(--figma-color-bg-hover, var(--muted));
 }
 
 /*
@@ -281,4 +401,11 @@ body {
  */
 .figma-root #saved-colors {
   padding-bottom: 8px;
+}
+
+/* An armed destructive action. Wider than the icon it replaces, so the row
+   does not jump, and coloured to say what is about to happen. */
+.figma-root [data-armed] {
+  min-width: 44px;
+  color: var(--figma-color-text-danger, #f24822);
 }
