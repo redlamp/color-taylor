@@ -346,12 +346,55 @@ figma.on('selectionchange', function () {
   }
 })();
 
+/**
+ * Recent and Saved swatches.
+ *
+ * The UI cannot keep these itself: its iframe is null-origin, so localStorage
+ * raises SecurityError there and every write is lost. clientStorage is the
+ * sanctioned store but only exists on this side, so the UI asks for the blob
+ * on boot and posts back whenever it changes.
+ *
+ * Kept as one object under a single key rather than a key each - it is written
+ * on every swatch change, and one setAsync is cheaper than several.
+ */
+const SWATCH_KEY = 'swatches';
+let swatches = null;
+
+function sendSwatches() {
+  figma.ui.postMessage({ type: 'swatches', data: swatches || {} });
+}
+
+function loadSwatches() {
+  figma.clientStorage
+    .getAsync(SWATCH_KEY)
+    .then((stored) => {
+      swatches = stored && typeof stored === 'object' ? stored : {};
+      sendSwatches();
+    })
+    .catch((err) => {
+      console.warn('[Color Taylor] could not read saved swatches:', err && err.message);
+      swatches = {};
+      sendSwatches();
+    });
+}
+
 figma.ui.onmessage = (msg) => {
   if (!msg || typeof msg.type !== 'string') return;
 
   switch (msg.type) {
     case 'ready':
       pushIfChanged(true);
+      loadSwatches();
+      break;
+
+    // A swatch list changed. Ignored until the load has completed, so a UI
+    // that started on an empty cache cannot overwrite what is on disk.
+    case 'saveSwatches':
+      if (swatches === null) break;
+      swatches[msg.key] = msg.value;
+      figma.clientStorage.setAsync(SWATCH_KEY, swatches).catch((err) => {
+        console.warn('[Color Taylor] could not save swatches:', err && err.message);
+      });
       break;
 
     // One animation frame's worth of "has it changed?", asked by the UI. The

@@ -58,6 +58,10 @@ export default defineConfig({
       // tailwind-merge is 26 KB of runtime class-conflict resolution.
       { find: /^@\/lib\/utils$/, replacement: path.resolve(__dirname, 'ui/lite/cn.ts') },
 
+      // localStorage raises SecurityError in a null-origin iframe, so the
+      // app's store loses every write here. clientStorage instead.
+      { find: /^.*utils\/swatchStore$/, replacement: path.resolve(__dirname, 'ui/lite/swatch-store.ts') },
+
       // Dead in the panel: the colour-name table is only read through
       // showHtmlOnHex, and the brightness bar only renders when blBar is on.
       // Both are runtime props, so the bundler cannot drop them on its own.
