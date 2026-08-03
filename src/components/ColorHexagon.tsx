@@ -7,7 +7,8 @@ import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip
 import { ChevronRight, RefreshCw, Trash2 } from 'lucide-react';
 import CollapsibleSection from './CollapsibleSection';
 import NAMED_COLORS from '../utils/namedColors';
-import { HANDLE } from '../utils/handleStyle';
+import { HANDLE, ringRadius } from '../utils/handleStyle';
+import { readSwatch, writeSwatch, SWATCHES_READY } from '../utils/swatchStore';
 import { toneController } from '../utils/toneControllerLazy';
 import useUiSounds from '../hooks/useUiSounds';
 import {
@@ -30,7 +31,7 @@ const CHANNEL_COLOR: Record<'r' | 'g' | 'b', string> = {
   b: '#0000ff',
 };
 
-/** A recorded colour. Opacity is part of it: two opacities are two paints. */
+/** A recorded color. Opacity is part of it: two opacities are two paints. */
 export type Swatch = { hex: string; alpha: number };
 
 /** Stable identity for one, for the "have we just recorded this?" check. */
@@ -39,10 +40,10 @@ function swatchKey(hex: string, alpha: number) {
 }
 
 /**
- * Opacity for a colour stored before swatches carried one.
+ * Opacity for a color stored before swatches carried one.
  *
- * Two older shapes exist. Colours saved as bare hex predate alpha entirely and
- * are opaque. Colours saved while alpha lived in a side map keyed by hex - a
+ * Two older shapes exist. Colors saved as bare hex predate alpha entirely and
+ * are opaque. Colors saved while alpha lived in a side map keyed by hex - a
  * shape this replaced - have their opacity there, so read it across rather
  * than silently flattening those to 100.
  */
@@ -50,7 +51,7 @@ let legacyAlphaMap: Record<string, number> | null = null;
 function legacyAlpha(hex: string): number {
   if (legacyAlphaMap === null) {
     try {
-      legacyAlphaMap = JSON.parse(localStorage.getItem('color-taylor-alpha') || '{}');
+      legacyAlphaMap = (readSwatch('color-taylor-alpha') as Record<string, number>) ?? {};
     } catch {
       legacyAlphaMap = {};
     }
@@ -58,10 +59,54 @@ function legacyAlpha(hex: string): number {
   return legacyAlphaMap?.[hex] ?? 100;
 }
 
+export type SavedSlot = { hex: string; alpha: number; addedAt: number } | null;
+
+export const RECENT_KEY = 'color-taylor-recent';
+export const SAVED_KEY = 'color-taylor-saved';
+
+/** How many Saved slots exist. See issue #64 about making this adjustable. */
+const SAVED_SLOTS = 12;
+
 function toSwatch(v: unknown): Swatch {
   if (typeof v === 'string') return { hex: v, alpha: legacyAlpha(v) };
   const o = v as Swatch;
   return { hex: o.hex, alpha: typeof o.alpha === 'number' ? o.alpha : legacyAlpha(o.hex) };
+}
+
+function defaultSaved(): SavedSlot[] {
+  const slots: SavedSlot[] = DEFAULT_RECENT.map((hex, i) => ({ hex, alpha: 100, addedAt: -(i + 1) }));
+  while (slots.length < SAVED_SLOTS) slots.push(null);
+  return slots;
+}
+
+/**
+ * Both parsers take whatever the store handed back - which may be null, and in
+ * the plugin will be on first render - and are shared by the state
+ * initializers and the late hydrate, so stored data is read the same way
+ * whether it was there at mount or arrived after it.
+ */
+function parseRecent(raw: unknown): Swatch[] {
+  return Array.isArray(raw) ? raw.map(toSwatch) : [];
+}
+
+function parseSaved(raw: unknown): SavedSlot[] {
+  if (!Array.isArray(raw)) return defaultSaved();
+  const seen = new Set<number>();
+  return raw.map((v: unknown, i: number) => {
+    if (!v) return null;
+    const stored = typeof v === 'string'
+      ? { hex: v, addedAt: -(i + 1) }
+      : (v as { hex: string; alpha?: number; addedAt: number });
+    const slot = {
+      ...stored,
+      alpha: typeof stored.alpha === 'number' ? stored.alpha : legacyAlpha(stored.hex),
+    };
+    // addedAt keys the FLIP animation and the ref map, so duplicates from an
+    // older write have to be separated or two slots animate as one.
+    if (seen.has(slot.addedAt)) slot.addedAt = -(i + 1) * 1000;
+    seen.add(slot.addedAt);
+    return slot;
+  });
 }
 
 const DEFAULT_RECENT = ['#ff0000', '#ffff00', '#00ff00', '#00ffff', '#0000ff', '#ff00ff', '#ffffff', '#808080', '#000000'];
@@ -79,15 +124,49 @@ function ActionButton({
   icon: Icon,
   iconOnly,
   onClick,
+  confirm,
 }: {
   label: string;
   icon: ComponentType<{ className?: string }>;
   iconOnly?: boolean;
   onClick: (e: ReactMouseEvent) => void;
+  /** Require a second click. For the actions that throw away saved work. */
+  confirm?: boolean;
 }) {
+  const [armed, setArmed] = useState(false);
+  const disarm = useRef<number | null>(null);
+
+  useEffect(() => () => {
+    if (disarm.current !== null) window.clearTimeout(disarm.current);
+  }, []);
+
+  // Confirm in place rather than in a dialog. The panel is small, a modal over
+  // it would cover the swatches you are deciding about, and a dialog component
+  // would pull the primitives library back into the plugin bundle that the
+  // build works to keep out.
+  const handle = (e: ReactMouseEvent) => {
+    if (!confirm || armed) {
+      if (disarm.current !== null) window.clearTimeout(disarm.current);
+      setArmed(false);
+      onClick(e);
+      return;
+    }
+    e.stopPropagation();
+    setArmed(true);
+    disarm.current = window.setTimeout(() => setArmed(false), 3000);
+  };
+
+  const shown = armed ? 'Sure?' : label;
   return (
-    <button className={ACTION_BTN_CLASS} title={label} aria-label={label} onClick={onClick}>
-      {iconOnly ? <Icon className="!size-3.5" /> : label}
+    <button
+      className={ACTION_BTN_CLASS}
+      data-armed={armed || undefined}
+      title={armed ? `${label} - click again to confirm` : label}
+      aria-label={armed ? `Confirm ${label.toLowerCase()}` : label}
+      onClick={handle}
+      onBlur={() => setArmed(false)}
+    >
+      {iconOnly && !armed ? <Icon className="!size-3.5" /> : shown}
     </button>
   );
 }
@@ -129,7 +208,7 @@ interface ColorHexagonProps {
    */
   sectionVariant?: 'card' | 'flush';
   /**
-   * Opacity of the current colour, 0-100. Recorded alongside each Recent and
+   * Opacity of the current color, 0-100. Recorded alongside each Recent and
    * Saved swatch and shown on its right half, the way Figma does. Hosts with
    * no alpha concept leave it out and every swatch stays opaque.
    */
@@ -162,7 +241,7 @@ interface ColorHexagonProps {
    * hexagon, which across the plugin's range means 1.15px at the narrow end and
    * 3.3px at the wide one - too thin to read, then heavier than the handles.
    * Given a range they scale between those bounds instead. Omit for the plain
-   * 2-user-unit behaviour.
+   * 2-user-unit behavior.
    */
   stemRange?: [number, number] | null;
 }
@@ -179,47 +258,19 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   // Horizontal extent of the SVG coordinate space. Without the bar the hexagon
   // is the whole picture, so the 50px reserved to its right goes away - and the
   // extent becomes twice CENTER_X, which is what actually puts the hexagon in
-  // the middle. At HEX_SIZE it sat 10px left of centre.
+  // the middle. At HEX_SIZE it sat 10px left of center.
   const EXTENT = blBar ? SIZE : CENTER_X * 2;
   const [hexOpen, setHexOpen] = useState(true);
   const [vectorMode] = useState<ChannelOrder>('rgb');
   const [initialHex] = useState(() => rgbToHex(rgb.r, rgb.g, rgb.b));
-  const [recentColors, setRecentColors] = useState<Swatch[]>(() => {
-    try {
-      const saved = localStorage.getItem('color-taylor-recent');
-      if (saved) return JSON.parse(saved).map(toSwatch);
-    } catch { /* localStorage unavailable */ }
-    return [];
-  });
+  const [recentColors, setRecentColors] = useState<Swatch[]>(() => parseRecent(readSwatch(RECENT_KEY)));
   const [selectedRecentIdx, setSelectedRecentIdx] = useState<number | null>(null);
 
   const alphaRef = useRef(alpha);
   alphaRef.current = alpha;
 
-  type SavedSlot = { hex: string; alpha: number; addedAt: number } | null;
-  type SortMode = 'user' | 'hue' | 'saturation' | 'brightness';
-  const [savedSlots, setSavedSlots] = useState<SavedSlot[]>(() => {
-    try {
-      const raw = localStorage.getItem('color-taylor-saved');
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        const seen = new Set<number>();
-        return parsed.map((v: unknown, i: number) => {
-          if (!v) return null;
-          const stored = typeof v === 'string'
-            ? { hex: v, addedAt: -(i + 1) }
-            : (v as { hex: string; alpha?: number; addedAt: number });
-          const slot = { ...stored, alpha: typeof stored.alpha === 'number' ? stored.alpha : legacyAlpha(stored.hex) };
-          if (seen.has(slot.addedAt)) slot.addedAt = -(i + 1) * 1000;
-          seen.add(slot.addedAt);
-          return slot;
-        });
-      }
-    } catch { /* localStorage unavailable */ }
-    const defaults: SavedSlot[] = DEFAULT_RECENT.map((hex, i) => ({ hex, alpha: 100, addedAt: -(i + 1) }));
-    while (defaults.length < 12) defaults.push(null);
-    return defaults;
-  });
+  type SortMode = 'user' | 'hue' | 'saturation' | 'brightness' | 'alpha';
+  const [savedSlots, setSavedSlots] = useState<SavedSlot[]>(() => parseSaved(readSwatch(SAVED_KEY)));
   const [selectedSavedIdx, setSelectedSavedIdx] = useState<number | null>(null);
   const [savedSortMode, setSavedSortMode] = useState<SortMode>('user');
   const [draggedUserIdx, setDraggedUserIdx] = useState<number | null>(null);
@@ -281,24 +332,30 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   // throw, not merely return null. A null-origin iframe — which is what the
   // Figma plugin host gives us — raises SecurityError on access, and an
   // uncaught throw inside an effect unmounts the entire tree.
+  useEffect(() => { writeSwatch(RECENT_KEY, recentColors); }, [recentColors]);
+  useEffect(() => { writeSwatch(SAVED_KEY, savedSlots); }, [savedSlots]);
+
+  /**
+   * Adopt swatches that arrive after mount.
+   *
+   * The plugin's store is asynchronous - clientStorage lives on the sandbox
+   * side - so the first render builds on an empty cache and the real data
+   * lands a moment later. The app's store is synchronous and never fires this.
+   */
   useEffect(() => {
-    try {
-      localStorage.setItem('color-taylor-recent', JSON.stringify(recentColors));
-    } catch { /* localStorage unavailable */ }
-  }, [recentColors]);
-  useEffect(() => {
-    try {
-      localStorage.setItem('color-taylor-saved', JSON.stringify(savedSlots));
-    } catch { /* localStorage unavailable */ }
-  }, [savedSlots]);
+    const hydrate = () => {
+      setRecentColors(parseRecent(readSwatch(RECENT_KEY)));
+      setSavedSlots(parseSaved(readSwatch(SAVED_KEY)));
+    };
+    window.addEventListener(SWATCHES_READY, hydrate);
+    return () => window.removeEventListener(SWATCHES_READY, hydrate);
+  }, []);
 
   // Listen for global "reset all" — restore recent + saved to defaults.
   useEffect(() => {
     const onReset = () => {
       setRecentColors([]);
-      const defaults: SavedSlot[] = DEFAULT_RECENT.map((hex, i) => ({ hex, alpha: 100, addedAt: -(i + 1) }));
-      while (defaults.length < 12) defaults.push(null);
-      setSavedSlots(defaults);
+      setSavedSlots(defaultSaved());
       setSelectedRecentIdx(null);
       setSelectedSavedIdx(null);
     };
@@ -322,6 +379,8 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
         return (aHsb.h - bHsb.h) || (aHsb.s - bHsb.s) || (aHsb.b - bHsb.b);
       }
       if (savedSortMode === 'saturation') return bHsb.s - aHsb.s;
+      // Most transparent first, so the ones you might have lost track of surface.
+      if (savedSortMode === 'alpha') return a.slot.alpha - b.slot.alpha;
       return bHsb.b - aHsb.b;
     });
     return [...filled, ...empties];
@@ -440,7 +499,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
 
   const cycleSavedSort = useCallback(() => {
     captureFlipRects(true);
-    const order: SortMode[] = ['user', 'hue', 'saturation', 'brightness'];
+    const order: SortMode[] = ['user', 'hue', 'saturation', 'brightness', 'alpha'];
     const next = order[(order.indexOf(savedSortMode) + 1) % order.length];
     setSavedSortMode(next);
     setSelectedSavedIdx(null);
@@ -481,7 +540,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     if (shouldPlaySound && movedCount > 0) playFlit();
   }, [savedSortMode, savedSlots, playFlit]);
 
-  const SORT_LABELS: Record<SortMode, string> = { user: 'User', hue: 'Hue', saturation: 'Sat', brightness: 'Bright' };
+  const SORT_LABELS: Record<SortMode, string> = { user: 'User', hue: 'Hue', saturation: 'Sat', brightness: 'Bright', alpha: 'Alpha' };
   const draggingBL = useRef(false);
   const svgRef = useRef(null);
   const draggingHue = useRef(false);
@@ -583,13 +642,13 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   }, [order, rgb.r, rgb.g, rgb.b, scale]);
 
   /**
-   * Same hue, lifted - the hover state of any element is its own colour,
+   * Same hue, lifted - the hover state of any element is its own color,
    * lighter.
    *
    * A pure primary is already at full brightness, so raising it does nothing
    * and hover would be invisible. With no headroom left, lighten by pulling
    * saturation out instead, which is what "lighter" means for a saturated
-   * colour.
+   * color.
    */
   const lift = useCallback((hex: string, amount = 22) => {
     const c = hexToRgb(hex);
@@ -602,19 +661,19 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     return rgbToHex(out.r, out.g, out.b);
   }, []);
 
-  /** The colour the field shows at each joint - each handle's fill. */
+  /** The color the field shows at each joint - each handle's fill. */
   const dotColors = useMemo(() => points.map((p) => {
     const c = colorAtPoint(p.x, p.y, brightness);
     return rgbToHex(c.r, c.g, c.b);
   }), [points, brightness]);
 
-  const { hueEnd, hueLabel } = useMemo(() => {
+  // hueLabel is the pill's center - HueHandle is translated -50%/-50% onto it -
+  // so the hue line ending here points at the pill rather than stopping short
+  // at the circumscribed circle. The pill is opaque and painted above the SVG,
+  // so the last stretch is hidden behind it.
+  const { hueLabel } = useMemo(() => {
     const rad = (hue * PI) / 180;
     return {
-      hueEnd: {
-        x: CENTER_X + RADIUS * Math.cos(rad),
-        y: CENTER_Y - RADIUS * Math.sin(rad),
-      },
       hueLabel: {
         x: CENTER_X + (RADIUS + 28) * Math.cos(rad),
         y: CENTER_Y - (RADIUS + 28) * Math.sin(rad),
@@ -1072,6 +1131,20 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   }, [onAnimateToHsb, blMode, addToRecent]);
 
   // Brightness limit hex
+  /**
+   * User units that render at a fixed pixel size, whatever the panel width.
+   *
+   * Everything inside the SVG is drawn in a fixed viewBox, so a plain
+   * strokeWidth scales with the panel - at the narrow end the dashed strokes
+   * fall under a device pixel and wash out. Multiplying by uiScale (user units
+   * per rendered px) cancels that exactly.
+   *
+   * Dash patterns go through it too, or the texture drifts even when the line
+   * itself holds. At the viewBox's natural size every call below is a no-op,
+   * so these resolve to the values the hexagon has always used.
+   */
+  const pxUnits = (n: number) => n * uiScale;
+
   const limitHex = useMemo(() => {
     const limitScale = blMode === 'brightness'
       ? brightness / 100
@@ -1086,7 +1159,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     const angle = Math.atan2(-dy, dx);
     const edgeDist = hexEdgeDist(angle, limitRadius);
     // Where the horizontal slider's handle meets the bottom edge, and the point
-    // where the line from there to the centre crosses the limit hexagon - so
+    // where the line from there to the center crosses the limit hexagon - so
     // the connector points at the middle rather than dropping straight down.
     const sliderX = (blHandleX ?? blValue / 100) * HEX_SIZE;
     const sdx = CENTER_X - sliderX;
@@ -1186,7 +1259,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             <polygon
               id="hex-brightness-limit"
               points={hexPoints(CENTER_X, CENTER_Y, limitHex.limitRadius)}
-              fill="none" stroke="rgba(128,128,128,0.5)" strokeWidth={2} strokeDasharray="1 4" strokeLinecap="round"
+              fill="none" stroke="rgba(128,128,128,0.5)" strokeWidth={pxUnits(2)} strokeDasharray={`${pxUnits(1)} ${pxUnits(4)}`} strokeLinecap="round"
             />
           )}
           {/* Ties the brightness control to the limit hexagon. With the bar it
@@ -1196,13 +1269,13 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           {blBar ? (
             <line
               x1={limitHex.arrowTipX} y1={limitHex.arrowY} x2={limitHex.perimX} y2={limitHex.perimY}
-              stroke="rgba(128,128,128,0.5)" strokeWidth={2} strokeDasharray="1 4" strokeLinecap="round"
+              stroke="rgba(128,128,128,0.5)" strokeWidth={pxUnits(2)} strokeDasharray={`${pxUnits(1)} ${pxUnits(4)}`} strokeLinecap="round"
             />
           ) : blConnector ? (
             <line
               id="hex-brightness-connector"
               x1={limitHex.sliderX} y1={HEX_SIZE} x2={limitHex.downX} y2={limitHex.downY}
-              stroke="rgba(128,128,128,0.5)" strokeWidth={2} strokeDasharray="1 4" strokeLinecap="round"
+              stroke="rgba(128,128,128,0.5)" strokeWidth={pxUnits(2)} strokeDasharray={`${pxUnits(1)} ${pxUnits(4)}`} strokeLinecap="round"
             />
           ) : null}
 
@@ -1236,8 +1309,8 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
 
           {/* Hue line */}
           {showHueLine && (
-            <line id="hue-line" x1={CENTER_X} y1={CENTER_Y} x2={hueEnd.x} y2={hueEnd.y}
-              stroke="rgba(255,255,255,0.5)" strokeWidth={1.5} strokeDasharray="4 4"
+            <line id="hue-line" x1={CENTER_X} y1={CENTER_Y} x2={hueLabel.x} y2={hueLabel.y}
+              stroke="rgba(255,255,255,0.5)" strokeWidth={pxUnits(2)} strokeDasharray={`${pxUnits(4)} ${pxUnits(4)}`}
             />
           )}
 
@@ -1324,31 +1397,33 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             } : {};
 
             // Border is the channel this handle belongs to, at full strength;
-            // fill is the colour the field shows underneath it.
+            // fill is the color the field shows underneath it.
             const baseRing = CHANNEL_COLOR[ch];
             const hoverRing = lift(baseRing);
+            // Thickens outward on hover, same 1.5x the stems use.
+            const ringW = isHighlighted ? HANDLE.ring * HANDLE.hoverScale : HANDLE.ring;
 
             return (
               <g
                 key={i}
                 className={isDraggable ? 'cursor-pointer touch-none' : ''}
-                style={{ filter: `drop-shadow(${HANDLE.shadow})` }}
+                // Through pxUnits like every other stroke here: a CSS filter on
+                // an SVG element measures in user space, so the shadow scaled
+                // with the panel - about 1.3px of blur when narrow and 3.8px
+                // when wide, against the slider handles flat 2.5px.
+                style={{ filter: `drop-shadow(0 ${pxUnits(HANDLE.shadowY)}px ${pxUnits(HANDLE.shadowBlur)}px ${HANDLE.shadowColor})` }}
                 {...handlers}
               >
                 <circle
-                  id={`rgb-dot-${dotNames[i]}`} cx={p.x} cy={p.y}
-                  r={(HANDLE.core + HANDLE.ring / 2 + 0.5) * k}
-                  fill="none" stroke={HANDLE.outer} strokeWidth={k}
-                />
-                <circle
-                  cx={p.x} cy={p.y} r={HANDLE.core * k}
+                  id={`rgb-dot-${dotNames[i]}`}
+                  cx={p.x} cy={p.y} r={ringRadius(ringW) * k}
                   fill={dotColors[i]}
                   stroke={isHighlighted ? hoverRing : baseRing}
-                  strokeWidth={HANDLE.ring * k}
+                  strokeWidth={ringW * k}
                 />
                 {/* The tint inside the ring, matching the slider handles. */}
                 <circle
-                  cx={p.x} cy={p.y} r={(HANDLE.core + HANDLE.ring / 2 - 0.5) * k}
+                  cx={p.x} cy={p.y} r={(ringRadius(ringW) + ringW / 2 - 0.5) * k}
                   fill="none" stroke={HANDLE.inner} strokeWidth={k}
                 />
               </g>
@@ -1444,6 +1519,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                 label="Clear"
                 icon={Trash2}
                 iconOnly={iconActions}
+                confirm
                 onClick={(e) => { e.stopPropagation(); setRecentColors([]); setSelectedRecentIdx(null); }}
               />
             </div>
@@ -1506,11 +1582,10 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                 label="Defaults"
                 icon={RefreshCw}
                 iconOnly={iconActions}
+                confirm
                 onClick={(e) => {
                   e.stopPropagation();
-                  const defaults: SavedSlot[] = DEFAULT_RECENT.map((hex, i) => ({ hex, alpha: 100, addedAt: -(i + 1) }));
-                  while (defaults.length < 12) defaults.push(null);
-                  setSavedSlots(defaults);
+                  setSavedSlots(defaultSaved());
                   setSavedSortMode('user');
                   setSelectedSavedIdx(null);
                 }}
@@ -1519,7 +1594,8 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                 label="Clear"
                 icon={Trash2}
                 iconOnly={iconActions}
-                onClick={(e) => { e.stopPropagation(); setSavedSlots(Array(12).fill(null)); setSelectedSavedIdx(null); }}
+                confirm
+                onClick={(e) => { e.stopPropagation(); setSavedSlots(Array(SAVED_SLOTS).fill(null)); setSelectedSavedIdx(null); }}
               />
             </div>
           }

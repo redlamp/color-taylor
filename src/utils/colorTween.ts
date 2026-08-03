@@ -4,12 +4,12 @@ import type { HSB } from './colorConversions';
  * Shared HSB tween maths.
  *
  * Both the app (ColorPicker's animateToHsb) and the Figma plugin animate
- * colour the same way. Keeping the timing, easing and rounding here means the
+ * color the same way. Keeping the timing, easing and rounding here means the
  * two cannot drift - the plugin shipped with a 260 ms tween against the app's
  * 1000 ms before this existed, and it was noticeable.
  */
 
-/** Duration of a colour tween, in ms. */
+/** Duration of a color tween, in ms. */
 export const HSB_TWEEN_MS = 1000;
 
 export const easeInOutQuad = (t: number): number =>

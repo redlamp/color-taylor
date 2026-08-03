@@ -69,7 +69,7 @@ void main() {
 
   vec3 col;
   if (uLinear > 0.5) {
-    // The linear space builds the colour at unit brightness, scales, then
+    // The linear space builds the color at unit brightness, scales, then
     // applies the transfer - the two do not commute.
     vec3 lin = hsb2rgb(h, s, 100.0) * (uBrightness / 100.0);
     col = vec3(toSrgb(lin.r), toSrgb(lin.g), toSrgb(lin.b));

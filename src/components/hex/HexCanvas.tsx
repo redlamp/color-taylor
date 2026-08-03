@@ -7,7 +7,7 @@ import { createHexGL, type HexGL } from './hexShader';
 /**
  * The field at full brightness. 540x540 with an atan2 and a sqrt per pixel is
  * ~292k iterations, so this is the expensive pass - and it only has to run when
- * the colour space changes.
+ * the color space changes.
  */
 function buildBase(isLinear: boolean): Uint8ClampedArray {
   const data = new Uint8ClampedArray(HEX_SIZE * HEX_SIZE * 4);
@@ -117,7 +117,7 @@ export default function HexCanvas({ brightness, colorSpace, extent = SIZE }: { b
       if (!ctx) return;
 
       // HSB is linear in brightness: rgb(h, s, b) === (b/100) * rgb(h, s, 100).
-      // So the trig-heavy pass runs once per colour space and a brightness
+      // So the trig-heavy pass runs once per color space and a brightness
       // change becomes a per-channel multiply.
       if (!baseRef.current || baseRef.current.space !== colorSpace) {
         baseRef.current = { space: colorSpace, data: buildBase(colorSpace === 'linear') };

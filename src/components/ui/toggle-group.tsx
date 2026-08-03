@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils"
  * Segmented control that allows more than one selection.
  *
  * Deliberately styled off Tabs so the two read as the same control family - the
- * difference the user should notice is the behaviour (`multiple`), not the
+ * difference the user should notice is the behavior (`multiple`), not the
  * chrome. Base UI's prop is `multiple`, and value is an array either way.
  */
 function ToggleGroup({

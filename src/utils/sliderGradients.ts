@@ -109,7 +109,7 @@ export function lightnessGradient(h: number, s: number, colorSpace: ColorSpace):
  * Small checks, sized for a swatch rather than a full-width track.
  *
  * Positioned at calc(50%% + 4px) rather than 0. A percentage aligns that point
- * of the tile with the same point of the box, so plain 50%% would centre a tile
+ * of the tile with the same point of the box, so plain 50%% would center a tile
  * on the split and leave the boundary cutting a check in half; half a tile of
  * offset puts a tile edge exactly there instead.
  */
@@ -117,12 +117,12 @@ export const SWATCH_CHECKER =
   'repeating-conic-gradient(rgba(128,128,128,.45) 0% 25%, transparent 0% 50%) calc(50% + 4px) 0/8px 8px';
 
 /**
- * Figma's split swatch: the left half is the colour flat, the right half is
- * the same colour at its alpha over a checkerboard. One chip then answers both
- * "what colour is it" and "how transparent is it", which a flat chip cannot -
- * a half-transparent colour over a dark panel just reads as a darker colour.
+ * Figma's split swatch: the left half is the color flat, the right half is
+ * the same color at its alpha over a checkerboard. One chip then answers both
+ * "what color is it" and "how transparent is it", which a flat chip cannot -
+ * a half-transparent color over a dark panel just reads as a darker color.
  *
- * A fully opaque colour gets a plain fill. Splitting a chip whose halves are
+ * A fully opaque color gets a plain fill. Splitting a chip whose halves are
  * identical is noise.
  */
 export function swatchBackground(hex: string, alpha: number): string {
