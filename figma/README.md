@@ -1,6 +1,6 @@
 # Color Taylor - Figma plugin
 
-The app's colour hexagon, running inside Figma. Select layers, pick a colour,
+The app's color hexagon, running inside Figma. Select layers, pick a color,
 their fill updates live.
 
 ## The point of the setup
@@ -32,7 +32,7 @@ bun run build:figma     # one-off build - required once after cloning
 bun run watch:figma     # rebuild ui.html on every save
 ```
 
-`ui.html` is generated and gitignored (a ~470 KB bundle that would rewrite
+`ui.html` is generated and gitignored (a ~180 KB bundle that would rewrite
 itself on every app change), so a fresh clone has to build once before Figma can
 load the plugin.
 
@@ -51,7 +51,7 @@ needs a re-import.
 
 Deliberately thin, so that app changes flow through untouched:
 
-- **Colour state** in the shape `ColorHexagon` expects as a controlled
+- **Color state** in the shape `ColorHexagon` expects as a controlled
   component, mirroring ColorPicker's "HSB is canonical, RGB has an override ref"
   pattern (see the root CLAUDE.md). Get this wrong and low-saturation values
   drift as you drag.
@@ -59,23 +59,27 @@ Deliberately thin, so that app changes flow through untouched:
   shortest-path hue. Not optional decoration: `animateBLToValue` and
   `handleColorLabelClick` both early-return without it, so the 100/50/0 bar
   markers and the R/Y/G/C/B/M vertex letters are dead controls if it is missing.
-- **The bridge.** Every colour change posts `apply` to the sandbox; the sandbox
-  paints the first solid fill of each selected node. There is no Fill button -
-  picking a colour is the action.
+- **The bridge.** Every color change posts `apply` to the sandbox; the sandbox
+  paints the first solid paint of each selected node. There is no Apply button -
+  picking a color is the action. Fill/Stroke/None chooses which paint, and None
+  reads the selection without ever writing.
 - **Theme sync.** Figma stamps `figma-dark` on `<html>`; the app's tokens key
   off `dark`. A MutationObserver mirrors one onto the other so flipping Figma's
   theme mid-session works.
 
 ## Window sizing
 
-Width is dragged from a lane down the right edge; height is always the
-content's. Two constraints shaped that, both learned the hard way:
+Width is dragged from lanes down the east, west and south edges plus the SW/SE
+corners; height is always the content's. Two constraints shaped that, both
+learned the hard way:
 
-- **Only the east edge.** Resizing from the west or north needs
-  `figma.ui.reposition` alongside `resize` - two non-atomic calls per frame,
-  anchored to a position captured at drag start. The moment Figma clamps the
-  window itself that anchor is stale and the panel walks across the screen. It
-  is not worth having.
+- **West-edge dragging is proven, not assumed.** Resizing from the west needs
+  `figma.ui.reposition` alongside `resize`, and those two are not documented as
+  sharing a coordinate space with `getPosition` - three versions of "read here,
+  write there" flung the panel off-screen. `canReposition()` now nudges the
+  window a known 8px, reads back, keeps the difference as a bias and verifies
+  the correction. If verification fails, west anchoring stays off for the
+  session and the west edge simply resizes like the east one.
 - **The lane owns a column.** `.figma-scroll` stops where the lane begins. When
   the handles floated over the content at `right: 0` they sat on the same pixels
   as the scrollbar, so neither could be grabbed reliably.
@@ -96,27 +100,33 @@ There is no published recipe for this; the official docs and
   posts `commit` on pointer-up and at the end of a tween, so each gesture
   becomes its own entry rather than the whole session collapsing into one.
 - **No echo repaint.** Selecting a layer seeds the picker from its fill, which
-  changes the colour, which would fire the live-apply and repaint the layer with
+  changes the color, which would fire the live-apply and repaint the layer with
   what it already had. `seededHexRef` swallows exactly that one write.
-- **Fonts are dropped.** `src/index.css` pulls in five `@fontsource` faces;
-  inlining ~700 KB of woff2 to gain Barlow in a side panel is a bad trade, so
-  the config aliases `@fontsource/*` to `ui/empty.css` and the theme's stack
-  falls through to the system UI and mono faces.
+- **Fonts are dropped, then restated.** `src/index.css` pulls in five
+  `@fontsource` faces; inlining ~700 KB of woff2 to gain Barlow in a side panel
+  is a bad trade, so the config aliases `@fontsource/*` to `ui/empty.css`.
+  `figma.css` then sets an Inter stack and Figma's 11px type scale, so the panel
+  matches its neighbours rather than falling through to the system UI face.
 - **Tailwind needs pointing at `src`.** Vite's root for this build is
   `figma/ui`, so automatic source detection would scan only that folder and emit
   none of the app's utilities. `figma.css` has an explicit `@source "../../src"`.
   If styling ever looks unstyled-but-laid-out, check that first.
 - **IIFE, not ESM.** The plugin iframe has a null origin where
   `type="module"` is unreliable, hence `format: 'iife'` and no code splitting.
-- **Audio is off.** `muted` is passed, which gates every `toneController` call,
-  so the synth chunk never loads.
+- **Audio is aliased out, not muted.** Interface sounds and the tone synth are
+  modules layered on the picker, so the plugin build swaps both for silent
+  stand-ins rather than gating them at runtime.
+- **Swatches use `clientStorage`.** `localStorage` raises `SecurityError` in a
+  null-origin iframe, so `utils/swatchStore` is aliased to a `clientStorage`
+  implementation that talks to `code.js` over `postMessage`. Writes made before
+  the stored blob arrives are cached but not sent, or an empty default state
+  would overwrite real data on the way in.
+- **`nodechange`, not `documentchange`.** The document-wide event would need
+  `loadAllPagesAsync()` first, which stalls the first run in a large file.
 
 ## Not wired up
 
-- Saved/recent palettes persist through `localStorage`, which may be unavailable
-  in the plugin iframe. The component already try/catches it, so it degrades to
-  empty rather than throwing - but it will not survive a reload.
-- Stroke painting. Fills only, by design.
-- Colour variables and styles binding.
-- Publishing. Loaded locally via Import from manifest; the Community listing
-  would need an icon, cover art and a review pass.
+- Color variables and styles binding.
+- Publishing. Loaded locally via Import from manifest; `manifest.json` still
+  carries the `color-taylor-local-dev` placeholder id. See
+  `wiki/notes/plan-figma-plugin-release.md` for what a Community listing needs.

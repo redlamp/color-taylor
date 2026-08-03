@@ -5,8 +5,9 @@
  * straight from "Import plugin from manifest" with no build step of its own.
  * The UI half is built from the app - see figma/README.md.
  *
- * There are no Fill/Stroke buttons: picking a colour paints the selection's
- * fill immediately. This file's whole job is that bridge.
+ * There is no Apply button: picking a color paints the selection immediately.
+ * The Fill/Stroke/None tabs choose which paint that is. This file's whole job
+ * is that bridge.
  */
 
 const MIN_W = 300;
@@ -82,11 +83,11 @@ function postSelection(known) {
 }
 
 /**
- * Recolours the first solid fill on each selected node, preserving opacity and
+ * Recolors the first solid fill on each selected node, preserving opacity and
  * blend mode. Nodes with no fills get a fresh solid; gradient-only nodes get a
  * solid appended rather than having their gradient discarded.
  *
- * Called on every colour change, so it stays silent - no notify() per frame.
+ * Called on every color change, so it stays silent - no notify() per frame.
  */
 function applyPaint(hex, opacity) {
   const color = hexToPaintColor(hex);
@@ -218,10 +219,14 @@ function canReposition() {
 
   westCapable = err <= 1;
   westBias = westCapable ? bias : null;
-  console.log(
-    '[Color Taylor] reposition probe:',
-    JSON.stringify({ p0, p1, p2, bias, err, usable: westCapable }),
-  );
+  // Only the failure is worth a line. The success case ran on every session
+  // and put plugin internals in the user's console for no reason.
+  if (!westCapable) {
+    console.warn(
+      '[Color Taylor] west-edge anchoring off, reposition probe missed by',
+      err,
+    );
+  }
   return westCapable;
 }
 
@@ -249,7 +254,7 @@ function resizeWidth(width, fromLeft) {
 }
 
 /**
- * Live-update when the colour is changed outside the plugin - Figma's own
+ * Live-update when the color is changed outside the plugin - Figma's own
  * picker, the right rail, another plugin.
  *
  * The docs only exempt changes a plugin makes *inside* a documentchange
@@ -280,7 +285,7 @@ function pushIfChanged(force) {
   if (!force && key === lastSeen) return;
   lastSeen = key;
 
-  // Our own paint coming back round. Suppress the colour half only: while the
+  // Our own paint coming back round. Suppress the color half only: while the
   // user drags our picker, echoing the round-tripped value back would fight
   // the drag. A change in how many nodes are selected still has to get through
   // or the "Selected: N" caption goes stale.
@@ -292,7 +297,7 @@ function pushIfChanged(force) {
 }
 
 /**
- * How the picker follows Figma's own colour picker.
+ * How the picker follows Figma's own color picker.
  *
  * documentchange is the documented signal, but Figma "will not call the
  * callback synchronously and will instead batch the updates and send them to
@@ -314,11 +319,11 @@ function wakeUi() {
   figma.ui.postMessage({ type: 'wake' });
 }
 
-function onDocumentChange(event) {
+function onNodeChange(event) {
   const selected = new Set(figma.currentPage.selection.map((n) => n.id));
   if (selected.size === 0) return;
   const prop = paintProp();
-  const touched = event.documentChanges.some(
+  const touched = event.nodeChanges.some(
     (c) =>
       c.type === 'PROPERTY_CHANGE' &&
       selected.has(c.id) &&
@@ -330,21 +335,48 @@ function onDocumentChange(event) {
   pushIfChanged(false);
 }
 
+/**
+ * nodechange rather than documentchange, and no loadAllPagesAsync.
+ *
+ * Under documentAccess: "dynamic-page" the document-wide event is only
+ * available once every page has been loaded, and Figma's guidance is to not
+ * pay that: "Because this may introduce a loading delay, consider using more
+ * granular alternatives, such as [...] PageNode.on with the 'nodechange'
+ * event." On a large file that load is a stall the first time the plugin runs
+ * in it, and we never look past the current page's selection anyway.
+ *
+ * The cost is that the listener belongs to a page, not the file, so it has to
+ * follow the user when they switch pages.
+ */
+let watched = null;
+
+function watchCurrentPage() {
+  const page = figma.currentPage;
+  if (page === watched) return;
+  if (watched) {
+    try {
+      watched.off('nodechange', onNodeChange);
+    } catch (err) {
+      void err;
+    }
+  }
+  watched = null;
+  try {
+    page.on('nodechange', onNodeChange);
+    watched = page;
+  } catch (err) {
+    // No PageNode.on on this host. Selection tracking still works; only
+    // following an edit made from Figma's own picker is lost.
+    console.warn('[Color Taylor] nodechange unavailable:', err && err.message);
+  }
+}
+
 figma.on('selectionchange', function () {
   pushIfChanged(true);
 });
 
-// documentchange needs documentAccess: "dynamic-page" in the manifest, and the
-// pages loaded first. Registered after the load so a slow document delays the
-// listener rather than throwing.
-(async () => {
-  try {
-    if (typeof figma.loadAllPagesAsync === 'function') await figma.loadAllPagesAsync();
-    figma.on('documentchange', onDocumentChange);
-  } catch (err) {
-    console.warn('[Color Taylor] documentchange unavailable:', err && err.message);
-  }
-})();
+figma.on('currentpagechange', watchCurrentPage);
+watchCurrentPage();
 
 /**
  * Recent and Saved swatches.

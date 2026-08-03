@@ -15,7 +15,7 @@ dist-ssr
 # remember plugin auto-logs (auto-generated, churns)
 .remember/
 
-# Figma plugin UI: a ~470 KB generated bundle that would rewrite itself on every
+# Figma plugin UI: a ~180 KB generated bundle that would rewrite itself on every
 # app change. Run `bun run build:figma` once after cloning.
 figma/ui.html
 
