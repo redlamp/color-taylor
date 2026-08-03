@@ -62,7 +62,7 @@ export default defineConfig({
       // app's store loses every write here. clientStorage instead.
       { find: /^.*utils\/swatchStore$/, replacement: path.resolve(__dirname, 'ui/lite/swatch-store.ts') },
 
-      // Dead in the panel: the colour-name table is only read through
+      // Dead in the panel: the color-name table is only read through
       // showHtmlOnHex, and the brightness bar only renders when blBar is on.
       // Both are runtime props, so the bundler cannot drop them on its own.
       { find: /^.*utils\/namedColors$/, replacement: path.resolve(__dirname, 'ui/lite/named-colors.ts') },
@@ -82,6 +82,22 @@ export default defineConfig({
       // of woff2 into the panel to gain Barlow is a bad trade; drop them and
       // let the theme's font stack fall through to the system UI/mono faces.
       { find: /^@fontsource\/.*/, replacement: path.resolve(__dirname, 'ui/empty.css') },
+
+      // Preact in place of React, for the plugin build only.
+      //
+      // react-dom is 174 KB of the panel - reconciler, scheduler, synthetic
+      // event system, hydration - and none of it is tree-shakeable. preact
+      // /compat presents the same API over a ~15 KB runtime, so the shared
+      // source compiles unchanged and nothing forks.
+      //
+      // jsx-runtime has to be aliased too: the automatic JSX transform emits
+      // imports from 'react/jsx-runtime', which the bare 'react' rule below
+      // would not catch.
+      { find: /^react$/, replacement: 'preact/compat' },
+      { find: /^react-dom$/, replacement: 'preact/compat' },
+      { find: /^react-dom\/client$/, replacement: 'preact/compat/client' },
+      { find: /^react\/jsx-runtime$/, replacement: 'preact/compat/jsx-runtime' },
+      { find: /^react\/jsx-dev-runtime$/, replacement: 'preact/compat/jsx-dev-runtime' },
 
       { find: '@', replacement: path.resolve(__dirname, '../src') },
     ],
