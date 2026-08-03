@@ -13,7 +13,7 @@ import { toneController } from '../utils/toneControllerLazy';
 import {
   HEX_SIZE, SIZE, HEX_PANEL_WIDTH, CENTER_X, CENTER_Y, RADIUS, PI, DIRS, DISPLAY_HEIGHT,
   BL_BAR_X, BL_BAR_TOP, BL_BAR_HEIGHT, BL_ARROW_SIZE,
-  hexEdgeDist, hexPoints, getOrder,
+  hexEdgeDist, hexPoints, colorAtPoint, getOrder,
 } from './hex/hexConstants';
 import HexCanvas from './hex/HexCanvas';
 import BrightnessBar from './hex/BrightnessBar';
@@ -704,6 +704,12 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     return rgbToHex(out.r, out.g, out.b);
   }, []);
 
+  /** The colour the field shows at each joint - each handle's fill. */
+  const dotColors = useMemo(() => points.map((p) => {
+    const c = colorAtPoint(p.x, p.y, brightness);
+    return rgbToHex(c.r, c.g, c.b);
+  }), [points, brightness]);
+
   const { hueEnd, hueLabel } = useMemo(() => {
     const rad = (hue * PI) / 180;
     return {
@@ -1382,21 +1388,6 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             if (isHexDragging && ch && ch !== 'r' && rgb[ch] === 0) return null;
             const isHighlighted = isDraggable && hoveredDot === i;
             const isOrigin = i === 0;
-            const handlers = isDraggable ? {
-              onPointerDown: (e: ReactPointerEvent) => handleDotMouseDown(e, i),
-              onPointerEnter: () => {
-                if (draggingDot.current || draggingFree.current) return;
-                setHoveredDot(i);
-              },
-              onPointerLeave: () => {
-                if (!draggingDot.current && !draggingFree.current) setHoveredDot(null);
-              },
-            } : {};
-
-            // The last dot is the picked colour, so it gets the full handle
-            // treatment: hairline, white ring, hairline. The others are the
-            // channel vectors' own grab points and keep their channel-coloured
-            // rings, which carry meaning a white ring would erase.
             // uiScale keeps the handles a constant size on screen while the
             // hexagon and its legs scale with the viewBox.
             const k = uiScale;
@@ -1410,11 +1401,29 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
               );
             }
 
-            // Each handle carries its own channel's colour - the blue one is
-            // blue - rather than the colour of the field underneath it, which
-            // washes out to near-white wherever the field is pale.
-            const channel = ch === 'r' ? '#dc3232' : ch === 'g' ? '#32b432' : '#3232dc';
-            const ring = isHighlighted ? lift(channel, 34) : '#fff';
+            const handlers = isDraggable ? {
+              onPointerDown: (e: ReactPointerEvent) => handleDotMouseDown(e, i),
+              // Ignored mid-drag: the element being dragged keeps the highlight
+              // rather than handing it to whatever the pointer passes over.
+              onPointerEnter: () => {
+                if (draggingDot.current || draggingFree.current) return;
+                setHoveredDot(i);
+              },
+              onPointerLeave: () => {
+                if (!draggingDot.current && !draggingFree.current) setHoveredDot(null);
+              },
+            } : {};
+
+            // Border is the channel this handle belongs to; fill is the colour
+            // the field shows underneath it. Two light variants because a ring
+            // sized for a dark field disappears against a bright one.
+            const bright = brightness > 50;
+            const baseRing = bright
+              ? (ch === 'r' ? 'rgba(220,50,50,0.9)' : ch === 'g' ? 'rgba(50,180,50,0.9)' : 'rgba(50,50,220,0.9)')
+              : (ch === 'r' ? 'rgba(255,120,120,0.9)' : ch === 'g' ? 'rgba(120,230,120,0.9)' : 'rgba(120,120,255,0.9)');
+            const hoverRing = bright
+              ? (ch === 'r' ? 'rgba(240,90,90,1)' : ch === 'g' ? 'rgba(90,200,90,1)' : 'rgba(90,90,240,1)')
+              : (ch === 'r' ? 'rgba(255,160,160,1)' : ch === 'g' ? 'rgba(160,255,160,1)' : 'rgba(160,160,255,1)');
 
             return (
               <g
@@ -1430,7 +1439,9 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                 />
                 <circle
                   cx={p.x} cy={p.y} r={HANDLE.core * k}
-                  fill={channel} stroke={ring} strokeWidth={HANDLE.ring * k}
+                  fill={dotColors[i]}
+                  stroke={isHighlighted ? hoverRing : baseRing}
+                  strokeWidth={HANDLE.ring * k}
                 />
                 {/* The tint inside the ring, matching the slider handles. */}
                 <circle
