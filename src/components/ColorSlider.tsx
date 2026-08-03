@@ -6,8 +6,35 @@ import { Minus, Plus } from 'lucide-react';
 import useDrag from '../hooks/useDrag';
 import { HANDLE_SIZE, HANDLE_SHADOW } from '../utils/handleStyle';
 
+/**
+ * Spoken names, keyed `${group}-${label}`.
+ *
+ * The single letter on the track is not enough on its own: B is Blue under RGB
+ * and Brightness under HSB, and a screen reader reading both as "B channel"
+ * gives no way to tell them apart.
+ */
+const CHANNEL_NAMES: Record<string, string> = {
+  'rgb-r': 'Red',
+  'rgb-g': 'Green',
+  'rgb-b': 'Blue',
+  'hsb-h': 'Hue',
+  'hsb-s': 'Saturation',
+  'hsb-b': 'Brightness',
+  'hsl-h': 'Hue',
+  'hsl-s': 'Saturation',
+  'hsl-l': 'Lightness',
+  'alpha-a': 'Alpha',
+};
+
 interface ColorSliderProps {
   label: string;
+  /**
+   * Color model this slider belongs to. Namespaces the DOM id, because `label`
+   * alone is not unique across models - RGB's B and HSB's B both rendered as
+   * `slider-b`, which is invalid HTML the moment both groups are on screen (in
+   * the app, that is always).
+   */
+  group: 'rgb' | 'hsb' | 'hsl' | 'alpha';
   value: number;
   max: number;
   gradient: string;
@@ -23,7 +50,7 @@ interface ColorSliderProps {
   /**
    * 'triangle' points at the track from below and never covers it - right when
    * a stepper beside the slider already shows the value. 'ring' sits on the
-   * track and shows the colour itself, which is what you want when there is no
+   * track and shows the color itself, which is what you want when there is no
    * numeric readout to fall back on.
    */
   handle?: 'triangle' | 'ring';
@@ -39,7 +66,7 @@ interface ColorSliderProps {
   stepper?: 'full' | 'value' | 'none';
 }
 
-function ColorSlider({ label, value, max, gradient, suffix, wrap, onChange, hideStepper, handle = 'triangle', handleFill, round, stepper }: ColorSliderProps) {
+function ColorSlider({ label, group, value, max, gradient, suffix, wrap, onChange, hideStepper, handle = 'triangle', handleFill, round, stepper }: ColorSliderProps) {
   const stepperMode = stepper ?? (hideStepper ? 'none' : 'full');
   const trackRef = useRef<HTMLDivElement | null>(null);
 
@@ -93,7 +120,7 @@ function ColorSlider({ label, value, max, gradient, suffix, wrap, onChange, hide
     if (!dx) return;
     const span = Math.max(1, rect.width - inset * 2);
     const next = accum.current + (dx / span) * max;
-    // max, not max+1: hue's 0 and 360 are the same colour, so the cycle is
+    // max, not max+1: hue's 0 and 360 are the same color, so the cycle is
     // max wide and landing on either end is landing on the same place.
     accum.current = ((next % max) + max) % max;
     onChange(Math.round(accum.current) % max);
@@ -160,7 +187,9 @@ function ColorSlider({ label, value, max, gradient, suffix, wrap, onChange, hide
   };
 
   const pct = (value / max) * 100;
-  const sliderId = `slider-${label.toLowerCase()}`;
+  const channel = `${group}-${label.toLowerCase()}`;
+  const sliderId = `slider-${channel}`;
+  const channelName = CHANNEL_NAMES[channel] ?? label;
 
   return (
     <div id={sliderId} className={`flex gap-2 ${handle === 'ring' ? 'items-center' : 'items-start'}`}>
@@ -180,7 +209,7 @@ function ColorSlider({ label, value, max, gradient, suffix, wrap, onChange, hide
           id={`${sliderId}-track`}
           ref={trackRef}
           role="slider"
-          aria-label={`${label} channel`}
+          aria-label={`${channelName} channel`}
           aria-valuemin={0}
           aria-valuemax={max}
           aria-valuenow={value}
@@ -244,7 +273,7 @@ function ColorSlider({ label, value, max, gradient, suffix, wrap, onChange, hide
               className="h-6 w-5 rounded-none border-none"
               tabIndex={-1}
               onClick={() => onChange(clamp(value - 1))}
-              aria-label={`Decrease ${label}`}
+              aria-label={`Decrease ${channelName}`}
             >
               <Minus className="!size-3" />
             </Button>
@@ -252,6 +281,7 @@ function ColorSlider({ label, value, max, gradient, suffix, wrap, onChange, hide
           <Input
             type="text"
             inputMode="numeric"
+            aria-label={channelName}
             value={value}
             onChange={handleInputChange}
             onFocus={(e) => e.target.select()}
@@ -278,7 +308,7 @@ function ColorSlider({ label, value, max, gradient, suffix, wrap, onChange, hide
               className="h-6 w-5 rounded-none border-none"
               tabIndex={-1}
               onClick={() => onChange(clamp(value + 1))}
-              aria-label={`Increase ${label}`}
+              aria-label={`Increase ${channelName}`}
             >
               <Plus className="!size-3" />
             </Button>

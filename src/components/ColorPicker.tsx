@@ -555,6 +555,7 @@ export default function ColorPicker() {
           <div className="flex flex-col gap-2">
             <ColorSlider
               label="R"
+              group='rgb'
               value={rgb.r}
               max={255}
               gradient={rgbGradientMode === 'mixed' ? redGradient(rgb.g, rgb.b) : redChannelGradient}
@@ -562,6 +563,7 @@ export default function ColorPicker() {
             />
             <ColorSlider
               label="G"
+              group='rgb'
               value={rgb.g}
               max={255}
               gradient={rgbGradientMode === 'mixed' ? greenGradient(rgb.r, rgb.b) : greenChannelGradient}
@@ -569,6 +571,7 @@ export default function ColorPicker() {
             />
             <ColorSlider
               label="B"
+              group='rgb'
               value={rgb.b}
               max={255}
               gradient={rgbGradientMode === 'mixed' ? blueGradient(rgb.r, rgb.g) : blueChannelGradient}
@@ -592,13 +595,17 @@ export default function ColorPicker() {
           }
         >
           <div className="flex flex-col gap-3">
+            {/* Labelled groups: the section header says "HSB / HSL", so without
+                these a screen reader hits two "Saturation channel" sliders in a
+                row holding different values with nothing to tell them apart. */}
             {showHsb && (
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-2" role="group" aria-label="HSB">
                 {hslMode === 'both' && (
                   <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">HSB</span>
                 )}
                 <ColorSlider
                   label="H"
+                  group='hsb'
                   value={hsb.h}
                   max={360}
                   wrap
@@ -607,6 +614,7 @@ export default function ColorPicker() {
                 />
                 <ColorSlider
                   label="S"
+                  group='hsb'
                   value={hsb.s}
                   max={100}
                   gradient={saturationGradient(hsb.h, hsb.b, colorSpace)}
@@ -614,6 +622,7 @@ export default function ColorPicker() {
                 />
                 <ColorSlider
                   label="B"
+                  group='hsb'
                   value={hsb.b}
                   max={100}
                   gradient={brightnessGradient(hsb.h, hsb.s, colorSpace)}
@@ -622,12 +631,13 @@ export default function ColorPicker() {
               </div>
             )}
             {showHsl && (
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-2" role="group" aria-label="HSL">
                 {hslMode === 'both' && (
                   <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">HSL</span>
                 )}
                 <ColorSlider
                   label="H"
+                  group='hsl'
                   value={hsl.h}
                   max={360}
                   wrap
@@ -636,6 +646,7 @@ export default function ColorPicker() {
                 />
                 <ColorSlider
                   label="S"
+                  group='hsl'
                   value={hsl.s}
                   max={100}
                   gradient={hslSaturationGradient(hsl.h, hsl.l, colorSpace)}
@@ -643,6 +654,7 @@ export default function ColorPicker() {
                 />
                 <ColorSlider
                   label="L"
+                  group='hsl'
                   value={hsl.l}
                   max={100}
                   gradient={lightnessGradient(hsl.h, hsl.s, colorSpace)}

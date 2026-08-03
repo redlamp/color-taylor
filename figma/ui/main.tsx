@@ -590,9 +590,10 @@ function PluginApp() {
             */}
             <div className="flex flex-col">
             {groups.includes('RGB') && (
-              <div className="flex flex-col gap-1 [&:not(:first-child)]:mt-3 [&:not(:first-child)]:border-t [&:not(:first-child)]:border-input [&:not(:first-child)]:pt-3">
+              <div className="flex flex-col gap-1 [&:not(:first-child)]:mt-3 [&:not(:first-child)]:border-t [&:not(:first-child)]:border-input [&:not(:first-child)]:pt-3" role="group" aria-label="RGB">
                 <ColorSlider
                   label={'R'}
+                  group='rgb'
                   value={rgb.r}
                   max={255}
                   suffix={''}
@@ -605,6 +606,7 @@ function PluginApp() {
                 />
                 <ColorSlider
                   label={'G'}
+                  group='rgb'
                   value={rgb.g}
                   max={255}
                   suffix={''}
@@ -617,6 +619,7 @@ function PluginApp() {
                 />
                 <ColorSlider
                   label={'B'}
+                  group='rgb'
                   value={rgb.b}
                   max={255}
                   suffix={''}
@@ -631,9 +634,10 @@ function PluginApp() {
             )}
 
             {groups.includes('HSB') && (
-              <div className="flex flex-col gap-1 [&:not(:first-child)]:mt-3 [&:not(:first-child)]:border-t [&:not(:first-child)]:border-input [&:not(:first-child)]:pt-3">
+              <div className="flex flex-col gap-1 [&:not(:first-child)]:mt-3 [&:not(:first-child)]:border-t [&:not(:first-child)]:border-input [&:not(:first-child)]:pt-3" role="group" aria-label="HSB">
                 <ColorSlider
                   label={'H'}
+                  group='hsb'
                   value={Math.round(hsb.h)}
                   max={360}
                   suffix={'°'}
@@ -647,6 +651,7 @@ function PluginApp() {
                 />
                 <ColorSlider
                   label={'S'}
+                  group='hsb'
                   value={Math.round(hsb.s)}
                   max={100}
                   suffix={'%'}
@@ -659,6 +664,7 @@ function PluginApp() {
                 />
                 <ColorSlider
                   label={'B'}
+                  group='hsb'
                   value={Math.round(hsb.b)}
                   max={100}
                   suffix={'%'}
@@ -673,9 +679,10 @@ function PluginApp() {
             )}
 
             {groups.includes('HSL') && (
-              <div className="flex flex-col gap-1 [&:not(:first-child)]:mt-3 [&:not(:first-child)]:border-t [&:not(:first-child)]:border-input [&:not(:first-child)]:pt-3">
+              <div className="flex flex-col gap-1 [&:not(:first-child)]:mt-3 [&:not(:first-child)]:border-t [&:not(:first-child)]:border-input [&:not(:first-child)]:pt-3" role="group" aria-label="HSL">
                 <ColorSlider
                   label={'H'}
+                  group='hsl'
                   value={Math.round(hsl.h)}
                   max={360}
                   suffix={'°'}
@@ -689,6 +696,7 @@ function PluginApp() {
                 />
                 <ColorSlider
                   label={'S'}
+                  group='hsl'
                   value={Math.round(hsl.s)}
                   max={100}
                   suffix={'%'}
@@ -701,6 +709,7 @@ function PluginApp() {
                 />
                 <ColorSlider
                   label={'L'}
+                  group='hsl'
                   value={Math.round(hsl.l)}
                   max={100}
                   suffix={'%'}
@@ -715,9 +724,10 @@ function PluginApp() {
             )}
 
             {groups.includes('A') && (
-              <div className="flex flex-col gap-1 [&:not(:first-child)]:mt-3 [&:not(:first-child)]:border-t [&:not(:first-child)]:border-input [&:not(:first-child)]:pt-3">
+              <div className="flex flex-col gap-1 [&:not(:first-child)]:mt-3 [&:not(:first-child)]:border-t [&:not(:first-child)]:border-input [&:not(:first-child)]:pt-3" role="group" aria-label="Alpha">
                 <ColorSlider
                   label={'A'}
+                  group='alpha'
                   value={alpha}
                   max={100}
                   suffix={'%'}

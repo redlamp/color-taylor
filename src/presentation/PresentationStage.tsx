@@ -672,9 +672,9 @@ export default function PresentationStage({ slide, slideIndex }: { slide: Slide;
             }}>
               <h3 className="text-sm font-semibold mb-2">RGB</h3>
               <div className="flex flex-col gap-2">
-                <ColorSlider label="R" value={rgb.r} max={255} gradient={redChannelGradient} onChange={(v) => handleRgbChange('r', v)} hideStepper={!showCircle} />
-                {!locked.includes('g') && <ColorSlider label="G" value={rgb.g} max={255} gradient={greenChannelGradient} onChange={(v) => handleRgbChange('g', v)} hideStepper={!showCircle} />}
-                {!locked.includes('b') && <ColorSlider label="B" value={rgb.b} max={255} gradient={blueChannelGradient} onChange={(v) => handleRgbChange('b', v)} hideStepper={!showCircle} />}
+                <ColorSlider group='rgb' label="R" value={rgb.r} max={255} gradient={redChannelGradient} onChange={(v) => handleRgbChange('r', v)} hideStepper={!showCircle} />
+                {!locked.includes('g') && <ColorSlider group='rgb' label="G" value={rgb.g} max={255} gradient={greenChannelGradient} onChange={(v) => handleRgbChange('g', v)} hideStepper={!showCircle} />}
+                {!locked.includes('b') && <ColorSlider group='rgb' label="B" value={rgb.b} max={255} gradient={blueChannelGradient} onChange={(v) => handleRgbChange('b', v)} hideStepper={!showCircle} />}
               </div>
             </div>
           )}
@@ -691,9 +691,9 @@ export default function PresentationStage({ slide, slideIndex }: { slide: Slide;
           }}>
               <h3 className="text-sm font-semibold mb-2">HSB</h3>
               <div className="flex flex-col gap-2">
-                <ColorSlider label="H" value={hsb.h} max={360} wrap gradient={hueGradient(hsb.s, hsb.b, 'srgb')} onChange={(v) => setHsbClear(p => ({ ...p, h: v }))} hideStepper={!showCircle} />
-                <ColorSlider label="S" value={hsb.s} max={100} gradient={saturationGradient(hsb.h, hsb.b, 'srgb')} onChange={(v) => setHsbClear(p => ({ ...p, s: v }))} hideStepper={!showCircle} />
-                <ColorSlider label="B" value={hsb.b} max={100} gradient={brightnessGradient(hsb.h, hsb.s, 'srgb')} onChange={(v) => setHsbClear(p => ({ ...p, b: v }))} hideStepper={!showCircle} />
+                <ColorSlider group='hsb' label="H" value={hsb.h} max={360} wrap gradient={hueGradient(hsb.s, hsb.b, 'srgb')} onChange={(v) => setHsbClear(p => ({ ...p, h: v }))} hideStepper={!showCircle} />
+                <ColorSlider group='hsb' label="S" value={hsb.s} max={100} gradient={saturationGradient(hsb.h, hsb.b, 'srgb')} onChange={(v) => setHsbClear(p => ({ ...p, s: v }))} hideStepper={!showCircle} />
+                <ColorSlider group='hsb' label="B" value={hsb.b} max={100} gradient={brightnessGradient(hsb.h, hsb.s, 'srgb')} onChange={(v) => setHsbClear(p => ({ ...p, b: v }))} hideStepper={!showCircle} />
               </div>
             </div>
           {has('hex-input') && (
