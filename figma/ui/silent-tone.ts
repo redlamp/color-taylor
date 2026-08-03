@@ -4,7 +4,7 @@
  * That module dynamically imports ./colorSynth, and the plugin bundles as a
  * single IIFE with codeSplitting off - so the dynamic import is inlined and
  * the whole synth engine ships in the panel, for a hold-tone nobody asked a
- * colour picker plugin to make. It also produced the EMPTY_IMPORT_META
+ * color picker plugin to make. It also produced the EMPTY_IMPORT_META
  * warning on every build: rolldown rewrites the inlined import's loader to
  * reference `import.meta.url`, which has no meaning in an IIFE.
  *

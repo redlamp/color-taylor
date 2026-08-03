@@ -1,8 +1,8 @@
 /**
- * The panel's interface sounds: a flit when saved colours re-sort, a click on
+ * The panel's interface sounds: a flit when saved colors re-sort, a click on
  * reorder, a chime on save, a pop on delete.
  *
- * Deliberately its own module rather than part of ColorHexagon. A colour
+ * Deliberately its own module rather than part of ColorHexagon. A color
  * picker should not own an oscillator graph - the sounds are a layer on top of
  * it, switchable two ways: at runtime through `muted`, and at build time by
  * aliasing this module to a silent one, which is what the Figma plugin does.
@@ -12,11 +12,11 @@ import { useCallback, useEffect, useRef } from 'react';
 import { getAudioCtx, getMasterGain } from '../utils/audioContext';
 
 export interface UiSounds {
-  /** Saved colours settling into a new sort order. */
+  /** Saved colors settling into a new sort order. */
   playFlit: () => void;
   /** A slot picked up or dropped while reordering. */
   playClick: () => void;
-  /** A colour committed to a slot. */
+  /** A color committed to a slot. */
   playSave: () => void;
   /** A slot cleared. */
   playPop: () => void;
