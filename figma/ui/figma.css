@@ -175,3 +175,32 @@ body {
     grid-template-columns: repeat(12, minmax(0, 1fr));
   }
 }
+
+/*
+ * Figma-sidebar sections.
+ *
+ * The rule above each section has to span the whole panel while the swatches
+ * stay inset. Pulling the wrapper out by the root's padding and putting the
+ * same padding back inside does exactly that: border-top sits on the padding
+ * box's outer edge, so it reaches both walls, and the content does not.
+ */
+.figma-root .section-flush {
+  margin-inline: -8px;
+  width: calc(100% + 16px);
+  /* 8px of root padding plus the 4px the slider column adds, so the swatches
+     line up with the slider labels rather than sitting 4px further out. */
+  padding-inline: 12px;
+  /* ColorHexagon stacks its children with a 4px gap. These sections own their
+     spacing instead, so the rule lands 12px below the content above it and
+     12px above its own header - the same rhythm as the slider-group rules. */
+  margin-top: calc(12px - 4px);
+}
+
+/*
+ * The last section has nothing below it but the root's own 8px, which leaves
+ * the final swatch row sitting almost on the panel edge. Every other section
+ * gets its breathing room from the next one's margin; this one has no next.
+ */
+.figma-root #saved-colors {
+  padding-bottom: 8px;
+}

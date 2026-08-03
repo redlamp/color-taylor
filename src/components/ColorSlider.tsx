@@ -1,4 +1,4 @@
-import { useRef, useCallback, memo } from 'react';
+import { useRef, useCallback, useEffect, memo } from 'react';
 import type React from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,6 +12,11 @@ interface ColorSliderProps {
   max: number;
   gradient: string;
   suffix?: string;
+  /**
+   * Cyclic domain (hue). Dragging past either end keeps going and wraps round
+   * instead of stopping, and the drag tracks pointer *movement* rather than
+   * pointer position, so it is not bounded by the width of the track.
+   */
   wrap?: boolean;
   onChange: (v: number) => void;
   hideStepper?: boolean;
@@ -47,27 +52,91 @@ function ColorSlider({ label, value, max, gradient, suffix, wrap, onChange, hide
 
   const clamp = (v: number) => Math.max(0, Math.min(max, v));
 
+  /**
+   * Unrounded value carried across a wrapping drag, plus the last pointer x.
+   *
+   * The float matters: rounding to whole degrees every frame and feeding that
+   * back in would swallow any movement smaller than one step, so a slow drag
+   * would stall completely. The accumulator keeps the fraction and only the
+   * emitted value is rounded.
+   */
+  const accum = useRef(0);
+  const lastX = useRef(0);
+  const locked = useRef(false);
+
+  /** Absolute mapping: where you pressed is the value. Bounded by the track. */
   const updateValue = useCallback((clientX: number) => {
     if (!trackRef.current) return;
     const rect = trackRef.current.getBoundingClientRect();
-    const rawX = clientX - rect.left;
-
     const span = Math.max(1, rect.width - inset * 2);
+    const x = Math.max(0, Math.min(clientX - rect.left - inset, span));
+    const newValue = Math.round((x / span) * max);
+    onChange(Math.min(newValue, max));
+    accum.current = newValue;
+    lastX.current = clientX;
+  }, [max, onChange, inset]);
 
-    if (wrap) {
-      const wrapped = ((rawX % rect.width) + rect.width) % rect.width;
-      const newValue = Math.round((wrapped / rect.width) * max);
-      onChange(Math.min(newValue, max));
-    } else {
-      const x = Math.max(0, Math.min(rawX - inset, span));
-      const newValue = Math.round((x / span) * max);
-      onChange(Math.min(newValue, max));
-    }
-  }, [max, wrap, onChange, inset]);
+  /**
+   * Relative mapping, for cyclic channels: the value follows how far the
+   * pointer moved, not where it is. Run off the end of the track and it simply
+   * keeps counting, wrapping through 0.
+   *
+   * Under pointer lock clientX stops changing, so movementX is the only signal;
+   * unlocked, a clientX delta is the more reliable of the two (movementX is
+   * scaled inconsistently across platforms at fractional DPI).
+   */
+  const advance = useCallback((e: PointerEvent) => {
+    if (!trackRef.current) return;
+    const rect = trackRef.current.getBoundingClientRect();
+    const dx = locked.current ? e.movementX : e.clientX - lastX.current;
+    lastX.current = e.clientX;
+    if (!dx) return;
+    const span = Math.max(1, rect.width - inset * 2);
+    const next = accum.current + (dx / span) * max;
+    // max, not max+1: hue's 0 and 360 are the same colour, so the cycle is
+    // max wide and landing on either end is landing on the same place.
+    accum.current = ((next % max) + max) % max;
+    onChange(Math.round(accum.current) % max);
+  }, [max, onChange, inset]);
 
   const { startDrag } = useDrag(useCallback((e: PointerEvent) => {
-    updateValue(e.clientX);
-  }, [updateValue]));
+    if (wrap) advance(e);
+    else updateValue(e.clientX);
+  }, [wrap, advance, updateValue]));
+
+  /**
+   * Seed a drag that starts on the handle: no jump, just take the current value
+   * as the origin. On a wrapping slider, ask for pointer lock so the drag is
+   * not capped by the edge of the screen - Figma's plugin iframe may not carry
+   * `allow="pointer-lock"`, so treat it as a bonus and carry on without it.
+   */
+  const beginRelative = useCallback((clientX: number) => {
+    accum.current = value;
+    lastX.current = clientX;
+    locked.current = false;
+    if (wrap) {
+      const el = trackRef.current;
+      try {
+        const req = el?.requestPointerLock?.({ unadjustedMovement: true } as PointerLockOptions);
+        void Promise.resolve(req).then(
+          () => { locked.current = document.pointerLockElement === el; },
+          () => { locked.current = false; },
+        );
+      } catch {
+        locked.current = false;
+      }
+    }
+    startDrag();
+  }, [value, wrap, startDrag]);
+
+  useEffect(() => {
+    const release = () => {
+      if (locked.current && document.pointerLockElement) document.exitPointerLock?.();
+      locked.current = false;
+    };
+    window.addEventListener('pointerup', release);
+    return () => window.removeEventListener('pointerup', release);
+  }, []);
 
   // Stepper drag-to-adjust
   const stepperDragStart = useRef<{ x: number; y: number; value: number } | null>(null);
@@ -118,8 +187,10 @@ function ColorSlider({ label, value, max, gradient, suffix, wrap, onChange, hide
           className={`h-4 w-full cursor-pointer select-none touch-none ${round ? 'rounded-full' : 'rounded'}`}
           style={{ background: gradient, boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.1)' }}
           onPointerDown={(e) => {
-            startDrag();
+            // Pressing the track always jumps to that spot, wrapping or not -
+            // what continues afterwards is what differs.
             updateValue(e.clientX);
+            startDrag();
           }}
         />
         {handle === 'ring' ? (
@@ -137,7 +208,7 @@ function ColorSlider({ label, value, max, gradient, suffix, wrap, onChange, hide
             }}
             onPointerDown={(e) => {
               e.preventDefault();
-              startDrag();
+              beginRelative(e.clientX);
             }}
           />
         ) : (
@@ -147,7 +218,7 @@ function ColorSlider({ label, value, max, gradient, suffix, wrap, onChange, hide
             style={{ left: `${pct}%` }}
             onPointerDown={(e) => {
               e.preventDefault();
-              startDrag();
+              beginRelative(e.clientX);
             }}
           >
             <div
@@ -213,7 +284,9 @@ function ColorSlider({ label, value, max, gradient, suffix, wrap, onChange, hide
             </Button>
           )}
         </div>
-        {suffix && (
+        {/* An empty string still reserves the column, so a unitless row (R/G/B)
+            keeps its track the same length as one that carries a unit. */}
+        {suffix !== undefined && (
           <span className="text-xs text-muted-foreground ml-1 w-3">{suffix}</span>
         )}
       </div>}

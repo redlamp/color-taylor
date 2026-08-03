@@ -71,8 +71,8 @@ function selectionPaint() {
   return null;
 }
 
-function postSelection() {
-  const paint = selectionPaint();
+function postSelection(known) {
+  const paint = known === undefined ? selectionPaint() : known;
   figma.ui.postMessage({
     type: 'selection',
     count: figma.currentPage.selection.length,
@@ -263,6 +263,57 @@ function paintKey(hex, opacity) {
   return String(hex).toLowerCase() + '|' + Math.round(opacity * 1000);
 }
 
+/**
+ * The one place that decides whether the UI needs telling.
+ *
+ * Both the poll below and documentchange come through here, so a change is
+ * only ever sent once however it was noticed, and the echo rule is written
+ * down once rather than in each caller.
+ */
+let lastSeen = null;
+
+function pushIfChanged(force) {
+  const count = figma.currentPage.selection.length;
+  const paint = selectionPaint();
+  const colorKey = paint ? paintKey(paint.hex, paint.opacity) : '-';
+  const key = count + '|' + colorKey;
+  if (!force && key === lastSeen) return;
+  lastSeen = key;
+
+  // Our own paint coming back round. Suppress the colour half only: while the
+  // user drags our picker, echoing the round-tripped value back would fight
+  // the drag. A change in how many nodes are selected still has to get through
+  // or the "Selected: N" caption goes stale.
+  if (paint && colorKey === lastWritten) {
+    figma.ui.postMessage({ type: 'selection', count: count, hex: null, opacity: 1 });
+    return;
+  }
+  postSelection(paint);
+}
+
+/**
+ * How the picker follows Figma's own colour picker.
+ *
+ * documentchange is the documented signal, but Figma "will not call the
+ * callback synchronously and will instead batch the updates and send them to
+ * the callback periodically", so on its own it always trails the drag.
+ *
+ * This sandbox cannot fix that by polling: it is a JavaScript VM with no
+ * display and no browser APIs, so there is no setInterval here and no frames
+ * to hang a loop on. The UI iframe has both. So the division is:
+ *
+ *   sandbox  knows when an edit started (documentchange) and can read a paint
+ *   iframe   has requestAnimationFrame, and drives the asking
+ *
+ * documentchange therefore does one extra thing - tell the UI to start asking.
+ * The UI then sends `poll` once per animation frame until the edit goes quiet,
+ * and each of those is answered from the scene graph directly, which is
+ * synchronous and cheap (selectionPaint stops at the first solid paint).
+ */
+function wakeUi() {
+  figma.ui.postMessage({ type: 'wake' });
+}
+
 function onDocumentChange(event) {
   const selected = new Set(figma.currentPage.selection.map((n) => n.id));
   if (selected.size === 0) return;
@@ -275,13 +326,13 @@ function onDocumentChange(event) {
       c.properties.indexOf(prop) !== -1,
   );
   if (!touched) return;
-
-  const paint = selectionPaint();
-  if (paint && lastWritten === paintKey(paint.hex, paint.opacity)) return;
-  postSelection();
+  wakeUi();
+  pushIfChanged(false);
 }
 
-figma.on('selectionchange', postSelection);
+figma.on('selectionchange', function () {
+  pushIfChanged(true);
+});
 
 // documentchange needs documentAccess: "dynamic-page" in the manifest, and the
 // pages loaded first. Registered after the load so a slow document delays the
@@ -300,7 +351,13 @@ figma.ui.onmessage = (msg) => {
 
   switch (msg.type) {
     case 'ready':
-      postSelection();
+      pushIfChanged(true);
+      break;
+
+    // One animation frame's worth of "has it changed?", asked by the UI. The
+    // answer is silence unless it has.
+    case 'poll':
+      pushIfChanged(false);
       break;
 
     case 'apply':
@@ -311,7 +368,7 @@ figma.ui.onmessage = (msg) => {
     // is, rather than immediately overwriting it.
     case 'target':
       target = msg.target === 'stroke' || msg.target === 'none' ? msg.target : 'fill';
-      postSelection();
+      pushIfChanged(true);
       break;
 
     // Figma groups every edit a plugin makes into one undo step. Committing on

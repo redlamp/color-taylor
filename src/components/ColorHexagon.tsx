@@ -89,6 +89,12 @@ interface ColorHexagonProps {
   /** Start Recent and Saved closed - they cost a lot of height in a panel. */
   collapsedSections?: boolean;
   /**
+   * Shape of the Recent/Saved sections. 'flush' drops the card and gives them
+   * the Figma sidebar look: a full-bleed rule above each, content inset by the
+   * host's padding. See CollapsibleSection.
+   */
+  sectionVariant?: 'card' | 'flush';
+  /**
    * Draw the vertical brightness bar beside the hexagon. Off lets a host put
    * brightness on its own horizontal slider, and hands the width the bar was
    * reserving back to the hexagon.
@@ -120,7 +126,8 @@ interface HoveredMarker {
   name: string;
 }
 
-export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, animHolding, onHoverHtmlColor, muted, iconActions, bare, headerLeft, belowStage, collapsedSections, blBar = true, blHandleX = null, blConnector = true, stemRange = null }: ColorHexagonProps) {
+export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, animHolding, onHoverHtmlColor, muted, iconActions, bare, headerLeft, belowStage, collapsedSections, sectionVariant = 'card', blBar = true, blHandleX = null, blConnector = true, stemRange = null }: ColorHexagonProps) {
+  const flushSections = sectionVariant === 'flush';
   // Horizontal extent of the SVG coordinate space. Without the bar the hexagon
   // is the whole picture, so the 50px reserved to its right goes away - and the
   // extent becomes twice CENTER_X, which is what actually puts the hexagon in
@@ -1553,10 +1560,11 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       {belowStage && <div className="w-full">{belowStage}</div>}
 
       {/* Recent Colors + Named Color Match */}
-      <div className="w-full mt-2">
+      <div className={flushSections ? 'w-full section-flush' : 'w-full mt-2'}>
         <CollapsibleSection
           id="recent-colors"
           title="Recent"
+          variant={sectionVariant}
           defaultOpen={!collapsedSections}
           headerRight={
             <div className="flex gap-1">
@@ -1603,10 +1611,11 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       </div>
 
       {/* Saved Colors */}
-      <div className="w-full mt-2">
+      <div className={flushSections ? 'w-full section-flush' : 'w-full mt-2'}>
         <CollapsibleSection
           id="saved-colors"
           title="Saved"
+          variant={sectionVariant}
           defaultOpen={!collapsedSections}
           headerLeft={
             <button

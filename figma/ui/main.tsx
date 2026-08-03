@@ -40,12 +40,16 @@ import {
   hslHueGradient,
   hslSaturationGradient,
   lightnessGradient,
+  redGradient,
+  greenGradient,
+  blueGradient,
   type ColorSpace,
 } from '../../src/utils/sliderGradients';
 import { HSB_TWEEN_MS, hsbAtProgress } from '../../src/utils/colorTween';
 import ColorSlider from '../../src/components/ColorSlider';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Ban } from 'lucide-react';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Ban, Brush, PaintBucket } from 'lucide-react';
 import ColorHexagon from '../../src/components/ColorHexagon';
 // figma.css imports the app's index.css, so this is the only stylesheet entry.
 import './figma.css';
@@ -55,6 +59,17 @@ function post(msg: Record<string, unknown>) {
 }
 
 type PaintTarget = 'fill' | 'stroke' | 'none';
+
+/**
+ * Which slider blocks are on show. Multi-select rather than tabs: these are
+ * four views of one colour, and comparing two models side by side is the point
+ * of the app - a tab strip could only ever show one at a time.
+ */
+const SLIDER_GROUPS = ['RGB', 'HSB', 'HSL', 'A'] as const;
+type SliderGroup = (typeof SLIDER_GROUPS)[number];
+
+/** How long after the last sign of an edit the frame poll keeps running. */
+const HOT_MS = 2000;
 
 const CHECKER =
   'repeating-conic-gradient(rgba(128,128,128,.45) 0% 25%, transparent 0% 50%) 0 0/10px 10px';
@@ -110,6 +125,11 @@ function PluginApp() {
 
   // Live-apply. No button: picking a colour *is* the action - but only picking.
   const isHsl = blMode === 'lightness';
+
+  // Opens on what the panel showed before this control existed: one HS* block
+  // plus alpha. Which of HSB/HSL follows the Bright/Light switch, so the
+  // sliders agree with the hexagon on first paint.
+  const [groups, setGroups] = useState<SliderGroup[]>(() => [isHsl ? 'HSL' : 'HSB', 'A']);
   const paintKey = `${hex}|${alpha}`;
   useEffect(() => {
     if (!userEditRef.current) return;
@@ -198,9 +218,46 @@ function PluginApp() {
           }
         }
     };
+    /**
+     * The frame clock for following Figma's own colour picker.
+     *
+     * The sandbox cannot run this: it is a JavaScript VM with no display, so
+     * it has no setInterval and no frames to hang a loop on. This iframe is a
+     * real browser context, so the asking happens here, on
+     * requestAnimationFrame - the display's actual refresh rate rather than a
+     * number someone picked. On a 120Hz screen it follows at 120Hz.
+     *
+     * It runs only while an edit is in flight. The sandbox says when one
+     * starts (documentchange is late, but it is a reliable "something is
+     * happening"), and every colour that comes back extends the window; a
+     * couple of seconds of quiet and the loop stops. rAF also stands down on
+     * its own when the panel is not being painted, which no interval would.
+     */
+    let hotUntil = 0;
+    let pumpId: number | null = null;
+    const pump = () => {
+      if (performance.now() > hotUntil) {
+        pumpId = null;
+        return;
+      }
+      post({ type: 'poll' });
+      pumpId = requestAnimationFrame(pump);
+    };
+    const wake = () => {
+      hotUntil = performance.now() + HOT_MS;
+      if (pumpId === null) pumpId = requestAnimationFrame(pump);
+    };
+
     const onMessage = (event: MessageEvent) => {
       const msg = event.data?.pluginMessage;
-      if (!msg || msg.type !== 'selection') return;
+      if (!msg) return;
+      if (msg.type === 'wake') {
+        wake();
+        return;
+      }
+      if (msg.type !== 'selection') return;
+      // An incoming colour means the edit is still going: keep asking.
+      if (msg.hex) wake();
       queued = msg;
       if (!frame) frame = requestAnimationFrame(flush);
     };
@@ -209,6 +266,7 @@ function PluginApp() {
     return () => {
       window.removeEventListener('message', onMessage);
       if (frame) cancelAnimationFrame(frame);
+      if (pumpId !== null) cancelAnimationFrame(pumpId);
     };
   }, []);
 
@@ -306,6 +364,7 @@ function PluginApp() {
         iconActions
         bare
         collapsedSections
+        sectionVariant="flush"
         blBar={false}
         blConnector={false}
         stemRange={[2, 4]}
@@ -325,8 +384,12 @@ function PluginApp() {
               }}
             >
               <TabsList>
-                <TabsTrigger value="fill" className="w-12">Fill</TabsTrigger>
-                <TabsTrigger value="stroke" className="w-12">Stroke</TabsTrigger>
+                <TabsTrigger value="fill" className="w-9" aria-label="Fill">
+                  <PaintBucket className="!size-3.5" />
+                </TabsTrigger>
+                <TabsTrigger value="stroke" className="w-9" aria-label="Stroke">
+                  <Brush className="!size-3.5" />
+                </TabsTrigger>
                 {/* Browse without painting. The paste problem is fixed at
                     source - selecting never applies now - but an explicit off
                     is still worth having while picking against a reference. */}
@@ -341,61 +404,176 @@ function PluginApp() {
           </div>
         }
         belowStage={
-          <div className="flex flex-col gap-1 px-1">
+          <div className="flex flex-col gap-3 px-1">
+            <ToggleGroup
+              multiple
+              value={groups}
+              onValueChange={(v) => setGroups(v as SliderGroup[])}
+              className="self-start h-7"
+            >
+              {SLIDER_GROUPS.map((g) => (
+                <ToggleGroupItem key={g} value={g} className="px-2.5 text-xs">
+                  {g}
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
+
             {/*
-              Which three channels these are follows the HSB/HSL switch, and they
-              have to move together: HSL's hue and saturation are not HSB's - the
-              same colour has a different S in each model - so reading one channel
-              from one model and another from the other would make them fight.
+              A rule between blocks, drawn by the block below rather than as a
+              separate element: the blocks are conditional, so a standalone <hr>
+              would need to know which sibling is currently first. :first-child
+              already knows - React renders nothing at all for a block that is
+              off, so the first one on screen is the first one in the DOM.
+
+              One block per model, never a blend of two. HSL's hue and saturation
+              are not HSB's - the same colour has a different S in each - so a
+              block reads and writes entirely within its own model. Showing both
+              at once is fine, and is why this is a toggle group: each stays
+              self-consistent, and edits round-trip through the shared colour.
             */}
-            <ColorSlider
-              label={'H'}
-              value={Math.round(isHsl ? hsl.h : hsb.h)}
-              max={360}
-              suffix={'°'}
-              gradient={isHsl ? hslHueGradient(hsl.s, hsl.l, colorSpace) : hueGradient(hsb.s, hsb.b, colorSpace)}
-              onChange={(v) => (isHsl ? onHslChange('h', v) : onHsbChange({ h: v }))}
-              stepper="value"
-              round
-              handle="ring"
-              handleFill={hex}
-            />
-            <ColorSlider
-              label={'S'}
-              value={Math.round(isHsl ? hsl.s : hsb.s)}
-              max={100}
-              suffix={'%'}
-              gradient={isHsl ? hslSaturationGradient(hsl.h, hsl.l, colorSpace) : saturationGradient(hsb.h, hsb.b, colorSpace)}
-              onChange={(v) => (isHsl ? onHslChange('s', v) : onHsbChange({ s: v }))}
-              stepper="value"
-              round
-              handle="ring"
-              handleFill={hex}
-            />
-            <ColorSlider
-              label={isHsl ? 'L' : 'B'}
-              value={Math.round(isHsl ? hsl.l : hsb.b)}
-              max={100}
-              suffix={'%'}
-              gradient={isHsl ? lightnessGradient(hsl.h, hsl.s, colorSpace) : brightnessGradient(hsb.h, hsb.s, colorSpace)}
-              onChange={(v) => (isHsl ? onHslChange('l', v) : onHsbChange({ b: v }))}
-              stepper="value"
-              round
-              handle="ring"
-              handleFill={hex}
-            />
-            <ColorSlider
-              label={'A'}
-              value={alpha}
-              max={100}
-              suffix={'%'}
-              gradient={alphaGradient(rgb)}
-              onChange={onAlphaChange}
-              stepper="value"
-              round
-              handle="ring"
-              handleFill={alphaSwatch(rgb, alpha)}
-            />
+            <div className="flex flex-col">
+            {groups.includes('RGB') && (
+              <div className="flex flex-col gap-1 [&:not(:first-child)]:mt-3 [&:not(:first-child)]:border-t [&:not(:first-child)]:border-input [&:not(:first-child)]:pt-3">
+                <ColorSlider
+                  label={'R'}
+                  value={rgb.r}
+                  max={255}
+                  suffix={''}
+                  gradient={redGradient(rgb.g, rgb.b)}
+                  onChange={(v) => onRgbChange('r', v)}
+                  stepper="value"
+                  round
+                  handle="ring"
+                  handleFill={hex}
+                />
+                <ColorSlider
+                  label={'G'}
+                  value={rgb.g}
+                  max={255}
+                  suffix={''}
+                  gradient={greenGradient(rgb.r, rgb.b)}
+                  onChange={(v) => onRgbChange('g', v)}
+                  stepper="value"
+                  round
+                  handle="ring"
+                  handleFill={hex}
+                />
+                <ColorSlider
+                  label={'B'}
+                  value={rgb.b}
+                  max={255}
+                  suffix={''}
+                  gradient={blueGradient(rgb.r, rgb.g)}
+                  onChange={(v) => onRgbChange('b', v)}
+                  stepper="value"
+                  round
+                  handle="ring"
+                  handleFill={hex}
+                />
+              </div>
+            )}
+
+            {groups.includes('HSB') && (
+              <div className="flex flex-col gap-1 [&:not(:first-child)]:mt-3 [&:not(:first-child)]:border-t [&:not(:first-child)]:border-input [&:not(:first-child)]:pt-3">
+                <ColorSlider
+                  label={'H'}
+                  value={Math.round(hsb.h)}
+                  max={360}
+                  suffix={'°'}
+                  wrap
+                  gradient={hueGradient(hsb.s, hsb.b, colorSpace)}
+                  onChange={(v) => onHsbChange({ h: v })}
+                  stepper="value"
+                  round
+                  handle="ring"
+                  handleFill={hex}
+                />
+                <ColorSlider
+                  label={'S'}
+                  value={Math.round(hsb.s)}
+                  max={100}
+                  suffix={'%'}
+                  gradient={saturationGradient(hsb.h, hsb.b, colorSpace)}
+                  onChange={(v) => onHsbChange({ s: v })}
+                  stepper="value"
+                  round
+                  handle="ring"
+                  handleFill={hex}
+                />
+                <ColorSlider
+                  label={'B'}
+                  value={Math.round(hsb.b)}
+                  max={100}
+                  suffix={'%'}
+                  gradient={brightnessGradient(hsb.h, hsb.s, colorSpace)}
+                  onChange={(v) => onHsbChange({ b: v })}
+                  stepper="value"
+                  round
+                  handle="ring"
+                  handleFill={hex}
+                />
+              </div>
+            )}
+
+            {groups.includes('HSL') && (
+              <div className="flex flex-col gap-1 [&:not(:first-child)]:mt-3 [&:not(:first-child)]:border-t [&:not(:first-child)]:border-input [&:not(:first-child)]:pt-3">
+                <ColorSlider
+                  label={'H'}
+                  value={Math.round(hsl.h)}
+                  max={360}
+                  suffix={'°'}
+                  wrap
+                  gradient={hslHueGradient(hsl.s, hsl.l, colorSpace)}
+                  onChange={(v) => onHslChange('h', v)}
+                  stepper="value"
+                  round
+                  handle="ring"
+                  handleFill={hex}
+                />
+                <ColorSlider
+                  label={'S'}
+                  value={Math.round(hsl.s)}
+                  max={100}
+                  suffix={'%'}
+                  gradient={hslSaturationGradient(hsl.h, hsl.l, colorSpace)}
+                  onChange={(v) => onHslChange('s', v)}
+                  stepper="value"
+                  round
+                  handle="ring"
+                  handleFill={hex}
+                />
+                <ColorSlider
+                  label={'L'}
+                  value={Math.round(hsl.l)}
+                  max={100}
+                  suffix={'%'}
+                  gradient={lightnessGradient(hsl.h, hsl.s, colorSpace)}
+                  onChange={(v) => onHslChange('l', v)}
+                  stepper="value"
+                  round
+                  handle="ring"
+                  handleFill={hex}
+                />
+              </div>
+            )}
+
+            {groups.includes('A') && (
+              <div className="flex flex-col gap-1 [&:not(:first-child)]:mt-3 [&:not(:first-child)]:border-t [&:not(:first-child)]:border-input [&:not(:first-child)]:pt-3">
+                <ColorSlider
+                  label={'A'}
+                  value={alpha}
+                  max={100}
+                  suffix={'%'}
+                  gradient={alphaGradient(rgb)}
+                  onChange={onAlphaChange}
+                  stepper="value"
+                  round
+                  handle="ring"
+                  handleFill={alphaSwatch(rgb, alpha)}
+                />
+              </div>
+            )}
+            </div>
           </div>
         }
         />
