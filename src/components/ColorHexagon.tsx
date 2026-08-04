@@ -167,7 +167,30 @@ function parseSaved(raw: unknown): SavedSlot[] {
 const DEFAULT_RECENT = ['#ff0000', '#ffff00', '#00ff00', '#00ffff', '#0000ff', '#ff00ff', '#ffffff', '#808080', '#000000'];
 
 const ACTION_BTN_CLASS =
-  'px-2 py-0.5 text-xs rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none inline-flex items-center';
+  'px-2 py-0.5 text-xs rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none inline-flex items-center justify-center';
+
+/**
+ * Header controls hold a width instead of tracking their content.
+ *
+ * All three change what they say: Sort cycles five labels, and the two
+ * confirming actions swap to "Sure?" when armed - from an icon, in the plugin,
+ * which is the largest jump of the lot. Left to size themselves they shuffle
+ * each other sideways on every click.
+ *
+ * Measured in both surfaces, then rounded up to the 4px spacing step:
+ *
+ *                widest content    plugin (Inter 11)   app (Barlow)
+ *     Sort       "Sort: Bright"         72px              98px
+ *     action     "Defaults"/"Sure?"     43px              74px
+ *
+ * Narrow hosts get the tighter pair rather than one shared width. The app's
+ * numbers in a 300px panel would leave the section title nowhere to go, and
+ * the plugin never renders the wide labels anyway - its actions are icons.
+ * These are floors, not fixed widths: an unexpected font should push a button
+ * wider rather than clip its label.
+ */
+const SORT_BTN_W = { narrow: 'min-w-19', wide: 'min-w-26' };
+const ACTION_BTN_W = { narrow: 'min-w-12', wide: 'min-w-20' };
 
 /**
  * Header action for the Recent / Saved sections. Renders its label as text, or
@@ -180,6 +203,7 @@ function ActionButton({
   iconOnly,
   onClick,
   confirm,
+  onDropSwatch,
 }: {
   label: string;
   icon: ComponentType<{ className?: string }>;
@@ -187,8 +211,15 @@ function ActionButton({
   onClick: (e: ReactMouseEvent) => void;
   /** Require a second click. For the actions that throw away saved work. */
   confirm?: boolean;
+  /**
+   * Accept a swatch dragged onto the button. Deliberately skips `confirm`:
+   * dropping one color on the bin is already a deliberate, aimed gesture, and
+   * it names its own target - unlike Clear, which takes everything.
+   */
+  onDropSwatch?: () => void;
 }) {
   const [armed, setArmed] = useState(false);
+  const [dropOver, setDropOver] = useState(false);
   const disarm = useRef<number | null>(null);
 
   useEffect(() => () => {
@@ -214,12 +245,36 @@ function ActionButton({
   const shown = armed ? 'Sure?' : label;
   return (
     <button
-      className={ACTION_BTN_CLASS}
-      data-armed={armed || undefined}
+      className={`${ACTION_BTN_CLASS} ${iconOnly ? ACTION_BTN_W.narrow : ACTION_BTN_W.wide} transition-transform duration-100`}
+      // data-armed and data-drop-over share the danger styling: both mean the
+      // next thing that happens removes a color.
+      data-armed={armed || dropOver || undefined}
+      style={dropOver ? {
+        // Figma's danger token in the plugin, shadcn's in the app. The ring
+        // reads currentColor so it follows whichever one resolved.
+        color: 'var(--figma-color-text-danger, var(--destructive))',
+        transform: 'scale(1.12)',
+        boxShadow: '0 0 0 2px currentColor',
+      } : undefined}
       title={armed ? `${label} - click again to confirm` : label}
       aria-label={armed ? `Confirm ${label.toLowerCase()}` : label}
       onClick={handle}
       onBlur={() => setArmed(false)}
+      onDragOver={onDropSwatch && ((e) => {
+        // preventDefault on dragover is what marks an element as a drop target;
+        // without it the drop never fires and the drag reads as rejected.
+        e.preventDefault();
+        e.stopPropagation();
+        e.dataTransfer.dropEffect = 'move';
+        if (!dropOver) setDropOver(true);
+      })}
+      onDragLeave={onDropSwatch && (() => setDropOver(false))}
+      onDrop={onDropSwatch && ((e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setDropOver(false);
+        onDropSwatch();
+      })}
     >
       {iconOnly && !armed ? <Icon className="!size-3.5" /> : shown}
     </button>
@@ -329,6 +384,13 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   const [selectedSavedIdx, setSelectedSavedIdx] = useState<number | null>(null);
   const [savedSortMode, setSavedSortMode] = useState<SortMode>('user');
   const [draggedUserIdx, setDraggedUserIdx] = useState<number | null>(null);
+  /**
+   * A Recent swatch being dragged toward Saved. Separate from draggedUserIdx
+   * rather than folded into one drag-source union, because the two behave
+   * differently at every step: this one copies instead of moving, leaves its
+   * source untouched, and has no slot to fall back to if the drop misses.
+   */
+  const [draggedRecent, setDraggedRecent] = useState<Swatch | null>(null);
   const [dragHover, setDragHover] = useState<{ displayIdx: number; zone: 'left' | 'center' | 'right' } | null>(null);
   const [touchArmedUserIdx, setTouchArmedUserIdx] = useState<number | null>(null);
   const touchDrag = useRef<{ startX: number; startY: number; userIdx: number; armed: boolean } | null>(null);
@@ -455,6 +517,24 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     setSavedSortMode('user');
     setSelectedSavedIdx(null);
   }, [savedSlots, displaySlots, triggerPoof, playPop]);
+
+  /**
+   * Copy a Recent color into a Saved slot. Recent keeps its own.
+   *
+   * Adopts the displayed order first, the same way clicking an empty slot
+   * does, so the color lands in the slot that was under the pointer rather
+   * than wherever that position maps to in the unsorted array.
+   */
+  const copyRecentToSaved = useCallback((swatch: Swatch, displayIdx: number) => {
+    const flattened: SavedSlot[] = displaySlots.map((d) => d.slot);
+    if (displayIdx < 0 || displayIdx >= flattened.length) return;
+    flattened[displayIdx] = { hex: swatch.hex, alpha: swatch.alpha, addedAt: Date.now() };
+    setSavedSlots(fitSaved(flattened));
+    setSavedSortMode('user');
+    setSelectedSavedIdx(displayIdx);
+    playSave();
+    if (navigator.vibrate) navigator.vibrate(10);
+  }, [displaySlots, playSave]);
 
   // Refs keyed by COLOR identity (addedAt timestamp), not slot index, so we
   // can track a color across position changes for FLIP animation.
@@ -1592,8 +1672,23 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                     background: entry ? swatchBackground(entry.hex, entry.alpha) : 'transparent',
                     boxShadow: i === selectedRecentIdx && color ? '0 0 0 2px white' : 'none',
                     border: i === selectedRecentIdx && color ? '2px solid transparent' : '1px solid var(--input)',
+                    opacity: draggedRecent && entry && draggedRecent.hex === entry.hex && draggedRecent.alpha === entry.alpha ? 0.4 : 1,
                   }}
                   disabled={!color}
+                  // Drag a recent color onto a Saved slot to keep it. This
+                  // copies - Recent is a log of where you have been and should
+                  // not lose an entry because you filed it somewhere.
+                  draggable={!!entry}
+                  onDragStart={(e) => {
+                    if (!entry) { e.preventDefault(); return; }
+                    setDraggedRecent(entry);
+                    e.dataTransfer.effectAllowed = 'copy';
+                    e.dataTransfer.setData('text/plain', entry.hex);
+                  }}
+                  onDragEnd={() => {
+                    setDraggedRecent(null);
+                    setDragHover(null);
+                  }}
                   aria-label={color ? `Select ${color}` : 'Empty slot'}
                   onClick={() => {
                     if (entry && color && onAnimateToHsb) {
@@ -1622,17 +1717,18 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           title="Saved"
           variant={sectionVariant}
           defaultOpen={!collapsedSections}
-          headerLeft={
-            <button
-              className="px-2 py-0.5 text-xs rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none tabular-nums"
-              onClick={(e) => { e.stopPropagation(); cycleSavedSort(); }}
-              aria-label={`Sort by ${SORT_LABELS[savedSortMode]} (click to cycle)`}
-            >
-              Sort: {SORT_LABELS[savedSortMode]}
-            </button>
-          }
           headerRight={
             <div className="flex gap-1">
+              {/* Sort sits with the other header actions rather than opposite
+                  them. It is the only one that reads rather than destroys, so
+                  it leads the group and the two confirming actions follow. */}
+              <button
+                className={`${ACTION_BTN_CLASS} tabular-nums ${iconActions ? SORT_BTN_W.narrow : SORT_BTN_W.wide}`}
+                onClick={(e) => { e.stopPropagation(); cycleSavedSort(); }}
+                aria-label={`Sort by ${SORT_LABELS[savedSortMode]} (click to cycle)`}
+              >
+                Sort: {SORT_LABELS[savedSortMode]}
+              </button>
               <ActionButton
                 label="Defaults"
                 icon={RefreshCw}
@@ -1651,6 +1747,17 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                 iconOnly={iconActions}
                 confirm
                 onClick={(e) => { e.stopPropagation(); setSavedSlots(Array(SAVED_BANK).fill(null)); setSelectedSavedIdx(null); }}
+                // A second way to delete one color, alongside dragging it out
+                // of the grid. Marking the drop as handled is what stops
+                // onDragEnd's drop-outside path deleting a second time - by
+                // then the indices have shifted and it would take a different
+                // color with it.
+                onDropSwatch={draggedUserIdx !== null ? () => {
+                  desktopDroppedRef.current = true;
+                  deleteSavedAt(draggedUserIdx);
+                  setDraggedUserIdx(null);
+                  setDragHover(null);
+                } : undefined}
               />
             </div>
           }
@@ -1693,10 +1800,14 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                     e.dataTransfer.setData('text/plain', String(userIdx));
                   }}
                   onDragOver={(e) => {
-                    if (draggedUserIdx === null) return;
+                    if (draggedUserIdx === null && !draggedRecent) return;
                     e.preventDefault();
-                    e.dataTransfer.dropEffect = 'move';
-                    const hover = computeDragHover(e.clientX, e.clientY);
+                    e.dataTransfer.dropEffect = draggedRecent ? 'copy' : 'move';
+                    let hover = computeDragHover(e.clientX, e.clientY);
+                    // A Recent color has no position in Saved to slide out of,
+                    // so insert-between means nothing for it: every drop is
+                    // "put it in this slot".
+                    if (hover && draggedRecent) hover = { ...hover, zone: 'center' };
                     if (hover && (hover.displayIdx !== dragHover?.displayIdx || hover.zone !== dragHover?.zone)) {
                       setDragHover(hover);
                     }
@@ -1707,10 +1818,16 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                   onDrop={(e) => {
                     e.preventDefault();
                     const from = draggedUserIdx;
+                    const recent = draggedRecent;
                     desktopDroppedRef.current = true;
                     const hover = computeDragHover(e.clientX, e.clientY);
                     setDraggedUserIdx(null);
+                    setDraggedRecent(null);
                     setDragHover(null);
+                    if (recent) {
+                      copyRecentToSaved(recent, hover ? hover.displayIdx : displayIdx);
+                      return;
+                    }
                     if (from === null) return;
                     applyDragHoverDrop(from, hover);
                   }}

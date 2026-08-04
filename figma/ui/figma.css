@@ -403,9 +403,11 @@ body {
   padding-bottom: 8px;
 }
 
-/* An armed destructive action. Wider than the icon it replaces, so the row
-   does not jump, and coloured to say what is about to happen. */
+/* An armed destructive action, colored to say what is about to happen.
+   This used to also set min-width: 44px so the row would not jump when an icon
+   became "Sure?". ActionButton reserves that width in every state now, and
+   44px undercut it - the rule is unlayered, so it won on specificity and the
+   button got *narrower* on arming: the jump it was added to prevent. */
 .figma-root [data-armed] {
-  min-width: 44px;
   color: var(--figma-color-text-danger, #f24822);
 }
