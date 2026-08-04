@@ -6,7 +6,9 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist', '.remember']),
+  // .obsidian holds the wiki's vault config and any community plugins the
+  // vault has installed - vendored JS we neither wrote nor ship.
+  globalIgnores(['dist', '.remember', '**/.obsidian']),
   {
     files: ['*.config.{js,ts}'],
     languageOptions: {
