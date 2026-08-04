@@ -8,15 +8,15 @@ tags:
 
 **2026-08-03, updated 2026-08-04.** What stands between the current state and a Figma Community listing.
 
-**Where it stands:** the listing assets, copy and privacy position are done and committed. Two things remain, and neither is code - running the test plan inside real Figma, and creating the plugin in the Figma desktop app to get a real id. Everything else on this page is either finished or waits on those two.
+**Where it stands:** listing assets, copy and the privacy statement are done and committed, and the plugin has been running in real Figma without problems. One hard blocker remains and it is not code - the plugin has to be created in the Figma desktop app to get a real id. A Figma template file for the listing artwork is at https://www.figma.com/design/5WHUkgGbmdWXqUylJqbmPp
 
 The plugin works and has been gate-verified, but **every test so far has been synthetic Chromium against the built `ui.html`**. Nothing has been confirmed inside real Figma. That is the single largest gap and it gates everything else.
 
 ## Stage 1 — Confirm in real Figma
 
-Work through [[test-plan-2026-08-04-figma-plugin]]. Until this passes, treat all plugin behavior as unverified regardless of what the harness reports.
+**2026-08-04: the user reports running it in Figma with no problems.** That clears the largest unknown. The test plan is still the record of what has been checked deliberately versus what has merely not gone wrong, so the items below are worth a pass before publishing rather than after.
 
-The items most likely to behave differently in Figma than in Chromium:
+Work through [[test-plan-2026-08-04-figma-plugin]]. The items most likely to behave differently in Figma than in Chromium:
 
 - **`clientStorage` persistence** — tested against a `localStorage`-throwing stub, never against Figma
 - **Pointer lock on the wrapping hue slider** — the plugin iframe may not carry `allow="pointer-lock"`; the code treats it as a bonus, but the fallback path is untested in situ
@@ -25,11 +25,9 @@ The items most likely to behave differently in Figma than in Chromium:
 - **Theme sync** — `figma-dark` mirroring, flipping mid-session
 - **Undo granularity** — one entry per gesture
 
-## Stage 2 — Decide the scope of the listing
+## Stage 2 — Scope of the listing
 
-Two questions to answer before writing any listing copy.
-
-**Is this "recreating core Figma functionality"?** The review guidelines list that as a rejection reason, and Figma ships a color picker. The defensible position is that this is a different *color model* - a hexagon showing the RGB/HSB/HSL relationship, with harmonies and a persistent swatch library - not a reimplementation of their picker. That distinction has to be visible in the listing's first sentence and first screenshot, not buried. Worth deciding deliberately rather than discovering at review.
+**Positioning: settled 2026-08-04.** The plugin is a tool for understanding how RGB and HSB/HSL interact with each other. That is what it is for, and it is what the listing leads with. An earlier draft of this note treated "recreating core Figma functionality" as a live risk to be defended against; the user's call was to drop that framing, and it is dropped - the copy now describes the purpose directly rather than arguing against an objection nobody has raised.
 
 **Which editors?** `editorType` is `["figma"]` today. Slides and Buzz would plausibly work and would widen the audience, but each needs testing before being claimed.
 

@@ -4,8 +4,9 @@
  *
  *   bun run figma/brand/make-assets.mjs
  *
- * Outputs icon-128.png and cover-1920x960.png next to this file. Both are the
- * sizes Figma's publish modal asks for. Committed so the listing can be
+ * Outputs icon-128.png and cover-1920x1080.png next to this file. Both are the
+ * sizes Figma's publish modal recommends - 128 square for the icon, 16:9 for
+ * the thumbnail, which is the one image the modal actually requires. Committed so the listing can be
  * refreshed without a browser, but regenerate rather than editing by hand.
  *
  * Needs Playwright, which the repo already has for the e2e specs - the canvas
@@ -112,20 +113,22 @@ save('icon-128.png', await page.evaluate(({ src }) => {
   return c.toDataURL('image/png');
 }, { src: DRAW.toString() }));
 
-// --- cover: 1920x960, hexagon left, wordmark right -------------------------
-save('cover-1920x960.png', await page.evaluate(({ src }) => {
+// --- thumbnail: 1920x1080, hexagon left, wordmark right --------------------
+save('cover-1920x1080.png', await page.evaluate(({ src }) => {
   const draw = new Function('return ' + src)();
-  const W = 1920, H = 960;
-  const c = draw(W, H, 640, H / 2, 330, '#2c2c2c', 0);
+  // 1920x1080 is what the publish modal recommends for the thumbnail, and the
+  // thumbnail is the one required image. 16:9, not 2:1.
+  const W = 1920, H = 1080;
+  const c = draw(W, H, 640, H / 2, 360, '#2c2c2c', 0);
   const ctx = c.getContext('2d');
   ctx.fillStyle = '#ffffff';
   ctx.font = '600 104px Inter, "Segoe UI", system-ui, sans-serif';
   ctx.textBaseline = 'alphabetic';
-  ctx.fillText('Color Taylor', 1080, 452);
+  ctx.fillText('Color Taylor', 1112, 512);
   ctx.fillStyle = 'rgba(255,255,255,0.62)';
   ctx.font = '400 42px Inter, "Segoe UI", system-ui, sans-serif';
-  ctx.fillText('See how RGB, HSB and HSL', 1080, 536);
-  ctx.fillText('describe the same color.', 1080, 592);
+  ctx.fillText('See how RGB, HSB and HSL', 1112, 596);
+  ctx.fillText('describe the same color.', 1112, 652);
   return c.toDataURL('image/png');
 }, { src: DRAW.toString() }));
 

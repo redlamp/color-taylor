@@ -10,6 +10,7 @@ Every `notes/decision-*.md`, newest first. Each note records what was decided, w
 - [[decision-clientstorage-swatch-seam]] — `localStorage` is unusable in a null-origin iframe; the seam that fixed persistence
 - [[decision-frame-clocked-follow]] — the sandbox has no clock, so the iframe drives polling; revised to `nodechange`
 - [[decision-content-fit-height]] — height has exactly one source, and the two things that forbids
+- [[decision-figma-listing-assets]] — icon and thumbnail generated from the app's own hexagon math, so they cannot drift
 
 ## Shared app + plugin
 
