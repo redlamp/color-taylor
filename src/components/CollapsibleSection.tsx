@@ -41,11 +41,24 @@ export default function CollapsibleSection({ id, title, level = 'h3', defaultOpe
 
   return (
     <div id={id} className={`flex flex-col gap-1.5 ${shell} ${extraClass || ''}`}>
+      {/* The hit area reaches back over the shell's own padding.
+          Left to itself the row is only as tall as its text, so the band
+          between the section rule and the title looked like header and did
+          nothing when clicked. Negative margin plus matching padding puts
+          those pixels inside the button without moving anything. */}
       <div
         role="button"
         tabIndex={0}
         aria-expanded={open}
-        className={`flex items-center gap-1.5 cursor-pointer select-none ${flush ? 'h-8' : ''}`}
+        // relative z-10: the hexagon's SVG box is taller than its stage and
+        // overhangs the top ~10px of whatever follows it. That is the exact
+        // band the negative margin above just claimed, so without a stacking
+        // context the SVG keeps winning the hit test and the header only
+        // *looks* clickable there. No visual change - the header has no
+        // background of its own.
+        className={`relative z-10 flex items-center gap-1.5 cursor-pointer select-none ${
+          flush ? 'h-8 -mt-2 pt-2 box-content' : level === 'h3' ? '-mt-2.5 -mx-2.5 px-2.5 pt-2.5' : ''
+        }`}
         onClick={() => setOpen((o) => !o)}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
