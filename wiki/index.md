@@ -24,6 +24,7 @@ Top-level Map of Content. See `CLAUDE.md` in this folder for conventions.
 
 `wiki/daily/YYYY-MM-DD.md`. Dailies before 2026-08-01 were reconstructed from git history on 2026-08-03 and are marked as such.
 
+- [[2026-08-04]] — Saved grows in banks of 12, header hit area
 - [[2026-08-03]] — duplicate ids, guidelines audit, swatch persistence, this wiki
 - [[2026-08-02]] — west-edge resize settles; following Figma's own picker
 - [[2026-08-01]] — the plugin exists

@@ -14,6 +14,7 @@ Every `notes/decision-*.md`, newest first. Each note records what was decided, w
 ## Shared app + plugin
 
 - [[decision-scoped-slider-ids]] — slider ids namespaced by color model; fixed three duplicate-id collisions and two ambiguous accessible names
+- [[decision-saved-grows-in-banks]] — Saved grows a row of 12 at a time to a ceiling of 36; size derived from content, not stored
 - [[decision-alpha-in-swatch-identity]] — a swatch is `{hex, alpha}`, not a color with a side map
 - [[decision-audio-as-optional-module]] — audio is a loadable module, separated on principle rather than for bytes
 

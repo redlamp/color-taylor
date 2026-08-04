@@ -29,4 +29,4 @@ Alpha rides the same clock as the color tween rather than snapping. It had its o
 
 ## Consequence
 
-12 slots fill faster now that transparency variants are distinct swatches - which is the argument in issue [#64](https://github.com/redlamp/color-taylor/issues/64).
+Slots fill faster now that transparency variants are distinct swatches, which was the argument in issue [#64](https://github.com/redlamp/color-taylor/issues/64) - resolved 2026-08-04 by [[decision-saved-grows-in-banks]].

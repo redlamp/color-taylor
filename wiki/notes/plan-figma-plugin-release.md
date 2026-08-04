@@ -45,7 +45,6 @@ Two questions to answer before writing any listing copy.
 - **Silent failure on locked layers.** `applyPaint` swallows write errors per node, because it runs on every drag frame. If *every* selected node rejects the write the user gets no feedback at all. A single `figma.notify` on `commit` when nothing landed would fix it; not done.
 - **Keyboard operability.** The slider track is `role="slider"` with no `tabIndex`. The numeric input beside it is fully keyboard-operable, so there is a path - but not on the track itself, and not at all when `stepper="none"` (presentation view only).
 - **Color variables and styles binding.** Not implemented.
-- Issue [#64](https://github.com/redlamp/color-taylor/issues/64) — more than 12 saved swatches.
 
 ## Sources
 

@@ -89,6 +89,12 @@ The wrapping hue drag asks for pointer lock. The plugin iframe may not carry `al
 7. [ ] Clicking a swatch restores both its color and its alpha, tweening together rather than the alpha snapping.
 8. [ ] Scroll wheel over the panel scrolls the panel (it adjusts brightness in the app — the plugin must differ here).
 9. [ ] The scrollbar is grabbable, and grabbing near it doesn't trigger the resize cursor.
+10. [ ] Saved starts at 12 slots. Filling the last free one adds a row; keep going and it caps at 36 (6 rows narrow, 3 wide). Deleting back down drops the row again.
+11. [ ] Cycle Sort through all five labels and arm both Defaults and Clear. No button changes width, and none of them shove the others sideways.
+12. [ ] Drag a saved color onto the trash: it turns red and grows, and dropping deletes exactly that color (not two).
+13. [ ] Drag a color out of the grid entirely - still deletes, as before.
+14. [ ] Drag a Recent color onto a Saved slot: it copies in, and Recent keeps its own. Dropping on a filled slot replaces it; there are no insert-between markers for this drag.
+15. [ ] Clicking anywhere in the Recent/Saved header band - including the padding above the title - opens and closes the section, and clicking Sort/Defaults/Clear does not.
 
 ---
 
@@ -100,5 +106,4 @@ Do not re-report these.
 - **The slider track isn't keyboard-focusable.** `role="slider"` with no `tabIndex`. The numeric input beside it is fully operable, so a keyboard path exists.
 - **`manifest.json` id is `color-taylor-local-dev`** — correct for local development, replaced at publish.
 - **Color variables / styles binding** — not implemented.
-- **12 saved slots** — [#64](https://github.com/redlamp/color-taylor/issues/64).
 - **Duplicate DOM ids** — fixed and verified 2026-08-03 ([[decision-scoped-slider-ids]]). Nothing to test by hand.
