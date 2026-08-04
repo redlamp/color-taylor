@@ -64,8 +64,55 @@ export type SavedSlot = { hex: string; alpha: number; addedAt: number } | null;
 export const RECENT_KEY = 'color-taylor-recent';
 export const SAVED_KEY = 'color-taylor-saved';
 
-/** How many Saved slots exist. See issue #64 about making this adjustable. */
-const SAVED_SLOTS = 12;
+/**
+ * Saved grows a row at a time instead of being a fixed 12 (issue #64).
+ *
+ * The bank is 12 because both breakpoints have to come out even: the grid is
+ * 6 columns narrow and 12 wide, so a bank is two rows or one. Growing by 6
+ * would leave a half-empty row at the 12-column breakpoint, which is the thing
+ * a fixed grid was avoiding in the first place. 36 is the ceiling - 3 rows
+ * wide, 6 narrow. Past that the honest answer is Figma styles, not more slots.
+ */
+const SAVED_BANK = 12;
+const SAVED_MAX = 36;
+/** Free slots to keep available. The next bank opens only when the last one fills. */
+const SAVED_MIN_FREE = 1;
+
+/** Pad or trim to `size`, never dropping a filled slot. */
+function resizeSaved(slots: SavedSlot[], size: number): SavedSlot[] {
+  if (size === slots.length) return slots;
+  if (size > slots.length) return slots.concat(Array(size - slots.length).fill(null));
+  return slots.slice(0, size);
+}
+
+/** Index of the last filled slot, or -1. Not the same as the count: the user
+ *  can drag colors apart and leave gaps, and those gaps have to survive. */
+function lastFilled(slots: SavedSlot[]): number {
+  for (let i = slots.length - 1; i >= 0; i--) if (slots[i]) return i;
+  return -1;
+}
+
+/**
+ * The size Saved should be for what it holds: enough banks to hold every
+ * color and still leave SAVED_MIN_FREE slots open.
+ *
+ * Derived rather than stored, so growing and shrinking are the same rule read
+ * in two directions and cannot disagree. Shrinking falls out of it: delete
+ * enough and the trailing bank goes away on its own, with no second code path
+ * to keep in step.
+ *
+ * One transition per bank, and it is symmetric: the save that fills the last
+ * free slot opens the next bank, and deleting that same color closes it again.
+ * Nothing can oscillate, because the size is a pure function of the contents
+ * and the contents only change when the user acts.
+ */
+function fitSaved(slots: SavedSlot[]): SavedSlot[] {
+  const filled = slots.filter(Boolean).length;
+  const last = lastFilled(slots);
+  let size = SAVED_BANK;
+  while (size < SAVED_MAX && (last >= size || size - filled < SAVED_MIN_FREE)) size += SAVED_BANK;
+  return resizeSaved(slots, size);
+}
 
 function toSwatch(v: unknown): Swatch {
   if (typeof v === 'string') return { hex: v, alpha: legacyAlpha(v) };
@@ -75,8 +122,7 @@ function toSwatch(v: unknown): Swatch {
 
 function defaultSaved(): SavedSlot[] {
   const slots: SavedSlot[] = DEFAULT_RECENT.map((hex, i) => ({ hex, alpha: 100, addedAt: -(i + 1) }));
-  while (slots.length < SAVED_SLOTS) slots.push(null);
-  return slots;
+  return fitSaved(slots);
 }
 
 /**
@@ -92,7 +138,7 @@ function parseRecent(raw: unknown): Swatch[] {
 function parseSaved(raw: unknown): SavedSlot[] {
   if (!Array.isArray(raw)) return defaultSaved();
   const seen = new Set<number>();
-  return raw.map((v: unknown, i: number) => {
+  const slots: SavedSlot[] = raw.map((v: unknown, i: number) => {
     if (!v) return null;
     const stored = typeof v === 'string'
       ? { hex: v, addedAt: -(i + 1) }
@@ -107,6 +153,15 @@ function parseSaved(raw: unknown): SavedSlot[] {
     seen.add(slot.addedAt);
     return slot;
   });
+  // The stored length is the capacity, so it has to be squared up on the way
+  // in: data written before Saved could grow is 12 long, and a hand-edited or
+  // truncated store could be any length at all.
+  const size = Math.max(
+    SAVED_BANK,
+    Math.min(SAVED_MAX, Math.ceil(slots.length / SAVED_BANK) * SAVED_BANK),
+    Math.ceil((lastFilled(slots) + 1) / SAVED_BANK) * SAVED_BANK,
+  );
+  return resizeSaved(slots, size);
 }
 
 const DEFAULT_RECENT = ['#ff0000', '#ffff00', '#00ff00', '#00ffff', '#0000ff', '#ff00ff', '#ffffff', '#808080', '#000000'];
@@ -396,7 +451,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     const displayIdx = displaySlots.findIndex((d) => d.userIdx === userIdx);
     const flattened: SavedSlot[] = displaySlots.map((d) => d.slot);
     if (displayIdx >= 0) flattened[displayIdx] = null;
-    setSavedSlots(flattened);
+    setSavedSlots(fitSaved(flattened));
     setSavedSortMode('user');
     setSelectedSavedIdx(null);
   }, [savedSlots, displaySlots, triggerPoof, playPop]);
@@ -438,7 +493,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     captureFlipRects(false, sourceSlotPreview?.addedAt);
     const flattened: SavedSlot[] = displaySlots.map((d) => d.slot);
     [flattened[fromDisplay], flattened[toDisplayIdx]] = [flattened[toDisplayIdx], flattened[fromDisplay]];
-    setSavedSlots(flattened);
+    setSavedSlots(fitSaved(flattened));
     setSavedSortMode('user');
     setSelectedSavedIdx(toDisplayIdx);
     playClick();
@@ -479,7 +534,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     }
     flattened[target] = sourceSlot;
 
-    setSavedSlots(flattened);
+    setSavedSlots(fitSaved(flattened));
     setSavedSortMode('user');
     setSelectedSavedIdx(target);
     playClick();
@@ -1595,7 +1650,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                 icon={Trash2}
                 iconOnly={iconActions}
                 confirm
-                onClick={(e) => { e.stopPropagation(); setSavedSlots(Array(SAVED_SLOTS).fill(null)); setSelectedSavedIdx(null); }}
+                onClick={(e) => { e.stopPropagation(); setSavedSlots(Array(SAVED_BANK).fill(null)); setSelectedSavedIdx(null); }}
               />
             </div>
           }
@@ -1726,7 +1781,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                       // then place the new color at the clicked display position.
                       const flattened: SavedSlot[] = displaySlots.map((d) => d.slot);
                       flattened[displayIdx] = { hex: currentHex, alpha, addedAt: Date.now() };
-                      setSavedSlots(flattened);
+                      setSavedSlots(fitSaved(flattened));
                       setSavedSortMode('user');
                       setSelectedSavedIdx(displayIdx);
                       playSave();
