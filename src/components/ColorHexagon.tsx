@@ -1699,7 +1699,11 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             </div>
           }
         >
-          <div className="grid grid-cols-6 md:grid-cols-12 gap-1.5">
+          {/* data-swatch-grid is the plugin's hook for re-laying these out at
+              panel width. It used to select `.grid` inside the section, which
+              broke the day CollapsibleSection started animating its height with
+              a grid - see figma/ui/figma.css. */}
+          <div data-swatch-grid className="grid grid-cols-6 md:grid-cols-12 gap-1.5">
             {Array.from({ length: 12 }, (_, i) => {
               const entry = recentColors[i];
               const color = entry?.hex;
@@ -1804,7 +1808,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             </div>
           }
         >
-          <div className="grid grid-cols-6 md:grid-cols-12 gap-1.5">
+          <div data-swatch-grid className="grid grid-cols-6 md:grid-cols-12 gap-1.5">
             {displaySlots.map(({ slot, userIdx }, displayIdx) => {
               const color = slot?.hex ?? null;
               const isSelected = userIdx === selectedSavedIdx && color;
