@@ -25,7 +25,19 @@ import { HEX_PANEL_WIDTH } from './hex/hexConstants';
 const SLIDERS_PANEL_WIDTH = 420;          // px, target width of the right column on md+
 const SLIDERS_PANEL_MIN_WIDTH = 280;      // px, floor before sliders content gets too tight
 const TOP_ROW_GAP_PX = 16;                // Tailwind gap-4
-const TOP_ROW_MAX_WIDTH = HEX_PANEL_WIDTH + SLIDERS_PANEL_WIDTH + TOP_ROW_GAP_PX;
+/*
+ * The root's own horizontal padding, which has to be added on top of the two
+ * columns rather than eaten out of them.
+ *
+ * maxWidth is a border-box measurement, so the sm:p-6 on the root came out of
+ * the total: the columns only ever had 1002px of the 1050 they ask for, and were
+ * 48px short of ever reaching their stated widths. Flex hid that by shrinking
+ * both a little; the grid made it visible by holding the sliders column at 420
+ * and taking the whole shortfall out of the hexagon.
+ */
+const ROOT_PADDING_X = 48;                // Tailwind sm:p-6, both sides
+const TOP_ROW_MAX_WIDTH =
+  HEX_PANEL_WIDTH + SLIDERS_PANEL_WIDTH + TOP_ROW_GAP_PX + ROOT_PADDING_X;
 import SBBox from './SBBox';
 import HSlider from './HSlider';
 import HexInput from './HexInput';
@@ -126,17 +138,6 @@ export default function ColorPicker() {
   const hsbRef = useRef(hsb);
   useEffect(() => { hsbRef.current = hsb; }, [hsb]);
   const rgbOverride = useRef<RGB | null>(null);
-  const topRowRef = useRef<HTMLDivElement | null>(null);
-  const [topRowWidth, setTopRowWidth] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (!topRowRef.current) return;
-    const observer = new ResizeObserver(([entry]) => {
-      setTopRowWidth(entry.contentRect.width);
-    });
-    observer.observe(topRowRef.current);
-    return () => observer.disconnect();
-  }, []);
 
   // Undo/redo history
   const undoStack = useRef<HSB[]>([]);
@@ -504,11 +505,32 @@ export default function ColorPicker() {
         </div>
       </div>
 
-      <div className="flex flex-col">
-      <div ref={topRowRef} className="flex flex-col md:flex-row gap-4 items-stretch md:items-start">
-        {/* Left column: Color Hexagon — basis matches HEX_PANEL_WIDTH (614), shrinks alongside the sliders col.
-            Tailwind arbitrary values below must stay in sync with HEX_PANEL_WIDTH. */}
-        <div className="w-full md:w-auto md:basis-[614px] md:max-w-[614px] md:min-w-0 md:shrink md:grow-0">
+      {/*
+        One grid for the whole block, rather than a flex row with the equations
+        bar underneath it.
+
+        Two things fall out of that. The columns are tracks, so they share a row
+        height and their bottom edges line up whatever is expanded - as a flex
+        row they were each their natural height, which ran from 25px apart when
+        everything is open to nearly 300px apart when the slider sections are
+        closed. And the equations bar spans both tracks natively, which retired
+        the ResizeObserver that used to measure this row and copy its width onto
+        the bar - about a dozen lines of JS, a state variable and a re-render on
+        every resize, replaced by `col-span-2`.
+
+        The tracks carry the same numbers the flex bases did: HEX_PANEL_WIDTH
+        (614) and SLIDERS_PANEL_WIDTH (420), with SLIDERS_PANEL_MIN_WIDTH (280)
+        as the second one's floor. Keep them in sync with the constants above.
+
+        They are `fr` rather than `px` on purpose. With px maxima the tracks do
+        not shrink proportionally - grid holds the second at 420 and takes the
+        entire shortfall out of the first, so at the md boundary the hexagon
+        collapsed to 244px while the sliders kept full width. As flex factors in
+        a 614:420 ratio they divide the space the way the flex bases used to,
+        the root's max-width lets them land exactly on 614 and 420 when there is
+        room, and the 280px min still stops the sliders going too tight.
+      */}
+      <div className="grid grid-cols-1 md:grid-cols-[minmax(0,614fr)_minmax(280px,420fr)] gap-x-4 gap-y-3 items-stretch">
           <ColorHexagon
             rgb={rgb}
             hue={hsb.h}
@@ -530,11 +552,10 @@ export default function ColorPicker() {
             onHoverHtmlColor={setHoveredHtmlColor}
             muted={muted}
           />
-        </div>
 
-        {/* Right column: Controls — sized to SLIDERS_PANEL_WIDTH (420), shrinks to SLIDERS_PANEL_MIN_WIDTH (280).
-            Tailwind arbitrary values below must stay in sync with the JS constants above. */}
-        <div id="picker-layout" className="w-full md:w-auto md:basis-[420px] md:max-w-[420px] md:min-w-[280px] md:shrink md:grow-0 panel-frame border border-input rounded-lg p-2.5">
+        {/* Right column: Controls. Width comes from the grid track now, so this
+            carries only its own surface. */}
+        <div id="picker-layout" className="panel-frame border border-input rounded-lg p-2.5">
         <CollapsibleSection id="sliders-group" title="Sliders" level="h2">
           <div className="flex flex-col gap-3">
         {/* Color Editor: Swatch + SB Box + H Slider */}
@@ -705,10 +726,10 @@ export default function ColorPicker() {
           </div>
         </CollapsibleSection>
       </div>
-      </div>
 
-      {/* Equations panel */}
-      <div className="mt-3 panel-frame border border-input rounded-lg p-2.5" style={{ width: topRowWidth || 'auto' }}>
+      {/* Equations panel. Spanning both tracks is what makes it match the width
+          of the row above; nothing measures anything. */}
+      <div className="md:col-span-2 panel-frame border border-input rounded-lg p-2.5">
         <CollapsibleSection id="equations-group" title="Equations" level="h2" defaultOpen={false}>
           <EquationsPanel
             rgb={rgb}
