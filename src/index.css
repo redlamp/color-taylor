@@ -194,6 +194,32 @@ h1, h2 {
     position: relative;
     background: var(--surface-inset);
   }
+
+  /*
+   * One control height for the whole app: 32px.
+   *
+   * It was three. TabsList, ToggleGroupList, the Button primitive's default and
+   * the top bar were already h-8; the section-header pills sat at about 22px on
+   * py-0.5, and the slider steppers at h-6. A header row therefore mixed 22px
+   * actions with 32px segmented controls, which is what read as inconsistent.
+   * 32px is the one the system already used most, so everything meets it there
+   * rather than at a new number - nothing shrinks.
+   *
+   * The quiet variants also retire a class string that was pasted six times
+   * across ColorPicker, ThemeToggle, VolumeControl and ColorHexagon.
+   */
+  .ctl-quiet {
+    @apply inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-md
+           bg-muted px-3 text-sm font-medium text-muted-foreground select-none
+           transition-colors hover:bg-muted/80 hover:text-foreground;
+  }
+
+  /* Square, for a control whose whole content is one glyph. */
+  .ctl-quiet-icon {
+    @apply inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md
+           bg-muted text-muted-foreground select-none
+           transition-colors hover:bg-muted/80 hover:text-foreground;
+  }
 }
 
 /*

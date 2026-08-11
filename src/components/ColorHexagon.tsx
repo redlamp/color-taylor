@@ -4,7 +4,7 @@ import { swatchBackground, type ColorSpace } from '../utils/sliderGradients';
 import type { Channel, ChannelOrder } from './hex/hexConstants';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
-import { ChevronRight, RefreshCw, Trash2, GripVertical, Rainbow, Droplet, SunMedium, Blend } from 'lucide-react';
+import { ChevronRight, RefreshCw, Trash2 } from 'lucide-react';
 import CollapsibleSection from './CollapsibleSection';
 import NAMED_COLORS from '../utils/namedColors';
 import { HANDLE, ringRadius } from '../utils/handleStyle';
@@ -166,29 +166,22 @@ function parseSaved(raw: unknown): SavedSlot[] {
 
 const DEFAULT_RECENT = ['#ff0000', '#ffff00', '#00ff00', '#00ffff', '#0000ff', '#ff00ff', '#ffffff', '#808080', '#000000'];
 
-const ACTION_BTN_CLASS =
-  'px-2 py-0.5 text-xs rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none inline-flex items-center justify-center';
+/** The shared quiet control, at the app's one 32px control height. */
+const ACTION_BTN_CLASS = 'ctl-quiet px-2.5';
 
 /**
- * Header controls hold a width instead of tracking their content.
+ * Header controls hold a width instead of tracking their content, because all
+ * three change what they say: Sort cycles five labels, and the two confirming
+ * actions swap between an icon and "Sure?". Left to size themselves they shuffle
+ * each other sideways on every click.
  *
- * One value now, not a narrow/wide pair per surface. Both surfaces render these
- * as icons, so the only state needing room is "Sure?" on the two confirming
- * actions - and Sort matches them, so the trio reads as one group rather than
- * three sizes. Left to size themselves they shuffle each other sideways as the
- * armed state comes and goes.
- *
- * Measured in the app, then taken to the next 4px step:
- *
- *     icon at rest     30.0px
- *     "Sure?"          45.6px   <- the floor
- *     min-w-12         48.0px
- *
- * A floor, not a fixed width: an unexpected font should push a button wider
- * rather than clip it. This is also what the plugin used before its actions and
- * the app's converged, so it is already proven at Inter 11.
+ * Two values, not one: Sort spells out its mode and the actions do not, so
+ * forcing them to a shared width would pad the icons out to fit "Sort: Bright".
+ * Both are floors - an unexpected font should widen a button, not clip it - and
+ * both are measured rather than guessed. See the MEASURED_WIDTHS test note.
  */
-const HEADER_BTN_W = 'min-w-12';
+const ACTION_BTN_W = 'min-w-14';
+const SORT_BTN_W = 'min-w-26';
 
 type SortMode = 'user' | 'hue' | 'saturation' | 'brightness' | 'alpha';
 
@@ -203,19 +196,15 @@ const SORT_LABELS: Record<SortMode, string> = {
   alpha: 'Alpha',
 };
 
-/**
- * Sort shows which mode is active by changing glyph, not by naming it. An icon
- * that stayed the same through five modes would say "you can sort" while hiding
- * the one thing worth knowing - which sort you are looking at. The mode name
- * still rides along in title and aria-label, since a glyph alone is a guess.
+/*
+ * Sort names its mode in text, the way the plugin does.
+ *
+ * It was briefly an icon per mode, which was a mistake: five glyphs standing in
+ * for User / Hue / Sat / Bright / Alpha are guesswork at 14px, and the plugin
+ * this was meant to match had always kept Sort as a label - only the two
+ * destructive actions became icons there. Clear and Defaults are unambiguous as
+ * a bin and a refresh; a sort order is not.
  */
-const SORT_ICONS: Record<SortMode, ComponentType<{ className?: string }>> = {
-  user: GripVertical, // the order you arranged them in
-  hue: Rainbow,
-  saturation: Droplet,
-  brightness: SunMedium,
-  alpha: Blend,
-};
 
 /**
  * Header action for the Recent / Saved sections. Always an icon, with the label
@@ -267,7 +256,7 @@ function ActionButton({
 
   return (
     <button
-      className={`${ACTION_BTN_CLASS} ${HEADER_BTN_W} transition-transform duration-100`}
+      className={`${ACTION_BTN_CLASS} ${ACTION_BTN_W} transition-transform duration-100`}
       // data-armed and data-drop-over share the danger styling: both mean the
       // next thing that happens removes a color.
       data-armed={armed || dropOver || undefined}
@@ -1744,7 +1733,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                   them. It is the only one that reads rather than destroys, so
                   it leads the group and the two confirming actions follow. */}
               <button
-                className={`${ACTION_BTN_CLASS} ${HEADER_BTN_W}`}
+                className={`${ACTION_BTN_CLASS} ${SORT_BTN_W} tabular-nums`}
                 onClick={(e) => { e.stopPropagation(); cycleSavedSort(); }}
                 // The mode as an attribute, not just inside a label. It is the
                 // only way to read this control now that it renders a glyph, and
@@ -1753,7 +1742,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                 title={`Sorted by ${SORT_LABELS[savedSortMode]} - click to cycle`}
                 aria-label={`Sorted by ${SORT_LABELS[savedSortMode]}. Click to cycle sort order.`}
               >
-                {(() => { const SortIcon = SORT_ICONS[savedSortMode]; return <SortIcon className="!size-3.5" />; })()}
+                Sort: {SORT_LABELS[savedSortMode]}
               </button>
               <ActionButton
                 label="Defaults"

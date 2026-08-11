@@ -439,7 +439,7 @@ export default function ColorPicker() {
         <div className="flex items-center justify-end gap-2">
           {import.meta.env.VITE_INTRO_ENABLED === 'true' && (
             <button
-              className="inline-flex items-center justify-center h-8 px-3 text-sm font-medium rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none"
+              className="ctl-quiet"
               onClick={() => { window.location.hash = '#/presentation'; }}
             >
               Intro
@@ -449,7 +449,7 @@ export default function ColorPicker() {
             <TooltipTrigger
               render={
                 <button
-                  className="inline-flex items-center justify-center size-8 rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none"
+                  className="ctl-quiet-icon"
                   onClick={() => setColorAnimActive(a => !a)}
                   aria-label={colorAnimActive ? 'Pause color animation' : 'Play color animation'}
                 >
@@ -463,7 +463,7 @@ export default function ColorPicker() {
             <TooltipTrigger
               render={
                 <button
-                  className="inline-flex items-center justify-center size-8 rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none"
+                  className="ctl-quiet-icon"
                   onClick={() => updateSynth({ synthEnabled: !settings.synth.synthEnabled })}
                   aria-label={settings.synth.synthEnabled ? 'Disable color synth' : 'Enable color synth'}
                   aria-pressed={settings.synth.synthEnabled}
@@ -490,7 +490,7 @@ export default function ColorPicker() {
             <TooltipTrigger
               render={
                 <button
-                  className="inline-flex items-center justify-center size-8 rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none"
+                  className="ctl-quiet-icon"
                   onClick={() => setSettingsOpen(o => !o)}
                   aria-label="Open settings"
                   aria-expanded={settingsOpen}

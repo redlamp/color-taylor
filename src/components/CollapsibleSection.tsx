@@ -4,20 +4,21 @@ import { ChevronRight } from 'lucide-react';
 type Level = 'h2' | 'h3';
 
 /*
- * h3 was `text-sm font-semibold uppercase tracking-wider`. Uppercase at a wide
- * tracking and a heavy weight is the part that read as dated - it shouts, and it
- * costs legibility at this size for nothing. Sentence case at a lighter weight
- * lets the section titles sit under the panel title instead of competing with
- * it, and the authored strings already carry their own capitalisation, so "RGB"
+ * h3 was `text-sm font-semibold uppercase tracking-wider`. The dated part was
+ * uppercase at a wide tracking and a heavy weight - it shouts, and it costs
+ * legibility for nothing. What was wrong with the first attempt at fixing it was
+ * also dropping to text-xs: the size was never the problem, so shrinking it just
+ * made the headers hard to read. Size stays where it was and only the shouting
+ * goes. The authored strings already carry their own capitalisation, so "RGB"
  * and "HSB / HSL" stay acronyms while "Color Editor" reads as words.
  */
 const levelStyles: Record<Level, string> = {
   h2: 'text-lg font-semibold tracking-tight text-foreground',
-  h3: 'text-xs font-medium tracking-normal text-muted-foreground',
+  h3: 'text-sm font-medium tracking-normal text-foreground/80',
 };
 
-/** The chevron is sized to its header rather than to the other one. */
-const chevronSize: Record<Level, string> = { h2: '!size-4', h3: '!size-3.5' };
+/** Both headers take the same chevron; two sizes read as a mistake at this scale. */
+const chevronSize: Record<Level, string> = { h2: '!size-4', h3: '!size-4' };
 
 /**
  * 'card' boxes the section in a rounded border - right when it sits on a page
@@ -48,10 +49,13 @@ export default function CollapsibleSection({ id, title, level = 'h3', defaultOpe
   // none of the colour-reactive chrome: those live on the outer frame, and the
   // inner sections are where the swatches sit. The flush variant is the
   // plugin's shape and gets neither.
+  // p-3 rather than p-2.5. At 10px the content sat almost on the border, and the
+  // negative margins below have to move with it or the header's hit area stops
+  // lining up with the padding it is reaching over.
   const shell = flush
     ? 'border-t border-input pt-2'
     : level === 'h3'
-      ? 'panel-inset border border-input rounded-lg p-2.5'
+      ? 'panel-inset border border-input rounded-lg p-3'
       : '';
 
   return (
@@ -62,7 +66,7 @@ export default function CollapsibleSection({ id, title, level = 'h3', defaultOpe
       // marking inner sections too would let a nested collapse trigger that.
       // Written as a string rather than a boolean so `false` survives to the DOM.
       {...(level === 'h2' ? { 'data-panel-open': open ? 'true' : 'false' } : {})}
-      className={`flex flex-col gap-1.5 ${shell} ${extraClass || ''}`}
+      className={`flex flex-col gap-2 ${shell} ${extraClass || ''}`}
     >
       {/* The hit area reaches back over the shell's own padding.
           Left to itself the row is only as tall as its text, so the band
@@ -79,8 +83,11 @@ export default function CollapsibleSection({ id, title, level = 'h3', defaultOpe
         // context the SVG keeps winning the hit test and the header only
         // *looks* clickable there. No visual change - the header has no
         // background of its own.
-        className={`relative z-10 flex items-center gap-1.5 cursor-pointer select-none ${
-          flush ? 'h-8 -mt-2 pt-2 box-content' : level === 'h3' ? '-mt-2.5 -mx-2.5 px-2.5 pt-2.5' : ''
+        // min-h-8 so a header with no actions in it is the same height as one
+        // with; before, the row collapsed to its text and the two read as
+        // different sections. Offsets track the shell's p-3.
+        className={`relative z-10 flex min-h-8 items-center gap-2 cursor-pointer select-none ${
+          flush ? 'h-8 -mt-2 pt-2 box-content' : level === 'h3' ? '-mt-3 -mx-3 px-3 pt-3' : ''
         }`}
         onClick={() => setOpen((o) => !o)}
         onKeyDown={(e) => {
