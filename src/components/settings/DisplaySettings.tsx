@@ -42,10 +42,26 @@ function SwitchRow({ label, checked, onToggle, ariaLabel, knob }: SwitchRowProps
           (checked ? 'bg-primary' : 'bg-muted')
         }
       >
+        {/*
+          The knob takes whichever token pairs with the track behind it, and sets
+          the text colour so the glyph inside inherits its opposite.
+
+          It used to be bg-white in both themes with a text-foreground glyph, so
+          in dark mode a near-white Moon sat on a near-white knob and vanished -
+          and that knob was itself near-white against a near-white bg-primary
+          track. One fixed colour cannot work here, because bg-primary inverts
+          between themes: the track is 0.95 in light-unchecked and 0.922 in
+          dark-checked, both pale, but 0.205 in light-checked and 0.34 in
+          dark-unchecked. Pairing by token covers all four, since
+          primary/primary-foreground and foreground/background are contrasting
+          by definition.
+        */}
         <span
           className={
-            'inline-flex h-4 w-4 items-center justify-center rounded-full bg-white shadow transform transition-transform ' +
-            (checked ? 'translate-x-4' : 'translate-x-0.5')
+            'inline-flex h-4 w-4 items-center justify-center rounded-full shadow transform transition-transform ' +
+            (checked
+              ? 'bg-primary-foreground text-primary translate-x-4'
+              : 'bg-foreground text-background translate-x-0.5')
           }
         >
           {knob}
@@ -64,11 +80,9 @@ export function DisplaySettings({ colorFx, onToggleColorFx, audioEnabled, onTogg
         checked={isDark}
         onToggle={toggle}
         ariaLabel="Toggle theme"
-        knob={
-          isDark
-            ? <Moon className="size-2.5 text-foreground" />
-            : <Sun className="size-2.5 text-foreground" />
-        }
+        // No colour on the glyph: it inherits currentColor from the knob, which
+        // is the only thing that knows what it is sitting on.
+        knob={isDark ? <Moon className="size-2.5" /> : <Sun className="size-2.5" />}
       />
       <SwitchRow
         label="Border Color Effects"
