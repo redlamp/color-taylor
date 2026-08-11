@@ -12,8 +12,16 @@ Every `notes/decision-*.md`, newest first. Each note records what was decided, w
 - [[decision-content-fit-height]] — height has exactly one source, and the two things that forbids
 - [[decision-figma-listing-assets]] — icon and thumbnail generated from the app's own hexagon math, so they cannot drift
 
+- [[decision-plugin-css-hooks]] — panel CSS selects `data-*`, never a Tailwind class; the 2.9px swatch bug that established it
+
+## App only
+
+- [[decision-border-color-effects]] — Anodised as the resting style, with a hue- and saturation-derived glow and rim light on top; four reasons it stops at the app
+- [[decision-audio-off-by-default]] — every audible thing behind one setting, off until asked for
+
 ## Shared app + plugin
 
+- [[decision-panel-collapse-animates-by-grid-rows]] — `0fr` → `1fr` instead of unmounting or measuring, and the four traps in it
 - [[decision-scoped-slider-ids]] — slider ids namespaced by color model; fixed three duplicate-id collisions and two ambiguous accessible names
 - [[decision-saved-grows-in-banks]] — Saved grows a row of 12 at a time to a ceiling of 36; size derived from content, not stored
 - [[decision-alpha-in-swatch-identity]] — a swatch is `{hex, alpha}`, not a color with a side map
