@@ -49,13 +49,15 @@ export default function CollapsibleSection({ id, title, level = 'h3', defaultOpe
   // none of the colour-reactive chrome: those live on the outer frame, and the
   // inner sections are where the swatches sit. The flush variant is the
   // plugin's shape and gets neither.
-  // p-3 rather than p-2.5. At 10px the content sat almost on the border, and the
-  // negative margins below have to move with it or the header's hit area stops
-  // lining up with the padding it is reaching over.
+  // 12px on the sides and bottom, 8px on top. The top is tighter on purpose:
+  // the header row is a fixed 32px, so the space above it reads as larger than
+  // the same number does beside body content. The negative margins below have to
+  // track whatever this is, or the header's hit area stops lining up with the
+  // padding it reaches over.
   const shell = flush
     ? 'border-t border-input pt-2'
     : level === 'h3'
-      ? 'panel-inset border border-input rounded-lg p-3'
+      ? 'panel-inset border border-input rounded-lg px-3 pt-2 pb-3'
       : '';
 
   return (
@@ -95,7 +97,7 @@ export default function CollapsibleSection({ id, title, level = 'h3', defaultOpe
         // 12px + half of 32px from the panel edge whether or not anything else
         // is in the row. The flush variant already worked this way.
         className={`relative z-10 box-content flex h-8 items-center gap-2 cursor-pointer select-none ${
-          flush ? '-mt-2 pt-2' : level === 'h3' ? '-mt-3 -mx-3 px-3 pt-3' : ''
+          flush ? '-mt-2 pt-2' : level === 'h3' ? '-mt-2 -mx-3 px-3 pt-2' : ''
         }`}
         onClick={() => setOpen((o) => !o)}
         onKeyDown={(e) => {
