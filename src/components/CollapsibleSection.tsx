@@ -83,11 +83,19 @@ export default function CollapsibleSection({ id, title, level = 'h3', defaultOpe
         // context the SVG keeps winning the hit test and the header only
         // *looks* clickable there. No visual change - the header has no
         // background of its own.
-        // min-h-8 so a header with no actions in it is the same height as one
-        // with; before, the row collapsed to its text and the two read as
-        // different sections. Offsets track the shell's p-3.
-        className={`relative z-10 flex min-h-8 items-center gap-2 cursor-pointer select-none ${
-          flush ? 'h-8 -mt-2 pt-2 box-content' : level === 'h3' ? '-mt-3 -mx-3 px-3 pt-3' : ''
+        // box-content + h-8 pins the *content* box at 32px, which is what keeps
+        // the title from moving when the section opens.
+        //
+        // min-h-8 did not: it is border-box, so the 12px pt-3 came out of the
+        // 32px and left a 20px content box. Collapsing hides headerLeft and
+        // headerRight, the row lost its 32px buttons, the content box shrank to
+        // the height of the text, and items-center re-centred the title 6px up.
+        //
+        // With a fixed content box the padding sits outside it, so the title is
+        // 12px + half of 32px from the panel edge whether or not anything else
+        // is in the row. The flush variant already worked this way.
+        className={`relative z-10 box-content flex h-8 items-center gap-2 cursor-pointer select-none ${
+          flush ? '-mt-2 pt-2' : level === 'h3' ? '-mt-3 -mx-3 px-3 pt-3' : ''
         }`}
         onClick={() => setOpen((o) => !o)}
         onKeyDown={(e) => {
