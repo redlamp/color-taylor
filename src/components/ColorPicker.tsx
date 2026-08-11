@@ -577,14 +577,23 @@ export default function ColorPicker() {
 
             No ceiling: it takes whatever the other sections leave, so closing
             them hands the room to the box rather than pooling it as empty space
-            underneath. min-h-32 is still a floor, for when the hexagon column is
-            the shorter one and this has to come down to meet it.
+            underneath.
+
+            The floor is what decides how far down the two columns stay flush.
+            The hexagon's height follows its width, so it shrinks as the window
+            narrows while the slider rows below do not - the Color Editor is the
+            only thing that can give, and once it hits the floor the sliders
+            column overhangs. min-h-24 rather than min-h-32 holds flush to about
+            1050px instead of 1150px, with the box at 210x96 at its tightest.
+            Going lower buys little: no floor at all only reaches ~900px, because
+            the rest of the column is fixed height, and the box is a 149x32
+            letterbox by then.
 
             Props rather than a flex-1 in className, because the section only
             fills while it is open - a collapsed one that still grew would be a
             header stretched down the whole column. */}
         <CollapsibleSection id="color-editor-group" title="Color Editor" fill absorbs>
-          <div id="sb-wrapper" className="flex flex-1 min-h-32 gap-3 min-w-0 overflow-hidden">
+          <div id="sb-wrapper" className="flex flex-1 min-h-24 gap-3 min-w-0 overflow-hidden">
             <PreviewSwatch hex={hex} />
             <SBBox
               hue={hsb.h}
