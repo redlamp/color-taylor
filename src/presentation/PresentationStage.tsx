@@ -663,7 +663,7 @@ export default function PresentationStage({ slide, slideIndex }: { slide: Slide;
         <div style={{ position: 'relative', minHeight: 120 }}>
           {/* RGB sliders — centered when alone, slides to left when HSB appears */}
           {has('rgb-sliders') && (
-            <div className="border border-input rounded-lg p-3" style={{
+            <div className="border border-border rounded-lg p-3" style={{
               position: 'absolute',
               top: 0,
               left: has('hsb-sliders') ? 0 : '25%',
@@ -679,7 +679,7 @@ export default function PresentationStage({ slide, slideIndex }: { slide: Slide;
             </div>
           )}
           {/* HSB sliders — absolute positioned so it doesn't push RGB off-center */}
-          <div className="border border-input rounded-lg p-3" style={{
+          <div className="border border-border rounded-lg p-3" style={{
             position: 'absolute',
             right: 0,
             top: 0,
@@ -697,7 +697,7 @@ export default function PresentationStage({ slide, slideIndex }: { slide: Slide;
               </div>
             </div>
           {has('hex-input') && (
-            <div className="border border-input rounded-lg p-3">
+            <div className="border border-border rounded-lg p-3">
               <h3 className="text-sm font-semibold mb-2">Hex</h3>
               <div className="flex gap-3 items-stretch">
                 <PreviewSwatch hex={hex} />

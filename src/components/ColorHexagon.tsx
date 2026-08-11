@@ -1343,7 +1343,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       // and the card silently overflows its column.
       className={[
         'flex flex-col items-center gap-1 max-w-full',
-        bare ? 'w-full' : 'panel-frame border border-input rounded-lg p-3',
+        bare ? 'w-full' : 'panel-frame border border-border rounded-lg p-3',
       ].join(' ')}
       // This card collapses on its own `hexOpen` rather than through
       // CollapsibleSection, so it reports its state itself. .panel-frame reads

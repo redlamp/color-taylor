@@ -597,7 +597,7 @@ export default function ColorPicker() {
             taller one, grows when it would be shorter. The grid gives this
             element a definite height to divide up, which is what makes the
             chain resolve. */}
-        <div id="picker-layout" className="panel-frame flex flex-col border border-input rounded-lg p-2.5">
+        <div id="picker-layout" className="panel-frame flex flex-col border border-border rounded-lg p-2.5">
         {/* `fill` and not `absorbs`: this section passes the card's height down,
             but the section that actually takes up slack is the Color Editor. If
             this claimed to absorb, the panel would stretch even with the Color
@@ -803,7 +803,7 @@ export default function ColorPicker() {
 
       {/* Equations panel. Spanning both tracks is what makes it match the width
           of the row above; nothing measures anything. */}
-      <div className="md:col-span-2 panel-frame border border-input rounded-lg p-2.5">
+      <div className="md:col-span-2 panel-frame border border-border rounded-lg p-2.5">
         <CollapsibleSection id="equations-group" title="Equations" level="h2" defaultOpen={false}>
           <EquationsPanel
             rgb={rgb}
