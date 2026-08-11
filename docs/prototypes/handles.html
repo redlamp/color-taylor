@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Handle study - current vs refined ring</title>
+    <style>
+      :root {
+        --bg: #ffffff;
+        --panel: #f6f6f7;
+        --line: #e3e3e6;
+        --text: #16171a;
+        --muted: #71727a;
+      }
+      :root.dark {
+        --bg: #16171a;
+        --panel: #1e1f23;
+        --line: #2c2d33;
+        --text: #e9eaee;
+        --muted: #8e9098;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 32px 24px 64px;
+        background: var(--bg);
+        color: var(--text);
+        font:
+          14px/1.5 Inter,
+          ui-sans-serif,
+          -apple-system,
+          "Segoe UI",
+          sans-serif;
+      }
+      main {
+        max-width: 1040px;
+        margin: 0 auto;
+      }
+      h1 {
+        font-size: 20px;
+        margin: 0 0 4px;
+      }
+      h2 {
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        color: var(--muted);
+        margin: 40px 0 12px;
+      }
+      p.lede {
+        color: var(--muted);
+        margin: 0 0 8px;
+        max-width: 74ch;
+      }
+      .bar {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin: 20px 0 0;
+      }
+      button {
+        font: inherit;
+        padding: 6px 12px;
+        border-radius: 8px;
+        border: 1px solid var(--line);
+        background: var(--panel);
+        color: var(--text);
+        cursor: pointer;
+      }
+      button[aria-pressed="true"] {
+        background: var(--text);
+        color: var(--bg);
+        border-color: var(--text);
+      }
+      table {
+        border-collapse: collapse;
+        margin-top: 8px;
+      }
+      th {
+        font-size: 11px;
+        font-weight: 500;
+        color: var(--muted);
+        text-align: left;
+        padding: 0 10px 6px 0;
+        white-space: nowrap;
+      }
+      td {
+        padding: 0 10px 10px 0;
+      }
+      .cell {
+        width: 92px;
+        height: 56px;
+        border-radius: 8px;
+        display: grid;
+        place-items: center;
+        border: 1px solid var(--line);
+      }
+      .field {
+        border-radius: 10px;
+        border: 1px solid var(--line);
+        position: relative;
+        overflow: hidden;
+      }
+      .legend {
+        display: flex;
+        gap: 22px;
+        flex-wrap: wrap;
+        margin-top: 10px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .legend b {
+        color: var(--text);
+        font-weight: 600;
+      }
+      .note {
+        margin-top: 10px;
+        font-size: 13px;
+        color: var(--muted);
+        max-width: 74ch;
+      }
+      .track {
+        height: 16px;
+        border-radius: 8px;
+        position: relative;
+        margin: 6px 0 26px;
+      }
+      .checker {
+        background:
+          repeating-conic-gradient(rgba(128, 128, 128, 0.4) 0% 25%, transparent 0% 50%) 0 0 / 12px
+          12px;
+      }
+      .row2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 28px;
+      }
+      .caption {
+        font-size: 12px;
+        color: var(--muted);
+        margin: 0 0 2px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Handle study</h1>
+      <p class="lede">
+        Color Taylor's picked-point marker is already the same construction as Figma's - a
+        color-filled circle with a white ring and a shadow. The question is whether to raise it to
+        Figma's finish and use it in more places. Everything below is the real geometry, not a
+        mockup.
+      </p>
+
+      <div class="bar">
+        <button id="theme" aria-pressed="false">Dark background</button>
+        <button id="grow" aria-pressed="false">Bigger handles</button>
+      </div>
+
+      <h2>1. The hard cases</h2>
+      <p class="lede">
+        A handle has to stay visible when its own color matches the field behind it. These are the
+        combinations that break weak handles: white on white, black on black, and mid-tones on
+        mid-tones.
+      </p>
+      <div id="matrix"></div>
+      <div class="legend">
+        <span><b>Current</b> r=8, white ring 2px, 1px shadow</span>
+        <span><b>Refined</b> r=7, white ring 3px, dark hairline, real shadow</span>
+      </div>
+
+      <h2>2. Over the real field</h2>
+      <p class="lede">
+        The hexagon at full brightness, which is where the marker actually lives. Handles are placed
+        on the six vertices plus the center.
+      </p>
+      <div class="row2">
+        <div>
+          <p class="caption">Current</p>
+          <div class="field"><svg id="hexA" viewBox="0 0 320 290" width="100%"></svg></div>
+        </div>
+        <div>
+          <p class="caption">Refined</p>
+          <div class="field"><svg id="hexB" viewBox="0 0 320 290" width="100%"></svg></div>
+        </div>
+      </div>
+
+      <h2>3. Slider handles</h2>
+      <p class="lede">
+        The alpha track lost its stepper, so the triangle now marks a position with no value
+        attached. A ring would at least show the color and its transparency.
+      </p>
+      <div class="row2">
+        <div>
+          <p class="caption">Current - triangle below the track</p>
+          <div class="track checker" id="trackA"></div>
+        </div>
+        <div>
+          <p class="caption">Refined - ring on the track</p>
+          <div class="track checker" id="trackB"></div>
+        </div>
+      </div>
+
+      <h2>4. What not to change</h2>
+      <p class="lede">
+        The hue and brightness pills carry their value at the point of interaction. Figma cannot do
+        this - its numbers live in a field row at the bottom of the panel. Replacing these with
+        anonymous rings would trade information for familiarity.
+      </p>
+      <div id="pills" class="bar"></div>
+      <p class="note">
+        Suggested rule: <b>ring where there is no number, pill where there is.</b> That leaves one
+        marker vocabulary for positions and one for values, instead of today's four.
+      </p>
+    </main>
+
+    <script>
+      const FIELDS = ['#ffffff', '#dcdce0', '#8a8b91', '#2a2b30', '#000000'];
+      const COLORS = [
+        ['White', '#ffffff'],
+        ['Pale yellow', '#fff3a8'],
+        ['Mid red', '#e0433f'],
+        ['Deep blue', '#1c2f8f'],
+        ['Near black', '#0a0a0c'],
+      ];
+      let big = false;
+
+      /** Current marker: r=8, 2px white ring, faint shadow. */
+      function current(fill, scale) {
+        const r = 8 * scale;
+        return `<svg width="${r * 4}" height="${r * 4}" viewBox="${-r * 2} ${-r * 2} ${r * 4} ${r * 4}">
+          <circle r="${r}" fill="${fill}" stroke="#fff" stroke-width="${2 * scale}"
+            style="filter: drop-shadow(0 0 1px rgba(0,0,0,0.3))" /></svg>`;
+      }
+
+      /**
+       * Refined: slightly smaller core, thicker white ring, and a dark hairline
+       * *outside* the white. The hairline is what makes it survive on a pale
+       * field - without it the white ring dissolves into white. A second, fainter
+       * hairline inside the ring stops a pale core bleeding into it the other way.
+       */
+      function refined(fill, scale) {
+        const r = 7 * scale;
+        const ring = 3 * scale;
+        return `<svg width="${r * 4}" height="${r * 4}" viewBox="${-r * 2} ${-r * 2} ${r * 4} ${r * 4}">
+          <g style="filter: drop-shadow(0 1px 2.5px rgba(0,0,0,0.45))">
+            <circle r="${r + ring / 2 + 0.5 * scale}" fill="none"
+              stroke="rgba(0,0,0,0.28)" stroke-width="${1 * scale}" />
+            <circle r="${r + ring / 2 - 0.5 * scale}" fill="none"
+              stroke="rgba(0,0,0,0.12)" stroke-width="${1 * scale}" />
+            <circle r="${r}" fill="${fill}" stroke="#fff" stroke-width="${ring}" />
+          </g></svg>`;
+      }
+
+      function drawMatrix() {
+        const scale = big ? 1.6 : 1;
+        let html = '<table><tr><th></th>';
+        for (const bg of FIELDS) html += `<th>${bg}</th>`;
+        html += '</tr>';
+        for (const [name, c] of COLORS) {
+          html += `<tr><th>${name}</th>`;
+          for (const bg of FIELDS) {
+            html += `<td><div class="cell" style="background:${bg}">
+              <div style="display:flex;gap:14px;align-items:center">
+                ${current(c, scale)}${refined(c, scale)}
+              </div></div></td>`;
+          }
+          html += '</tr>';
+        }
+        document.getElementById('matrix').innerHTML = html + '</table>';
+      }
+
+      // A hexagon field, same projection the app uses: R/Y/G/C/B/M on the
+      // vertices, white at the center.
+      function hexField(svg, marker) {
+        const CX = 160,
+          CY = 145,
+          R = 118;
+        const SQ = Math.sqrt(3) / 2;
+        const pts = [];
+        for (let i = 0; i < 6; i++) {
+          const a = (i * Math.PI) / 3;
+          pts.push([CX + R * Math.cos(a), CY - R * Math.sin(a)]);
+        }
+        const hues = ['#ff0000', '#ffff00', '#00ff00', '#00ffff', '#0000ff', '#ff00ff'];
+        let defs = '';
+        let tris = '';
+        for (let i = 0; i < 6; i++) {
+          const j = (i + 1) % 6;
+          defs += `<linearGradient id="g${i}-${svg.id}" gradientUnits="userSpaceOnUse"
+            x1="${CX}" y1="${CY}" x2="${(pts[i][0] + pts[j][0]) / 2}" y2="${(pts[i][1] + pts[j][1]) / 2}">
+            <stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="${hues[i]}"/></linearGradient>`;
+          tris += `<polygon points="${CX},${CY} ${pts[i]} ${pts[j]}" fill="url(#g${i}-${svg.id})"/>`;
+        }
+        const spots = [...pts.map((p, i) => [p[0], p[1], hues[i]]), [CX, CY, '#ffffff']];
+        const scale = big ? 1.6 : 1;
+        let marks = '';
+        for (const [x, y, c] of spots) {
+          marks += `<g transform="translate(${x},${y})">${marker(c, scale).replace(/^<svg[^>]*>/, '<g>').replace(/<\/svg>$/, '</g>')}</g>`;
+        }
+        svg.innerHTML = `<defs>${defs}</defs>${tris}${marks}`;
+      }
+
+      function drawTracks() {
+        const scale = big ? 1.6 : 1;
+        const a = document.getElementById('trackA');
+        const b = document.getElementById('trackB');
+        // Set the whole stack, never read-and-prepend: drawTracks runs again on
+        // every toggle, and appending to the computed value stacks another ramp
+        // each time until the track is opaque.
+        const ramp =
+          'linear-gradient(to right, transparent, #e0433f),' +
+          'repeating-conic-gradient(rgba(128,128,128,.4) 0% 25%, transparent 0% 50%) 0 0/12px 12px';
+        // `background`, not `backgroundImage`: the layer carries a position/size
+        // (`0 0/12px 12px`), which is only legal in the shorthand. Setting it on
+        // backgroundImage makes the whole declaration invalid and it is dropped.
+        a.style.background = ramp;
+        b.style.background = ramp;
+        a.innerHTML = `<div style="position:absolute;left:62%;top:16px;transform:translateX(-50%);
+          width:0;height:0;border-left:${5 * scale}px solid transparent;
+          border-right:${5 * scale}px solid transparent;
+          border-bottom:${6 * scale}px solid var(--text)"></div>`;
+        b.innerHTML = `<div style="position:absolute;left:62%;top:50%;transform:translate(-50%,-50%);
+          line-height:0">${refined('#e0433f', scale)}</div>`;
+      }
+
+      function drawPills() {
+        document.getElementById('pills').innerHTML = `
+          <span style="display:inline-flex;align-items:center;height:28px;padding:0 10px;
+            border-radius:999px;background:#e0433f;color:#fff;font:600 13px/1 ui-monospace,monospace;
+            border:2px solid var(--bg)">327&deg;</span>
+          <span style="display:inline-flex;align-items:center;height:28px;padding:0 10px;
+            border-radius:999px;background:#8fd18a;color:#000;font:600 13px/1 ui-monospace,monospace;
+            border:2px solid var(--bg)">85%</span>
+          <span style="color:var(--muted);font-size:13px">&larr; keep these</span>`;
+      }
+
+      function drawAll() {
+        drawMatrix();
+        hexField(document.getElementById('hexA'), current);
+        hexField(document.getElementById('hexB'), refined);
+        drawTracks();
+        drawPills();
+      }
+
+      document.getElementById('theme').addEventListener('click', (e) => {
+        const on = document.documentElement.classList.toggle('dark');
+        e.target.setAttribute('aria-pressed', String(on));
+        e.target.textContent = on ? 'Light background' : 'Dark background';
+        drawAll();
+      });
+      document.getElementById('grow').addEventListener('click', (e) => {
+        big = !big;
+        e.target.setAttribute('aria-pressed', String(big));
+        drawAll();
+      });
+
+      drawAll();
+    </script>
+  </body>
+</html>

@@ -118,9 +118,9 @@ function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }: Equat
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-[1.1fr_1.2fr_1fr_0.75fr] gap-2 w-full text-sm font-mono text-muted-foreground">
-      <div className="flex flex-col gap-1 border border-input rounded-lg p-1.5 min-w-0">
+      <div className="flex flex-col gap-1 border border-border rounded-lg p-1.5 min-w-0">
         <span className="text-sm font-semibold font-sans text-foreground">Variables</span>
-        <hr className="border-input" />
+        <hr className="border-border" />
         <div className="flex flex-col gap-1">
           <div className="flex flex-wrap items-baseline gap-x-2">
             <span><span
@@ -146,23 +146,23 @@ function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }: Equat
           </div>
         </div>
       </div>
-      <div className="flex flex-col gap-1 border border-input rounded-lg p-1.5 min-w-0">
+      <div className="flex flex-col gap-1 border border-border rounded-lg p-1.5 min-w-0">
         <Row
           left={<span className="text-sm font-semibold font-sans text-foreground">Hue</span>}
           right={`${hue}°`}
         />
-        <hr className="border-input" />
+        <hr className="border-border" />
         <span className="text-sm font-sans text-muted-foreground">Based on max RGB channel</span>
         <span className={maxChKey === 'r' ? '' : 'opacity-30'}>{Hr}: 60(({gv}-{bv})/{chrT(pad(delta))}%6){maxChKey === 'r' && <> = <span className="text-white underline" style={{ textDecorationColor: 'white', textUnderlineOffset: '2px', textDecorationThickness: '2px' }}>{hue}°</span></>}</span>
         <span className={maxChKey === 'g' ? '' : 'opacity-30'}>{Hg}: 60(({bv}-{rv})/{chrT(pad(delta))}+2){maxChKey === 'g' && <> = <span className="text-white underline" style={{ textDecorationColor: 'white', textUnderlineOffset: '2px', textDecorationThickness: '2px' }}>{hue}°</span></>}</span>
         <span className={maxChKey === 'b' ? '' : 'opacity-30'}>{Hb}: 60(({rv}-{gv})/{chrT(pad(delta))}+4){maxChKey === 'b' && <> = <span className="text-white underline" style={{ textDecorationColor: 'white', textUnderlineOffset: '2px', textDecorationThickness: '2px' }}>{hue}°</span></>}</span>
       </div>
-      <div className="flex flex-col gap-1 border border-input rounded-lg p-1.5 min-w-0">
+      <div className="flex flex-col gap-1 border border-border rounded-lg p-1.5 min-w-0">
         <Row
           left={<span className="text-sm font-semibold font-sans text-foreground">Saturation</span>}
           right={blMode === 'brightness' ? `${saturation}%` : `${hsl?.s ?? 0}%`}
         />
-        <hr className="border-input" />
+        <hr className="border-border" />
         {blMode === 'brightness' ? (
           <span>{S}: {chrT(pad(delta))}/{maxT(pad(maxVal))} = <span className="text-white underline" style={{ textDecorationColor: 'white', textUnderlineOffset: '2px', textDecorationThickness: '2px' }}>{saturation}%</span></span>
         ) : (
@@ -173,14 +173,14 @@ function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }: Equat
           </>
         )}
       </div>
-      <div className="flex flex-col gap-1 border border-input rounded-lg p-1.5">
+      <div className="flex flex-col gap-1 border border-border rounded-lg p-1.5">
         {blMode === 'brightness' ? (
           <>
             <Row
               left={<span className="text-sm font-semibold font-sans text-foreground">Brightness</span>}
               right={`${brightness}%`}
             />
-            <hr className="border-input" />
+            <hr className="border-border" />
             <span>{Bv}: {maxT(pad(maxVal))}/255 = <span className="text-white underline" style={{ textDecorationColor: 'white', textUnderlineOffset: '2px', textDecorationThickness: '2px' }}>{brightness}%</span></span>
           </>
         ) : (
@@ -189,7 +189,7 @@ function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }: Equat
               left={<span className="text-sm font-semibold font-sans text-foreground">Lightness</span>}
               right={`${hsl?.l ?? 0}%`}
             />
-            <hr className="border-input" />
+            <hr className="border-border" />
             <span>{Lv}: <span className="text-foreground font-bold">{pad(Math.round(l))}</span>/255 = <span className="text-white underline" style={{ textDecorationColor: 'white', textUnderlineOffset: '2px', textDecorationThickness: '2px' }}>{hsl?.l ?? 0}%</span></span>
           </>
         )}

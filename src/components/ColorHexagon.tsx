@@ -1,14 +1,16 @@
-import { useRef, useEffect, useCallback, useLayoutEffect, useState, useMemo, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
-import { hsbToRgb, rgbToHsb, rgbToHex, rgbToHsl, hslToRgb, type RGB, type HSB, type HSL } from '../utils/colorConversions';
-import type { ColorSpace } from '../utils/sliderGradients';
+import { useRef, useEffect, useCallback, useLayoutEffect, useState, useMemo, type ComponentType, type CSSProperties, type ReactNode, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react';
+import { hsbToRgb, rgbToHsb, rgbToHex, hexToRgb, rgbToHsl, hslToRgb, lighter, type RGB, type HSB, type HSL } from '../utils/colorConversions';
+import { swatchBackground, type ColorSpace } from '../utils/sliderGradients';
 import type { Channel, ChannelOrder } from './hex/hexConstants';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
-import { ChevronRight } from 'lucide-react';
-import CollapsibleSection from './CollapsibleSection';
+import { ChevronRight, RefreshCw, Trash2 } from 'lucide-react';
+import CollapsibleSection, { COLLAPSE_MS } from './CollapsibleSection';
 import NAMED_COLORS from '../utils/namedColors';
-import { getAudioCtx, getMasterGain } from '../utils/audioContext';
+import { HANDLE, ringRadius } from '../utils/handleStyle';
+import { readSwatch, writeSwatch, SWATCHES_READY } from '../utils/swatchStore';
 import { toneController } from '../utils/toneControllerLazy';
+import useUiSounds from '../hooks/useUiSounds';
 import {
   HEX_SIZE, SIZE, HEX_PANEL_WIDTH, CENTER_X, CENTER_Y, RADIUS, PI, DIRS, DISPLAY_HEIGHT,
   BL_BAR_X, BL_BAR_TOP, BL_BAR_HEIGHT, BL_ARROW_SIZE,
@@ -19,8 +21,276 @@ import BrightnessBar from './hex/BrightnessBar';
 import ColorLabels from './hex/ColorLabels';
 import HueHandle from './hex/HueHandle';
 import BrightnessHandle from './hex/BrightnessHandle';
+import BrightnessMarkers from './hex/BrightnessMarkers';
+
+/** The three channel vectors, at full strength. Stems and handle borders share
+ *  these so the two can never drift apart. */
+const CHANNEL_COLOR: Record<'r' | 'g' | 'b', string> = {
+  r: '#ff0000',
+  g: '#00ff00',
+  b: '#0000ff',
+};
+
+/** A recorded color. Opacity is part of it: two opacities are two paints. */
+export type Swatch = { hex: string; alpha: number };
+
+/** Stable identity for one, for the "have we just recorded this?" check. */
+function swatchKey(hex: string, alpha: number) {
+  return hex + '|' + alpha;
+}
+
+/**
+ * Opacity for a color stored before swatches carried one.
+ *
+ * Two older shapes exist. Colors saved as bare hex predate alpha entirely and
+ * are opaque. Colors saved while alpha lived in a side map keyed by hex - a
+ * shape this replaced - have their opacity there, so read it across rather
+ * than silently flattening those to 100.
+ */
+let legacyAlphaMap: Record<string, number> | null = null;
+function legacyAlpha(hex: string): number {
+  if (legacyAlphaMap === null) {
+    try {
+      legacyAlphaMap = (readSwatch('color-taylor-alpha') as Record<string, number>) ?? {};
+    } catch {
+      legacyAlphaMap = {};
+    }
+  }
+  return legacyAlphaMap?.[hex] ?? 100;
+}
+
+export type SavedSlot = { hex: string; alpha: number; addedAt: number } | null;
+
+export const RECENT_KEY = 'color-taylor-recent';
+export const SAVED_KEY = 'color-taylor-saved';
+
+/**
+ * Saved grows a row at a time instead of being a fixed 12 (issue #64).
+ *
+ * The bank is 12 because both breakpoints have to come out even: the grid is
+ * 6 columns narrow and 12 wide, so a bank is two rows or one. Growing by 6
+ * would leave a half-empty row at the 12-column breakpoint, which is the thing
+ * a fixed grid was avoiding in the first place. 36 is the ceiling - 3 rows
+ * wide, 6 narrow. Past that the honest answer is Figma styles, not more slots.
+ */
+const SAVED_BANK = 12;
+const SAVED_MAX = 36;
+/** Free slots to keep available. The next bank opens only when the last one fills. */
+const SAVED_MIN_FREE = 1;
+
+/** Pad or trim to `size`, never dropping a filled slot. */
+function resizeSaved(slots: SavedSlot[], size: number): SavedSlot[] {
+  if (size === slots.length) return slots;
+  if (size > slots.length) return slots.concat(Array(size - slots.length).fill(null));
+  return slots.slice(0, size);
+}
+
+/** Index of the last filled slot, or -1. Not the same as the count: the user
+ *  can drag colors apart and leave gaps, and those gaps have to survive. */
+function lastFilled(slots: SavedSlot[]): number {
+  for (let i = slots.length - 1; i >= 0; i--) if (slots[i]) return i;
+  return -1;
+}
+
+/**
+ * The size Saved should be for what it holds: enough banks to hold every
+ * color and still leave SAVED_MIN_FREE slots open.
+ *
+ * Derived rather than stored, so growing and shrinking are the same rule read
+ * in two directions and cannot disagree. Shrinking falls out of it: delete
+ * enough and the trailing bank goes away on its own, with no second code path
+ * to keep in step.
+ *
+ * One transition per bank, and it is symmetric: the save that fills the last
+ * free slot opens the next bank, and deleting that same color closes it again.
+ * Nothing can oscillate, because the size is a pure function of the contents
+ * and the contents only change when the user acts.
+ */
+function fitSaved(slots: SavedSlot[]): SavedSlot[] {
+  const filled = slots.filter(Boolean).length;
+  const last = lastFilled(slots);
+  let size = SAVED_BANK;
+  while (size < SAVED_MAX && (last >= size || size - filled < SAVED_MIN_FREE)) size += SAVED_BANK;
+  return resizeSaved(slots, size);
+}
+
+function toSwatch(v: unknown): Swatch {
+  if (typeof v === 'string') return { hex: v, alpha: legacyAlpha(v) };
+  const o = v as Swatch;
+  return { hex: o.hex, alpha: typeof o.alpha === 'number' ? o.alpha : legacyAlpha(o.hex) };
+}
+
+function defaultSaved(): SavedSlot[] {
+  const slots: SavedSlot[] = DEFAULT_RECENT.map((hex, i) => ({ hex, alpha: 100, addedAt: -(i + 1) }));
+  return fitSaved(slots);
+}
+
+/**
+ * Both parsers take whatever the store handed back - which may be null, and in
+ * the plugin will be on first render - and are shared by the state
+ * initializers and the late hydrate, so stored data is read the same way
+ * whether it was there at mount or arrived after it.
+ */
+function parseRecent(raw: unknown): Swatch[] {
+  return Array.isArray(raw) ? raw.map(toSwatch) : [];
+}
+
+function parseSaved(raw: unknown): SavedSlot[] {
+  if (!Array.isArray(raw)) return defaultSaved();
+  const seen = new Set<number>();
+  const slots: SavedSlot[] = raw.map((v: unknown, i: number) => {
+    if (!v) return null;
+    const stored = typeof v === 'string'
+      ? { hex: v, addedAt: -(i + 1) }
+      : (v as { hex: string; alpha?: number; addedAt: number });
+    const slot = {
+      ...stored,
+      alpha: typeof stored.alpha === 'number' ? stored.alpha : legacyAlpha(stored.hex),
+    };
+    // addedAt keys the FLIP animation and the ref map, so duplicates from an
+    // older write have to be separated or two slots animate as one.
+    if (seen.has(slot.addedAt)) slot.addedAt = -(i + 1) * 1000;
+    seen.add(slot.addedAt);
+    return slot;
+  });
+  // The stored length is the capacity, so it has to be squared up on the way
+  // in: data written before Saved could grow is 12 long, and a hand-edited or
+  // truncated store could be any length at all.
+  const size = Math.max(
+    SAVED_BANK,
+    Math.min(SAVED_MAX, Math.ceil(slots.length / SAVED_BANK) * SAVED_BANK),
+    Math.ceil((lastFilled(slots) + 1) / SAVED_BANK) * SAVED_BANK,
+  );
+  return resizeSaved(slots, size);
+}
 
 const DEFAULT_RECENT = ['#ff0000', '#ffff00', '#00ff00', '#00ffff', '#0000ff', '#ff00ff', '#ffffff', '#808080', '#000000'];
+
+/** The shared quiet control, at the app's one 32px control height. */
+const ACTION_BTN_CLASS = 'ctl-quiet px-2.5';
+
+/**
+ * Header controls hold a width instead of tracking their content, because all
+ * three change what they say: Sort cycles five labels, and the two confirming
+ * actions swap between an icon and "Sure?". Left to size themselves they shuffle
+ * each other sideways on every click.
+ *
+ * Two values, not one: Sort spells out its mode and the actions do not, so
+ * forcing them to a shared width would pad the icons out to fit "Sort: Bright".
+ * Both are floors - an unexpected font should widen a button, not clip it - and
+ * both are measured rather than guessed. See the MEASURED_WIDTHS test note.
+ */
+const ACTION_BTN_W = 'min-w-14';
+const SORT_BTN_W = 'min-w-26';
+
+type SortMode = 'user' | 'hue' | 'saturation' | 'brightness' | 'alpha';
+
+/** Cycle order for the Sort control. */
+const SORT_ORDER: readonly SortMode[] = ['user', 'hue', 'saturation', 'brightness', 'alpha'];
+
+const SORT_LABELS: Record<SortMode, string> = {
+  user: 'User',
+  hue: 'Hue',
+  saturation: 'Sat',
+  brightness: 'Bright',
+  alpha: 'Alpha',
+};
+
+/*
+ * Sort names its mode in text, the way the plugin does.
+ *
+ * It was briefly an icon per mode, which was a mistake: five glyphs standing in
+ * for User / Hue / Sat / Bright / Alpha are guesswork at 14px, and the plugin
+ * this was meant to match had always kept Sort as a label - only the two
+ * destructive actions became icons there. Clear and Defaults are unambiguous as
+ * a bin and a refresh; a sort order is not.
+ */
+
+/**
+ * Header action for the Recent / Saved sections. Always an icon, with the label
+ * carried by title and aria-label - except while armed, where "Sure?" is spelt
+ * out. Confirmation is the one place words beat a glyph.
+ */
+function ActionButton({
+  label,
+  icon: Icon,
+  onClick,
+  confirm,
+  onDropSwatch,
+}: {
+  label: string;
+  icon: ComponentType<{ className?: string }>;
+  onClick: (e: ReactMouseEvent) => void;
+  /** Require a second click. For the actions that throw away saved work. */
+  confirm?: boolean;
+  /**
+   * Accept a swatch dragged onto the button. Deliberately skips `confirm`:
+   * dropping one color on the bin is already a deliberate, aimed gesture, and
+   * it names its own target - unlike Clear, which takes everything.
+   */
+  onDropSwatch?: () => void;
+}) {
+  const [armed, setArmed] = useState(false);
+  const [dropOver, setDropOver] = useState(false);
+  const disarm = useRef<number | null>(null);
+
+  useEffect(() => () => {
+    if (disarm.current !== null) window.clearTimeout(disarm.current);
+  }, []);
+
+  // Confirm in place rather than in a dialog. The panel is small, a modal over
+  // it would cover the swatches you are deciding about, and a dialog component
+  // would pull the primitives library back into the plugin bundle that the
+  // build works to keep out.
+  const handle = (e: ReactMouseEvent) => {
+    if (!confirm || armed) {
+      if (disarm.current !== null) window.clearTimeout(disarm.current);
+      setArmed(false);
+      onClick(e);
+      return;
+    }
+    e.stopPropagation();
+    setArmed(true);
+    disarm.current = window.setTimeout(() => setArmed(false), 3000);
+  };
+
+  return (
+    <button
+      className={`${ACTION_BTN_CLASS} ${ACTION_BTN_W} transition-transform duration-100`}
+      // data-armed and data-drop-over share the danger styling: both mean the
+      // next thing that happens removes a color.
+      data-armed={armed || dropOver || undefined}
+      style={dropOver ? {
+        // Figma's danger token in the plugin, shadcn's in the app. The ring
+        // reads currentColor so it follows whichever one resolved.
+        color: 'var(--figma-color-text-danger, var(--destructive))',
+        transform: 'scale(1.12)',
+        boxShadow: '0 0 0 2px currentColor',
+      } : undefined}
+      title={armed ? `${label} - click again to confirm` : label}
+      aria-label={armed ? `Confirm ${label.toLowerCase()}` : label}
+      onClick={handle}
+      onBlur={() => setArmed(false)}
+      onDragOver={onDropSwatch && ((e) => {
+        // preventDefault on dragover is what marks an element as a drop target;
+        // without it the drop never fires and the drag reads as rejected.
+        e.preventDefault();
+        e.stopPropagation();
+        e.dataTransfer.dropEffect = 'move';
+        if (!dropOver) setDropOver(true);
+      })}
+      onDragLeave={onDropSwatch && (() => setDropOver(false))}
+      onDrop={onDropSwatch && ((e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setDropOver(false);
+        onDropSwatch();
+      })}
+    >
+      {armed ? 'Sure?' : <Icon className="!size-3.5" />}
+    </button>
+  );
+}
 
 interface ColorHexagonProps {
   rgb: RGB;
@@ -42,6 +312,58 @@ interface ColorHexagonProps {
   animHolding?: boolean;
   onHoverHtmlColor?: (marker: HoveredMarker | null) => void;
   muted?: boolean;
+  /** Render Recent/Saved header actions as icons - for narrow hosts (Figma). */
+  /** Drop the card border and "Hexagon" title: the host already frames it. */
+  bare?: boolean;
+  /** Content for the header slot the title vacates in `bare` mode. */
+  headerLeft?: ReactNode;
+  /** Extra controls rendered directly under the hexagon, above Recent. */
+  belowStage?: ReactNode;
+  /** Start Recent and Saved closed - they cost a lot of height in a panel. */
+  collapsedSections?: boolean;
+  /**
+   * Shape of the Recent/Saved sections. 'flush' drops the card and gives them
+   * the Figma sidebar look: a full-bleed rule above each, content inset by the
+   * host's padding. See CollapsibleSection.
+   */
+  sectionVariant?: 'card' | 'flush';
+  /**
+   * Opacity of the current color, 0-100. Recorded alongside each Recent and
+   * Saved swatch and shown on its right half, the way Figma does. Hosts with
+   * no alpha concept leave it out and every swatch stays opaque.
+   */
+  alpha?: number;
+  /** Restore a swatch's stored alpha when it is clicked. */
+  onAlphaRestore?: (alpha: number) => void;
+  /**
+   * Let the wheel over the hexagon drive brightness/lightness. On a page that
+   * is the natural gesture; in a panel that scrolls, it steals the wheel from
+   * the panel, so a host with its own scroll turns it off.
+   */
+  wheelAdjusts?: boolean;
+  /**
+   * Draw the vertical brightness bar beside the hexagon. Off lets a host put
+   * brightness on its own horizontal slider, and hands the width the bar was
+   * reserving back to the hexagon.
+   */
+  blBar?: boolean;
+  /**
+   * Where the host's brightness handle sits, as a fraction of the hexagon's
+   * width. Only used when blBar is off, to land the limit-hexagon connector on
+   * the handle rather than near it - the slider's track and the hexagon are
+   * different widths, so the value alone is not enough.
+   */
+  blHandleX?: number | null;
+  /** Draw the line tying the brightness control to the limit hexagon. */
+  blConnector?: boolean;
+  /**
+   * Rendered stem thickness in CSS px as [min, max]. The stems scale with the
+   * hexagon, which across the plugin's range means 1.15px at the narrow end and
+   * 3.3px at the wide one - too thin to read, then heavier than the handles.
+   * Given a range they scale between those bounds instead. Omit for the plain
+   * 2-user-unit behavior.
+   */
+  stemRange?: [number, number] | null;
 }
 
 interface HoveredMarker {
@@ -51,42 +373,46 @@ interface HoveredMarker {
   name: string;
 }
 
-export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, animHolding, onHoverHtmlColor, muted }: ColorHexagonProps) {
+export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, animHolding, onHoverHtmlColor, muted, bare, headerLeft, belowStage, collapsedSections, sectionVariant = 'card', alpha = 100, onAlphaRestore, wheelAdjusts = true, blBar = true, blHandleX = null, blConnector = true, stemRange = null }: ColorHexagonProps) {
+  const flushSections = sectionVariant === 'flush';
+  // Horizontal extent of the SVG coordinate space. Without the bar the hexagon
+  // is the whole picture, so the 50px reserved to its right goes away - and the
+  // extent becomes twice CENTER_X, which is what actually puts the hexagon in
+  // the middle. At HEX_SIZE it sat 10px left of center.
+  const EXTENT = blBar ? SIZE : CENTER_X * 2;
   const [hexOpen, setHexOpen] = useState(true);
+  // Clip while collapsed or mid-tween only; see the note on the animator below.
+  // Derived, so the effect never sets state synchronously.
+  const [hexSettling, setHexSettling] = useState(false);
+  useEffect(() => {
+    if (!hexSettling) return;
+    const t = window.setTimeout(() => setHexSettling(false), COLLAPSE_MS + 20);
+    return () => window.clearTimeout(t);
+  }, [hexSettling]);
+  const hexClipped = !hexOpen || hexSettling;
+  const toggleHex = () => {
+    setHexSettling(true);
+    setHexOpen((o) => !o);
+  };
   const [vectorMode] = useState<ChannelOrder>('rgb');
   const [initialHex] = useState(() => rgbToHex(rgb.r, rgb.g, rgb.b));
-  const [recentColors, setRecentColors] = useState<string[]>(() => {
-    try {
-      const saved = localStorage.getItem('color-taylor-recent');
-      if (saved) return JSON.parse(saved);
-    } catch { /* localStorage unavailable */ }
-    return [];
-  });
+  const [recentColors, setRecentColors] = useState<Swatch[]>(() => parseRecent(readSwatch(RECENT_KEY)));
   const [selectedRecentIdx, setSelectedRecentIdx] = useState<number | null>(null);
-  type SavedSlot = { hex: string; addedAt: number } | null;
-  type SortMode = 'user' | 'hue' | 'saturation' | 'brightness';
-  const [savedSlots, setSavedSlots] = useState<SavedSlot[]>(() => {
-    try {
-      const raw = localStorage.getItem('color-taylor-saved');
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        const seen = new Set<number>();
-        return parsed.map((v: unknown, i: number) => {
-          if (!v) return null;
-          const slot = typeof v === 'string' ? { hex: v, addedAt: -(i + 1) } : (v as { hex: string; addedAt: number });
-          if (seen.has(slot.addedAt)) slot.addedAt = -(i + 1) * 1000;
-          seen.add(slot.addedAt);
-          return slot;
-        });
-      }
-    } catch { /* localStorage unavailable */ }
-    const defaults: SavedSlot[] = DEFAULT_RECENT.map((hex, i) => ({ hex, addedAt: -(i + 1) }));
-    while (defaults.length < 12) defaults.push(null);
-    return defaults;
-  });
+
+  const alphaRef = useRef(alpha);
+  alphaRef.current = alpha;
+
+  const [savedSlots, setSavedSlots] = useState<SavedSlot[]>(() => parseSaved(readSwatch(SAVED_KEY)));
   const [selectedSavedIdx, setSelectedSavedIdx] = useState<number | null>(null);
   const [savedSortMode, setSavedSortMode] = useState<SortMode>('user');
   const [draggedUserIdx, setDraggedUserIdx] = useState<number | null>(null);
+  /**
+   * A Recent swatch being dragged toward Saved. Separate from draggedUserIdx
+   * rather than folded into one drag-source union, because the two behave
+   * differently at every step: this one copies instead of moving, leaves its
+   * source untouched, and has no slot to fall back to if the drop misses.
+   */
+  const [draggedRecent, setDraggedRecent] = useState<Swatch | null>(null);
   const [dragHover, setDragHover] = useState<{ displayIdx: number; zone: 'left' | 'center' | 'right' } | null>(null);
   const [touchArmedUserIdx, setTouchArmedUserIdx] = useState<number | null>(null);
   const touchDrag = useRef<{ startX: number; startY: number; userIdx: number; armed: boolean } | null>(null);
@@ -96,8 +422,6 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
 
   type Poof = { id: string; x: number; y: number; w: number; h: number; color: string };
   const [poofs, setPoofs] = useState<Poof[]>([]);
-  const mutedRef = useRef<boolean>(!!muted);
-  useEffect(() => { mutedRef.current = !!muted; }, [muted]);
   const liveHsbRef = useRef<HSB>({ h: hue, s: saturation, b: brightness });
   useEffect(() => { liveHsbRef.current = { h: hue, s: saturation, b: brightness }; }, [hue, saturation, brightness]);
   const toneActiveRef = useRef(false);
@@ -116,195 +440,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     if (holdToneTimer.current !== null) { clearTimeout(holdToneTimer.current); holdToneTimer.current = null; }
   }, []);
 
-  const rand = useCallback((center: number, spread: number) => center + (Math.random() * 2 - 1) * spread, []);
-
-  const ensureAudioCtx = useCallback(() => getAudioCtx(), []);
-
-  const playFlit = useCallback(() => {
-    if (mutedRef.current) return;
-    try {
-      const ctx = ensureAudioCtx();
-      const t = ctx.currentTime;
-      const duration = rand(0.36, 0.04);
-      const startFreq = rand(450, 60);
-      const peakFreq = rand(1700, 180);
-      const endFreq = rand(900, 100);
-      const Q = rand(1.2, 0.25);
-      const peakGain = rand(0.22, 0.03);
-
-      const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * duration), ctx.sampleRate);
-      const data = buf.getChannelData(0);
-      for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
-
-      const src = ctx.createBufferSource();
-      src.buffer = buf;
-
-      const filter = ctx.createBiquadFilter();
-      filter.type = 'bandpass';
-      filter.Q.value = Q;
-      filter.frequency.setValueAtTime(startFreq, t);
-      filter.frequency.exponentialRampToValueAtTime(peakFreq, t + duration * 0.7);
-      filter.frequency.exponentialRampToValueAtTime(endFreq, t + duration);
-
-      const tilt = ctx.createBiquadFilter();
-      tilt.type = 'highshelf';
-      tilt.frequency.value = 3000;
-      tilt.gain.value = -6;
-
-      const gain = ctx.createGain();
-      gain.gain.setValueAtTime(0.0001, t);
-      gain.gain.exponentialRampToValueAtTime(peakGain, t + 0.09);
-      gain.gain.linearRampToValueAtTime(peakGain * 0.82, t + 0.24);
-      gain.gain.exponentialRampToValueAtTime(0.0001, t + duration);
-
-      src.connect(filter).connect(tilt).connect(gain).connect(getMasterGain());
-      src.start(t);
-      src.stop(t + duration + 0.02);
-    } catch { /* localStorage unavailable */ }
-  }, [ensureAudioCtx, rand]);
-
-  const playClick = useCallback(() => {
-    if (mutedRef.current) return;
-    try {
-      const ctx = ensureAudioCtx();
-      const t = ctx.currentTime;
-
-      const duration = rand(0.04, 0.008);
-      const filterFreq = rand(2000, 260);
-      const filterQ = rand(0.8, 0.18);
-      const peakGain = rand(0.18, 0.04);
-
-      const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * duration), ctx.sampleRate);
-      const data = buffer.getChannelData(0);
-      for (let i = 0; i < data.length; i++) {
-        data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
-      }
-
-      const src = ctx.createBufferSource();
-      src.buffer = buffer;
-
-      const filter = ctx.createBiquadFilter();
-      filter.type = 'bandpass';
-      filter.frequency.value = filterFreq;
-      filter.Q.value = filterQ;
-
-      const gain = ctx.createGain();
-      gain.gain.setValueAtTime(0.001, t);
-      gain.gain.exponentialRampToValueAtTime(peakGain, t + 0.002);
-      gain.gain.exponentialRampToValueAtTime(0.0001, t + duration);
-
-      src.connect(filter).connect(gain).connect(getMasterGain());
-      src.start(t);
-      src.stop(t + duration + 0.01);
-    } catch { /* localStorage unavailable */ }
-  }, [ensureAudioCtx, rand]);
-
-  const playSave = useCallback(() => {
-    if (mutedRef.current) return;
-    try {
-      const ctx = ensureAudioCtx();
-      const t = ctx.currentTime;
-
-      const duration = rand(0.11, 0.015);
-      const noiseFreq = rand(750, 90);
-      const noiseQ = rand(1.1, 0.18);
-      const noisePeak = rand(0.18, 0.03);
-      const thumpStart = rand(140, 18);
-      const thumpEnd = rand(55, 8);
-      const thumpDur = rand(0.085, 0.012);
-      const thumpPeak = rand(0.18, 0.03);
-
-      const noiseBuf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * duration), ctx.sampleRate);
-      const data = noiseBuf.getChannelData(0);
-      for (let i = 0; i < data.length; i++) {
-        data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
-      }
-      const noise = ctx.createBufferSource();
-      noise.buffer = noiseBuf;
-
-      const bandpass = ctx.createBiquadFilter();
-      bandpass.type = 'bandpass';
-      bandpass.frequency.value = noiseFreq;
-      bandpass.Q.value = noiseQ;
-
-      const noiseGain = ctx.createGain();
-      noiseGain.gain.setValueAtTime(0.0001, t);
-      noiseGain.gain.exponentialRampToValueAtTime(noisePeak, t + 0.003);
-      noiseGain.gain.exponentialRampToValueAtTime(0.001, t + duration);
-
-      noise.connect(bandpass).connect(noiseGain).connect(getMasterGain());
-      noise.start(t);
-      noise.stop(t + duration + 0.02);
-
-      const thump = ctx.createOscillator();
-      const thumpGain = ctx.createGain();
-      thump.type = 'sine';
-      thump.frequency.setValueAtTime(thumpStart, t);
-      thump.frequency.exponentialRampToValueAtTime(thumpEnd, t + thumpDur);
-      thumpGain.gain.setValueAtTime(0.0001, t);
-      thumpGain.gain.exponentialRampToValueAtTime(thumpPeak, t + 0.005);
-      thumpGain.gain.exponentialRampToValueAtTime(0.0001, t + thumpDur + 0.01);
-      thump.connect(thumpGain).connect(getMasterGain());
-      thump.start(t);
-      thump.stop(t + thumpDur + 0.02);
-    } catch { /* localStorage unavailable */ }
-  }, [ensureAudioCtx, rand]);
-
-  const playPop = useCallback(() => {
-    if (mutedRef.current) return;
-    try {
-      const ctx = ensureAudioCtx();
-
-      // Crumple: filtered noise burst with random crinkle envelope.
-      const duration = rand(0.32, 0.04);
-      const bandpassFreq = rand(2800, 250);
-      const bandpassQ = rand(1.4, 0.25);
-      const shelfFreq = rand(4000, 300);
-      const shelfGain = rand(4, 1);
-
-      const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * duration), ctx.sampleRate);
-      const data = buffer.getChannelData(0);
-      for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
-
-      const src = ctx.createBufferSource();
-      src.buffer = buffer;
-
-      const bandpass = ctx.createBiquadFilter();
-      bandpass.type = 'bandpass';
-      bandpass.frequency.value = bandpassFreq;
-      bandpass.Q.value = bandpassQ;
-
-      const highshelf = ctx.createBiquadFilter();
-      highshelf.type = 'highshelf';
-      highshelf.frequency.value = shelfFreq;
-      highshelf.gain.value = shelfGain;
-
-      const gain = ctx.createGain();
-      const t = ctx.currentTime;
-      gain.gain.setValueAtTime(0.0001, t);
-
-      // Random crinkle envelope: 6–10 short spikes within the duration.
-      const spikes = 7 + Math.floor(Math.random() * 4);
-      const step = duration / spikes;
-      let cur = t;
-      for (let i = 0; i < spikes; i++) {
-        const slot = step * (0.4 + Math.random() * 0.6);
-        const rise = 0.004 + Math.random() * 0.01;
-        const fall = slot - rise;
-        const peak = 0.06 + Math.random() * 0.18;
-        cur += rise;
-        gain.gain.exponentialRampToValueAtTime(peak, cur);
-        cur += Math.max(0.005, fall);
-        gain.gain.exponentialRampToValueAtTime(0.003, cur);
-      }
-      gain.gain.exponentialRampToValueAtTime(0.0001, t + duration);
-
-      src.connect(bandpass).connect(highshelf).connect(gain).connect(getMasterGain());
-      src.start(t);
-      src.stop(t + duration + 0.05);
-    } catch { /* localStorage unavailable */ }
-  }, [ensureAudioCtx, rand]);
-
+  const { playFlit, playClick, playSave, playPop } = useUiSounds(muted);
   const triggerPoof = useCallback((idx: number, color: string) => {
     const btn = document.querySelector<HTMLElement>(`[data-saved-idx="${idx}"]`);
     if (!btn) return;
@@ -328,24 +464,37 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     setDragHover(null);
   }, []);
 
-  const lastHex = useRef(initialHex);
+  const lastRecorded = useRef(swatchKey(initialHex, 100));
   const skipNextRecent = useRef(false);
 
-  // Persist recent + saved colors
+  // Persist recent + saved colors. Guarded like every read above: storage can
+  // throw, not merely return null. A null-origin iframe — which is what the
+  // Figma plugin host gives us — raises SecurityError on access, and an
+  // uncaught throw inside an effect unmounts the entire tree.
+  useEffect(() => { writeSwatch(RECENT_KEY, recentColors); }, [recentColors]);
+  useEffect(() => { writeSwatch(SAVED_KEY, savedSlots); }, [savedSlots]);
+
+  /**
+   * Adopt swatches that arrive after mount.
+   *
+   * The plugin's store is asynchronous - clientStorage lives on the sandbox
+   * side - so the first render builds on an empty cache and the real data
+   * lands a moment later. The app's store is synchronous and never fires this.
+   */
   useEffect(() => {
-    localStorage.setItem('color-taylor-recent', JSON.stringify(recentColors));
-  }, [recentColors]);
-  useEffect(() => {
-    localStorage.setItem('color-taylor-saved', JSON.stringify(savedSlots));
-  }, [savedSlots]);
+    const hydrate = () => {
+      setRecentColors(parseRecent(readSwatch(RECENT_KEY)));
+      setSavedSlots(parseSaved(readSwatch(SAVED_KEY)));
+    };
+    window.addEventListener(SWATCHES_READY, hydrate);
+    return () => window.removeEventListener(SWATCHES_READY, hydrate);
+  }, []);
 
   // Listen for global "reset all" — restore recent + saved to defaults.
   useEffect(() => {
     const onReset = () => {
       setRecentColors([]);
-      const defaults: SavedSlot[] = DEFAULT_RECENT.map((hex, i) => ({ hex, addedAt: -(i + 1) }));
-      while (defaults.length < 12) defaults.push(null);
-      setSavedSlots(defaults);
+      setSavedSlots(defaultSaved());
       setSelectedRecentIdx(null);
       setSelectedSavedIdx(null);
     };
@@ -358,7 +507,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   const displaySlots = useMemo<{ slot: SavedSlot; userIdx: number }[]>(() => {
     const indexed = savedSlots.map((slot, userIdx) => ({ slot, userIdx }));
     if (savedSortMode === 'user') return indexed;
-    const filled = indexed.filter((x): x is { slot: { hex: string; addedAt: number }; userIdx: number } => x.slot !== null);
+    const filled = indexed.filter((x): x is { slot: NonNullable<SavedSlot>; userIdx: number } => x.slot !== null);
     const empties = indexed.filter((x) => x.slot === null);
     filled.sort((a, b) => {
       const ar = parseInt(a.slot.hex.slice(1, 3), 16), ag = parseInt(a.slot.hex.slice(3, 5), 16), ab = parseInt(a.slot.hex.slice(5, 7), 16);
@@ -369,6 +518,8 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
         return (aHsb.h - bHsb.h) || (aHsb.s - bHsb.s) || (aHsb.b - bHsb.b);
       }
       if (savedSortMode === 'saturation') return bHsb.s - aHsb.s;
+      // Most transparent first, so the ones you might have lost track of surface.
+      if (savedSortMode === 'alpha') return a.slot.alpha - b.slot.alpha;
       return bHsb.b - aHsb.b;
     });
     return [...filled, ...empties];
@@ -384,10 +535,28 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     const displayIdx = displaySlots.findIndex((d) => d.userIdx === userIdx);
     const flattened: SavedSlot[] = displaySlots.map((d) => d.slot);
     if (displayIdx >= 0) flattened[displayIdx] = null;
-    setSavedSlots(flattened);
+    setSavedSlots(fitSaved(flattened));
     setSavedSortMode('user');
     setSelectedSavedIdx(null);
   }, [savedSlots, displaySlots, triggerPoof, playPop]);
+
+  /**
+   * Copy a Recent color into a Saved slot. Recent keeps its own.
+   *
+   * Adopts the displayed order first, the same way clicking an empty slot
+   * does, so the color lands in the slot that was under the pointer rather
+   * than wherever that position maps to in the unsorted array.
+   */
+  const copyRecentToSaved = useCallback((swatch: Swatch, displayIdx: number) => {
+    const flattened: SavedSlot[] = displaySlots.map((d) => d.slot);
+    if (displayIdx < 0 || displayIdx >= flattened.length) return;
+    flattened[displayIdx] = { hex: swatch.hex, alpha: swatch.alpha, addedAt: Date.now() };
+    setSavedSlots(fitSaved(flattened));
+    setSavedSortMode('user');
+    setSelectedSavedIdx(displayIdx);
+    playSave();
+    if (navigator.vibrate) navigator.vibrate(10);
+  }, [displaySlots, playSave]);
 
   // Refs keyed by COLOR identity (addedAt timestamp), not slot index, so we
   // can track a color across position changes for FLIP animation.
@@ -426,7 +595,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     captureFlipRects(false, sourceSlotPreview?.addedAt);
     const flattened: SavedSlot[] = displaySlots.map((d) => d.slot);
     [flattened[fromDisplay], flattened[toDisplayIdx]] = [flattened[toDisplayIdx], flattened[fromDisplay]];
-    setSavedSlots(flattened);
+    setSavedSlots(fitSaved(flattened));
     setSavedSortMode('user');
     setSelectedSavedIdx(toDisplayIdx);
     playClick();
@@ -467,7 +636,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     }
     flattened[target] = sourceSlot;
 
-    setSavedSlots(flattened);
+    setSavedSlots(fitSaved(flattened));
     setSavedSortMode('user');
     setSelectedSavedIdx(target);
     playClick();
@@ -487,8 +656,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
 
   const cycleSavedSort = useCallback(() => {
     captureFlipRects(true);
-    const order: SortMode[] = ['user', 'hue', 'saturation', 'brightness'];
-    const next = order[(order.indexOf(savedSortMode) + 1) % order.length];
+    const next = SORT_ORDER[(SORT_ORDER.indexOf(savedSortMode) + 1) % SORT_ORDER.length];
     setSavedSortMode(next);
     setSelectedSavedIdx(null);
   }, [savedSortMode, captureFlipRects]);
@@ -527,8 +695,6 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
 
     if (shouldPlaySound && movedCount > 0) playFlit();
   }, [savedSortMode, savedSlots, playFlit]);
-
-  const SORT_LABELS: Record<SortMode, string> = { user: 'User', hue: 'Hue', saturation: 'Sat', brightness: 'Bright' };
   const draggingBL = useRef(false);
   const svgRef = useRef(null);
   const draggingHue = useRef(false);
@@ -538,18 +704,38 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   const startingBrightness = useRef(null); // brightness at drag start for rubber-band
   const blPointerDown = useRef(null);
   const [hoveredDot, setHoveredDot] = useState(null); // index of hovered dot
+  // Separate from hoveredDot: a segment and the handle at its end are different
+  // targets, and highlighting one should not light up the other.
+  const [hoveredLeg, setHoveredLeg] = useState<number | null>(null);
+  // SVG user units per rendered pixel. The hexagon and its legs scale with the
+  // viewBox, but the handles should stay the same physical size, so their radii
+  // and strokes are multiplied by this.
+  const [uiScale, setUiScale] = useState(1);
   const [isHexDragging, setIsHexDragging] = useState(false);
   const [hoveredMarker, setHoveredMarker] = useState<HoveredMarker | null>(null);
 
   const dragTriggerDistance = 4;
   const clickMaxDuration = 200;
 
+  useLayoutEffect(() => {
+    const el = svgRef.current;
+    if (!el) return;
+    const measure = () => {
+      const w = el.getBoundingClientRect().width;
+      if (w > 0) setUiScale(EXTENT / w);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [EXTENT]);
+
   const getSvgCoords = useCallback((e: { clientX: number; clientY: number }) => {
     const rect = svgRef.current!.getBoundingClientRect();
-    const sx = SIZE / rect.width;
+    const sx = EXTENT / rect.width;
     const sy = HEX_SIZE / rect.height;
     return { x: (e.clientX - rect.left) * sx, y: (e.clientY - rect.top) * sy };
-  }, []);
+  }, [EXTENT]);
 
   const getHsbFromPosition = useCallback((svgX: number, svgY: number, clampOnly = false) => {
     const dx = svgX - CENTER_X;
@@ -609,18 +795,39 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     // eslint-disable-next-line react-hooks/exhaustive-deps -- rgb accessed via dynamic key; r/g/b deps cover all reads
   }, [order, rgb.r, rgb.g, rgb.b, scale]);
 
+  /**
+   * Same hue, lifted - the hover state of any element is its own color,
+   * lighter.
+   *
+   * A pure primary is already at full brightness, so raising it does nothing
+   * and hover would be invisible. With no headroom left, lighten by pulling
+   * saturation out instead, which is what "lighter" means for a saturated
+   * color.
+   */
+  const lift = useCallback((hex: string, amount = 22) => {
+    const c = hexToRgb(hex);
+    if (!c) return hex;
+    const h = rgbToHsb(c.r, c.g, c.b);
+    const next = h.b >= 100
+      ? { h: h.h, s: Math.max(0, h.s - amount * 1.6), b: 100 }
+      : lighter(h.h, h.s, h.b, amount);
+    const out = hsbToRgb(next.h, next.s, next.b);
+    return rgbToHex(out.r, out.g, out.b);
+  }, []);
+
+  /** The color the field shows at each joint - each handle's fill. */
   const dotColors = useMemo(() => points.map((p) => {
     const c = colorAtPoint(p.x, p.y, brightness);
     return rgbToHex(c.r, c.g, c.b);
   }), [points, brightness]);
 
-  const { hueEnd, hueLabel } = useMemo(() => {
+  // hueLabel is the pill's center - HueHandle is translated -50%/-50% onto it -
+  // so the hue line ending here points at the pill rather than stopping short
+  // at the circumscribed circle. The pill is opaque and painted above the SVG,
+  // so the last stretch is hidden behind it.
+  const { hueLabel } = useMemo(() => {
     const rad = (hue * PI) / 180;
     return {
-      hueEnd: {
-        x: CENTER_X + RADIUS * Math.cos(rad),
-        y: CENTER_Y - RADIUS * Math.sin(rad),
-      },
       hueLabel: {
         x: CENTER_X + (RADIUS + 28) * Math.cos(rad),
         y: CENTER_Y - (RADIUS + 28) * Math.sin(rad),
@@ -676,10 +883,10 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   // Immediate highlight during animation holds
   useEffect(() => {
     if (animHolding) {
-      const matchIdx = recentColors.indexOf(currentHex);
+      const matchIdx = recentColors.findIndex((c) => c.hex === currentHex && c.alpha === alpha);
       setSelectedRecentIdx(matchIdx !== -1 ? matchIdx : null);
     }
-  }, [animHolding, currentHex, recentColors]);
+  }, [animHolding, currentHex, alpha, recentColors]);
 
   // Reset debounce on currentHex change only; reads latest recentColors via ref
   // to avoid restarting the timer when the recent list updates.
@@ -690,20 +897,21 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     addRecentTimer.current = setTimeout(() => {
       if (skipNextRecent.current) {
         skipNextRecent.current = false;
-        lastHex.current = currentHex;
+        lastRecorded.current = swatchKey(currentHex, alphaRef.current);
         return;
       }
-      const matchIdx = recentColorsRef.current.indexOf(currentHex);
+      const a = alphaRef.current;
+      const matchIdx = recentColorsRef.current.findIndex((c) => c.hex === currentHex && c.alpha === a);
       if (matchIdx !== -1) {
         setSelectedRecentIdx(matchIdx);
-        lastHex.current = currentHex;
+        lastRecorded.current = swatchKey(currentHex, a);
         return;
       }
-      if (currentHex !== lastHex.current) {
-        lastHex.current = currentHex;
+      if (swatchKey(currentHex, a) !== lastRecorded.current) {
+        lastRecorded.current = swatchKey(currentHex, a);
         setRecentColors((prev) => {
-          if (prev.includes(currentHex)) return prev;
-          return [currentHex, ...prev].slice(0, 12);
+          if (prev.some((c) => c.hex === currentHex && c.alpha === a)) return prev;
+          return [{ hex: currentHex, alpha: a }, ...prev].slice(0, 12);
         });
         setSelectedRecentIdx(0);
       }
@@ -715,14 +923,17 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
         addRecentTimer.current = null;
       }
     };
-  }, [currentHex]);
+    // Opacity is half of a swatch's identity now, so a change to it has to
+    // restart the debounce or a new opacity would never be recorded.
+  }, [currentHex, alpha]);
 
   const addToRecent = useCallback((hex: string) => {
+    const a = alphaRef.current;
     skipNextRecent.current = true;
-    lastHex.current = hex;
+    lastRecorded.current = swatchKey(hex, a);
     setRecentColors((prev) => {
-      const filtered = prev.filter((c) => c !== hex);
-      return [hex, ...filtered].slice(0, 12);
+      const filtered = prev.filter((c) => !(c.hex === hex && c.alpha === a));
+      return [{ hex, alpha: a }, ...filtered].slice(0, 12);
     });
     setSelectedRecentIdx(0);
   }, []);
@@ -975,10 +1186,13 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     };
   }, [hueFromMouse, handleDotDrag, handleHexSurfaceDrag, getBLValueFromClientY, applyBLValue, animateBLToValue, getSvgCoords, getHsbFromPosition, onAnimateToHsb, onHsbChange, addToRecent, blMode, cancelHoldTone]);
 
-  // Non-passive wheel listener to prevent page scroll
+  // Non-passive wheel listener to prevent page scroll. Not registered at all
+  // when the host owns the wheel - a listener that conditionally declines to
+  // preventDefault still has to be non-passive, which costs the browser its
+  // scrolling fast path for no reason.
   useEffect(() => {
     const svg = svgRef.current;
-    if (!svg) return;
+    if (!svg || !wheelAdjusts) return;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const step = Math.abs(e.deltaY) > 50 ? 2 : 1;
@@ -1000,7 +1214,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     };
     svg.addEventListener('wheel', onWheel, { passive: false });
     return () => svg.removeEventListener('wheel', onWheel);
-  }, [blMode, brightness, hsl?.l, hue, saturation, onHsbChange, onHslChange]);
+  }, [wheelAdjusts, blMode, brightness, hsl?.l, hue, saturation, onHsbChange, onHslChange]);
 
   const handleHueDragStart = (e: ReactPointerEvent) => {
     e.preventDefault();
@@ -1071,6 +1285,20 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   }, [onAnimateToHsb, blMode, addToRecent]);
 
   // Brightness limit hex
+  /**
+   * User units that render at a fixed pixel size, whatever the panel width.
+   *
+   * Everything inside the SVG is drawn in a fixed viewBox, so a plain
+   * strokeWidth scales with the panel - at the narrow end the dashed strokes
+   * fall under a device pixel and wash out. Multiplying by uiScale (user units
+   * per rendered px) cancels that exactly.
+   *
+   * Dash patterns go through it too, or the texture drifts even when the line
+   * itself holds. At the viewBox's natural size every call below is a no-op,
+   * so these resolve to the values the hexagon has always used.
+   */
+  const pxUnits = (n: number) => n * uiScale;
+
   const limitHex = useMemo(() => {
     const limitScale = blMode === 'brightness'
       ? brightness / 100
@@ -1084,6 +1312,15 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     const dist = Math.sqrt(dx * dx + dy * dy);
     const angle = Math.atan2(-dy, dx);
     const edgeDist = hexEdgeDist(angle, limitRadius);
+    // Where the horizontal slider's handle meets the bottom edge, and the point
+    // where the line from there to the center crosses the limit hexagon - so
+    // the connector points at the middle rather than dropping straight down.
+    const sliderX = (blHandleX ?? blValue / 100) * HEX_SIZE;
+    const sdx = CENTER_X - sliderX;
+    const sdy = CENTER_Y - HEX_SIZE;
+    const sdist = Math.sqrt(sdx * sdx + sdy * sdy) || 1;
+    const sEdge = hexEdgeDist(Math.atan2(-sdy, sdx), limitRadius);
+
     return {
       limitScale,
       limitRadius,
@@ -1091,19 +1328,44 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       perimY: CENTER_Y - (dy / dist) * edgeDist,
       arrowTipX,
       arrowY,
+      sliderX,
+      downX: CENTER_X - (sdx / sdist) * sEdge,
+      downY: CENTER_Y - (sdy / sdist) * sEdge,
     };
-  }, [blMode, brightness, hsl?.l]);
+  }, [blMode, brightness, hsl?.l, blHandleX]);
 
   return (
-    <div id="color-hexagon" className="flex flex-col items-center gap-1 border border-input rounded-lg p-3 max-w-full" style={{ width: HEX_PANEL_WIDTH }}>
+    <div
+      id="color-hexagon"
+      // Built by joining whole strings, not by interpolating into one. Tailwind
+      // scans raw source text: `...max-w-full${cond}` makes the extractor read
+      // `max-w-full${cond` as the candidate, so the utility is never generated
+      // and the card silently overflows its column.
+      className={[
+        'flex flex-col items-center gap-1 max-w-full',
+        bare ? 'w-full' : 'panel-frame border border-border rounded-lg p-3',
+      ].join(' ')}
+      // This card collapses on its own `hexOpen` rather than through
+      // CollapsibleSection, so it reports its state itself. .panel-frame reads
+      // it to drop the glow while closed and keep just the keyline. Omitted in
+      // `bare` hosts, where there is no frame and no collapse affordance.
+      {...(bare ? {} : { 'data-panel-open': hexOpen ? 'true' : 'false' })}
+      style={bare ? undefined : { width: HEX_PANEL_WIDTH }}
+    >
       <div className="flex items-start gap-1.5 w-full">
-        <div
-          className="flex items-center gap-1.5 flex-1 min-w-0 cursor-pointer select-none"
-          onClick={() => setHexOpen((o) => !o)}
-        >
-          <ChevronRight className={`!size-4 text-muted-foreground transition-transform duration-200 ${hexOpen ? 'rotate-90' : ''}`} />
-          <h2 className="text-lg font-semibold tracking-tight text-foreground">Hexagon</h2>
-        </div>
+        {/* In `bare` hosts the surrounding chrome is the container, so the
+            title and its collapse affordance are redundant. The Bright/Light
+            tabs stay - they are a control, not decoration. */}
+        {!bare && (
+          <div
+            className="flex items-center gap-1.5 flex-1 min-w-0 cursor-pointer select-none"
+            onClick={toggleHex}
+          >
+            <ChevronRight className={`!size-4 text-muted-foreground transition-transform duration-200 ${hexOpen ? 'rotate-90' : ''}`} />
+            <h2 className="text-lg font-semibold tracking-tight text-foreground">Hexagon</h2>
+          </div>
+        )}
+        {bare && <div className="flex-1 min-w-0">{headerLeft}</div>}
         {hexOpen && (
           <div className="flex items-start gap-2" onClick={(e) => e.stopPropagation()}>
             <div className="flex flex-col items-center gap-0.5">
@@ -1111,13 +1373,13 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                 <TabsList>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <span><TabsTrigger value="brightness" className="w-14">Bright</TabsTrigger></span>
+                      <span><TabsTrigger value="brightness" className="w-14">HSB</TabsTrigger></span>
                     </TooltipTrigger>
                     <TooltipContent side="bottom" sideOffset={8} className="text-xs font-semibold">HSB brightness</TooltipContent>
                   </Tooltip>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <span><TabsTrigger value="lightness" className="w-14">Light</TabsTrigger></span>
+                      <span><TabsTrigger value="lightness" className="w-14">HSL</TabsTrigger></span>
                     </TooltipTrigger>
                     <TooltipContent side="bottom" sideOffset={8} className="text-xs font-semibold">HSL lightness</TooltipContent>
                   </Tooltip>
@@ -1128,14 +1390,36 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           </div>
         )}
       </div>
-      {hexOpen && <>
-      <div className="w-full relative m-4" style={{ maxWidth: SIZE, aspectRatio: `${SIZE} / ${DISPLAY_HEIGHT}` }}>
-      <div className="absolute left-0 top-1/2 w-full -translate-y-1/2" style={{ aspectRatio: `${SIZE} / ${HEX_SIZE}` }}>
-        <HexCanvas brightness={brightness} colorSpace={colorSpace} />
+      {/*
+        The same collapse animation CollapsibleSection uses, applied by hand
+        because this panel is not one - it has its own hexOpen, so it was the one
+        panel that snapped shut while every other section tweened.
+
+        Two rows animating 0fr <-> 1fr, content kept mounted so there is
+        something to transition, and the clip lifted once open so the swatch
+        selection rings inside Recent and Saved are not cropped.
+      */}
+      <div
+        className="grid w-full transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none"
+        style={{ gridTemplateRows: hexOpen ? '1fr' : '0fr' }}
+      >
+      <div
+        inert={!hexOpen}
+        className={`flex w-full min-h-0 flex-col items-center gap-1 ${hexClipped ? 'overflow-clip' : ''}`}
+      >
+      {/* id is a styling hook for narrow hosts. The hue badge and brightness
+          pill are absolutely positioned against this element at percentage
+          offsets but sized in fixed px, so anything narrower than
+          HEX_PANEL_WIDTH must cap this width to keep them on screen. Padding
+          cannot do it - abs-positioned children resolve against the padding
+          box. See figma/ui/figma.css. */}
+      <div id="hex-stage" className="w-full relative m-4" style={{ maxWidth: EXTENT, aspectRatio: `${EXTENT} / ${DISPLAY_HEIGHT}` }}>
+      <div className="absolute left-0 top-1/2 w-full -translate-y-1/2" style={{ aspectRatio: `${EXTENT} / ${HEX_SIZE}` }}>
+        <HexCanvas brightness={brightness} colorSpace={colorSpace} extent={EXTENT} />
         <svg
           id="hex-svg"
           ref={svgRef}
-          viewBox={`0 0 ${SIZE} ${HEX_SIZE}`}
+          viewBox={`0 0 ${EXTENT} ${HEX_SIZE}`}
           preserveAspectRatio="xMidYMid meet"
           role="img"
           aria-label="Color hexagon with RGB vector visualization"
@@ -1150,13 +1434,25 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             <polygon
               id="hex-brightness-limit"
               points={hexPoints(CENTER_X, CENTER_Y, limitHex.limitRadius)}
-              fill="none" stroke="rgba(128,128,128,0.5)" strokeWidth={2} strokeDasharray="1 4" strokeLinecap="round"
+              fill="none" stroke="rgba(128,128,128,0.5)" strokeWidth={pxUnits(2)} strokeDasharray={`${pxUnits(1)} ${pxUnits(4)}`} strokeLinecap="round"
             />
           )}
-          <line
-            x1={limitHex.arrowTipX} y1={limitHex.arrowY} x2={limitHex.perimX} y2={limitHex.perimY}
-            stroke="rgba(128,128,128,0.5)" strokeWidth={2} strokeDasharray="1 4" strokeLinecap="round"
-          />
+          {/* Ties the brightness control to the limit hexagon. With the bar it
+              runs to the bar's arrow; without it, down to the bottom edge at
+              the x the brightness value sits at, which is where the horizontal
+              slider's handle is. */}
+          {blBar ? (
+            <line
+              x1={limitHex.arrowTipX} y1={limitHex.arrowY} x2={limitHex.perimX} y2={limitHex.perimY}
+              stroke="rgba(128,128,128,0.5)" strokeWidth={pxUnits(2)} strokeDasharray={`${pxUnits(1)} ${pxUnits(4)}`} strokeLinecap="round"
+            />
+          ) : blConnector ? (
+            <line
+              id="hex-brightness-connector"
+              x1={limitHex.sliderX} y1={HEX_SIZE} x2={limitHex.downX} y2={limitHex.downY}
+              stroke="rgba(128,128,128,0.5)" strokeWidth={pxUnits(2)} strokeDasharray={`${pxUnits(1)} ${pxUnits(4)}`} strokeLinecap="round"
+            />
+          ) : null}
 
           {/* HTML named color markers */}
           {htmlColorMarkers.map((m) => (
@@ -1188,8 +1484,8 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
 
           {/* Hue line */}
           {showHueLine && (
-            <line id="hue-line" x1={CENTER_X} y1={CENTER_Y} x2={hueEnd.x} y2={hueEnd.y}
-              stroke="rgba(255,255,255,0.5)" strokeWidth={1.5} strokeDasharray="4 4"
+            <line id="hue-line" x1={CENTER_X} y1={CENTER_Y} x2={hueLabel.x} y2={hueLabel.y}
+              stroke="rgba(255,255,255,0.5)" strokeWidth={pxUnits(2)} strokeDasharray={`${pxUnits(4)} ${pxUnits(4)}`}
             />
           )}
 
@@ -1200,14 +1496,16 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             const chValue = rgb[ch];
             // Hide zero-value segments during hex surface drag
             if (isHexDragging && chValue === 0 && ch !== 'r') return null;
-            const bright = brightness > 50;
-            const baseColor = bright
-              ? (ch === 'r' ? 'rgba(220,50,50,0.8)' : ch === 'g' ? 'rgba(50,180,50,0.8)' : 'rgba(50,50,220,0.8)')
-              : (ch === 'r' ? 'rgba(255,120,120,0.8)' : ch === 'g' ? 'rgba(120,230,120,0.8)' : 'rgba(120,120,255,0.8)');
-            const hoverColor = bright
-              ? (ch === 'r' ? 'rgba(240,90,90,1)' : ch === 'g' ? 'rgba(90,200,90,1)' : 'rgba(90,90,240,1)')
-              : (ch === 'r' ? 'rgba(255,160,160,1)' : ch === 'g' ? 'rgba(160,255,160,1)' : 'rgba(160,160,255,1)');
-            const isHighlighted = hoveredDot === i + 1;
+            const baseColor = CHANNEL_COLOR[ch];
+            const hoverColor = lift(baseColor);
+            // uiScale is user-units-per-rendered-px, so a target thickness in
+            // px converts by multiplying, and the natural size is where the
+            // upper bound lands.
+            const stemPx = stemRange
+              ? Math.min(stemRange[1], Math.max(stemRange[0], stemRange[1] / uiScale))
+              : 2 / uiScale;
+            const stemUnits = stemPx * uiScale;
+            const isHighlighted = hoveredLeg === i;
             const dotIndex = i + 1;
             return (
               <g key={i}>
@@ -1218,9 +1516,12 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                   strokeWidth={12}
                   strokeLinecap="round"
                   className="cursor-pointer touch-none"
-                  onPointerEnter={() => setHoveredDot(dotIndex)}
+                  onPointerEnter={() => {
+                    if (draggingDot.current || draggingFree.current) return;
+                    setHoveredLeg(i);
+                  }}
                   onPointerLeave={() => {
-                    if (!draggingDot.current && !draggingFree.current) setHoveredDot(null);
+                    if (!draggingDot.current && !draggingFree.current) setHoveredLeg(null);
                   }}
                   onPointerDown={(e) => handleDotMouseDown(e, dotIndex, true)}
                 />
@@ -1228,7 +1529,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                 <line
                   x1={prev.x} y1={prev.y} x2={p.x} y2={p.y}
                   stroke={isHighlighted ? hoverColor : baseColor}
-                  strokeWidth={isHighlighted ? 3 : 2}
+                  strokeWidth={isHighlighted ? stemUnits * 1.5 : stemUnits}
                   strokeLinecap="round"
                   className="pointer-events-none"
                 />
@@ -1238,38 +1539,69 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
 
           {/* Dots */}
           {points.map((p, i) => {
-            const isLast = i === points.length - 1;
             const isDraggable = i > 0;
             const ch = i > 0 ? order[i - 1] : null;
             // Hide zero-value dots during hex surface drag (except origin and red)
             if (isHexDragging && ch && ch !== 'r' && rgb[ch] === 0) return null;
-            const bright = brightness > 50;
-            const baseRing = !ch ? 'white' : bright
-              ? (ch === 'r' ? 'rgba(220,50,50,0.9)' : ch === 'g' ? 'rgba(50,180,50,0.9)' : 'rgba(50,50,220,0.9)')
-              : (ch === 'r' ? 'rgba(255,120,120,0.9)' : ch === 'g' ? 'rgba(120,230,120,0.9)' : 'rgba(120,120,255,0.9)');
-            const hoverRing = !ch ? 'white' : bright
-              ? (ch === 'r' ? 'rgba(240,90,90,1)' : ch === 'g' ? 'rgba(90,200,90,1)' : 'rgba(90,90,240,1)')
-              : (ch === 'r' ? 'rgba(255,160,160,1)' : ch === 'g' ? 'rgba(160,255,160,1)' : 'rgba(160,160,255,1)');
             const isHighlighted = isDraggable && hoveredDot === i;
-            const ringColor = isDraggable
-              ? (isHighlighted ? hoverRing : baseRing)
-              : 'white';
             const isOrigin = i === 0;
+            // uiScale keeps the handles a constant size on screen while the
+            // hexagon and its legs scale with the viewBox.
+            const k = uiScale;
+
+            if (isOrigin) {
+              return (
+                <circle
+                  key={i} id={`rgb-dot-${dotNames[i]}`} cx={p.x} cy={p.y}
+                  r={3 * k} fill="#ff0000"
+                />
+              );
+            }
+
+            const handlers = isDraggable ? {
+              onPointerDown: (e: ReactPointerEvent) => handleDotMouseDown(e, i),
+              // Ignored mid-drag: the element being dragged keeps the highlight
+              // rather than handing it to whatever the pointer passes over.
+              onPointerEnter: () => {
+                if (draggingDot.current || draggingFree.current) return;
+                setHoveredDot(i);
+              },
+              onPointerLeave: () => {
+                if (!draggingDot.current && !draggingFree.current) setHoveredDot(null);
+              },
+            } : {};
+
+            // Border is the channel this handle belongs to, at full strength;
+            // fill is the color the field shows underneath it.
+            const baseRing = CHANNEL_COLOR[ch];
+            const hoverRing = lift(baseRing);
+            // Thickens outward on hover, same 1.5x the stems use.
+            const ringW = isHighlighted ? HANDLE.ring * HANDLE.hoverScale : HANDLE.ring;
+
             return (
-              <circle
-                key={i} id={`rgb-dot-${dotNames[i]}`} cx={p.x} cy={p.y}
-                r={isOrigin ? 3 : isLast ? 8 : 5}
-                fill={isOrigin ? '#ff0000' : dotColors[i]}
-                stroke={isOrigin ? 'none' : ringColor}
-                strokeWidth={isOrigin ? 0 : isHighlighted ? 3 : 2}
+              <g
+                key={i}
                 className={isDraggable ? 'cursor-pointer touch-none' : ''}
-                style={isLast ? { filter: 'drop-shadow(0 0 1px rgba(0,0,0,0.3))' } : undefined}
-                onPointerDown={isDraggable ? (e) => handleDotMouseDown(e, i) : undefined}
-                onPointerEnter={isDraggable ? () => setHoveredDot(i) : undefined}
-                onPointerLeave={isDraggable ? () => {
-                  if (!draggingDot.current && !draggingFree.current) setHoveredDot(null);
-                } : undefined}
-              />
+                // Through pxUnits like every other stroke here: a CSS filter on
+                // an SVG element measures in user space, so the shadow scaled
+                // with the panel - about 1.3px of blur when narrow and 3.8px
+                // when wide, against the slider handles flat 2.5px.
+                style={{ filter: `drop-shadow(0 ${pxUnits(HANDLE.shadowY)}px ${pxUnits(HANDLE.shadowBlur)}px ${HANDLE.shadowColor})` }}
+                {...handlers}
+              >
+                <circle
+                  id={`rgb-dot-${dotNames[i]}`}
+                  cx={p.x} cy={p.y} r={ringRadius(ringW) * k}
+                  fill={dotColors[i]}
+                  stroke={isHighlighted ? hoverRing : baseRing}
+                  strokeWidth={ringW * k}
+                />
+                {/* The tint inside the ring, matching the slider handles. */}
+                <circle
+                  cx={p.x} cy={p.y} r={(ringRadius(ringW) + ringW / 2 - 0.5) * k}
+                  fill="none" stroke={HANDLE.inner} strokeWidth={k}
+                />
+              </g>
             );
           })}
 
@@ -1288,14 +1620,16 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             />
           )}
 
-          <BrightnessBar
-            hue={hue} saturation={saturation} brightness={brightness} hsl={hsl}
-            blMode={blMode} blPointerDownRef={blPointerDown} draggingBLRef={draggingBL}
-            animateBLToValue={animateBLToValue} colorSpace={colorSpace}
-          />
+          {blBar && (
+            <BrightnessBar
+              hue={hue} saturation={saturation} brightness={brightness} hsl={hsl}
+              blMode={blMode} blPointerDownRef={blPointerDown} draggingBLRef={draggingBL}
+              animateBLToValue={animateBLToValue} colorSpace={colorSpace}
+            />
+          )}
         </svg>
 
-        <ColorLabels onColorClick={handleColorLabelClick} />
+        <ColorLabels onColorClick={handleColorLabelClick} extent={EXTENT} />
 
         {/* HTML color marker tooltip */}
         {hoveredMarker && (() => {
@@ -1325,58 +1659,81 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             </div>
           );
         })()}
-        {showHueLine && <HueHandle hue={hue} hueLabel={hueLabel} onMouseDown={handleHueDragStart} />}
-        <BrightnessHandle
-          hue={hue}
-          saturation={saturation}
-          brightness={brightness}
-          hsl={hsl}
-          blMode={blMode}
-          onMouseDown={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            draggingBL.current = true;
-            scheduleHoldTone();
-          }}
-        />
+        {showHueLine && <HueHandle hue={hue} hueLabel={hueLabel} extent={EXTENT} onMouseDown={handleHueDragStart} />}
+        {blBar && <BrightnessMarkers onPick={animateBLToValue} />}
+        {blBar && (
+          <BrightnessHandle
+            hue={hue}
+            saturation={saturation}
+            brightness={brightness}
+            hsl={hsl}
+            blMode={blMode}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              draggingBL.current = true;
+              scheduleHoldTone();
+            }}
+          />
+        )}
       </div>
       </div>
 
+      {belowStage && <div className="w-full">{belowStage}</div>}
+
       {/* Recent Colors + Named Color Match */}
-      <div className="w-full mt-2">
+      <div className={flushSections ? 'w-full section-flush' : 'w-full mt-2'}>
         <CollapsibleSection
           id="recent-colors"
           title="Recent"
-          defaultOpen={true}
+          variant={sectionVariant}
+          defaultOpen={!collapsedSections}
           headerRight={
             <div className="flex gap-1">
-              <button
-                className="px-2 py-0.5 text-xs rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none"
+              <ActionButton
+                label="Clear"
+                icon={Trash2}
+                confirm
                 onClick={(e) => { e.stopPropagation(); setRecentColors([]); setSelectedRecentIdx(null); }}
-              >
-                Clear
-              </button>
+              />
             </div>
           }
         >
           <div className="grid grid-cols-6 md:grid-cols-12 gap-1.5">
             {Array.from({ length: 12 }, (_, i) => {
-              const color = recentColors[i];
+              const entry = recentColors[i];
+              const color = entry?.hex;
               return (
                 <button
                   key={i}
                   className="rounded-md cursor-pointer h-8 w-full transition-shadow duration-200 ease-in-out"
                   style={{
-                    backgroundColor: color || 'transparent',
+                    background: entry ? swatchBackground(entry.hex, entry.alpha) : 'transparent',
                     boxShadow: i === selectedRecentIdx && color ? '0 0 0 2px white' : 'none',
                     border: i === selectedRecentIdx && color ? '2px solid transparent' : '1px solid var(--input)',
+                    opacity: draggedRecent && entry && draggedRecent.hex === entry.hex && draggedRecent.alpha === entry.alpha ? 0.4 : 1,
                   }}
                   disabled={!color}
+                  // Drag a recent color onto a Saved slot to keep it. This
+                  // copies - Recent is a log of where you have been and should
+                  // not lose an entry because you filed it somewhere.
+                  draggable={!!entry}
+                  onDragStart={(e) => {
+                    if (!entry) { e.preventDefault(); return; }
+                    setDraggedRecent(entry);
+                    e.dataTransfer.effectAllowed = 'copy';
+                    e.dataTransfer.setData('text/plain', entry.hex);
+                  }}
+                  onDragEnd={() => {
+                    setDraggedRecent(null);
+                    setDragHover(null);
+                  }}
                   aria-label={color ? `Select ${color}` : 'Empty slot'}
                   onClick={() => {
-                    if (color && onAnimateToHsb) {
+                    if (entry && color && onAnimateToHsb) {
                       skipNextRecent.current = true;
                       setSelectedRecentIdx(i);
+                      onAlphaRestore?.(entry.alpha);
                       const parsed = rgbToHsb(
                         parseInt(color.slice(1, 3), 16),
                         parseInt(color.slice(3, 5), 16),
@@ -1393,40 +1750,57 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       </div>
 
       {/* Saved Colors */}
-      <div className="w-full mt-2">
+      <div className={flushSections ? 'w-full section-flush' : 'w-full mt-2'}>
         <CollapsibleSection
           id="saved-colors"
           title="Saved"
-          headerLeft={
-            <button
-              className="px-2 py-0.5 text-xs rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none tabular-nums"
-              onClick={(e) => { e.stopPropagation(); cycleSavedSort(); }}
-              aria-label={`Sort by ${SORT_LABELS[savedSortMode]} (click to cycle)`}
-            >
-              Sort: {SORT_LABELS[savedSortMode]}
-            </button>
-          }
+          variant={sectionVariant}
+          defaultOpen={!collapsedSections}
           headerRight={
             <div className="flex gap-1">
+              {/* Sort sits with the other header actions rather than opposite
+                  them. It is the only one that reads rather than destroys, so
+                  it leads the group and the two confirming actions follow. */}
               <button
-                className="px-2 py-0.5 text-xs rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none"
+                className={`${ACTION_BTN_CLASS} ${SORT_BTN_W} tabular-nums`}
+                onClick={(e) => { e.stopPropagation(); cycleSavedSort(); }}
+                // The mode as an attribute, not just inside a label. It is the
+                // only way to read this control now that it renders a glyph, and
+                // it lets a test assert on state rather than on presentation.
+                data-sort-mode={savedSortMode}
+                title={`Sorted by ${SORT_LABELS[savedSortMode]} - click to cycle`}
+                aria-label={`Sorted by ${SORT_LABELS[savedSortMode]}. Click to cycle sort order.`}
+              >
+                Sort: {SORT_LABELS[savedSortMode]}
+              </button>
+              <ActionButton
+                label="Defaults"
+                icon={RefreshCw}
+                confirm
                 onClick={(e) => {
                   e.stopPropagation();
-                  const defaults: SavedSlot[] = DEFAULT_RECENT.map((hex, i) => ({ hex, addedAt: -(i + 1) }));
-                  while (defaults.length < 12) defaults.push(null);
-                  setSavedSlots(defaults);
+                  setSavedSlots(defaultSaved());
                   setSavedSortMode('user');
                   setSelectedSavedIdx(null);
                 }}
-              >
-                Defaults
-              </button>
-              <button
-                className="px-2 py-0.5 text-xs rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none"
-                onClick={(e) => { e.stopPropagation(); setSavedSlots(Array(12).fill(null)); setSelectedSavedIdx(null); }}
-              >
-                Clear
-              </button>
+              />
+              <ActionButton
+                label="Clear"
+                icon={Trash2}
+                confirm
+                onClick={(e) => { e.stopPropagation(); setSavedSlots(Array(SAVED_BANK).fill(null)); setSelectedSavedIdx(null); }}
+                // A second way to delete one color, alongside dragging it out
+                // of the grid. Marking the drop as handled is what stops
+                // onDragEnd's drop-outside path deleting a second time - by
+                // then the indices have shifted and it would take a different
+                // color with it.
+                onDropSwatch={draggedUserIdx !== null ? () => {
+                  desktopDroppedRef.current = true;
+                  deleteSavedAt(draggedUserIdx);
+                  setDraggedUserIdx(null);
+                  setDragHover(null);
+                } : undefined}
+              />
             </div>
           }
         >
@@ -1451,7 +1825,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                   data-saved-idx={userIdx}
                   className="rounded-md cursor-pointer h-8 w-full transition-shadow duration-200 ease-in-out relative"
                   style={{
-                    backgroundColor: color || 'transparent',
+                    background: slot ? swatchBackground(slot.hex, slot.alpha) : 'transparent',
                     boxShadow: isReplaceTarget ? '0 0 0 2px #00BFFF' : isArmed ? '0 0 0 2px #00BFFF' : isSelected ? '0 0 0 2px white' : 'none',
                     border: (isReplaceTarget || isSelected || isArmed) ? '2px solid transparent' : color ? '1px solid var(--input)' : '2px dashed var(--input)',
                     opacity: isDragging && !isArmed ? 0.4 : 1,
@@ -1468,10 +1842,14 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                     e.dataTransfer.setData('text/plain', String(userIdx));
                   }}
                   onDragOver={(e) => {
-                    if (draggedUserIdx === null) return;
+                    if (draggedUserIdx === null && !draggedRecent) return;
                     e.preventDefault();
-                    e.dataTransfer.dropEffect = 'move';
-                    const hover = computeDragHover(e.clientX, e.clientY);
+                    e.dataTransfer.dropEffect = draggedRecent ? 'copy' : 'move';
+                    let hover = computeDragHover(e.clientX, e.clientY);
+                    // A Recent color has no position in Saved to slide out of,
+                    // so insert-between means nothing for it: every drop is
+                    // "put it in this slot".
+                    if (hover && draggedRecent) hover = { ...hover, zone: 'center' };
                     if (hover && (hover.displayIdx !== dragHover?.displayIdx || hover.zone !== dragHover?.zone)) {
                       setDragHover(hover);
                     }
@@ -1482,10 +1860,16 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                   onDrop={(e) => {
                     e.preventDefault();
                     const from = draggedUserIdx;
+                    const recent = draggedRecent;
                     desktopDroppedRef.current = true;
                     const hover = computeDragHover(e.clientX, e.clientY);
                     setDraggedUserIdx(null);
+                    setDraggedRecent(null);
                     setDragHover(null);
+                    if (recent) {
+                      copyRecentToSaved(recent, hover ? hover.displayIdx : displayIdx);
+                      return;
+                    }
                     if (from === null) return;
                     applyDragHoverDrop(from, hover);
                   }}
@@ -1543,6 +1927,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                     if (color) {
                       if (!onAnimateToHsb) return;
                       setSelectedSavedIdx(userIdx);
+                      onAlphaRestore?.(slot?.alpha ?? 100);
                       const parsed = rgbToHsb(
                         parseInt(color.slice(1, 3), 16),
                         parseInt(color.slice(3, 5), 16),
@@ -1554,8 +1939,8 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                       // Adopt the currently displayed order as the new user arrangement,
                       // then place the new color at the clicked display position.
                       const flattened: SavedSlot[] = displaySlots.map((d) => d.slot);
-                      flattened[displayIdx] = { hex: currentHex, addedAt: Date.now() };
-                      setSavedSlots(flattened);
+                      flattened[displayIdx] = { hex: currentHex, alpha, addedAt: Date.now() };
+                      setSavedSlots(fitSaved(flattened));
                       setSavedSortMode('user');
                       setSelectedSavedIdx(displayIdx);
                       playSave();
@@ -1580,7 +1965,9 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             })}
           </div>
         </CollapsibleSection>
-      </div></>}
+      </div>
+      </div>
+      </div>
 
       {poofs.map((p) => (
         <div

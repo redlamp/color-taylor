@@ -12,10 +12,13 @@ interface Props {
   onClose: () => void;
   muted: boolean;
   onToggleMute: () => void;
+  colorFx: boolean;
+  onToggleColorFx: () => void;
 }
 
-export function SettingsPanel({ open, onClose, muted, onToggleMute }: Props) {
-  const { reset: resetSynth } = useSettings();
+export function SettingsPanel({ open, onClose, muted, onToggleMute, colorFx, onToggleColorFx }: Props) {
+  const { reset: resetSynth, settings, setAudioEnabled } = useSettings();
+  const audioEnabled = settings.audioEnabled;
   const { reset: resetTheme } = useTheme();
   const asideRef = useRef<HTMLElement | null>(null);
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
@@ -73,7 +76,7 @@ export function SettingsPanel({ open, onClose, muted, onToggleMute }: Props) {
         ref={asideRef}
         aria-hidden={!open}
         className={
-          'fixed z-50 bg-background border border-input rounded-lg shadow-xl ' +
+          'fixed z-50 bg-background border border-border rounded-lg shadow-xl ' +
           // Read dragOffset ref during render to switch transition style — avoids
           // triggering a re-render on every drag frame. Lint exception intentional.
           // eslint-disable-next-line react-hooks/refs
@@ -91,7 +94,7 @@ export function SettingsPanel({ open, onClose, muted, onToggleMute }: Props) {
         style={pos && window.innerWidth >= 768 ? { top: pos.y, left: pos.x, right: 'auto' } : undefined}
       >
         <div
-          className="flex items-center justify-between px-3 py-2 border-b border-input md:cursor-grab md:active:cursor-grabbing select-none md:touch-none"
+          className="flex items-center justify-between px-3 py-2 border-b border-border md:cursor-grab md:active:cursor-grabbing select-none md:touch-none"
           onPointerDown={onHeaderPointerDown}
           onPointerMove={onHeaderPointerMove}
           onPointerUp={onHeaderPointerUp}
@@ -112,18 +115,30 @@ export function SettingsPanel({ open, onClose, muted, onToggleMute }: Props) {
             <AccordionItem value="display">
               <AccordionTrigger>Display</AccordionTrigger>
               <AccordionContent keepMounted>
-                <DisplaySettings />
+                <DisplaySettings
+                  colorFx={colorFx}
+                  onToggleColorFx={onToggleColorFx}
+                  audioEnabled={audioEnabled}
+                  onToggleAudio={() => setAudioEnabled(!audioEnabled)}
+                />
               </AccordionContent>
             </AccordionItem>
-            <AccordionItem value="audio">
-              <AccordionTrigger>Audio</AccordionTrigger>
-              <AccordionContent keepMounted>
-                <AudioSettings muted={muted} onToggleMute={onToggleMute} />
-              </AccordionContent>
-            </AccordionItem>
+            {/* The Audio section only exists once the feature is switched on -
+                its own switch lives in Display, which is always there, so there
+                is somewhere to turn it on from. AudioSettings previews the synth
+                as you adjust it, so mounting it while the feature is off would
+                pull the engine in behind the user's back. */}
+            {audioEnabled && (
+              <AccordionItem value="audio">
+                <AccordionTrigger>Audio</AccordionTrigger>
+                <AccordionContent keepMounted>
+                  <AudioSettings muted={muted} onToggleMute={onToggleMute} />
+                </AccordionContent>
+              </AccordionItem>
+            )}
           </Accordion>
         </div>
-        <div className="border-t border-input px-3 py-2">
+        <div className="border-t border-border px-3 py-2">
           <Button variant="secondary" size="sm" onClick={resetAll} className="w-full">
             <RotateCcw className="size-4" />
             Reset all settings

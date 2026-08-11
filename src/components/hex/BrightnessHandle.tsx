@@ -48,7 +48,7 @@ export default function BrightnessHandle({ hue, saturation, brightness, hsl, blM
           className="text-sm font-mono font-normal pointer-events-none whitespace-nowrap"
           style={{ color: textColor }}
         >
-          {blValue}%
+          {Math.round(blValue)}%
         </span>
       </div>
     </div>

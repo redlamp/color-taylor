@@ -1,0 +1,429 @@
+/*
+ * The single CSS entry for the plugin. Pulls in the app's real theme, then adds
+ * only what a Figma panel needs on top.
+ */
+@import "../../src/index.css";
+
+/*
+ * Vite's root for this build is figma/ui, so Tailwind's automatic source
+ * detection would scan only this folder and emit none of the utilities the
+ * app's components actually use. Point it at src explicitly.
+ */
+@source "../../src";
+
+/*
+ * Figma's own typeface, in place of the app's.
+ *
+ * The app asks for Barlow and Share Tech Mono, and the plugin build aliases
+ * @fontsource away rather than inline ~700 KB of woff2 - so both were falling
+ * through to whatever the browser picked for `sans-serif` and `monospace`,
+ * which is why the readouts looked nothing like the panel around them.
+ *
+ * Figma's UI is Inter, which the desktop app has locally, so naming it is
+ * enough - no font to ship. The stack behind it is the usual system chain for
+ * anywhere Inter is not resolvable.
+ *
+ * --mono maps to the same stack deliberately. Figma sets numbers in Inter with
+ * tabular figures rather than in a monospace face, and the hue badge and the
+ * slider readouts are the only things here that used mono at all.
+ */
+:root {
+  --sans: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --mono: var(--sans);
+  --font-sans: var(--sans);
+  --font-mono: var(--sans);
+}
+
+/*
+ * Digits that sit in a column - readouts, the hue badge, the Selected count -
+ * need equal advance widths, or the value jitters sideways as it changes.
+ * Inter's tabular figures are what Figma uses for exactly this.
+ */
+/*
+ * The variables above do not reach .font-mono on their own: the theme declares
+ * it under @theme inline, which bakes the literal stack into the utility
+ * rather than leaving a var() to override. So restate the utility here - this
+ * rule is unlayered, and unlayered CSS beats Tailwind's utilities layer.
+ */
+.font-mono {
+  font-family: var(--sans);
+}
+
+input,
+.font-mono,
+[class*='tabular-nums'] {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1, 'cv05' 1;
+}
+
+/*
+ * Figma's type scale.
+ *
+ * Figma injects color variables into the plugin iframe and nothing else - no
+ * typography tokens - so there is nothing to hook into and these are their
+ * published values, taken from figma-plugin-ds:
+ *
+ *   xsmall 11px   small 12px   large 13px   xlarge 14px
+ *   line-height 16px, tracking .005em at 11px
+ *   weights 400 / 500 / 600
+ *
+ * 11px is Figma's default for UI chrome, and almost everything in this panel
+ * is chrome. Hierarchy comes from weight rather than size, which is how their
+ * own panels read - so text-xs, text-sm and text-base all land on 11px here
+ * rather than preserving the app's three-step ramp.
+ *
+ * Restated as utilities, not variables: the theme declares its sizes under
+ * @theme inline, which bakes literals into the utility rather than leaving a
+ * var() to override. Unlayered CSS beats Tailwind's utilities layer.
+ */
+body {
+  font-size: 11px;
+  line-height: 16px;
+  letter-spacing: 0.005em;
+}
+
+.text-xs,
+.text-sm,
+.text-base {
+  font-size: 11px;
+  line-height: 16px;
+  letter-spacing: 0.005em;
+}
+
+.text-lg {
+  font-size: 13px;
+  line-height: 16px;
+  letter-spacing: -0.0025em;
+}
+
+/* Figma's bold is 600, not the browser's 700. */
+.font-bold {
+  font-weight: 600;
+}
+
+/*
+ * Sideways, never: the layout is built to fit whatever width it is given.
+ */
+html,
+body {
+  margin: 0;
+  overflow-x: hidden;
+}
+
+/*
+ * Vertically, only when it has to.
+ *
+ * Height still tracks content - code.js asks for exactly what main.tsx
+ * measures - but that request is clamped, by MAX_H and by what actually fits
+ * on screen. Turn every slider group on in a wide panel and the clamp bites;
+ * without this the last sliders and both swatch grids are unreachable.
+ *
+ * Only `body` gets the height. `.figma-root` must stay auto or the height
+ * measurement becomes circular - content height would follow window height.
+ */
+body {
+  height: 100vh;
+  overflow-y: auto;
+}
+
+/*
+ * The native scrollbar is hidden and drawn as an overlay instead, for two
+ * reasons that both come down to it occupying layout width.
+ *
+ * It would sit outside the padding, so the content would be inset 8px on the
+ * left and 18px on the right. And a fixed-position element cannot reach past
+ * the containing block, which excludes a classic scrollbar - so .figma-edge-e
+ * would be pushed 10px inboard and the east resize edge would land on the
+ * scrollbar instead of the panel edge.
+ *
+ * An overlay costs no width: padding stays symmetric, the resize edges stay
+ * where they are, and content never reflows when it appears - which is also
+ * what stops the scrollbar oscillating at the boundary.
+ */
+body::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+/*
+ * Draggable, and it shares the right-hand padding with .figma-edge-e.
+ *
+ * Both want that strip, and the order matters: resize stays out at the true
+ * edge and the scrollbar tucks in beside it, so the resize cursor only ever
+ * appears outboard of the bar. The other way round - resize stepped inboard -
+ * put the cursor on the wrong side of it.
+ *
+ * 8px of padding split 4/4 is what makes them fit without either crossing into
+ * the content box. That is why the bar is 4px and not the 6px it was: a wider
+ * bar here would either overlap the swatches or leave too little edge to grab.
+ *
+ * Stops 16px short of the bottom so the south-east corner grip stays clear.
+ */
+.figma-scrollbar {
+  position: fixed;
+  top: 4px;
+  bottom: 16px;
+  right: 4px;
+  width: 4px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 120ms ease-out;
+  z-index: 70;
+}
+
+html[data-overflow] .figma-scrollbar {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.figma-scrollbar-thumb {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  border-radius: 2px;
+  cursor: default;
+  background: color-mix(in srgb, var(--figma-color-text, var(--foreground)) 26%, transparent);
+}
+
+.figma-scrollbar-thumb:hover,
+.figma-scrollbar-thumb[data-dragging] {
+  background: color-mix(in srgb, var(--figma-color-text, var(--foreground)) 45%, transparent);
+}
+
+/*
+ * Nothing here is prose. Stray selections on the tab labels and captions while
+ * dragging just look broken.
+ */
+* {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Except the fields you are meant to be able to select in. */
+input,
+textarea {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/*
+ * Figma injects --figma-color-* when the manifest asks for themeColors, so the
+ * panel can be the exact shade of the surrounding UI rather than merely
+ * light-or-dark like it. Falls back to the app's own tokens outside Figma.
+ */
+body {
+  background: var(--figma-color-bg, var(--background));
+  color: var(--figma-color-text, var(--foreground));
+}
+
+.figma-root {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  /* clip, not hidden: no scroll container, so nothing can scroll sideways. */
+  overflow-x: clip;
+}
+
+.figma-root > #color-hexagon {
+  flex: 0 0 auto;
+}
+
+/*
+ * Keep the hue badge on screen without scaling the type.
+ *
+ * The badge is absolutely positioned against #hex-stage at a percentage offset
+ * but sized in fixed pixels, so the narrower the panel the further it hangs
+ * out. With the brightness bar moved onto its own track there is no pill on the
+ * right any more, so the two sides now need nearly the same small gutter -
+ * roughly 24px less a twenty-fifth of the width, which solves to:
+ *
+ *   g >= 27px - 4.5% of panel width
+ *
+ * clamped at zero. Far less than the 84px the pill used to demand, which is
+ * where the extra hexagon width comes from.
+ */
+#hex-stage {
+  --chx-gutter: max(0px, 27px - 4.5%);
+  max-width: calc(100% - 2 * var(--chx-gutter)) !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+/*
+ * The crash panel. Deliberately plain prose, not a stack trace - Figma's review
+ * guidelines rule out showing developer error messages to end users, and the
+ * detail is in console.error where it is actually useful.
+ */
+.figma-error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 16px;
+  background: var(--figma-color-bg, var(--background));
+  color: var(--figma-color-text, var(--foreground));
+}
+
+.figma-error-title {
+  margin: 0;
+  font-weight: 600;
+}
+
+.figma-error-body {
+  margin: 0;
+  color: var(--figma-color-text-secondary, var(--muted-foreground));
+  max-width: 40ch;
+}
+
+.figma-error button {
+  font: inherit;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--figma-color-border, var(--input));
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.figma-error button:hover {
+  background: var(--figma-color-bg-hover, var(--muted));
+}
+
+/*
+ * Resize edges. No widget - a plain strip with the cursor, the way an app panel
+ * edge behaves. The west edge also moves the window; the sandbox does that.
+ */
+.figma-edge {
+  position: fixed;
+  touch-action: none;
+  z-index: 60;
+}
+
+.figma-edge-w,
+.figma-edge-e {
+  top: 0;
+  bottom: 6px;
+  width: 6px;
+  cursor: ew-resize;
+}
+
+.figma-edge-w {
+  left: 0;
+}
+
+.figma-edge-e {
+  right: 0;
+}
+
+/* South drives the width too - height follows the content, so this is the
+   inverse of "content height as a function of width". See main.tsx. */
+.figma-edge-s {
+  left: 14px;
+  right: 14px;
+  bottom: 0;
+  height: 6px;
+  cursor: ns-resize;
+}
+
+/* Corners sit above the edges they overlap, and are a bigger target. They
+   resize width like their own side; height follows, so a diagonal drag grows
+   the panel both ways. */
+.figma-edge-sw,
+.figma-edge-se {
+  bottom: 0;
+  width: 14px;
+  height: 14px;
+  z-index: 61;
+}
+
+.figma-edge-sw {
+  left: 0;
+  cursor: nesw-resize;
+}
+
+.figma-edge-se {
+  right: 0;
+  cursor: nwse-resize;
+}
+
+/*
+ * Recent and Saved swatch grids: two rows of six until the panel reaches 512px,
+ * then one row of twelve. The plugin iframe's viewport *is* the panel, so a
+ * plain media query measures the right thing. Overrides the app's own
+ * md:grid-cols-12, which keys off a 768px viewport that means nothing here.
+ */
+#recent-colors .grid,
+#saved-colors .grid {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+/* The app sizes these swatches h-8 (32px) for a 614px column; a side panel
+   wants them tighter. Height only - width still divides the row. */
+#recent-colors .grid > button,
+#saved-colors .grid > button {
+  height: 22px;
+}
+
+@media (min-width: 512px) {
+  #recent-colors .grid,
+  #saved-colors .grid {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+  }
+}
+
+/*
+ * Figma-sidebar sections.
+ *
+ * The rule above each section has to span the whole panel while the swatches
+ * stay inset. Pulling the wrapper out by the root's padding and putting the
+ * same padding back inside does exactly that: border-top sits on the padding
+ * box's outer edge, so it reaches both walls, and the content does not.
+ */
+.figma-root .section-flush {
+  margin-inline: -8px;
+  width: calc(100% + 16px);
+  /* 8px of root padding plus the 4px the slider column adds, so the swatches
+     line up with the slider labels rather than sitting 4px further out. */
+  padding-inline: 12px;
+  /* ColorHexagon stacks its children with a 4px gap. These sections own their
+     spacing instead, so the rule lands 12px below the content above it and
+     12px above its own header - the same rhythm as the slider-group rules. */
+  margin-top: calc(12px - 4px);
+}
+
+/*
+ * The last section has nothing below it but the root's own 8px, which leaves
+ * the final swatch row sitting almost on the panel edge. Every other section
+ * gets its breathing room from the next one's margin; this one has no next.
+ */
+.figma-root #saved-colors {
+  padding-bottom: 8px;
+}
+
+/* An armed destructive action, colored to say what is about to happen.
+   This used to also set min-width: 44px so the row would not jump when an icon
+   became "Sure?". ActionButton reserves that width in every state now, and
+   44px undercut it - the rule is unlayered, so it won on specificity and the
+   button got *narrower* on arming: the jump it was added to prevent. */
+.figma-root [data-armed] {
+  color: var(--figma-color-text-danger, #f24822);
+}
+
+/*
+ * The app's colour-reactive glow and rim light never run here: the hook behind
+ * them is aliased to a no-op in vite.figma.config.ts, so `.color-fx` is never
+ * added and none of the custom properties are ever written. These rules are the
+ * belt to that braces - the pseudo-elements are cheap, but a panel whose
+ * surround shifted hue as you dragged would fight Figma's own chrome, and that
+ * should not be one missing class away from happening.
+ */
+.color-fx .panel-frame::before,
+.color-fx .panel-frame::after {
+  display: none;
+}
+.color-fx .panel-frame {
+  box-shadow: none;
+}

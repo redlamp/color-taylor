@@ -663,7 +663,7 @@ export default function PresentationStage({ slide, slideIndex }: { slide: Slide;
         <div style={{ position: 'relative', minHeight: 120 }}>
           {/* RGB sliders — centered when alone, slides to left when HSB appears */}
           {has('rgb-sliders') && (
-            <div className="border border-input rounded-lg p-3" style={{
+            <div className="border border-border rounded-lg p-3" style={{
               position: 'absolute',
               top: 0,
               left: has('hsb-sliders') ? 0 : '25%',
@@ -672,14 +672,14 @@ export default function PresentationStage({ slide, slideIndex }: { slide: Slide;
             }}>
               <h3 className="text-sm font-semibold mb-2">RGB</h3>
               <div className="flex flex-col gap-2">
-                <ColorSlider label="R" value={rgb.r} max={255} gradient={redChannelGradient} onChange={(v) => handleRgbChange('r', v)} hideStepper={!showCircle} />
-                {!locked.includes('g') && <ColorSlider label="G" value={rgb.g} max={255} gradient={greenChannelGradient} onChange={(v) => handleRgbChange('g', v)} hideStepper={!showCircle} />}
-                {!locked.includes('b') && <ColorSlider label="B" value={rgb.b} max={255} gradient={blueChannelGradient} onChange={(v) => handleRgbChange('b', v)} hideStepper={!showCircle} />}
+                <ColorSlider group='rgb' label="R" value={rgb.r} max={255} gradient={redChannelGradient} onChange={(v) => handleRgbChange('r', v)} hideStepper={!showCircle} />
+                {!locked.includes('g') && <ColorSlider group='rgb' label="G" value={rgb.g} max={255} gradient={greenChannelGradient} onChange={(v) => handleRgbChange('g', v)} hideStepper={!showCircle} />}
+                {!locked.includes('b') && <ColorSlider group='rgb' label="B" value={rgb.b} max={255} gradient={blueChannelGradient} onChange={(v) => handleRgbChange('b', v)} hideStepper={!showCircle} />}
               </div>
             </div>
           )}
           {/* HSB sliders — absolute positioned so it doesn't push RGB off-center */}
-          <div className="border border-input rounded-lg p-3" style={{
+          <div className="border border-border rounded-lg p-3" style={{
             position: 'absolute',
             right: 0,
             top: 0,
@@ -691,13 +691,13 @@ export default function PresentationStage({ slide, slideIndex }: { slide: Slide;
           }}>
               <h3 className="text-sm font-semibold mb-2">HSB</h3>
               <div className="flex flex-col gap-2">
-                <ColorSlider label="H" value={hsb.h} max={360} wrap gradient={hueGradient(hsb.s, hsb.b, 'srgb')} onChange={(v) => setHsbClear(p => ({ ...p, h: v }))} hideStepper={!showCircle} />
-                <ColorSlider label="S" value={hsb.s} max={100} gradient={saturationGradient(hsb.h, hsb.b, 'srgb')} onChange={(v) => setHsbClear(p => ({ ...p, s: v }))} hideStepper={!showCircle} />
-                <ColorSlider label="B" value={hsb.b} max={100} gradient={brightnessGradient(hsb.h, hsb.s, 'srgb')} onChange={(v) => setHsbClear(p => ({ ...p, b: v }))} hideStepper={!showCircle} />
+                <ColorSlider group='hsb' label="H" value={hsb.h} max={360} wrap gradient={hueGradient(hsb.s, hsb.b, 'srgb')} onChange={(v) => setHsbClear(p => ({ ...p, h: v }))} hideStepper={!showCircle} />
+                <ColorSlider group='hsb' label="S" value={hsb.s} max={100} gradient={saturationGradient(hsb.h, hsb.b, 'srgb')} onChange={(v) => setHsbClear(p => ({ ...p, s: v }))} hideStepper={!showCircle} />
+                <ColorSlider group='hsb' label="B" value={hsb.b} max={100} gradient={brightnessGradient(hsb.h, hsb.s, 'srgb')} onChange={(v) => setHsbClear(p => ({ ...p, b: v }))} hideStepper={!showCircle} />
               </div>
             </div>
           {has('hex-input') && (
-            <div className="border border-input rounded-lg p-3">
+            <div className="border border-border rounded-lg p-3">
               <h3 className="text-sm font-semibold mb-2">Hex</h3>
               <div className="flex gap-3 items-stretch">
                 <PreviewSwatch hex={hex} />

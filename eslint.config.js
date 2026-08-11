@@ -6,7 +6,9 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist', '.remember']),
+  // .obsidian holds the wiki's vault config and any community plugins the
+  // vault has installed - vendored JS we neither wrote nor ship.
+  globalIgnores(['dist', '.remember', '**/.obsidian']),
   {
     files: ['*.config.{js,ts}'],
     languageOptions: {
@@ -32,6 +34,14 @@ export default defineConfig([
     rules: {
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
       'react-refresh/only-export-components': 'off',
+    },
+  },
+  {
+    // Figma plugin sandbox: QuickJS, not a browser. `figma` and `__html__` are
+    // injected by the host.
+    files: ['figma/code.js'],
+    languageOptions: {
+      globals: { ...globals.browser, figma: 'readonly', __html__: 'readonly' },
     },
   },
   {

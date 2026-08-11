@@ -2,6 +2,16 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Where things live
+
+- `wiki/` — Obsidian vault. Project state, decisions (`notes/decision-*.md`), daily logs, MOCs, test plans. See `wiki/CLAUDE.md` for conventions and `wiki/index.md` for the top-level map.
+- `wiki/mocs/architecture.md` — how the three surfaces (app, presentation, Figma plugin) share one picker.
+- `wiki/mocs/figma-plugin.md` — the plugin's status, decisions and platform constraints.
+- `docs/` — formal specs and prototypes.
+- Backlog is tracked as GitHub Issues, not in-repo.
+
+If a request conflicts with a `decision-*.md` note, surface the conflict before coding.
+
 ## Commands
 
 Package manager: **bun**. `bun.lock` is the source of truth; no `package-lock.json`.

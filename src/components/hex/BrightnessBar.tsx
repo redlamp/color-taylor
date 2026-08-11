@@ -87,39 +87,28 @@ export default function BrightnessBar({ hue, saturation, brightness, hsl, blMode
         }}
       />
 
-      {/* BL bar markers */}
+      {/* Tick marks only. The labels live in BrightnessMarkers as HTML, so they
+          keep a fixed type size instead of scaling with the viewBox. */}
       {[
-        { label: '100', value: 100, y: BL_BAR_TOP },
-        { label: '50', value: 50, y: BL_BAR_TOP + BL_BAR_HEIGHT / 2 },
-        { label: '0', value: 0, y: BL_BAR_TOP + BL_BAR_HEIGHT },
-      ].map(({ label, value, y }) => (
-        <g
+        { value: 100, y: BL_BAR_TOP },
+        { value: 50, y: BL_BAR_TOP + BL_BAR_HEIGHT / 2 },
+        { value: 0, y: BL_BAR_TOP + BL_BAR_HEIGHT },
+      ].map(({ value, y }) => (
+        <line
           key={value}
           className="cursor-pointer"
+          x1={BL_BAR_X + BL_BAR_WIDTH}
+          y1={y}
+          x2={BL_BAR_X + BL_BAR_WIDTH + 4}
+          y2={y}
+          stroke="var(--foreground)"
+          strokeWidth={1}
+          opacity={0.5}
           onClick={(e) => {
             e.stopPropagation();
             animateBLToValue(value);
           }}
-        >
-          <line
-            x1={BL_BAR_X + BL_BAR_WIDTH}
-            y1={y}
-            x2={BL_BAR_X + BL_BAR_WIDTH + 4}
-            y2={y}
-            stroke="var(--foreground)"
-            strokeWidth={1}
-            opacity={0.5}
-          />
-          <text
-            x={BL_BAR_X + BL_BAR_WIDTH + 8}
-            y={y}
-            dominantBaseline="central"
-            className="text-xs font-mono select-none"
-            fill="var(--muted-foreground)"
-          >
-            {label}
-          </text>
-        </g>
+        />
       ))}
     </>
   );
