@@ -10,7 +10,6 @@ interface Props {
 
 interface SwitchRowProps {
   label: string;
-  hint?: string;
   checked: boolean;
   onToggle: () => void;
   ariaLabel: string;
@@ -23,13 +22,10 @@ interface SwitchRowProps {
  * a second switch beside it would have meant a second copy of the same twelve
  * classes - which is the drift the shared-utility rule in CLAUDE.md is aimed at.
  */
-function SwitchRow({ label, hint, checked, onToggle, ariaLabel, knob }: SwitchRowProps) {
+function SwitchRow({ label, checked, onToggle, ariaLabel, knob }: SwitchRowProps) {
   return (
-    <div className="flex items-start justify-between gap-3">
-      <div className="flex flex-col">
-        <Label className="text-sm text-muted-foreground">{label}</Label>
-        {hint && <span className="text-2xs text-muted-foreground/80 leading-snug">{hint}</span>}
-      </div>
+    <div className="flex items-center justify-between gap-3">
+      <Label className="text-sm text-muted-foreground">{label}</Label>
       <button
         type="button"
         role="switch"
@@ -37,7 +33,10 @@ function SwitchRow({ label, hint, checked, onToggle, ariaLabel, knob }: SwitchRo
         onClick={onToggle}
         aria-label={ariaLabel}
         className={
-          'relative mt-0.5 inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border border-input transition-colors select-none ' +
+          // No mt-0.5 - that nudged the switch down to line up with the first
+          // line of a two-line row. Both rows are a single line now, so the row
+          // centres them instead.
+          'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border border-input transition-colors select-none ' +
           (checked ? 'bg-primary' : 'bg-muted')
         }
       >
@@ -70,11 +69,10 @@ export function DisplaySettings({ colorFx, onToggleColorFx }: Props) {
         }
       />
       <SwitchRow
-        label="Color effects"
-        hint="Panel edges and glow follow the selected color"
+        label="Border Color Effects"
         checked={colorFx}
         onToggle={onToggleColorFx}
-        ariaLabel="Toggle color effects"
+        ariaLabel="Toggle border color effects"
       />
     </div>
   );

@@ -144,7 +144,6 @@ h1, h2 {
    * text-xs and text-sm in the app, which is a call to make on purpose rather
    * than as a side effect of fixing a typo.
    */
-  --text-2xs: 0.65rem;
   --font-heading: var(--font-sans);
   /* One source of truth for the faces: the plugin retargets --sans and --mono
      to Inter, and both of these follow rather than needing their own override. */
