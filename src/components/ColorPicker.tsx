@@ -36,6 +36,25 @@ const TOP_ROW_GAP_PX = 16;                // Tailwind gap-4
  * and taking the whole shortfall out of the hexagon.
  */
 const ROOT_PADDING_X = 48;                // Tailwind sm:p-6, both sides
+
+/*
+ * Default height of the SB box, and with it the Color Editor's.
+ *
+ * Chosen so the sliders column's natural height equals the hexagon column's with
+ * Recent and Saved open - 773px at full width - which means the grid has nothing
+ * to correct and the Color Editor is not silently resized to make the two meet.
+ * Before this it was a leftover: the column measured 726px on its own and got
+ * stretched 47px, so the box's height was whatever the hexagon happened to need.
+ *
+ * It is a flex-basis, not a min-height, so it only sets the resting size. The
+ * box still shrinks toward min-h-24 in a narrow window and grows when the other
+ * sections are collapsed.
+ *
+ * Tuned against the hexagon column, so re-check it if either column's content
+ * changes. Being wrong is not a breakage - flex goes back to correcting the
+ * difference, which is exactly the old behaviour.
+ */
+const SB_BOX_DEFAULT_HEIGHT = 143;
 const TOP_ROW_MAX_WIDTH =
   HEX_PANEL_WIDTH + SLIDERS_PANEL_WIDTH + TOP_ROW_GAP_PX + ROOT_PADDING_X;
 import SBBox from './SBBox';
@@ -593,7 +612,13 @@ export default function ColorPicker() {
             fills while it is open - a collapsed one that still grew would be a
             header stretched down the whole column. */}
         <CollapsibleSection id="color-editor-group" title="Color Editor" fill absorbs>
-          <div id="sb-wrapper" className="flex flex-1 min-h-24 gap-3 min-w-0 overflow-hidden">
+          <div
+            id="sb-wrapper"
+            className="flex flex-1 min-h-24 gap-3 min-w-0 overflow-hidden"
+            // Overrides flex-1's `flex-basis: 0%`. Inline because the value is a
+            // layout constant shared with the note above, not a magic number.
+            style={{ flexBasis: SB_BOX_DEFAULT_HEIGHT }}
+          >
             <PreviewSwatch hex={hex} />
             <SBBox
               hue={hsb.h}
