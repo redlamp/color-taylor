@@ -554,13 +554,30 @@ export default function ColorPicker() {
           />
 
         {/* Right column: Controls. Width comes from the grid track now, so this
-            carries only its own surface. */}
-        <div id="picker-layout" className="panel-frame border border-input rounded-lg p-2.5">
-        <CollapsibleSection id="sliders-group" title="Sliders" level="h2">
-          <div className="flex flex-col gap-3">
+            carries only its own surface.
+
+            flex-col here starts a chain of flex-1 down to the Color Editor, so
+            that section absorbs the difference between this column's natural
+            height and the hexagon's: it shrinks when this column would be the
+            taller one, grows when it would be shorter. The grid gives this
+            element a definite height to divide up, which is what makes the
+            chain resolve. */}
+        <div id="picker-layout" className="panel-frame flex flex-col border border-input rounded-lg p-2.5">
+        <CollapsibleSection id="sliders-group" title="Sliders" level="h2" className="flex-1 min-h-0">
+          <div className="flex flex-1 min-h-0 flex-col gap-3">
         {/* Color Editor: Swatch + SB Box + H Slider */}
-        <CollapsibleSection id="color-editor-group" title="Color Editor">
-          <div id="sb-wrapper" className="flex gap-3 min-w-0 overflow-hidden">
+        {/* The one section in this column that can take up slack. The swatch and
+            the hue slider are already self-stretch, so the row's height was set
+            purely by the SB box's aspect ratio; with that gone, all three follow
+            this height.
+
+            Bounded, because the slack is not always small - three collapsed
+            sections leave over 300px, and a 266px-wide box 460px tall reads as
+            a column rather than a field. min-h-32/max-h-60 keeps the box between
+            roughly 2:1 and 1.1:1, and anything left over stays at the bottom of
+            the column as before. */}
+        <CollapsibleSection id="color-editor-group" title="Color Editor" className="flex-1 min-h-0">
+          <div id="sb-wrapper" className="flex flex-1 min-h-32 max-h-60 gap-3 min-w-0 overflow-hidden">
             <PreviewSwatch hex={hex} />
             <SBBox
               hue={hsb.h}
