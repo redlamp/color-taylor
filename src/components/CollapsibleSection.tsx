@@ -29,6 +29,21 @@ const chevronSize: Record<Level, string> = { h2: '!size-4', h3: '!size-4' };
  */
 type Variant = 'card' | 'flush';
 
+/*
+ * Which sections the user has opened or closed, keyed by id and outliving the
+ * components themselves.
+ *
+ * Closing a section unmounts its children, so a nested section lost its own
+ * state and came back at defaultOpen - collapse Sliders with RGB closed, reopen
+ * it, and RGB was open again. The state has to sit somewhere that survives the
+ * unmount, and the section already has a stable id to key it by.
+ *
+ * Module scope rather than localStorage on purpose: this is for the length of a
+ * session, and persisting it would mean a section you closed once stayed closed
+ * on every future visit, which is a different decision from this one.
+ */
+const OPEN_STATE = new Map<string, boolean>();
+
 interface CollapsibleSectionProps {
   id?: string;
   title: string;
@@ -38,11 +53,26 @@ interface CollapsibleSectionProps {
   headerRight?: ReactNode;
   className?: string;
   variant?: Variant;
+  /**
+   * Fill the space left over in a flex column, but only while open. The section
+   * has to own this rather than the caller passing `flex-1`, because only the
+   * section knows whether it is open - a collapsed section that still grew would
+   * be a header stretched over the whole column.
+   */
+  grow?: boolean;
   children: ReactNode;
 }
 
-export default function CollapsibleSection({ id, title, level = 'h3', defaultOpen = true, headerLeft, headerRight, className: extraClass, variant = 'card', children }: CollapsibleSectionProps) {
-  const [open, setOpen] = useState(defaultOpen);
+export default function CollapsibleSection({ id, title, level = 'h3', defaultOpen = true, headerLeft, headerRight, className: extraClass, variant = 'card', grow, children }: CollapsibleSectionProps) {
+  const [open, setOpen] = useState(
+    () => (id !== undefined && OPEN_STATE.has(id) ? OPEN_STATE.get(id)! : defaultOpen),
+  );
+  const toggle = () =>
+    setOpen((o) => {
+      const next = !o;
+      if (id !== undefined) OPEN_STATE.set(id, next);
+      return next;
+    });
   const Tag = level;
   const flush = variant === 'flush';
   // panel-inset carries the fill one step off the frame. It deliberately gets
@@ -68,7 +98,7 @@ export default function CollapsibleSection({ id, title, level = 'h3', defaultOpe
       // marking inner sections too would let a nested collapse trigger that.
       // Written as a string rather than a boolean so `false` survives to the DOM.
       {...(level === 'h2' ? { 'data-panel-open': open ? 'true' : 'false' } : {})}
-      className={`flex flex-col gap-2 ${shell} ${extraClass || ''}`}
+      className={`flex flex-col gap-2 ${grow && open ? 'flex-1 min-h-0' : ''} ${shell} ${extraClass || ''}`}
     >
       {/* The hit area reaches back over the shell's own padding.
           Left to itself the row is only as tall as its text, so the band
@@ -99,11 +129,11 @@ export default function CollapsibleSection({ id, title, level = 'h3', defaultOpe
         className={`relative z-10 box-content flex h-8 items-center gap-2 cursor-pointer select-none ${
           flush ? '-mt-2 pt-2' : level === 'h3' ? '-mt-2 -mx-3 px-3 pt-2' : ''
         }`}
-        onClick={() => setOpen((o) => !o)}
+        onClick={toggle}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            setOpen((o) => !o);
+            toggle();
           }
         }}
       >

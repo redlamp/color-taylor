@@ -571,13 +571,16 @@ export default function ColorPicker() {
             purely by the SB box's aspect ratio; with that gone, all three follow
             this height.
 
-            Bounded, because the slack is not always small - three collapsed
-            sections leave over 300px, and a 266px-wide box 460px tall reads as
-            a column rather than a field. min-h-32/max-h-60 keeps the box between
-            roughly 2:1 and 1.1:1, and anything left over stays at the bottom of
-            the column as before. */}
-        <CollapsibleSection id="color-editor-group" title="Color Editor" className="flex-1 min-h-0">
-          <div id="sb-wrapper" className="flex flex-1 min-h-32 max-h-60 gap-3 min-w-0 overflow-hidden">
+            No ceiling: it takes whatever the other sections leave, so closing
+            them hands the room to the box rather than pooling it as empty space
+            underneath. min-h-32 is still a floor, for when the hexagon column is
+            the shorter one and this has to come down to meet it.
+
+            `grow` rather than a flex-1 in className, because the section only
+            fills while it is open - a collapsed one that still grew would be a
+            header stretched down the whole column. */}
+        <CollapsibleSection id="color-editor-group" title="Color Editor" grow>
+          <div id="sb-wrapper" className="flex flex-1 min-h-32 gap-3 min-w-0 overflow-hidden">
             <PreviewSwatch hex={hex} />
             <SBBox
               hue={hsb.h}

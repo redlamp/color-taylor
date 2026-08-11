@@ -196,6 +196,24 @@ h1, h2 {
   }
 
   /*
+   * A collapsed panel shrinks to its header instead of stretching.
+   *
+   * The columns are grid tracks that stretch to a shared row height, which is
+   * what keeps their bottom edges level - but it also meant closing Hexagon or
+   * Sliders left a full-height empty card, because the other column still set
+   * the row height. Opting the closed one out of the stretch lets it collapse
+   * to what it actually contains.
+   *
+   * Two selectors because the attribute is not always on the frame: the hexagon
+   * card reports its own state, while the sliders and equations panels are
+   * wrappers around an h2 section that reports for them.
+   */
+  .panel-frame[data-panel-open='false'],
+  .panel-frame:has(> [data-panel-open='false']) {
+    align-self: start;
+  }
+
+  /*
    * One control height for the whole app: 32px.
    *
    * It was three. TabsList, ToggleGroupList, the Button primitive's default and
