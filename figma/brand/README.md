@@ -7,7 +7,7 @@ need the plugin running in real Figma.
 |---|---|
 | `make-assets.mjs` | Generates the two images below. `bun run figma/brand/make-assets.mjs` |
 | `icon-128.png` | Plugin icon, 128x128 |
-| `cover-1920x960.png` | Community cover art |
+| `cover-1920x1080.png` | Community thumbnail, 1920x1080 (16:9) |
 | `listing.md` | Name, tagline, description, tags, screenshot shot-list |
 
 The images are generated from the same HSV-hexagon math the app draws, so the
