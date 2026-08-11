@@ -1,14 +1,24 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import { DEFAULT_SYNTH_CONFIG, type SynthConfig } from '@/utils/synthConfig';
-import { toneController } from '@/utils/toneControllerLazy';
+import { toneController, setAudioEnabled } from '@/utils/toneControllerLazy';
 
 export interface AppSettings {
+  /**
+   * Whether the audio feature exists for this user at all: the color synth, the
+   * music-note and volume controls in the header, the Audio settings section,
+   * and the interface sounds on the swatch grids.
+   *
+   * Off by default, deliberately - sound on a first visit is a surprise rather
+   * than a feature. Nothing audio-related loads while it is off.
+   */
+  audioEnabled: boolean;
   synth: SynthConfig;
 }
 
 const STORAGE_KEY = 'color-taylor-settings';
 
 const DEFAULTS: AppSettings = {
+  audioEnabled: false,
   synth: { ...DEFAULT_SYNTH_CONFIG },
 };
 
@@ -18,6 +28,8 @@ function loadSettings(): AppSettings {
     if (!raw) return DEFAULTS;
     const parsed = JSON.parse(raw);
     return {
+      // Strict true, so anything else stored - or nothing - reads as off.
+      audioEnabled: parsed?.audioEnabled === true,
       synth: { ...DEFAULTS.synth, ...(parsed?.synth ?? {}) },
     };
   } catch {
@@ -28,17 +40,25 @@ function loadSettings(): AppSettings {
 interface SettingsContextValue {
   settings: AppSettings;
   updateSynth: (patch: Partial<SynthConfig>) => void;
+  setAudioEnabled: (next: boolean) => void;
   reset: () => void;
 }
 
 const SettingsContext = createContext<SettingsContextValue>({
   settings: DEFAULTS,
   updateSynth: () => {},
+  setAudioEnabled: () => {},
   reset: () => {},
 });
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<AppSettings>(() => loadSettings());
+
+  // The gate reaches the engine wrapper before the config does, so a disabled
+  // feature never gets as far as the dynamic import.
+  useEffect(() => {
+    setAudioEnabled(settings.audioEnabled);
+  }, [settings.audioEnabled]);
 
   useEffect(() => {
     toneController.setConfig(settings.synth);
@@ -52,13 +72,17 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     setSettings(s => ({ ...s, synth: { ...s.synth, ...patch } }));
   }, []);
 
+  const setAudio = useCallback((next: boolean) => {
+    setSettings(s => ({ ...s, audioEnabled: next }));
+  }, []);
+
   const reset = useCallback(() => {
     setSettings(DEFAULTS);
     try { localStorage.removeItem(STORAGE_KEY); } catch { /* localStorage unavailable */ }
   }, []);
 
   return (
-    <SettingsContext.Provider value={{ settings, updateSynth, reset }}>
+    <SettingsContext.Provider value={{ settings, updateSynth, setAudioEnabled: setAudio, reset }}>
       {children}
     </SettingsContext.Provider>
   );

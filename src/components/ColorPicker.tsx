@@ -116,8 +116,6 @@ export default function ColorPicker() {
   useEffect(() => {
     try { localStorage.setItem('color-taylor-muted', muted ? '1' : '0'); } catch { /* localStorage unavailable */ }
   }, [muted]);
-  useEffect(() => { toneController.setMuted(muted); }, [muted]);
-
   // Colour-reactive panel chrome, on by default. It sits on the outer frames
   // only, so nothing tinted ends up adjacent to a swatch - which is what kept
   // this off before, since a tinted surround shifts how the colour beside it
@@ -131,6 +129,17 @@ export default function ColorPicker() {
   const { isDark } = useTheme();
   useColorEffects({ enabled: colorFx, hsb, isDark });
   const { settings, updateSynth } = useSettings();
+  const audioEnabled = settings.audioEnabled;
+  /*
+   * The interface sounds on the swatch grids are audio too, so the feature switch
+   * has to reach them. They are gated by `muted`, which is already threaded down
+   * to ColorHexagon - forcing it true while the feature is off is enough, and
+   * useUiSounds returns before it touches an AudioContext when muted.
+   */
+  const effectiveMuted = muted || !audioEnabled;
+  // Below the declaration above, not up with the other mute effect - it reads
+  // audioEnabled, which only exists once useSettings has been called.
+  useEffect(() => { toneController.setMuted(effectiveMuted); }, [effectiveMuted]);
   const prevSynthEnabledRef = useRef(settings.synth.synthEnabled);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const isPointerDownRef = useRef(false);
@@ -479,32 +488,39 @@ export default function ColorPicker() {
             />
             <TooltipContent>Cycle Colors</TooltipContent>
           </Tooltip>
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <button
-                  className="ctl-quiet-icon"
-                  onClick={() => updateSynth({ synthEnabled: !settings.synth.synthEnabled })}
-                  aria-label={settings.synth.synthEnabled ? 'Disable color synth' : 'Enable color synth'}
-                  aria-pressed={settings.synth.synthEnabled}
-                >
-                  <span className="relative inline-flex items-center justify-center size-4">
-                    <Music className="size-4" />
-                    {!settings.synth.synthEnabled && (
-                      <Slash className="size-4 absolute inset-0 -scale-x-100" />
-                    )}
-                  </span>
-                </button>
-              }
-            />
-            <TooltipContent>Color Synth</TooltipContent>
-          </Tooltip>
-          <VolumeControl
-            muted={muted}
-            onToggleMute={() => setMuted(m => !m)}
-            masterGain={settings.synth.masterGain}
-            onMasterGainChange={(v) => updateSynth({ masterGain: v })}
-          />
+          {/* The synth and volume controls only exist once audio is switched on
+              in Settings. Off is the default, so a first visit has no audio
+              affordances at all and none of the engine is fetched. */}
+          {audioEnabled && (
+            <>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <button
+                      className="ctl-quiet-icon"
+                      onClick={() => updateSynth({ synthEnabled: !settings.synth.synthEnabled })}
+                      aria-label={settings.synth.synthEnabled ? 'Disable color synth' : 'Enable color synth'}
+                      aria-pressed={settings.synth.synthEnabled}
+                    >
+                      <span className="relative inline-flex items-center justify-center size-4">
+                        <Music className="size-4" />
+                        {!settings.synth.synthEnabled && (
+                          <Slash className="size-4 absolute inset-0 -scale-x-100" />
+                        )}
+                      </span>
+                    </button>
+                  }
+                />
+                <TooltipContent>Color Synth</TooltipContent>
+              </Tooltip>
+              <VolumeControl
+                muted={muted}
+                onToggleMute={() => setMuted(m => !m)}
+                masterGain={settings.synth.masterGain}
+                onMasterGainChange={(v) => updateSynth({ masterGain: v })}
+              />
+            </>
+          )}
           <ThemeToggle />
           <Tooltip>
             <TooltipTrigger
@@ -569,7 +585,7 @@ export default function ColorPicker() {
             showHtmlOnHex={showHtmlOnHex}
             animHolding={colorAnimHolding}
             onHoverHtmlColor={setHoveredHtmlColor}
-            muted={muted}
+            muted={effectiveMuted}
           />
 
         {/* Right column: Controls. Width comes from the grid track now, so this
@@ -805,7 +821,7 @@ export default function ColorPicker() {
       <SettingsPanel
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
-        muted={muted}
+        muted={effectiveMuted}
         onToggleMute={() => setMuted(m => !m)}
         colorFx={colorFx}
         onToggleColorFx={() => setColorFx(v => !v)}

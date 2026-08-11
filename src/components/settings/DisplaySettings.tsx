@@ -6,6 +6,8 @@ import { useTheme } from '@/hooks/useTheme';
 interface Props {
   colorFx: boolean;
   onToggleColorFx: () => void;
+  audioEnabled: boolean;
+  onToggleAudio: () => void;
 }
 
 interface SwitchRowProps {
@@ -53,7 +55,7 @@ function SwitchRow({ label, checked, onToggle, ariaLabel, knob }: SwitchRowProps
   );
 }
 
-export function DisplaySettings({ colorFx, onToggleColorFx }: Props) {
+export function DisplaySettings({ colorFx, onToggleColorFx, audioEnabled, onToggleAudio }: Props) {
   const { isDark, toggle } = useTheme();
   return (
     <div className="flex flex-col gap-3 px-1">
@@ -73,6 +75,16 @@ export function DisplaySettings({ colorFx, onToggleColorFx }: Props) {
         checked={colorFx}
         onToggle={onToggleColorFx}
         ariaLabel="Toggle border color effects"
+      />
+      {/* The switch that brings the whole audio feature into existence: the synth
+          and volume controls in the header, the Audio settings section, and the
+          interface sounds. It lives here rather than under Audio because Audio
+          does not exist until this is on. */}
+      <SwitchRow
+        label="Audio"
+        checked={audioEnabled}
+        onToggle={onToggleAudio}
+        ariaLabel="Toggle audio features"
       />
     </div>
   );
