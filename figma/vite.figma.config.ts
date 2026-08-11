@@ -73,6 +73,12 @@ export default defineConfig({
       // an AudioContext and four oscillator graphs in behind it.
       { find: /^.*hooks\/useUiSounds$/, replacement: path.resolve(__dirname, 'ui/lite/ui-sounds.ts') },
 
+      // The colour-reactive glow and rim light are the app's treatment, not the
+      // picker's. A panel that shifts hue as you drag fights the host UI it sits
+      // inside, and the real hook rebuilds a conic gradient per section on a rAF
+      // loop. Aliased out rather than gated, so none of it reaches the bundle.
+      { find: /^.*hooks\/useColorEffects$/, replacement: path.resolve(__dirname, 'ui/lite/color-effects.ts') },
+
       // The tone synth is ~17 KB of oscillator graph for a hold-tone, and with
       // codeSplitting off its dynamic import is inlined rather than deferred -
       // so it ships whether or not it is ever used.

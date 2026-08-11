@@ -12,9 +12,11 @@ interface Props {
   onClose: () => void;
   muted: boolean;
   onToggleMute: () => void;
+  colorFx: boolean;
+  onToggleColorFx: () => void;
 }
 
-export function SettingsPanel({ open, onClose, muted, onToggleMute }: Props) {
+export function SettingsPanel({ open, onClose, muted, onToggleMute, colorFx, onToggleColorFx }: Props) {
   const { reset: resetSynth } = useSettings();
   const { reset: resetTheme } = useTheme();
   const asideRef = useRef<HTMLElement | null>(null);
@@ -112,7 +114,7 @@ export function SettingsPanel({ open, onClose, muted, onToggleMute }: Props) {
             <AccordionItem value="display">
               <AccordionTrigger>Display</AccordionTrigger>
               <AccordionContent keepMounted>
-                <DisplaySettings />
+                <DisplaySettings colorFx={colorFx} onToggleColorFx={onToggleColorFx} />
               </AccordionContent>
             </AccordionItem>
             <AccordionItem value="audio">

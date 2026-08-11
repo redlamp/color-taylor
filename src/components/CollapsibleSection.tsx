@@ -33,14 +33,26 @@ export default function CollapsibleSection({ id, title, level = 'h3', defaultOpe
   const [open, setOpen] = useState(defaultOpen);
   const Tag = level;
   const flush = variant === 'flush';
+  // panel-inset carries the fill one step off the frame. It deliberately gets
+  // none of the colour-reactive chrome: those live on the outer frame, and the
+  // inner sections are where the swatches sit. The flush variant is the
+  // plugin's shape and gets neither.
   const shell = flush
     ? 'border-t border-input pt-2'
     : level === 'h3'
-      ? 'border border-input rounded-lg p-2.5'
+      ? 'panel-inset border border-input rounded-lg p-2.5'
       : '';
 
   return (
-    <div id={id} className={`flex flex-col gap-1.5 ${shell} ${extraClass || ''}`}>
+    <div
+      id={id}
+      // Only the h2 sections are a panel's own collapse, so only they report it.
+      // The enclosing .panel-frame reads this to drop its glow when closed -
+      // marking inner sections too would let a nested collapse trigger that.
+      // Written as a string rather than a boolean so `false` survives to the DOM.
+      {...(level === 'h2' ? { 'data-panel-open': open ? 'true' : 'false' } : {})}
+      className={`flex flex-col gap-1.5 ${shell} ${extraClass || ''}`}
+    >
       {/* The hit area reaches back over the shell's own padding.
           Left to itself the row is only as tall as its text, so the band
           between the section rule and the title looked like header and did

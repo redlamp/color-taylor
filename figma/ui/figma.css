@@ -411,3 +411,19 @@ body {
 .figma-root [data-armed] {
   color: var(--figma-color-text-danger, #f24822);
 }
+
+/*
+ * The app's colour-reactive glow and rim light never run here: the hook behind
+ * them is aliased to a no-op in vite.figma.config.ts, so `.color-fx` is never
+ * added and none of the custom properties are ever written. These rules are the
+ * belt to that braces - the pseudo-elements are cheap, but a panel whose
+ * surround shifted hue as you dragged would fight Figma's own chrome, and that
+ * should not be one missing class away from happening.
+ */
+.color-fx .panel-frame::before,
+.color-fx .panel-frame::after {
+  display: none;
+}
+.color-fx .panel-frame {
+  box-shadow: none;
+}

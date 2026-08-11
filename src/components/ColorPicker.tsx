@@ -38,6 +38,8 @@ import { SettingsPanel } from './SettingsPanel';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { VolumeControl } from './VolumeControl';
 import { useSettings } from '@/hooks/useSettings';
+import { useTheme } from '@/hooks/useTheme';
+import useColorEffects from '@/hooks/useColorEffects';
 import { toneController } from '@/utils/toneControllerLazy';
 import { Play, Pause, Settings, Music, Slash } from 'lucide-react';
 
@@ -84,6 +86,19 @@ export default function ColorPicker() {
     try { localStorage.setItem('color-taylor-muted', muted ? '1' : '0'); } catch { /* localStorage unavailable */ }
   }, [muted]);
   useEffect(() => { toneController.setMuted(muted); }, [muted]);
+
+  // Colour-reactive panel chrome, on by default. It sits on the outer frames
+  // only, so nothing tinted ends up adjacent to a swatch - which is what kept
+  // this off before, since a tinted surround shifts how the colour beside it
+  // reads. Read as "not explicitly off" so an existing opt-out is honoured.
+  const [colorFx, setColorFx] = useState<boolean>(() => {
+    try { return localStorage.getItem('color-taylor-effects') !== '0'; } catch { return true; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('color-taylor-effects', colorFx ? '1' : '0'); } catch { /* localStorage unavailable */ }
+  }, [colorFx]);
+  const { isDark } = useTheme();
+  useColorEffects({ enabled: colorFx, hsb, isDark });
   const { settings, updateSynth } = useSettings();
   const prevSynthEnabledRef = useRef(settings.synth.synthEnabled);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -519,7 +534,7 @@ export default function ColorPicker() {
 
         {/* Right column: Controls — sized to SLIDERS_PANEL_WIDTH (420), shrinks to SLIDERS_PANEL_MIN_WIDTH (280).
             Tailwind arbitrary values below must stay in sync with the JS constants above. */}
-        <div id="picker-layout" className="w-full md:w-auto md:basis-[420px] md:max-w-[420px] md:min-w-[280px] md:shrink md:grow-0 border border-input rounded-lg p-2.5">
+        <div id="picker-layout" className="w-full md:w-auto md:basis-[420px] md:max-w-[420px] md:min-w-[280px] md:shrink md:grow-0 panel-frame border border-input rounded-lg p-2.5">
         <CollapsibleSection id="sliders-group" title="Sliders" level="h2">
           <div className="flex flex-col gap-3">
         {/* Color Editor: Swatch + SB Box + H Slider */}
@@ -693,7 +708,7 @@ export default function ColorPicker() {
       </div>
 
       {/* Equations panel */}
-      <div className="mt-3 border border-input rounded-lg p-2.5" style={{ width: topRowWidth || 'auto' }}>
+      <div className="mt-3 panel-frame border border-input rounded-lg p-2.5" style={{ width: topRowWidth || 'auto' }}>
         <CollapsibleSection id="equations-group" title="Equations" level="h2" defaultOpen={false}>
           <EquationsPanel
             rgb={rgb}
@@ -713,6 +728,8 @@ export default function ColorPicker() {
         onClose={() => setSettingsOpen(false)}
         muted={muted}
         onToggleMute={() => setMuted(m => !m)}
+        colorFx={colorFx}
+        onToggleColorFx={() => setColorFx(v => !v)}
       />
     </div>
   );

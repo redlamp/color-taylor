@@ -1324,8 +1324,13 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       // and the card silently overflows its column.
       className={[
         'flex flex-col items-center gap-1 max-w-full',
-        bare ? 'w-full' : 'border border-input rounded-lg p-3',
+        bare ? 'w-full' : 'panel-frame border border-input rounded-lg p-3',
       ].join(' ')}
+      // This card collapses on its own `hexOpen` rather than through
+      // CollapsibleSection, so it reports its state itself. .panel-frame reads
+      // it to drop the glow while closed and keep just the keyline. Omitted in
+      // `bare` hosts, where there is no frame and no collapse affordance.
+      {...(bare ? {} : { 'data-panel-open': hexOpen ? 'true' : 'false' })}
       style={bare ? undefined : { width: HEX_PANEL_WIDTH }}
     >
       <div className="flex items-start gap-1.5 w-full">
