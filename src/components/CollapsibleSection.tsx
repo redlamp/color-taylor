@@ -1,7 +1,10 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { ChevronRight } from 'lucide-react';
 
 type Level = 'h2' | 'h3';
+
+/** Collapse duration, shared with the class below and with ColorHexagon's own panel. */
+export const COLLAPSE_MS = 200;
 
 /*
  * h3 was `text-sm font-semibold uppercase tracking-wider`. The dated part was
@@ -81,12 +84,35 @@ export default function CollapsibleSection({ id, title, level = 'h3', defaultOpe
   const [open, setOpen] = useState(
     () => (id !== undefined && OPEN_STATE.has(id) ? OPEN_STATE.get(id)! : defaultOpen),
   );
-  const toggle = () =>
+
+  /*
+   * Clip only while collapsed or mid-transition.
+   *
+   * The clip is what hides the content as the row animates shut, but left on
+   * permanently it also crops anything the content paints outside its own box -
+   * and the swatch grids draw their selection as a 2px outset ring, with a 1.1x
+   * scale while armed. Those were being cut off along the bottom and both sides.
+   *
+   * `clipped` is derived rather than stored, so the effect never sets state
+   * synchronously: the toggle marks the section as settling, the timer clears it.
+   * A timer rather than transitionend because reduced motion removes the
+   * transition entirely and the event would never fire.
+   */
+  const [settling, setSettling] = useState(false);
+  useEffect(() => {
+    if (!settling) return;
+    const t = window.setTimeout(() => setSettling(false), COLLAPSE_MS + 20);
+    return () => window.clearTimeout(t);
+  }, [settling]);
+  const clipped = !open || settling;
+  const toggle = () => {
+    setSettling(true);
     setOpen((o) => {
       const next = !o;
       if (id !== undefined) OPEN_STATE.set(id, next);
       return next;
     });
+  };
   const Tag = level;
   const flush = variant === 'flush';
   // aria-controls and aria-labelledby need ids on both ends. Only wired up when
@@ -202,9 +228,15 @@ export default function CollapsibleSection({ id, title, level = 'h3', defaultOpe
           // in the layout so it can animate, while taking the content out of the
           // tab order and the accessibility tree.
           inert={!open}
-          className={`min-h-0 overflow-hidden pt-2 ${fill ? 'flex flex-col' : ''}`}
+          // No padding here, deliberately. It used to carry the pt-2 and that is
+          // what stopped a closed section reaching zero: padding counts toward a
+          // grid item's minimum contribution, so `0fr` resolved to 8px and every
+          // collapsed panel had 8px of dead space under its title. The spacing
+          // lives on the wrapper below, inside the clip, where it collapses with
+          // everything else.
+          className={`min-h-0 ${clipped ? 'overflow-clip' : ''} ${fill ? 'flex flex-col' : ''}`}
         >
-          {children}
+          <div className={`pt-2 ${fill ? 'flex min-h-0 flex-1 flex-col' : ''}`}>{children}</div>
         </div>
       </div>
     </div>

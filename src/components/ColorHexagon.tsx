@@ -5,7 +5,7 @@ import type { Channel, ChannelOrder } from './hex/hexConstants';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { ChevronRight, RefreshCw, Trash2 } from 'lucide-react';
-import CollapsibleSection from './CollapsibleSection';
+import CollapsibleSection, { COLLAPSE_MS } from './CollapsibleSection';
 import NAMED_COLORS from '../utils/namedColors';
 import { HANDLE, ringRadius } from '../utils/handleStyle';
 import { readSwatch, writeSwatch, SWATCHES_READY } from '../utils/swatchStore';
@@ -381,6 +381,19 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   // the middle. At HEX_SIZE it sat 10px left of center.
   const EXTENT = blBar ? SIZE : CENTER_X * 2;
   const [hexOpen, setHexOpen] = useState(true);
+  // Clip while collapsed or mid-tween only; see the note on the animator below.
+  // Derived, so the effect never sets state synchronously.
+  const [hexSettling, setHexSettling] = useState(false);
+  useEffect(() => {
+    if (!hexSettling) return;
+    const t = window.setTimeout(() => setHexSettling(false), COLLAPSE_MS + 20);
+    return () => window.clearTimeout(t);
+  }, [hexSettling]);
+  const hexClipped = !hexOpen || hexSettling;
+  const toggleHex = () => {
+    setHexSettling(true);
+    setHexOpen((o) => !o);
+  };
   const [vectorMode] = useState<ChannelOrder>('rgb');
   const [initialHex] = useState(() => rgbToHex(rgb.r, rgb.g, rgb.b));
   const [recentColors, setRecentColors] = useState<Swatch[]>(() => parseRecent(readSwatch(RECENT_KEY)));
@@ -1346,7 +1359,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
         {!bare && (
           <div
             className="flex items-center gap-1.5 flex-1 min-w-0 cursor-pointer select-none"
-            onClick={() => setHexOpen((o) => !o)}
+            onClick={toggleHex}
           >
             <ChevronRight className={`!size-4 text-muted-foreground transition-transform duration-200 ${hexOpen ? 'rotate-90' : ''}`} />
             <h2 className="text-lg font-semibold tracking-tight text-foreground">Hexagon</h2>
@@ -1377,7 +1390,23 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           </div>
         )}
       </div>
-      {hexOpen && <>
+      {/*
+        The same collapse animation CollapsibleSection uses, applied by hand
+        because this panel is not one - it has its own hexOpen, so it was the one
+        panel that snapped shut while every other section tweened.
+
+        Two rows animating 0fr <-> 1fr, content kept mounted so there is
+        something to transition, and the clip lifted once open so the swatch
+        selection rings inside Recent and Saved are not cropped.
+      */}
+      <div
+        className="grid w-full transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none"
+        style={{ gridTemplateRows: hexOpen ? '1fr' : '0fr' }}
+      >
+      <div
+        inert={!hexOpen}
+        className={`flex w-full min-h-0 flex-col items-center gap-1 ${hexClipped ? 'overflow-clip' : ''}`}
+      >
       {/* id is a styling hook for narrow hosts. The hue badge and brightness
           pill are absolutely positioned against this element at percentage
           offsets but sized in fixed px, so anything narrower than
@@ -1936,7 +1965,9 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             })}
           </div>
         </CollapsibleSection>
-      </div></>}
+      </div>
+      </div>
+      </div>
 
       {poofs.map((p) => (
         <div
