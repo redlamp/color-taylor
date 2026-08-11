@@ -53,7 +53,7 @@ export function VolumeControl({ muted, onToggleMute, masterGain, onMasterGainCha
       </Tooltip>
       {open && (
         <div
-          className="hidden md:flex absolute top-full left-1/2 -translate-x-1/2 mt-1 z-50 bg-background border border-input rounded-md shadow-lg px-3 py-2 flex-col items-center gap-1.5"
+          className="hidden md:flex absolute top-full left-1/2 -translate-x-1/2 mt-1 z-50 bg-background border border-border rounded-md shadow-lg px-3 py-2 flex-col items-center gap-1.5"
           style={{ minWidth: 64 }}
         >
           <div className="h-44 w-6 flex items-center justify-center">

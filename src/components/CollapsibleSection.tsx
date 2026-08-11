@@ -129,9 +129,9 @@ export default function CollapsibleSection({ id, title, level = 'h3', defaultOpe
   // content. The negative margins below have to track the top value, or the
   // header's hit area stops lining up with the padding it reaches over.
   const shell = flush
-    ? 'border-t border-input pt-2'
+    ? 'border-t border-border pt-2'
     : level === 'h3'
-      ? 'panel-inset border border-input rounded-lg px-3 py-2'
+      ? 'panel-inset border border-border rounded-lg px-3 py-2'
       : '';
 
   return (

@@ -69,7 +69,18 @@
    * hairlines at an alpha rather than a solid grey, so they sit on whatever is
    * behind them instead of assuming a white page.
    */
-  --border: oklch(0.145 0 0 / 0.11);
+  /*
+   * Hairline weight is set by how far the composited line sits from the surface
+   * behind it in oklch L, not by the alpha - alpha is the input, not the effect.
+   * 11% ink on a near-white card and 13% white on a mid-dark one look like a
+   * matched pair as numbers and are not: they measured 0.079 and 0.105, so dark
+   * was carrying 1.33x the apparent weight of light.
+   *
+   * Both themes now target dL 0.050, which is a third fainter than light was and
+   * meaningfully lighter than dark was, while still reading as a drawn line. The
+   * alphas differ because the surfaces do; the result is what matches.
+   */
+  --border: oklch(0.145 0 0 / 0.07);
   --input: oklch(0.145 0 0 / 0.11);
 
   /*
@@ -115,7 +126,8 @@
   --destructive: oklch(0.704 0.191 22.216);
   --ring: oklch(0.556 0 0);
 
-  --border: oklch(1 0 0 / 0.13);
+  /* dL 0.050, the same apparent weight as the light theme's 7%. See the note there. */
+  --border: oklch(1 0 0 / 0.061);
   --input: oklch(1 0 0 / 0.13);
   --surface-inset: oklch(0.3 0 0);
 
