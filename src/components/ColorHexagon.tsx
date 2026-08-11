@@ -5,7 +5,7 @@ import type { Channel, ChannelOrder } from './hex/hexConstants';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { ChevronRight, RefreshCw, Trash2 } from 'lucide-react';
-import CollapsibleSection from './CollapsibleSection';
+import CollapsibleSection, { COLLAPSE_MS } from './CollapsibleSection';
 import NAMED_COLORS from '../utils/namedColors';
 import { HANDLE, ringRadius } from '../utils/handleStyle';
 import { readSwatch, writeSwatch, SWATCHES_READY } from '../utils/swatchStore';
@@ -166,48 +166,60 @@ function parseSaved(raw: unknown): SavedSlot[] {
 
 const DEFAULT_RECENT = ['#ff0000', '#ffff00', '#00ff00', '#00ffff', '#0000ff', '#ff00ff', '#ffffff', '#808080', '#000000'];
 
-const ACTION_BTN_CLASS =
-  'px-2 py-0.5 text-xs rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none inline-flex items-center justify-center';
+/** The shared quiet control, at the app's one 32px control height. */
+const ACTION_BTN_CLASS = 'ctl-quiet px-2.5';
 
 /**
- * Header controls hold a width instead of tracking their content.
- *
- * All three change what they say: Sort cycles five labels, and the two
- * confirming actions swap to "Sure?" when armed - from an icon, in the plugin,
- * which is the largest jump of the lot. Left to size themselves they shuffle
+ * Header controls hold a width instead of tracking their content, because all
+ * three change what they say: Sort cycles five labels, and the two confirming
+ * actions swap between an icon and "Sure?". Left to size themselves they shuffle
  * each other sideways on every click.
  *
- * Measured in both surfaces, then rounded up to the 4px spacing step:
- *
- *                widest content    plugin (Inter 11)   app (Barlow)
- *     Sort       "Sort: Bright"         72px              98px
- *     action     "Defaults"/"Sure?"     43px              74px
- *
- * Narrow hosts get the tighter pair rather than one shared width. The app's
- * numbers in a 300px panel would leave the section title nowhere to go, and
- * the plugin never renders the wide labels anyway - its actions are icons.
- * These are floors, not fixed widths: an unexpected font should push a button
- * wider rather than clip its label.
+ * Two values, not one: Sort spells out its mode and the actions do not, so
+ * forcing them to a shared width would pad the icons out to fit "Sort: Bright".
+ * Both are floors - an unexpected font should widen a button, not clip it - and
+ * both are measured rather than guessed. See the MEASURED_WIDTHS test note.
  */
-const SORT_BTN_W = { narrow: 'min-w-19', wide: 'min-w-26' };
-const ACTION_BTN_W = { narrow: 'min-w-12', wide: 'min-w-20' };
+const ACTION_BTN_W = 'min-w-14';
+const SORT_BTN_W = 'min-w-26';
+
+type SortMode = 'user' | 'hue' | 'saturation' | 'brightness' | 'alpha';
+
+/** Cycle order for the Sort control. */
+const SORT_ORDER: readonly SortMode[] = ['user', 'hue', 'saturation', 'brightness', 'alpha'];
+
+const SORT_LABELS: Record<SortMode, string> = {
+  user: 'User',
+  hue: 'Hue',
+  saturation: 'Sat',
+  brightness: 'Bright',
+  alpha: 'Alpha',
+};
+
+/*
+ * Sort names its mode in text, the way the plugin does.
+ *
+ * It was briefly an icon per mode, which was a mistake: five glyphs standing in
+ * for User / Hue / Sat / Bright / Alpha are guesswork at 14px, and the plugin
+ * this was meant to match had always kept Sort as a label - only the two
+ * destructive actions became icons there. Clear and Defaults are unambiguous as
+ * a bin and a refresh; a sort order is not.
+ */
 
 /**
- * Header action for the Recent / Saved sections. Renders its label as text, or
- * as an icon where horizontal room is scarce (`iconActions`, used by the Figma
- * plugin). The label stays on as title/aria-label either way.
+ * Header action for the Recent / Saved sections. Always an icon, with the label
+ * carried by title and aria-label - except while armed, where "Sure?" is spelt
+ * out. Confirmation is the one place words beat a glyph.
  */
 function ActionButton({
   label,
   icon: Icon,
-  iconOnly,
   onClick,
   confirm,
   onDropSwatch,
 }: {
   label: string;
   icon: ComponentType<{ className?: string }>;
-  iconOnly?: boolean;
   onClick: (e: ReactMouseEvent) => void;
   /** Require a second click. For the actions that throw away saved work. */
   confirm?: boolean;
@@ -242,10 +254,9 @@ function ActionButton({
     disarm.current = window.setTimeout(() => setArmed(false), 3000);
   };
 
-  const shown = armed ? 'Sure?' : label;
   return (
     <button
-      className={`${ACTION_BTN_CLASS} ${iconOnly ? ACTION_BTN_W.narrow : ACTION_BTN_W.wide} transition-transform duration-100`}
+      className={`${ACTION_BTN_CLASS} ${ACTION_BTN_W} transition-transform duration-100`}
       // data-armed and data-drop-over share the danger styling: both mean the
       // next thing that happens removes a color.
       data-armed={armed || dropOver || undefined}
@@ -276,7 +287,7 @@ function ActionButton({
         onDropSwatch();
       })}
     >
-      {iconOnly && !armed ? <Icon className="!size-3.5" /> : shown}
+      {armed ? 'Sure?' : <Icon className="!size-3.5" />}
     </button>
   );
 }
@@ -302,7 +313,6 @@ interface ColorHexagonProps {
   onHoverHtmlColor?: (marker: HoveredMarker | null) => void;
   muted?: boolean;
   /** Render Recent/Saved header actions as icons - for narrow hosts (Figma). */
-  iconActions?: boolean;
   /** Drop the card border and "Hexagon" title: the host already frames it. */
   bare?: boolean;
   /** Content for the header slot the title vacates in `bare` mode. */
@@ -363,7 +373,7 @@ interface HoveredMarker {
   name: string;
 }
 
-export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, animHolding, onHoverHtmlColor, muted, iconActions, bare, headerLeft, belowStage, collapsedSections, sectionVariant = 'card', alpha = 100, onAlphaRestore, wheelAdjusts = true, blBar = true, blHandleX = null, blConnector = true, stemRange = null }: ColorHexagonProps) {
+export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, animHolding, onHoverHtmlColor, muted, bare, headerLeft, belowStage, collapsedSections, sectionVariant = 'card', alpha = 100, onAlphaRestore, wheelAdjusts = true, blBar = true, blHandleX = null, blConnector = true, stemRange = null }: ColorHexagonProps) {
   const flushSections = sectionVariant === 'flush';
   // Horizontal extent of the SVG coordinate space. Without the bar the hexagon
   // is the whole picture, so the 50px reserved to its right goes away - and the
@@ -371,6 +381,19 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   // the middle. At HEX_SIZE it sat 10px left of center.
   const EXTENT = blBar ? SIZE : CENTER_X * 2;
   const [hexOpen, setHexOpen] = useState(true);
+  // Clip while collapsed or mid-tween only; see the note on the animator below.
+  // Derived, so the effect never sets state synchronously.
+  const [hexSettling, setHexSettling] = useState(false);
+  useEffect(() => {
+    if (!hexSettling) return;
+    const t = window.setTimeout(() => setHexSettling(false), COLLAPSE_MS + 20);
+    return () => window.clearTimeout(t);
+  }, [hexSettling]);
+  const hexClipped = !hexOpen || hexSettling;
+  const toggleHex = () => {
+    setHexSettling(true);
+    setHexOpen((o) => !o);
+  };
   const [vectorMode] = useState<ChannelOrder>('rgb');
   const [initialHex] = useState(() => rgbToHex(rgb.r, rgb.g, rgb.b));
   const [recentColors, setRecentColors] = useState<Swatch[]>(() => parseRecent(readSwatch(RECENT_KEY)));
@@ -379,7 +402,6 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   const alphaRef = useRef(alpha);
   alphaRef.current = alpha;
 
-  type SortMode = 'user' | 'hue' | 'saturation' | 'brightness' | 'alpha';
   const [savedSlots, setSavedSlots] = useState<SavedSlot[]>(() => parseSaved(readSwatch(SAVED_KEY)));
   const [selectedSavedIdx, setSelectedSavedIdx] = useState<number | null>(null);
   const [savedSortMode, setSavedSortMode] = useState<SortMode>('user');
@@ -634,8 +656,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
 
   const cycleSavedSort = useCallback(() => {
     captureFlipRects(true);
-    const order: SortMode[] = ['user', 'hue', 'saturation', 'brightness', 'alpha'];
-    const next = order[(order.indexOf(savedSortMode) + 1) % order.length];
+    const next = SORT_ORDER[(SORT_ORDER.indexOf(savedSortMode) + 1) % SORT_ORDER.length];
     setSavedSortMode(next);
     setSelectedSavedIdx(null);
   }, [savedSortMode, captureFlipRects]);
@@ -674,8 +695,6 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
 
     if (shouldPlaySound && movedCount > 0) playFlit();
   }, [savedSortMode, savedSlots, playFlit]);
-
-  const SORT_LABELS: Record<SortMode, string> = { user: 'User', hue: 'Hue', saturation: 'Sat', brightness: 'Bright', alpha: 'Alpha' };
   const draggingBL = useRef(false);
   const svgRef = useRef(null);
   const draggingHue = useRef(false);
@@ -1324,8 +1343,13 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       // and the card silently overflows its column.
       className={[
         'flex flex-col items-center gap-1 max-w-full',
-        bare ? 'w-full' : 'border border-input rounded-lg p-3',
+        bare ? 'w-full' : 'panel-frame border border-input rounded-lg p-3',
       ].join(' ')}
+      // This card collapses on its own `hexOpen` rather than through
+      // CollapsibleSection, so it reports its state itself. .panel-frame reads
+      // it to drop the glow while closed and keep just the keyline. Omitted in
+      // `bare` hosts, where there is no frame and no collapse affordance.
+      {...(bare ? {} : { 'data-panel-open': hexOpen ? 'true' : 'false' })}
       style={bare ? undefined : { width: HEX_PANEL_WIDTH }}
     >
       <div className="flex items-start gap-1.5 w-full">
@@ -1335,7 +1359,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
         {!bare && (
           <div
             className="flex items-center gap-1.5 flex-1 min-w-0 cursor-pointer select-none"
-            onClick={() => setHexOpen((o) => !o)}
+            onClick={toggleHex}
           >
             <ChevronRight className={`!size-4 text-muted-foreground transition-transform duration-200 ${hexOpen ? 'rotate-90' : ''}`} />
             <h2 className="text-lg font-semibold tracking-tight text-foreground">Hexagon</h2>
@@ -1366,7 +1390,23 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           </div>
         )}
       </div>
-      {hexOpen && <>
+      {/*
+        The same collapse animation CollapsibleSection uses, applied by hand
+        because this panel is not one - it has its own hexOpen, so it was the one
+        panel that snapped shut while every other section tweened.
+
+        Two rows animating 0fr <-> 1fr, content kept mounted so there is
+        something to transition, and the clip lifted once open so the swatch
+        selection rings inside Recent and Saved are not cropped.
+      */}
+      <div
+        className="grid w-full transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none"
+        style={{ gridTemplateRows: hexOpen ? '1fr' : '0fr' }}
+      >
+      <div
+        inert={!hexOpen}
+        className={`flex w-full min-h-0 flex-col items-center gap-1 ${hexClipped ? 'overflow-clip' : ''}`}
+      >
       {/* id is a styling hook for narrow hosts. The hue badge and brightness
           pill are absolutely positioned against this element at percentage
           offsets but sized in fixed px, so anything narrower than
@@ -1653,7 +1693,6 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
               <ActionButton
                 label="Clear"
                 icon={Trash2}
-                iconOnly={iconActions}
                 confirm
                 onClick={(e) => { e.stopPropagation(); setRecentColors([]); setSelectedRecentIdx(null); }}
               />
@@ -1723,16 +1762,20 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                   them. It is the only one that reads rather than destroys, so
                   it leads the group and the two confirming actions follow. */}
               <button
-                className={`${ACTION_BTN_CLASS} tabular-nums ${iconActions ? SORT_BTN_W.narrow : SORT_BTN_W.wide}`}
+                className={`${ACTION_BTN_CLASS} ${SORT_BTN_W} tabular-nums`}
                 onClick={(e) => { e.stopPropagation(); cycleSavedSort(); }}
-                aria-label={`Sort by ${SORT_LABELS[savedSortMode]} (click to cycle)`}
+                // The mode as an attribute, not just inside a label. It is the
+                // only way to read this control now that it renders a glyph, and
+                // it lets a test assert on state rather than on presentation.
+                data-sort-mode={savedSortMode}
+                title={`Sorted by ${SORT_LABELS[savedSortMode]} - click to cycle`}
+                aria-label={`Sorted by ${SORT_LABELS[savedSortMode]}. Click to cycle sort order.`}
               >
                 Sort: {SORT_LABELS[savedSortMode]}
               </button>
               <ActionButton
                 label="Defaults"
                 icon={RefreshCw}
-                iconOnly={iconActions}
                 confirm
                 onClick={(e) => {
                   e.stopPropagation();
@@ -1744,7 +1787,6 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
               <ActionButton
                 label="Clear"
                 icon={Trash2}
-                iconOnly={iconActions}
                 confirm
                 onClick={(e) => { e.stopPropagation(); setSavedSlots(Array(SAVED_BANK).fill(null)); setSelectedSavedIdx(null); }}
                 // A second way to delete one color, alongside dragging it out
@@ -1923,7 +1965,9 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             })}
           </div>
         </CollapsibleSection>
-      </div></>}
+      </div>
+      </div>
+      </div>
 
       {poofs.map((p) => (
         <div

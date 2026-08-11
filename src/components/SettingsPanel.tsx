@@ -12,10 +12,13 @@ interface Props {
   onClose: () => void;
   muted: boolean;
   onToggleMute: () => void;
+  colorFx: boolean;
+  onToggleColorFx: () => void;
 }
 
-export function SettingsPanel({ open, onClose, muted, onToggleMute }: Props) {
-  const { reset: resetSynth } = useSettings();
+export function SettingsPanel({ open, onClose, muted, onToggleMute, colorFx, onToggleColorFx }: Props) {
+  const { reset: resetSynth, settings, setAudioEnabled } = useSettings();
+  const audioEnabled = settings.audioEnabled;
   const { reset: resetTheme } = useTheme();
   const asideRef = useRef<HTMLElement | null>(null);
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
@@ -112,15 +115,27 @@ export function SettingsPanel({ open, onClose, muted, onToggleMute }: Props) {
             <AccordionItem value="display">
               <AccordionTrigger>Display</AccordionTrigger>
               <AccordionContent keepMounted>
-                <DisplaySettings />
+                <DisplaySettings
+                  colorFx={colorFx}
+                  onToggleColorFx={onToggleColorFx}
+                  audioEnabled={audioEnabled}
+                  onToggleAudio={() => setAudioEnabled(!audioEnabled)}
+                />
               </AccordionContent>
             </AccordionItem>
-            <AccordionItem value="audio">
-              <AccordionTrigger>Audio</AccordionTrigger>
-              <AccordionContent keepMounted>
-                <AudioSettings muted={muted} onToggleMute={onToggleMute} />
-              </AccordionContent>
-            </AccordionItem>
+            {/* The Audio section only exists once the feature is switched on -
+                its own switch lives in Display, which is always there, so there
+                is somewhere to turn it on from. AudioSettings previews the synth
+                as you adjust it, so mounting it while the feature is off would
+                pull the engine in behind the user's back. */}
+            {audioEnabled && (
+              <AccordionItem value="audio">
+                <AccordionTrigger>Audio</AccordionTrigger>
+                <AccordionContent keepMounted>
+                  <AudioSettings muted={muted} onToggleMute={onToggleMute} />
+                </AccordionContent>
+              </AccordionItem>
+            )}
           </Accordion>
         </div>
         <div className="border-t border-input px-3 py-2">

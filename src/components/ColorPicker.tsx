@@ -25,7 +25,38 @@ import { HEX_PANEL_WIDTH } from './hex/hexConstants';
 const SLIDERS_PANEL_WIDTH = 420;          // px, target width of the right column on md+
 const SLIDERS_PANEL_MIN_WIDTH = 280;      // px, floor before sliders content gets too tight
 const TOP_ROW_GAP_PX = 16;                // Tailwind gap-4
-const TOP_ROW_MAX_WIDTH = HEX_PANEL_WIDTH + SLIDERS_PANEL_WIDTH + TOP_ROW_GAP_PX;
+/*
+ * The root's own horizontal padding, which has to be added on top of the two
+ * columns rather than eaten out of them.
+ *
+ * maxWidth is a border-box measurement, so the sm:p-6 on the root came out of
+ * the total: the columns only ever had 1002px of the 1050 they ask for, and were
+ * 48px short of ever reaching their stated widths. Flex hid that by shrinking
+ * both a little; the grid made it visible by holding the sliders column at 420
+ * and taking the whole shortfall out of the hexagon.
+ */
+const ROOT_PADDING_X = 48;                // Tailwind sm:p-6, both sides
+
+/*
+ * Default height of the SB box, and with it the Color Editor's.
+ *
+ * Chosen so the sliders column's natural height equals the hexagon column's with
+ * Recent and Saved open - 773px at full width - which means the grid has nothing
+ * to correct and the Color Editor is not silently resized to make the two meet.
+ * Before this it was a leftover: the column measured 726px on its own and got
+ * stretched 47px, so the box's height was whatever the hexagon happened to need.
+ *
+ * It is a flex-basis, not a min-height, so it only sets the resting size. The
+ * box still shrinks toward min-h-24 in a narrow window and grows when the other
+ * sections are collapsed.
+ *
+ * Tuned against the hexagon column, so re-check it if either column's content
+ * changes. Being wrong is not a breakage - flex goes back to correcting the
+ * difference, which is exactly the old behaviour.
+ */
+const SB_BOX_DEFAULT_HEIGHT = 143;
+const TOP_ROW_MAX_WIDTH =
+  HEX_PANEL_WIDTH + SLIDERS_PANEL_WIDTH + TOP_ROW_GAP_PX + ROOT_PADDING_X;
 import SBBox from './SBBox';
 import HSlider from './HSlider';
 import HexInput from './HexInput';
@@ -38,6 +69,8 @@ import { SettingsPanel } from './SettingsPanel';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { VolumeControl } from './VolumeControl';
 import { useSettings } from '@/hooks/useSettings';
+import { useTheme } from '@/hooks/useTheme';
+import useColorEffects from '@/hooks/useColorEffects';
 import { toneController } from '@/utils/toneControllerLazy';
 import { Play, Pause, Settings, Music, Slash } from 'lucide-react';
 
@@ -83,8 +116,30 @@ export default function ColorPicker() {
   useEffect(() => {
     try { localStorage.setItem('color-taylor-muted', muted ? '1' : '0'); } catch { /* localStorage unavailable */ }
   }, [muted]);
-  useEffect(() => { toneController.setMuted(muted); }, [muted]);
+  // Colour-reactive panel chrome, on by default. It sits on the outer frames
+  // only, so nothing tinted ends up adjacent to a swatch - which is what kept
+  // this off before, since a tinted surround shifts how the colour beside it
+  // reads. Read as "not explicitly off" so an existing opt-out is honoured.
+  const [colorFx, setColorFx] = useState<boolean>(() => {
+    try { return localStorage.getItem('color-taylor-effects') !== '0'; } catch { return true; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('color-taylor-effects', colorFx ? '1' : '0'); } catch { /* localStorage unavailable */ }
+  }, [colorFx]);
+  const { isDark } = useTheme();
+  useColorEffects({ enabled: colorFx, hsb, isDark });
   const { settings, updateSynth } = useSettings();
+  const audioEnabled = settings.audioEnabled;
+  /*
+   * The interface sounds on the swatch grids are audio too, so the feature switch
+   * has to reach them. They are gated by `muted`, which is already threaded down
+   * to ColorHexagon - forcing it true while the feature is off is enough, and
+   * useUiSounds returns before it touches an AudioContext when muted.
+   */
+  const effectiveMuted = muted || !audioEnabled;
+  // Below the declaration above, not up with the other mute effect - it reads
+  // audioEnabled, which only exists once useSettings has been called.
+  useEffect(() => { toneController.setMuted(effectiveMuted); }, [effectiveMuted]);
   const prevSynthEnabledRef = useRef(settings.synth.synthEnabled);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const isPointerDownRef = useRef(false);
@@ -111,17 +166,6 @@ export default function ColorPicker() {
   const hsbRef = useRef(hsb);
   useEffect(() => { hsbRef.current = hsb; }, [hsb]);
   const rgbOverride = useRef<RGB | null>(null);
-  const topRowRef = useRef<HTMLDivElement | null>(null);
-  const [topRowWidth, setTopRowWidth] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (!topRowRef.current) return;
-    const observer = new ResizeObserver(([entry]) => {
-      setTopRowWidth(entry.contentRect.width);
-    });
-    observer.observe(topRowRef.current);
-    return () => observer.disconnect();
-  }, []);
 
   // Undo/redo history
   const undoStack = useRef<HSB[]>([]);
@@ -424,7 +468,7 @@ export default function ColorPicker() {
         <div className="flex items-center justify-end gap-2">
           {import.meta.env.VITE_INTRO_ENABLED === 'true' && (
             <button
-              className="inline-flex items-center justify-center h-8 px-3 text-sm font-medium rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none"
+              className="ctl-quiet"
               onClick={() => { window.location.hash = '#/presentation'; }}
             >
               Intro
@@ -434,7 +478,7 @@ export default function ColorPicker() {
             <TooltipTrigger
               render={
                 <button
-                  className="inline-flex items-center justify-center size-8 rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none"
+                  className="ctl-quiet-icon"
                   onClick={() => setColorAnimActive(a => !a)}
                   aria-label={colorAnimActive ? 'Pause color animation' : 'Play color animation'}
                 >
@@ -444,38 +488,45 @@ export default function ColorPicker() {
             />
             <TooltipContent>Cycle Colors</TooltipContent>
           </Tooltip>
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <button
-                  className="inline-flex items-center justify-center size-8 rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none"
-                  onClick={() => updateSynth({ synthEnabled: !settings.synth.synthEnabled })}
-                  aria-label={settings.synth.synthEnabled ? 'Disable color synth' : 'Enable color synth'}
-                  aria-pressed={settings.synth.synthEnabled}
-                >
-                  <span className="relative inline-flex items-center justify-center size-4">
-                    <Music className="size-4" />
-                    {!settings.synth.synthEnabled && (
-                      <Slash className="size-4 absolute inset-0 -scale-x-100" />
-                    )}
-                  </span>
-                </button>
-              }
-            />
-            <TooltipContent>Color Synth</TooltipContent>
-          </Tooltip>
-          <VolumeControl
-            muted={muted}
-            onToggleMute={() => setMuted(m => !m)}
-            masterGain={settings.synth.masterGain}
-            onMasterGainChange={(v) => updateSynth({ masterGain: v })}
-          />
+          {/* The synth and volume controls only exist once audio is switched on
+              in Settings. Off is the default, so a first visit has no audio
+              affordances at all and none of the engine is fetched. */}
+          {audioEnabled && (
+            <>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <button
+                      className="ctl-quiet-icon"
+                      onClick={() => updateSynth({ synthEnabled: !settings.synth.synthEnabled })}
+                      aria-label={settings.synth.synthEnabled ? 'Disable color synth' : 'Enable color synth'}
+                      aria-pressed={settings.synth.synthEnabled}
+                    >
+                      <span className="relative inline-flex items-center justify-center size-4">
+                        <Music className="size-4" />
+                        {!settings.synth.synthEnabled && (
+                          <Slash className="size-4 absolute inset-0 -scale-x-100" />
+                        )}
+                      </span>
+                    </button>
+                  }
+                />
+                <TooltipContent>Color Synth</TooltipContent>
+              </Tooltip>
+              <VolumeControl
+                muted={muted}
+                onToggleMute={() => setMuted(m => !m)}
+                masterGain={settings.synth.masterGain}
+                onMasterGainChange={(v) => updateSynth({ masterGain: v })}
+              />
+            </>
+          )}
           <ThemeToggle />
           <Tooltip>
             <TooltipTrigger
               render={
                 <button
-                  className="inline-flex items-center justify-center size-8 rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none"
+                  className="ctl-quiet-icon"
                   onClick={() => setSettingsOpen(o => !o)}
                   aria-label="Open settings"
                   aria-expanded={settingsOpen}
@@ -489,11 +540,32 @@ export default function ColorPicker() {
         </div>
       </div>
 
-      <div className="flex flex-col">
-      <div ref={topRowRef} className="flex flex-col md:flex-row gap-4 items-stretch md:items-start">
-        {/* Left column: Color Hexagon — basis matches HEX_PANEL_WIDTH (614), shrinks alongside the sliders col.
-            Tailwind arbitrary values below must stay in sync with HEX_PANEL_WIDTH. */}
-        <div className="w-full md:w-auto md:basis-[614px] md:max-w-[614px] md:min-w-0 md:shrink md:grow-0">
+      {/*
+        One grid for the whole block, rather than a flex row with the equations
+        bar underneath it.
+
+        Two things fall out of that. The columns are tracks, so they share a row
+        height and their bottom edges line up whatever is expanded - as a flex
+        row they were each their natural height, which ran from 25px apart when
+        everything is open to nearly 300px apart when the slider sections are
+        closed. And the equations bar spans both tracks natively, which retired
+        the ResizeObserver that used to measure this row and copy its width onto
+        the bar - about a dozen lines of JS, a state variable and a re-render on
+        every resize, replaced by `col-span-2`.
+
+        The tracks carry the same numbers the flex bases did: HEX_PANEL_WIDTH
+        (614) and SLIDERS_PANEL_WIDTH (420), with SLIDERS_PANEL_MIN_WIDTH (280)
+        as the second one's floor. Keep them in sync with the constants above.
+
+        They are `fr` rather than `px` on purpose. With px maxima the tracks do
+        not shrink proportionally - grid holds the second at 420 and takes the
+        entire shortfall out of the first, so at the md boundary the hexagon
+        collapsed to 244px while the sliders kept full width. As flex factors in
+        a 614:420 ratio they divide the space the way the flex bases used to,
+        the root's max-width lets them land exactly on 614 and 420 when there is
+        room, and the 280px min still stops the sliders going too tight.
+      */}
+      <div className="grid grid-cols-1 md:grid-cols-[minmax(0,614fr)_minmax(280px,420fr)] gap-x-4 gap-y-3 items-stretch">
           <ColorHexagon
             rgb={rgb}
             hue={hsb.h}
@@ -513,18 +585,56 @@ export default function ColorPicker() {
             showHtmlOnHex={showHtmlOnHex}
             animHolding={colorAnimHolding}
             onHoverHtmlColor={setHoveredHtmlColor}
-            muted={muted}
+            muted={effectiveMuted}
           />
-        </div>
 
-        {/* Right column: Controls — sized to SLIDERS_PANEL_WIDTH (420), shrinks to SLIDERS_PANEL_MIN_WIDTH (280).
-            Tailwind arbitrary values below must stay in sync with the JS constants above. */}
-        <div id="picker-layout" className="w-full md:w-auto md:basis-[420px] md:max-w-[420px] md:min-w-[280px] md:shrink md:grow-0 border border-input rounded-lg p-2.5">
-        <CollapsibleSection id="sliders-group" title="Sliders" level="h2">
-          <div className="flex flex-col gap-3">
+        {/* Right column: Controls. Width comes from the grid track now, so this
+            carries only its own surface.
+
+            flex-col here starts a chain of flex-1 down to the Color Editor, so
+            that section absorbs the difference between this column's natural
+            height and the hexagon's: it shrinks when this column would be the
+            taller one, grows when it would be shorter. The grid gives this
+            element a definite height to divide up, which is what makes the
+            chain resolve. */}
+        <div id="picker-layout" className="panel-frame flex flex-col border border-input rounded-lg p-2.5">
+        {/* `fill` and not `absorbs`: this section passes the card's height down,
+            but the section that actually takes up slack is the Color Editor. If
+            this claimed to absorb, the panel would stretch even with the Color
+            Editor closed - the empty-card case. */}
+        <CollapsibleSection id="sliders-group" title="Sliders" level="h2" fill>
+          <div className="flex flex-1 min-h-0 flex-col gap-3">
         {/* Color Editor: Swatch + SB Box + H Slider */}
-        <CollapsibleSection id="color-editor-group" title="Color Editor">
-          <div id="sb-wrapper" className="flex gap-3 min-w-0 overflow-hidden">
+        {/* The one section in this column that can take up slack. The swatch and
+            the hue slider are already self-stretch, so the row's height was set
+            purely by the SB box's aspect ratio; with that gone, all three follow
+            this height.
+
+            No ceiling: it takes whatever the other sections leave, so closing
+            them hands the room to the box rather than pooling it as empty space
+            underneath.
+
+            The floor is what decides how far down the two columns stay flush.
+            The hexagon's height follows its width, so it shrinks as the window
+            narrows while the slider rows below do not - the Color Editor is the
+            only thing that can give, and once it hits the floor the sliders
+            column overhangs. min-h-24 rather than min-h-32 holds flush to about
+            1050px instead of 1150px, with the box at 210x96 at its tightest.
+            Going lower buys little: no floor at all only reaches ~900px, because
+            the rest of the column is fixed height, and the box is a 149x32
+            letterbox by then.
+
+            Props rather than a flex-1 in className, because the section only
+            fills while it is open - a collapsed one that still grew would be a
+            header stretched down the whole column. */}
+        <CollapsibleSection id="color-editor-group" title="Color Editor" fill absorbs>
+          <div
+            id="sb-wrapper"
+            className="flex flex-1 min-h-24 gap-3 min-w-0 overflow-hidden"
+            // Overrides flex-1's `flex-basis: 0%`. Inline because the value is a
+            // layout constant shared with the note above, not a magic number.
+            style={{ flexBasis: SB_BOX_DEFAULT_HEIGHT }}
+          >
             <PreviewSwatch hex={hex} />
             <SBBox
               hue={hsb.h}
@@ -690,10 +800,10 @@ export default function ColorPicker() {
           </div>
         </CollapsibleSection>
       </div>
-      </div>
 
-      {/* Equations panel */}
-      <div className="mt-3 border border-input rounded-lg p-2.5" style={{ width: topRowWidth || 'auto' }}>
+      {/* Equations panel. Spanning both tracks is what makes it match the width
+          of the row above; nothing measures anything. */}
+      <div className="md:col-span-2 panel-frame border border-input rounded-lg p-2.5">
         <CollapsibleSection id="equations-group" title="Equations" level="h2" defaultOpen={false}>
           <EquationsPanel
             rgb={rgb}
@@ -711,8 +821,10 @@ export default function ColorPicker() {
       <SettingsPanel
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
-        muted={muted}
+        muted={effectiveMuted}
         onToggleMute={() => setMuted(m => !m)}
+        colorFx={colorFx}
+        onToggleColorFx={() => setColorFx(v => !v)}
       />
     </div>
   );

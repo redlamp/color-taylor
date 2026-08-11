@@ -40,7 +40,7 @@ export function VolumeControl({ muted, onToggleMute, masterGain, onMasterGainCha
           render={
             <button
               type="button"
-              className="inline-flex items-center justify-center size-8 rounded-md bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 cursor-pointer select-none"
+              className="ctl-quiet-icon"
               onClick={onToggleMute}
               aria-label={muted ? 'Unmute sounds' : 'Mute sounds'}
               aria-expanded={open}

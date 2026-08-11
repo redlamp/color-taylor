@@ -545,7 +545,6 @@ function PluginApp() {
         onBlModeChange={setBlMode}
         colorSpace={colorSpace}
         onColorSpaceChange={setColorSpace}
-        iconActions
         bare
         collapsedSections
         sectionVariant="flush"

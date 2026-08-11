@@ -34,7 +34,13 @@ export default function SBBox({ hue, saturation, brightness, onChange }: SBBoxPr
       aria-label="Saturation and brightness"
       aria-valuetext={`Saturation ${saturation}%, Brightness ${brightness}%`}
       tabIndex={0}
-      className="relative flex-1 min-w-0 aspect-[17/10] overflow-hidden cursor-crosshair select-none touch-none"
+      // No aspect ratio. Height comes from the row, which the Color Editor
+      // section sizes so the sliders column can meet the hexagon's height - with
+      // an aspect ratio here the box set its own height from its width and the
+      // section could not flex at all. Safe to drop because the pointer maths
+      // reads rect.width and rect.height at the time of the event, so saturation
+      // and brightness stay correct at any shape.
+      className="relative flex-1 min-w-0 overflow-hidden cursor-crosshair select-none touch-none"
       ref={ref}
       style={{ backgroundColor: hueColor }}
       onPointerDown={(e) => {

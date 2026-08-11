@@ -5,6 +5,34 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Color Taylor 🎨🧵</title>
+    <!--
+      Theme bootstrap. Blocking on purpose, and it has to stay in <head>.
+
+      ThemeProvider only adds `.dark` in an effect, so before React mounts the
+      document had no theme class and --background resolved to the light value.
+      On a dark-theme load the page therefore painted white first, and because
+      App.tsx gives its background layer `transition: background-color 0.3s`, the
+      wrong colour then animated to the right one - a visible fade on every load.
+
+      Setting the class here means the first paint is already correct and the
+      transition has nothing to run. The logic below must stay in step with
+      ThemeProvider's initial state in src/hooks/useTheme.tsx: stored preference
+      wins, and the system setting is the fallback.
+    -->
+    <script>
+      (function () {
+        try {
+          var saved = localStorage.getItem('color-taylor-theme');
+          var dark =
+            saved !== null
+              ? saved === 'dark'
+              : window.matchMedia('(prefers-color-scheme: dark)').matches;
+          if (dark) document.documentElement.classList.add('dark');
+        } catch (e) {
+          /* private mode, or storage blocked: fall through to the light default */
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

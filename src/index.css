@@ -15,23 +15,31 @@
   100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(0); opacity: 0; }
 }
 
+/*
+ * There is no `@media (prefers-color-scheme: dark)` block here, deliberately.
+ * ThemeProvider already reads the system preference in JS as its initial value
+ * and then owns the `.dark` class, so a media query is redundant - and worse,
+ * it fired regardless of the user's choice. On a dark-OS machine with the light
+ * theme selected it left --border at #2e303a while --background stayed white,
+ * so nine hairlines rendered near-black on white, and it redefined --accent to
+ * a purple that means something else entirely to shadcn. Dark values live in
+ * `.dark` and nowhere else.
+ */
 :root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: oklch(0.922 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --mono: 'Share Tech Mono', ui-monospace, Consolas, monospace;
   --sans: 'Barlow', sans-serif;
+  --mono: 'Share Tech Mono', ui-monospace, Consolas, monospace;
 
   font: 16px/1.5 var(--sans);
   color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
   -webkit-font-smoothing: antialiased;
-  --background: oklch(1 0 0);
+
+  /*
+   * The page sits a step below the panels rather than matching them. Anodised
+   * carries elevation in shadow, and a white frame on a white ground gives that
+   * shadow nothing to read against - dimming the ground is what lets the frames
+   * lift. Stack runs background < surface-inset < card.
+   */
+  --background: oklch(0.965 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
@@ -39,40 +47,82 @@
   --popover-foreground: oklch(0.145 0 0);
   --primary: oklch(0.205 0 0);
   --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
+  --secondary: oklch(0.95 0 0);
   --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
+  /* 0.95 rather than 0.97, so bg-muted still reads as recessed against the
+     dimmed page. At 0.945 muted-foreground fell to 4.49:1 on it; this is 4.56. */
+  --muted: oklch(0.95 0 0);
+  /*
+   * 0.556 put muted-foreground at 4.34:1 on --muted, which is under AA - and it
+   * is used at text-xs and 10px, where the large-text allowance does not apply.
+   * 0.53 measures 4.84:1 on muted and 5.2:1 on the page.
+   */
+  --muted-foreground: oklch(0.53 0 0);
+  --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
-  --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --radius: 0.75rem;
+
+  /*
+   * Anodised: surfaces are flat and elevation is carried by shadow. Borders are
+   * hairlines at an alpha rather than a solid grey, so they sit on whatever is
+   * behind them instead of assuming a white page.
+   */
+  --border: oklch(0.145 0 0 / 0.11);
+  --input: oklch(0.145 0 0 / 0.11);
+
+  /*
+   * The inner-section surface, one step off --card. It steps *down* in light and
+   * *up* in dark: a recess reads as depth on a white page, but on a near-black
+   * one the eye reads the lighter surface as the nearer one.
+   */
+  --surface-inset: oklch(0.978 0 0);
+
+  /* Elevation. Alphas sit in the range Figma's own tokens use (0.05-0.2), which
+     is also what handleStyle.ts already matched for the picker handles. */
+  --highlight: inset 0 1px 0 oklch(1 0 0 / 0.9);
+  --shadow-sm: 0 1px 2px oklch(0.145 0 0 / 0.05);
+  --shadow-md: 0 4px 10px -2px oklch(0.145 0 0 / 0.07);
+  --shadow-lg: 0 12px 26px -8px oklch(0.145 0 0 / 0.07);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-  }
+.dark {
+  /*
+   * #181818. Near-black rather than almost-black: at 0.145 the page was #0a0a0a,
+   * which crushes against the panels and leaves the swatches nothing to sit on.
+   *
+   * The whole stack moves with it. --card was 0.205 against a 0.145 page - a
+   * 0.0056 luminance delta, invisible, which is why dark mode read as one flat
+   * plane. Raising only the page would have reintroduced exactly that, so the
+   * steps above it are held at roughly 0.05 and 0.04 in oklch L, which is
+   * perceptually even. Stack runs background < card < surface-inset < muted.
+   */
+  --background: oklch(0.209 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.262 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.262 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.34 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.34 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.34 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --ring: oklch(0.556 0 0);
+
+  --border: oklch(1 0 0 / 0.13);
+  --input: oklch(1 0 0 / 0.13);
+  --surface-inset: oklch(0.3 0 0);
+
+  --highlight: inset 0 1px 0 oklch(1 0 0 / 0.07);
+  --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.4);
+  --shadow-md: 0 6px 14px -3px oklch(0 0 0 / 0.45);
+  --shadow-lg: 0 16px 32px -10px oklch(0 0 0 / 0.5);
 }
 
 body {
@@ -86,24 +136,19 @@ h1, h2 {
 .font-mono, code, pre { font-size: 1em; }
 
 @theme inline {
-  --font-size-xs: 0.8rem;
-  --font-size-sm: 0.9rem;
+  /*
+   * Tailwind v4 names type-scale steps --text-*, not --font-size-*. There were
+   * --font-size-xs: 0.8rem and --font-size-sm: 0.9rem here which therefore never
+   * applied - text-xs has always resolved to Tailwind's own 0.75rem. They are
+   * removed rather than renamed: renaming them would silently resize every
+   * text-xs and text-sm in the app, which is a call to make on purpose rather
+   * than as a side effect of fixing a typo.
+   */
   --font-heading: var(--font-sans);
-  --font-sans: 'Barlow', sans-serif;
-  --font-mono: 'Share Tech Mono', ui-monospace, Consolas, monospace;
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
+  /* One source of truth for the faces: the plugin retargets --sans and --mono
+     to Inter, and both of these follow rather than needing their own override. */
+  --font-sans: var(--sans);
+  --font-mono: var(--mono);
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
@@ -120,6 +165,7 @@ h1, h2 {
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-surface-inset: var(--surface-inset);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
   --radius-sm: calc(var(--radius) * 0.6);
@@ -131,38 +177,171 @@ h1, h2 {
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+/*
+ * Panel shells. These set fill and elevation only - never padding or radius,
+ * because callers already carry `p-2.5` and `rounded-lg`, and CollapsibleSection's
+ * header reaches back over its own padding with matching negative margins.
+ * Being in @layer components means a utility on the callsite still wins.
+ */
+@layer components {
+  .panel-frame {
+    background: var(--card);
+    box-shadow: var(--highlight), var(--shadow-sm), var(--shadow-md), var(--shadow-lg);
+  }
+
+  .panel-inset {
+    position: relative;
+    background: var(--surface-inset);
+  }
+
+  /*
+   * A collapsed panel shrinks to its header instead of stretching.
+   *
+   * The columns are grid tracks that stretch to a shared row height, which is
+   * what keeps their bottom edges level - but it also meant closing Hexagon or
+   * Sliders left a full-height empty card, because the other column still set
+   * the row height. Opting the closed one out of the stretch lets it collapse
+   * to what it actually contains.
+   *
+   * Two selectors because the attribute is not always on the frame: the hexagon
+   * card reports its own state, while the sliders and equations panels are
+   * wrappers around an h2 section that reports for them.
+   */
+  .panel-frame[data-panel-open='false'],
+  .panel-frame:has(> [data-panel-open='false']) {
+    align-self: start;
+  }
+
+  /*
+   * And a panel with nothing that can grow sits at its natural height too.
+   *
+   * Stretching is only worth it if something inside will use the space. With the
+   * Color Editor closed, the sliders panel had no absorber and stretched anyway:
+   * closing all four of its sections left a 773px card with 487px of nothing in
+   * it, while collapsing the panel itself correctly gave 54px. The hexagon panel
+   * has no grow section at all, which is right - it is the reference height the
+   * other column matches, so it should always be its natural size.
+   */
+  .panel-frame:not(:has([data-section-grow])) {
+    align-self: start;
+  }
+
+  /*
+   * One control height for the whole app: 32px.
+   *
+   * It was three. TabsList, ToggleGroupList, the Button primitive's default and
+   * the top bar were already h-8; the section-header pills sat at about 22px on
+   * py-0.5, and the slider steppers at h-6. A header row therefore mixed 22px
+   * actions with 32px segmented controls, which is what read as inconsistent.
+   * 32px is the one the system already used most, so everything meets it there
+   * rather than at a new number - nothing shrinks.
+   *
+   * The quiet variants also retire a class string that was pasted six times
+   * across ColorPicker, ThemeToggle, VolumeControl and ColorHexagon.
+   */
+  .ctl-quiet {
+    @apply inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-md
+           bg-muted px-3 text-sm font-medium text-muted-foreground select-none
+           transition-colors hover:bg-muted/80 hover:text-foreground;
+  }
+
+  /* Square, for a control whose whole content is one glyph. */
+  .ctl-quiet-icon {
+    @apply inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md
+           bg-muted text-muted-foreground select-none
+           transition-colors hover:bg-muted/80 hover:text-foreground;
+  }
+}
+
+/*
+ * Colour-reactive effects, off unless ThemeProvider's sibling hook has switched
+ * them on. Everything below reads custom properties that useColorEffects writes;
+ * with the class absent nothing here matches, and even if a rule did match the
+ * `transparent` fallbacks mean it paints nothing. That is what keeps this out of
+ * the Figma plugin: the hook is aliased to a no-op there, so the properties are
+ * never set. See figma/vite.figma.config.ts.
+ */
+/*
+ * Both effects land on the outer frames - the hexagon, the sliders column and
+ * the equations bar - and never on the inner sections, which keep their plain
+ * Anodised fill. Three lit edges read as a lighting scheme; six read as
+ * decoration, and the inner sections are where the swatches actually sit.
+ *
+ * The tinted bleed is appended to the frame's own elevation rather than
+ * replacing it, so a panel keeps its shadow whether the effect is on or off.
+ */
+.color-fx .panel-frame {
+  position: relative;
+  isolation: isolate;
+  box-shadow:
+    var(--highlight),
+    var(--shadow-sm),
+    var(--shadow-md),
+    var(--shadow-lg),
+    var(--fx-rim-shadow, 0 0 transparent);
+}
+
+/*
+ * The keyline: a 1px ring on the frame, lit by a radial spot that sits on the
+ * point of the border belonging to the current hue - green top-left, magenta
+ * bottom-right, red and cyan halfway down the right and left edges. Saturation
+ * gathers it: an even wash all round at 0, one place on the edge by 100.
+ *
+ * The spot is placed in percentages, which resolve against each card's own
+ * width and height independently, so the mapping survives any aspect ratio.
+ * This replaced a conic gradient, whose angle is measured in screen space - on
+ * the collapsed equations bar a corner-bound ray left through the top edge long
+ * before it got near a corner, so the highlight drifted to the middle.
+ */
+.color-fx .panel-frame::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  z-index: 2;
+  pointer-events: none;
+  background: var(--fx-rim, transparent);
+  -webkit-mask: linear-gradient(#000, #000) content-box, linear-gradient(#000, #000);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000, #000) content-box, linear-gradient(#000, #000);
+  mask-composite: exclude;
+}
+
+/* The ambient glow: hue sets the angle, saturation the distance from centre, so
+   it sits where the colour sits on the hexagon. Negative z-index puts it above
+   the frame's own fill but under its content - backgrounds paint before
+   negative-index children, so an opaque --card does not hide it. */
+.color-fx .panel-frame::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(
+    46% 40% at var(--fx-glow-x, 50%) var(--fx-glow-y, 40%),
+    var(--fx-glow, transparent),
+    transparent 74%
+  );
+}
+
+/*
+ * A collapsed panel is almost entirely header, and a gradient drifting around
+ * inside that band reads as a stray highlight rather than as atmosphere - most
+ * visibly on the equations bar, which starts closed. The keyline still traces
+ * the edge; only the glow goes. The attribute sits on h2-level sections and on
+ * the hexagon's own root, never on inner sections, so this cannot be triggered
+ * by collapsing something nested.
+ */
+.color-fx .panel-frame[data-panel-open="false"]::before,
+.color-fx .panel-frame:has([data-panel-open="false"])::before {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* The effects still track the colour, they just stop easing toward it. */
+  .color-fx .panel-frame::before { transition: none; }
 }
 
 @layer base {
@@ -173,6 +352,9 @@ h1, h2 {
     @apply bg-background text-foreground;
   }
   html {
-    @apply font-sans;
+    /* Also on html, not just body. body's background propagates to the canvas
+       only once body exists; painting the root too means the very first frame
+       is the theme colour rather than the browser's white default. */
+    @apply bg-background font-sans;
   }
 }
