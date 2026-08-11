@@ -3,10 +3,21 @@ import { ChevronRight } from 'lucide-react';
 
 type Level = 'h2' | 'h3';
 
+/*
+ * h3 was `text-sm font-semibold uppercase tracking-wider`. Uppercase at a wide
+ * tracking and a heavy weight is the part that read as dated - it shouts, and it
+ * costs legibility at this size for nothing. Sentence case at a lighter weight
+ * lets the section titles sit under the panel title instead of competing with
+ * it, and the authored strings already carry their own capitalisation, so "RGB"
+ * and "HSB / HSL" stay acronyms while "Color Editor" reads as words.
+ */
 const levelStyles: Record<Level, string> = {
   h2: 'text-lg font-semibold tracking-tight text-foreground',
-  h3: 'text-sm font-semibold uppercase tracking-wider text-muted-foreground',
+  h3: 'text-xs font-medium tracking-normal text-muted-foreground',
 };
+
+/** The chevron is sized to its header rather than to the other one. */
+const chevronSize: Record<Level, string> = { h2: '!size-4', h3: '!size-3.5' };
 
 /**
  * 'card' boxes the section in a rounded border - right when it sits on a page
@@ -80,7 +91,7 @@ export default function CollapsibleSection({ id, title, level = 'h3', defaultOpe
         }}
       >
         <ChevronRight
-          className={`!size-4 text-muted-foreground transition-transform duration-200 ${open ? 'rotate-90' : ''}`}
+          className={`${flush ? '!size-4' : chevronSize[level]} text-muted-foreground transition-transform duration-200 ${open ? 'rotate-90' : ''}`}
         />
         <Tag className={flush ? 'text-xs font-semibold text-foreground' : levelStyles[level]}>
           {title}
@@ -96,7 +107,10 @@ export default function CollapsibleSection({ id, title, level = 'h3', defaultOpe
           </div>
         )}
       </div>
-      {open && !flush && level === 'h3' && <hr className="border-input" />}
+      {/* No rule under the header any more. It was doing the work the section's
+          own fill now does - panel-inset gives every card a surface, so a divider
+          inside one is a second boundary for the same edge. Spacing separates
+          the header instead. */}
       {open && children}
     </div>
   );

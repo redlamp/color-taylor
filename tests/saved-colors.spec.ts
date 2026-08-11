@@ -46,8 +46,13 @@ test.describe('Saved colors row', () => {
     const section = page.locator('#saved-colors');
     await section.locator('[data-saved-idx="0"]').waitFor();
 
-    const sortButton = section.locator('button[aria-label$="(click to cycle)"]');
-    while (!(await sortButton.textContent())?.includes('Hue')) {
+    // Read the mode off data-sort-mode rather than from the button's text. The
+    // control renders an icon now, so there is no text to match - and asserting
+    // on state instead of presentation keeps this from breaking again the next
+    // time the glyph changes.
+    const sortButton = section.locator('button[data-sort-mode]');
+    for (let i = 0; (await sortButton.getAttribute('data-sort-mode')) !== 'hue'; i++) {
+      expect(i, 'sort should reach hue within one full cycle').toBeLessThan(5);
       await sortButton.click();
     }
 

@@ -4,7 +4,7 @@ import { swatchBackground, type ColorSpace } from '../utils/sliderGradients';
 import type { Channel, ChannelOrder } from './hex/hexConstants';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
-import { ChevronRight, RefreshCw, Trash2 } from 'lucide-react';
+import { ChevronRight, RefreshCw, Trash2, GripVertical, Rainbow, Droplet, SunMedium, Blend } from 'lucide-react';
 import CollapsibleSection from './CollapsibleSection';
 import NAMED_COLORS from '../utils/namedColors';
 import { HANDLE, ringRadius } from '../utils/handleStyle';
@@ -172,42 +172,65 @@ const ACTION_BTN_CLASS =
 /**
  * Header controls hold a width instead of tracking their content.
  *
- * All three change what they say: Sort cycles five labels, and the two
- * confirming actions swap to "Sure?" when armed - from an icon, in the plugin,
- * which is the largest jump of the lot. Left to size themselves they shuffle
- * each other sideways on every click.
+ * One value now, not a narrow/wide pair per surface. Both surfaces render these
+ * as icons, so the only state needing room is "Sure?" on the two confirming
+ * actions - and Sort matches them, so the trio reads as one group rather than
+ * three sizes. Left to size themselves they shuffle each other sideways as the
+ * armed state comes and goes.
  *
- * Measured in both surfaces, then rounded up to the 4px spacing step:
+ * Measured in the app, then taken to the next 4px step:
  *
- *                widest content    plugin (Inter 11)   app (Barlow)
- *     Sort       "Sort: Bright"         72px              98px
- *     action     "Defaults"/"Sure?"     43px              74px
+ *     icon at rest     30.0px
+ *     "Sure?"          45.6px   <- the floor
+ *     min-w-12         48.0px
  *
- * Narrow hosts get the tighter pair rather than one shared width. The app's
- * numbers in a 300px panel would leave the section title nowhere to go, and
- * the plugin never renders the wide labels anyway - its actions are icons.
- * These are floors, not fixed widths: an unexpected font should push a button
- * wider rather than clip its label.
+ * A floor, not a fixed width: an unexpected font should push a button wider
+ * rather than clip it. This is also what the plugin used before its actions and
+ * the app's converged, so it is already proven at Inter 11.
  */
-const SORT_BTN_W = { narrow: 'min-w-19', wide: 'min-w-26' };
-const ACTION_BTN_W = { narrow: 'min-w-12', wide: 'min-w-20' };
+const HEADER_BTN_W = 'min-w-12';
+
+type SortMode = 'user' | 'hue' | 'saturation' | 'brightness' | 'alpha';
+
+/** Cycle order for the Sort control. */
+const SORT_ORDER: readonly SortMode[] = ['user', 'hue', 'saturation', 'brightness', 'alpha'];
+
+const SORT_LABELS: Record<SortMode, string> = {
+  user: 'User',
+  hue: 'Hue',
+  saturation: 'Sat',
+  brightness: 'Bright',
+  alpha: 'Alpha',
+};
 
 /**
- * Header action for the Recent / Saved sections. Renders its label as text, or
- * as an icon where horizontal room is scarce (`iconActions`, used by the Figma
- * plugin). The label stays on as title/aria-label either way.
+ * Sort shows which mode is active by changing glyph, not by naming it. An icon
+ * that stayed the same through five modes would say "you can sort" while hiding
+ * the one thing worth knowing - which sort you are looking at. The mode name
+ * still rides along in title and aria-label, since a glyph alone is a guess.
+ */
+const SORT_ICONS: Record<SortMode, ComponentType<{ className?: string }>> = {
+  user: GripVertical, // the order you arranged them in
+  hue: Rainbow,
+  saturation: Droplet,
+  brightness: SunMedium,
+  alpha: Blend,
+};
+
+/**
+ * Header action for the Recent / Saved sections. Always an icon, with the label
+ * carried by title and aria-label - except while armed, where "Sure?" is spelt
+ * out. Confirmation is the one place words beat a glyph.
  */
 function ActionButton({
   label,
   icon: Icon,
-  iconOnly,
   onClick,
   confirm,
   onDropSwatch,
 }: {
   label: string;
   icon: ComponentType<{ className?: string }>;
-  iconOnly?: boolean;
   onClick: (e: ReactMouseEvent) => void;
   /** Require a second click. For the actions that throw away saved work. */
   confirm?: boolean;
@@ -242,10 +265,9 @@ function ActionButton({
     disarm.current = window.setTimeout(() => setArmed(false), 3000);
   };
 
-  const shown = armed ? 'Sure?' : label;
   return (
     <button
-      className={`${ACTION_BTN_CLASS} ${iconOnly ? ACTION_BTN_W.narrow : ACTION_BTN_W.wide} transition-transform duration-100`}
+      className={`${ACTION_BTN_CLASS} ${HEADER_BTN_W} transition-transform duration-100`}
       // data-armed and data-drop-over share the danger styling: both mean the
       // next thing that happens removes a color.
       data-armed={armed || dropOver || undefined}
@@ -276,7 +298,7 @@ function ActionButton({
         onDropSwatch();
       })}
     >
-      {iconOnly && !armed ? <Icon className="!size-3.5" /> : shown}
+      {armed ? 'Sure?' : <Icon className="!size-3.5" />}
     </button>
   );
 }
@@ -302,7 +324,6 @@ interface ColorHexagonProps {
   onHoverHtmlColor?: (marker: HoveredMarker | null) => void;
   muted?: boolean;
   /** Render Recent/Saved header actions as icons - for narrow hosts (Figma). */
-  iconActions?: boolean;
   /** Drop the card border and "Hexagon" title: the host already frames it. */
   bare?: boolean;
   /** Content for the header slot the title vacates in `bare` mode. */
@@ -363,7 +384,7 @@ interface HoveredMarker {
   name: string;
 }
 
-export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, animHolding, onHoverHtmlColor, muted, iconActions, bare, headerLeft, belowStage, collapsedSections, sectionVariant = 'card', alpha = 100, onAlphaRestore, wheelAdjusts = true, blBar = true, blHandleX = null, blConnector = true, stemRange = null }: ColorHexagonProps) {
+export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, animHolding, onHoverHtmlColor, muted, bare, headerLeft, belowStage, collapsedSections, sectionVariant = 'card', alpha = 100, onAlphaRestore, wheelAdjusts = true, blBar = true, blHandleX = null, blConnector = true, stemRange = null }: ColorHexagonProps) {
   const flushSections = sectionVariant === 'flush';
   // Horizontal extent of the SVG coordinate space. Without the bar the hexagon
   // is the whole picture, so the 50px reserved to its right goes away - and the
@@ -379,7 +400,6 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   const alphaRef = useRef(alpha);
   alphaRef.current = alpha;
 
-  type SortMode = 'user' | 'hue' | 'saturation' | 'brightness' | 'alpha';
   const [savedSlots, setSavedSlots] = useState<SavedSlot[]>(() => parseSaved(readSwatch(SAVED_KEY)));
   const [selectedSavedIdx, setSelectedSavedIdx] = useState<number | null>(null);
   const [savedSortMode, setSavedSortMode] = useState<SortMode>('user');
@@ -634,8 +654,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
 
   const cycleSavedSort = useCallback(() => {
     captureFlipRects(true);
-    const order: SortMode[] = ['user', 'hue', 'saturation', 'brightness', 'alpha'];
-    const next = order[(order.indexOf(savedSortMode) + 1) % order.length];
+    const next = SORT_ORDER[(SORT_ORDER.indexOf(savedSortMode) + 1) % SORT_ORDER.length];
     setSavedSortMode(next);
     setSelectedSavedIdx(null);
   }, [savedSortMode, captureFlipRects]);
@@ -674,8 +693,6 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
 
     if (shouldPlaySound && movedCount > 0) playFlit();
   }, [savedSortMode, savedSlots, playFlit]);
-
-  const SORT_LABELS: Record<SortMode, string> = { user: 'User', hue: 'Hue', saturation: 'Sat', brightness: 'Bright', alpha: 'Alpha' };
   const draggingBL = useRef(false);
   const svgRef = useRef(null);
   const draggingHue = useRef(false);
@@ -1658,7 +1675,6 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
               <ActionButton
                 label="Clear"
                 icon={Trash2}
-                iconOnly={iconActions}
                 confirm
                 onClick={(e) => { e.stopPropagation(); setRecentColors([]); setSelectedRecentIdx(null); }}
               />
@@ -1728,16 +1744,20 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                   them. It is the only one that reads rather than destroys, so
                   it leads the group and the two confirming actions follow. */}
               <button
-                className={`${ACTION_BTN_CLASS} tabular-nums ${iconActions ? SORT_BTN_W.narrow : SORT_BTN_W.wide}`}
+                className={`${ACTION_BTN_CLASS} ${HEADER_BTN_W}`}
                 onClick={(e) => { e.stopPropagation(); cycleSavedSort(); }}
-                aria-label={`Sort by ${SORT_LABELS[savedSortMode]} (click to cycle)`}
+                // The mode as an attribute, not just inside a label. It is the
+                // only way to read this control now that it renders a glyph, and
+                // it lets a test assert on state rather than on presentation.
+                data-sort-mode={savedSortMode}
+                title={`Sorted by ${SORT_LABELS[savedSortMode]} - click to cycle`}
+                aria-label={`Sorted by ${SORT_LABELS[savedSortMode]}. Click to cycle sort order.`}
               >
-                Sort: {SORT_LABELS[savedSortMode]}
+                {(() => { const SortIcon = SORT_ICONS[savedSortMode]; return <SortIcon className="!size-3.5" />; })()}
               </button>
               <ActionButton
                 label="Defaults"
                 icon={RefreshCw}
-                iconOnly={iconActions}
                 confirm
                 onClick={(e) => {
                   e.stopPropagation();
@@ -1749,7 +1769,6 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
               <ActionButton
                 label="Clear"
                 icon={Trash2}
-                iconOnly={iconActions}
                 confirm
                 onClick={(e) => { e.stopPropagation(); setSavedSlots(Array(SAVED_BANK).fill(null)); setSelectedSavedIdx(null); }}
                 // A second way to delete one color, alongside dragging it out

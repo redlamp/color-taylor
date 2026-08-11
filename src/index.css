@@ -136,9 +136,15 @@ h1, h2 {
 .font-mono, code, pre { font-size: 1em; }
 
 @theme inline {
-  --font-size-2xs: 0.65rem;
-  --font-size-xs: 0.8rem;
-  --font-size-sm: 0.9rem;
+  /*
+   * Tailwind v4 names type-scale steps --text-*, not --font-size-*. There were
+   * --font-size-xs: 0.8rem and --font-size-sm: 0.9rem here which therefore never
+   * applied - text-xs has always resolved to Tailwind's own 0.75rem. They are
+   * removed rather than renamed: renaming them would silently resize every
+   * text-xs and text-sm in the app, which is a call to make on purpose rather
+   * than as a side effect of fixing a typo.
+   */
+  --text-2xs: 0.65rem;
   --font-heading: var(--font-sans);
   /* One source of truth for the faces: the plugin retargets --sans and --mono
      to Inter, and both of these follow rather than needing their own override. */
