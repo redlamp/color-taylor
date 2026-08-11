@@ -1,0 +1,79 @@
+name: CI
+
+# Tests and deploy live in one workflow on purpose.
+#
+# They used to be two files, and `needs:` only works between jobs inside a single
+# workflow - so a push to main started both at once and the deploy published
+# whether or not the tests passed. The gate was procedural: someone had to
+# remember to check dev was green first. Now the deploy cannot outrun a failure.
+#
+# The alternative was leaving deploy.yml separate and triggering it on
+# `workflow_run`. That works but carries sharp edges - it evaluates the workflow
+# file from the default branch, needs the target SHA checked out explicitly, and
+# silently does nothing if the upstream run is skipped. One file is plainer.
+
+on:
+  pull_request:
+  push:
+    branches: [main, dev]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bun run lint
+      - run: bun run typecheck
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: pw-${{ runner.os }}-
+      - run: bunx playwright install --with-deps chromium
+      - run: bun run test
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+  deploy:
+    needs: test
+    # Only from main, and never from a pull request - a PR must not be able to
+    # publish. workflow_dispatch is allowed so a manual deploy is still possible,
+    # but it now runs the tests first like everything else.
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    # Write is only needed to push gh-pages, so it is scoped to this job rather
+    # than granted to the whole workflow.
+    permissions:
+      contents: write
+    # Job-level, not workflow-level: serialising deploys is right, serialising
+    # every test run behind one gh-pages group is not.
+    concurrency:
+      group: gh-pages
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+        env:
+          GITHUB_PAGES: '1'
+      - uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+          publish_branch: gh-pages
