@@ -563,7 +563,11 @@ export default function ColorPicker() {
             element a definite height to divide up, which is what makes the
             chain resolve. */}
         <div id="picker-layout" className="panel-frame flex flex-col border border-input rounded-lg p-2.5">
-        <CollapsibleSection id="sliders-group" title="Sliders" level="h2" className="flex-1 min-h-0">
+        {/* `fill` and not `absorbs`: this section passes the card's height down,
+            but the section that actually takes up slack is the Color Editor. If
+            this claimed to absorb, the panel would stretch even with the Color
+            Editor closed - the empty-card case. */}
+        <CollapsibleSection id="sliders-group" title="Sliders" level="h2" fill>
           <div className="flex flex-1 min-h-0 flex-col gap-3">
         {/* Color Editor: Swatch + SB Box + H Slider */}
         {/* The one section in this column that can take up slack. The swatch and
@@ -576,10 +580,10 @@ export default function ColorPicker() {
             underneath. min-h-32 is still a floor, for when the hexagon column is
             the shorter one and this has to come down to meet it.
 
-            `grow` rather than a flex-1 in className, because the section only
+            Props rather than a flex-1 in className, because the section only
             fills while it is open - a collapsed one that still grew would be a
             header stretched down the whole column. */}
-        <CollapsibleSection id="color-editor-group" title="Color Editor" grow>
+        <CollapsibleSection id="color-editor-group" title="Color Editor" fill absorbs>
           <div id="sb-wrapper" className="flex flex-1 min-h-32 gap-3 min-w-0 overflow-hidden">
             <PreviewSwatch hex={hex} />
             <SBBox

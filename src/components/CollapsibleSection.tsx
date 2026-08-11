@@ -54,16 +54,30 @@ interface CollapsibleSectionProps {
   className?: string;
   variant?: Variant;
   /**
-   * Fill the space left over in a flex column, but only while open. The section
-   * has to own this rather than the caller passing `flex-1`, because only the
-   * section knows whether it is open - a collapsed section that still grew would
-   * be a header stretched over the whole column.
+   * Take the leftover height of the parent flex column, but only while open. The
+   * section has to own this rather than the caller passing `flex-1`, because only
+   * the section knows whether it is open - a collapsed section that still filled
+   * would be a header stretched down the whole column.
+   *
+   * It also has to reach the content wrapper, not just the section root, or the
+   * height stops at the wrapper and whatever is inside sizes to its own content.
    */
-  grow?: boolean;
+  fill?: boolean;
+  /**
+   * On top of `fill`: report that this section will soak up slack, so the
+   * enclosing panel is worth stretching to the row height.
+   *
+   * Separate from `fill` because the two are not the same claim. The Sliders
+   * panel's own h2 section fills its card - that is plumbing - but the section
+   * that actually absorbs is the Color Editor nested inside it. If the h2 also
+   * reported absorbing, the panel would stretch even with the Color Editor
+   * closed, which is the empty-card bug this pair exists to avoid.
+   */
+  absorbs?: boolean;
   children: ReactNode;
 }
 
-export default function CollapsibleSection({ id, title, level = 'h3', defaultOpen = true, headerLeft, headerRight, className: extraClass, variant = 'card', grow, children }: CollapsibleSectionProps) {
+export default function CollapsibleSection({ id, title, level = 'h3', defaultOpen = true, headerLeft, headerRight, className: extraClass, variant = 'card', fill, absorbs, children }: CollapsibleSectionProps) {
   const [open, setOpen] = useState(
     () => (id !== undefined && OPEN_STATE.has(id) ? OPEN_STATE.get(id)! : defaultOpen),
   );
@@ -75,6 +89,10 @@ export default function CollapsibleSection({ id, title, level = 'h3', defaultOpe
     });
   const Tag = level;
   const flush = variant === 'flush';
+  // aria-controls and aria-labelledby need ids on both ends. Only wired up when
+  // the caller gave the section an id; every current callsite does.
+  const triggerId = id ? `${id}-trigger` : undefined;
+  const contentId = id ? `${id}-content` : undefined;
   // panel-inset carries the fill one step off the frame. It deliberately gets
   // none of the colour-reactive chrome: those live on the outer frame, and the
   // inner sections are where the swatches sit. The flush variant is the
@@ -98,67 +116,97 @@ export default function CollapsibleSection({ id, title, level = 'h3', defaultOpe
       // marking inner sections too would let a nested collapse trigger that.
       // Written as a string rather than a boolean so `false` survives to the DOM.
       {...(level === 'h2' ? { 'data-panel-open': open ? 'true' : 'false' } : {})}
-      className={`flex flex-col gap-2 ${grow && open ? 'flex-1 min-h-0' : ''} ${shell} ${extraClass || ''}`}
+      // The enclosing .panel-frame reads this to decide whether stretching to
+      // the row height is worth anything: with an open absorbing section it has
+      // somewhere to put the space, without one it should sit at its natural
+      // height instead of becoming a mostly-empty card.
+      {...(absorbs && open ? { 'data-section-grow': 'true' } : {})}
+      className={`flex flex-col ${fill && open ? 'flex-1 min-h-0' : ''} ${shell} ${extraClass || ''}`}
     >
       {/* The hit area reaches back over the shell's own padding.
           Left to itself the row is only as tall as its text, so the band
           between the section rule and the title looked like header and did
           nothing when clicked. Negative margin plus matching padding puts
           those pixels inside the button without moving anything. */}
+      {/*
+        The row is not the control any more; the button inside it is.
+
+        It used to be a `div role="button"` wrapping the whole header - including
+        the Clear / Defaults / Sort buttons, which is invalid nesting and made a
+        screen reader announce the header and its three actions as one control.
+        The trigger and the actions are siblings now, and the trigger is
+        `flex-1`, so it still covers every part of the row that is not an action
+        (see 7767ea9, which made the whole header clickable on purpose).
+
+        relative z-10: the hexagon's SVG box is taller than its stage and
+        overhangs the top ~10px of whatever follows it - the exact band the
+        negative margin claims - so without a stacking context the SVG wins the
+        hit test and the header only *looks* clickable there.
+
+        box-content + h-8 pins the content box at 32px, which is what keeps the
+        title from moving when the section opens. min-h-8 did not: it is
+        border-box, so the padding came out of the 32px, and the row then resized
+        with whatever the actions did.
+      */}
       <div
-        role="button"
-        tabIndex={0}
-        aria-expanded={open}
-        // relative z-10: the hexagon's SVG box is taller than its stage and
-        // overhangs the top ~10px of whatever follows it. That is the exact
-        // band the negative margin above just claimed, so without a stacking
-        // context the SVG keeps winning the hit test and the header only
-        // *looks* clickable there. No visual change - the header has no
-        // background of its own.
-        // box-content + h-8 pins the *content* box at 32px, which is what keeps
-        // the title from moving when the section opens.
-        //
-        // min-h-8 did not: it is border-box, so the 12px pt-3 came out of the
-        // 32px and left a 20px content box. Collapsing hides headerLeft and
-        // headerRight, the row lost its 32px buttons, the content box shrank to
-        // the height of the text, and items-center re-centred the title 6px up.
-        //
-        // With a fixed content box the padding sits outside it, so the title is
-        // 12px + half of 32px from the panel edge whether or not anything else
-        // is in the row. The flush variant already worked this way.
-        className={`relative z-10 box-content flex h-8 items-center gap-2 cursor-pointer select-none ${
+        className={`relative z-10 box-content flex h-8 items-center gap-2 ${
           flush ? '-mt-2 pt-2' : level === 'h3' ? '-mt-2 -mx-3 px-3 pt-2' : ''
         }`}
-        onClick={toggle}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            toggle();
-          }
-        }}
       >
-        <ChevronRight
-          className={`${flush ? '!size-4' : chevronSize[level]} text-muted-foreground transition-transform duration-200 ${open ? 'rotate-90' : ''}`}
-        />
-        <Tag className={flush ? 'text-xs font-semibold text-foreground' : levelStyles[level]}>
-          {title}
-        </Tag>
-        {open && headerLeft && (
-          <div onClick={(e) => e.stopPropagation()}>
-            {headerLeft}
-          </div>
-        )}
-        {open && headerRight && (
-          <div className="ml-auto" onClick={(e) => e.stopPropagation()}>
-            {headerRight}
-          </div>
-        )}
+        <button
+          type="button"
+          id={triggerId}
+          aria-expanded={open}
+          aria-controls={contentId}
+          onClick={toggle}
+          // No keydown handler: a real button already activates on Enter and
+          // Space. The div it replaced needed one.
+          className="flex h-full flex-1 min-w-0 items-center gap-2 cursor-pointer select-none rounded-sm text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        >
+          <ChevronRight
+            className={`${flush ? '!size-4' : chevronSize[level]} shrink-0 text-muted-foreground transition-transform duration-200 ${open ? 'rotate-90' : ''}`}
+          />
+          <Tag className={flush ? 'text-xs font-semibold text-foreground' : levelStyles[level]}>
+            {title}
+          </Tag>
+        </button>
+        {open && headerLeft}
+        {open && headerRight && <div className="flex shrink-0 items-center">{headerRight}</div>}
       </div>
-      {/* No rule under the header any more. It was doing the work the section's
-          own fill now does - panel-inset gives every card a surface, so a divider
-          inside one is a second boundary for the same edge. Spacing separates
-          the header instead. */}
-      {open && children}
+
+      {/*
+        Children stay mounted so the height can animate.
+
+        `{open && children}` unmounted them, which meant there was nothing to
+        transition - a section snapped from 170px to 50px in a single frame - and
+        anything inside lost its state on the way. A two-row grid animating
+        0fr <-> 1fr is what gets an auto-height transition without measuring
+        anything in JS.
+
+        The spacing above the content lives on the region rather than as a gap on
+        the section, because a gap applies whether or not the row has height and
+        a collapsed section would carry 8px of it.
+      */}
+      <div
+        className={`grid transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none ${
+          fill && open ? 'flex-1 min-h-0' : ''
+        }`}
+        style={{ gridTemplateRows: open ? '1fr' : '0fr' }}
+      >
+        <div
+          id={contentId}
+          role="region"
+          aria-labelledby={triggerId}
+          // inert rather than hidden. `hidden` is display:none, which would kill
+          // the transition the mounted children exist for; inert leaves the box
+          // in the layout so it can animate, while taking the content out of the
+          // tab order and the accessibility tree.
+          inert={!open}
+          className={`min-h-0 overflow-hidden pt-2 ${fill ? 'flex flex-col' : ''}`}
+        >
+          {children}
+        </div>
+      </div>
     </div>
   );
 }

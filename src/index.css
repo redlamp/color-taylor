@@ -214,6 +214,20 @@ h1, h2 {
   }
 
   /*
+   * And a panel with nothing that can grow sits at its natural height too.
+   *
+   * Stretching is only worth it if something inside will use the space. With the
+   * Color Editor closed, the sliders panel had no absorber and stretched anyway:
+   * closing all four of its sections left a 773px card with 487px of nothing in
+   * it, while collapsing the panel itself correctly gave 54px. The hexagon panel
+   * has no grow section at all, which is right - it is the reference height the
+   * other column matches, so it should always be its natural size.
+   */
+  .panel-frame:not(:has([data-section-grow])) {
+    align-self: start;
+  }
+
+  /*
    * One control height for the whole app: 32px.
    *
    * It was three. TabsList, ToggleGroupList, the Button primitive's default and
