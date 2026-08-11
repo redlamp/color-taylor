@@ -73,7 +73,16 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setAudio = useCallback((next: boolean) => {
-    setSettings(s => ({ ...s, audioEnabled: next }));
+    setSettings(s => ({
+      ...s,
+      audioEnabled: next,
+      // Switching the feature on turns the synth on with it. Enabling audio and
+      // then finding it still silent until you also press the music note is a
+      // dead end - the switch should hand over something that works. Turning the
+      // feature off leaves synthEnabled alone; it is gated anyway, so the value
+      // survives for the next time.
+      synth: next ? { ...s.synth, synthEnabled: true } : s.synth,
+    }));
   }, []);
 
   const reset = useCallback(() => {
