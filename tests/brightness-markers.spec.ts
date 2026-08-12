@@ -103,6 +103,24 @@ test.describe('Brightness bar markers', () => {
     await expect(page.getByText('Luminance', { exact: true })).toHaveCount(0);
   });
 
+  /**
+   * The channel letters lost their name tooltips; aria-label is what carries
+   * the name now, and being invisible it is the kind of thing a later edit
+   * drops without anyone noticing.
+   */
+  test('the channel letters name their hue without a tooltip', async ({ page }) => {
+    const red = page.locator('#hex-stage').getByRole('button', { name: 'Red' });
+    await expect(red).toHaveText('R');
+
+    await red.hover();
+    await page.waitForTimeout(1000);
+    await expect(page.getByText('Red', { exact: true })).toHaveCount(0);
+
+    // Still a control, not decoration: it jumps the wheel to its hue.
+    await page.locator('#hex-stage').getByRole('button', { name: 'Green' }).click();
+    await expect(page.locator('#hue-handle')).toHaveText('120°', { timeout: 4000 });
+  });
+
   test('the HSB/HSL tabs are not covered by the hexagon canvas', async ({ page }) => {
     // #hex-svg's box is HEX_SIZE tall inside a DISPLAY_HEIGHT stage, so 40 user
     // units of empty canvas overhang the header above it. Playwright's own
