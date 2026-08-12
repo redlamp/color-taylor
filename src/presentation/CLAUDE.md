@@ -2,7 +2,11 @@
 
 Loaded only when working under `src/presentation/`. Moved out of the root `CLAUDE.md` because presentation work is occasional and this was costing every session that never touched it.
 
-`slides.ts` is a declarative slide array. Each slide either names a component from `slideComponents.tsx` (`MonitorPanel`, `PixelGrid`, `ColorPalette`, `NarrativeSlide`) **or** uses the special `'PresentationColorPicker'` value, which `PresentationStage.tsx` maps to a constrained version of the app's picker — props like `visiblePanels`, `lockedChannels`, `initialHsb`. That string is a sentinel, not a component name; grep for it before assuming a slide renders from `slideComponents.tsx`.
+`slides.ts` is a declarative slide array, and the first thing to know is that **`slide.component` is not read by anything**. `PresentationStage` dispatches on `slide.type` (`'static'` versus anything else), `props.mode` and `props.visiblePanels`, so `component: 'MonitorPanel'` and `component: 'PresentationColorPicker'` are equally inert — labels, not instructions. The `slideComponents.tsx` registry they appear to name is imported by nothing.
+
+What actually decides how a slide looks is `props`: `mode` selects an `AnimatedGrid` layout for the static history panels, and `visiblePanels` gates the cards on the interactive ones (`rgb-sliders`, `hsb-sliders`, `hsb-circle`, `equations`, `color-taylor-app`). `lockedChannels` and `initialHsb` constrain the picker; note `initialHsb` only applies when arriving from a static slide.
+
+Several `visiblePanels` values and `SlideProps` fields are consumed by nothing at all — the deck accumulated them faster than the stage grew branches for them. Check the value is actually read before copying a slide that sets it.
 
 Color state persists across slides inside `PresentationStage`, not per slide.
 

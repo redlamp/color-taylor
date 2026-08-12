@@ -1,5 +1,7 @@
 interface SlideProps {
   mode?: string;
+  /** Fade a continuous gradient over the discrete cells, so the steps vanish. */
+  smoothOverlay?: boolean;
   visiblePanels?: string[];
   lockedChannels?: ('r' | 'g' | 'b')[];
   initialHsb?: { h: number; s: number; b: number };
@@ -74,22 +76,19 @@ export const slides: Slide[] = [
     caption: '256 colors. Each one had a number, a fixed spot in a lookup table.\nYou didn\'t describe the color, you referenced it.',
   },
   {
-    id: '04-thousands',
-    title: 'Thousands',
-    titleMeta: { bits: 16, colorCount: 32768, year: 1990, os: 'System 6' },
-    type: 'static',
-    component: 'MonitorPanel',
-    props: { mode: 'thousands' },
-    caption: 'Then thousands. Three channels - Red, Green, Blue - each a gradient from black to full intensity.\n_That\'s where RGB came in._',
-  },
-  {
-    id: '05-millions',
-    title: 'Millions',
+    id: '04-channels',
+    title: 'Thousands, then Millions',
     titleMeta: { bits: 24, colorCount: 16777216, year: 1991, os: 'System 7' },
     type: 'static',
     component: 'MonitorPanel',
-    props: { mode: 'millions' },
-    caption: 'Millions. 24 bits - 8 per channel.\nThe Monitors panel still showed four bars, but the machine could now display any of 16.7 million colors.',
+    // Was two slides, 04-thousands and 05-millions. They rendered the identical
+    // cell grid from the same generator; the only difference was this overlay,
+    // and AnimatedGrid's own fast path detected that nothing moved between them
+    // and skipped the transition - two slides for a caption swap and a counter.
+    // Merged, the overlay becomes the beat: the ramps arrive in visible steps
+    // and then the steps dissolve, which is the whole content of "more bits".
+    props: { mode: 'thousands', smoothOverlay: true },
+    caption: 'Then thousands, and then millions - but notice what stops changing. Three channels, Red, Green and Blue, each a ramp from black to full intensity.\nMore bits only made the steps finer, until they were too small to see. _That\'s where RGB came in, and it has not changed since._',
   },
   {
     id: '06-spectrum',
