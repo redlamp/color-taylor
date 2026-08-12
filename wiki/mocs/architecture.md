@@ -41,6 +41,7 @@ HSL is derived and written back within its own model — HSL's saturation is not
 - **Determinism of identity.** A swatch is `{hex, alpha}` and compares as one value — [[decision-alpha-in-swatch-identity]].
 - **Slider ids are namespaced by color model.** Labels are single letters and collide across models — [[decision-scoped-slider-ids]].
 - **The plugin build is a canary.** `bun run build:figma` belongs in the gate set: it's what catches an app change the Preact runtime can't support — [[decision-preact-for-the-panel]].
+- **Every column owns an absorber.** The picker's two columns stretch to a shared row height, so each needs something that soaks up the difference — `#hex-stage` left, `#sb-wrapper` right. A change to either column's content moves that difference, and nothing errors when it goes wrong — [[decision-both-columns-absorb-slack]].
 
 ## Gates
 

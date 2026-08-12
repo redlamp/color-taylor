@@ -1,5 +1,4 @@
-import { useEffect, useState, type CSSProperties } from 'react';
-import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { useEffect, useState } from 'react';
 import { useTheme } from '../../hooks/useTheme';
 import { CENTER_X, CENTER_Y, RADIUS, PI, SIZE, HEX_SIZE } from './hexConstants';
 
@@ -57,35 +56,24 @@ export default function ColorLabels({
     const offset = RADIUS + 20;
     const x = CENTER_X + offset * Math.cos(rad);
     const y = CENTER_Y - offset * Math.sin(rad);
-    const textColor = (deg > 30 && deg < 200) ? '#000' : '#fff';
     return (
       <div
         key={label}
         className="absolute -translate-x-1/2 -translate-y-1/2 z-[8]"
         style={{ left: `${(x / extent) * 100}%`, top: `${(y / HEX_SIZE) * 100}%` }}
       >
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              className="flex items-center justify-center w-8 h-6 text-xs font-bold select-none cursor-pointer rounded-full"
-              style={{ color: displayColor }}
-              onClick={() => onColorClick(deg)}
-            >
-              {label}
-            </button>
-          </TooltipTrigger>
-          <TooltipContent
-            side="top"
-            className="text-xs font-semibold border-0"
-            style={{
-              '--tooltip-bg': displayColor,
-              backgroundColor: displayColor,
-              color: textColor,
-            } as CSSProperties}
-          >
-            {name}
-          </TooltipContent>
-        </Tooltip>
+        {/* No tooltip: the letter is coloured as the thing it names, sits at
+            that hue's vertex, and one of these is under the pointer most of the
+            time you are working the wheel. The name survives as the accessible
+            label, where "R" on its own said nothing. */}
+        <button
+          className="flex items-center justify-center w-8 h-6 text-xs font-bold select-none cursor-pointer rounded-full"
+          style={{ color: displayColor }}
+          aria-label={name}
+          onClick={() => onColorClick(deg)}
+        >
+          {label}
+        </button>
       </div>
     );
   });
