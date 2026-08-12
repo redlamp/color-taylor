@@ -9,6 +9,7 @@ import CollapsibleSection, { COLLAPSE_MS } from './CollapsibleSection';
 import NAMED_COLORS from '../utils/namedColors';
 import { HANDLE, ringRadius } from '../utils/handleStyle';
 import { readSwatch, writeSwatch, SWATCHES_READY } from '../utils/swatchStore';
+import { HSB_TWEEN_MS } from '../utils/colorTween';
 import { toneController } from '../utils/toneControllerLazy';
 import useUiSounds from '../hooks/useUiSounds';
 import {
@@ -309,7 +310,6 @@ interface ColorHexagonProps {
   onColorSpaceChange?: (cs: ColorSpace) => void;
   hoverMatchRgb?: RGB | null;
   showHtmlOnHex?: boolean;
-  animHolding?: boolean;
   onHoverHtmlColor?: (marker: HoveredMarker | null) => void;
   muted?: boolean;
   /** Render Recent/Saved header actions as icons - for narrow hosts (Figma). */
@@ -373,7 +373,7 @@ interface HoveredMarker {
   name: string;
 }
 
-export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, animHolding, onHoverHtmlColor, muted, bare, headerLeft, belowStage, collapsedSections, sectionVariant = 'card', alpha = 100, onAlphaRestore, wheelAdjusts = true, blBar = true, blHandleX = null, blConnector = true, stemRange = null }: ColorHexagonProps) {
+export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, onHoverHtmlColor, muted, bare, headerLeft, belowStage, collapsedSections, sectionVariant = 'card', alpha = 100, onAlphaRestore, wheelAdjusts = true, blBar = true, blHandleX = null, blConnector = true, stemRange = null }: ColorHexagonProps) {
   const flushSections = sectionVariant === 'flush';
   // Horizontal extent of the SVG coordinate space. Without the bar the hexagon
   // is the whole picture, so the 50px reserved to its right goes away - and the
@@ -397,13 +397,30 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   const [vectorMode] = useState<ChannelOrder>('rgb');
   const [initialHex] = useState(() => rgbToHex(rgb.r, rgb.g, rgb.b));
   const [recentColors, setRecentColors] = useState<Swatch[]>(() => parseRecent(readSwatch(RECENT_KEY)));
-  const [selectedRecentIdx, setSelectedRecentIdx] = useState<number | null>(null);
+
+  /**
+   * The colour a swatch has to equal to read as selected, when that is not
+   * simply the current one: the target of a tween already under way.
+   *
+   * Selection used to be two stored indices - which Recent slot and which Saved
+   * slot were last clicked - and that is a different claim from the one the ring
+   * makes. It said "you picked this" where the ring means "this is your colour",
+   * so it drifted three ways: it survived the colour moving on, it lit only the
+   * copy you clicked when the same colour sat in both sections, and it lit only
+   * one of two identical Saved swatches. All three go away by deriving the ring
+   * from colour identity, which also makes it free for however many swatches
+   * match.
+   *
+   * This ref covers the one case identity cannot: clicking a swatch starts a
+   * 1s tween, and the ring should land on the click rather than a second later.
+   */
+  const [pendingKey, setPendingKey] = useState<string | null>(null);
+  const pendingTimer = useRef<number | null>(null);
 
   const alphaRef = useRef(alpha);
   alphaRef.current = alpha;
 
   const [savedSlots, setSavedSlots] = useState<SavedSlot[]>(() => parseSaved(readSwatch(SAVED_KEY)));
-  const [selectedSavedIdx, setSelectedSavedIdx] = useState<number | null>(null);
   const [savedSortMode, setSavedSortMode] = useState<SortMode>('user');
   const [draggedUserIdx, setDraggedUserIdx] = useState<number | null>(null);
   /**
@@ -495,8 +512,6 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     const onReset = () => {
       setRecentColors([]);
       setSavedSlots(defaultSaved());
-      setSelectedRecentIdx(null);
-      setSelectedSavedIdx(null);
     };
     window.addEventListener('color-taylor:reset-all', onReset);
     return () => window.removeEventListener('color-taylor:reset-all', onReset);
@@ -537,7 +552,6 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     if (displayIdx >= 0) flattened[displayIdx] = null;
     setSavedSlots(fitSaved(flattened));
     setSavedSortMode('user');
-    setSelectedSavedIdx(null);
   }, [savedSlots, displaySlots, triggerPoof, playPop]);
 
   /**
@@ -553,7 +567,6 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     flattened[displayIdx] = { hex: swatch.hex, alpha: swatch.alpha, addedAt: Date.now() };
     setSavedSlots(fitSaved(flattened));
     setSavedSortMode('user');
-    setSelectedSavedIdx(displayIdx);
     playSave();
     if (navigator.vibrate) navigator.vibrate(10);
   }, [displaySlots, playSave]);
@@ -597,7 +610,6 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     [flattened[fromDisplay], flattened[toDisplayIdx]] = [flattened[toDisplayIdx], flattened[fromDisplay]];
     setSavedSlots(fitSaved(flattened));
     setSavedSortMode('user');
-    setSelectedSavedIdx(toDisplayIdx);
     playClick();
     if (navigator.vibrate) navigator.vibrate(8);
   }, [displaySlots, playClick, captureFlipRects]);
@@ -638,7 +650,6 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
 
     setSavedSlots(fitSaved(flattened));
     setSavedSortMode('user');
-    setSelectedSavedIdx(target);
     playClick();
     if (navigator.vibrate) navigator.vibrate(8);
   }, [displaySlots, playClick, captureFlipRects]);
@@ -658,7 +669,6 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     captureFlipRects(true);
     const next = SORT_ORDER[(SORT_ORDER.indexOf(savedSortMode) + 1) % SORT_ORDER.length];
     setSavedSortMode(next);
-    setSelectedSavedIdx(null);
   }, [savedSortMode, captureFlipRects]);
 
   useLayoutEffect(() => {
@@ -871,28 +881,48 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     }).filter(Boolean);
   }, [showHtmlOnHex, brightness]);
 
-  // Highlight and add to recent — only after color has settled (1000ms).
-  // Exception: highlight immediately during animation hold phases.
+  // Add to recent only after the color has settled (1000ms).
   const currentHex = rgbToHex(rgb.r, rgb.g, rgb.b);
   const addRecentTimer = useRef(null);
   const recentColorsRef = useRef(recentColors);
   recentColorsRef.current = recentColors;
-  const animHoldingRef = useRef(animHolding);
-  animHoldingRef.current = animHolding;
 
-  // Immediate highlight during animation holds
+  /**
+   * The colour every swatch is compared against, and the whole of the selection
+   * rule: a swatch reads as selected when it holds this exact colour. Two
+   * sections can match it at once, and so can two identical Saved slots.
+   *
+   * A pending tween target wins over the live colour rather than joining it, so
+   * the ring does not skip across whatever swatches the tween happens to pass
+   * through on its way.
+   */
+  const activeKey = pendingKey ?? swatchKey(currentHex, alpha);
+
+  const markPending = useCallback((hex: string, a: number) => {
+    setPendingKey(swatchKey(hex, a));
+    if (pendingTimer.current !== null) window.clearTimeout(pendingTimer.current);
+    // The tween's own duration is the natural lifetime. The timer is the
+    // backstop for a tween that never arrives because the user grabbed the
+    // wheel half way through; the effect below is what ends it normally.
+    pendingTimer.current = window.setTimeout(() => {
+      setPendingKey(null);
+      pendingTimer.current = null;
+    }, HSB_TWEEN_MS + 100);
+  }, []);
+
+  useEffect(() => () => {
+    if (pendingTimer.current !== null) window.clearTimeout(pendingTimer.current);
+  }, []);
+
+  // Once the colour has arrived, identity alone keeps the ring where it is, and
+  // holding the target any longer would strand it there if the user moves on.
   useEffect(() => {
-    if (animHolding) {
-      const matchIdx = recentColors.findIndex((c) => c.hex === currentHex && c.alpha === alpha);
-      setSelectedRecentIdx(matchIdx !== -1 ? matchIdx : null);
-    }
-  }, [animHolding, currentHex, alpha, recentColors]);
+    if (pendingKey && swatchKey(currentHex, alpha) === pendingKey) setPendingKey(null);
+  }, [pendingKey, currentHex, alpha]);
 
   // Reset debounce on currentHex change only; reads latest recentColors via ref
   // to avoid restarting the timer when the recent list updates.
   useEffect(() => {
-    if (!animHoldingRef.current) setSelectedRecentIdx(null);
-
     if (addRecentTimer.current) clearTimeout(addRecentTimer.current);
     addRecentTimer.current = setTimeout(() => {
       if (skipNextRecent.current) {
@@ -901,9 +931,8 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
         return;
       }
       const a = alphaRef.current;
-      const matchIdx = recentColorsRef.current.findIndex((c) => c.hex === currentHex && c.alpha === a);
-      if (matchIdx !== -1) {
-        setSelectedRecentIdx(matchIdx);
+      // Already in the list: nothing to record, and the ring is already on it.
+      if (recentColorsRef.current.some((c) => c.hex === currentHex && c.alpha === a)) {
         lastRecorded.current = swatchKey(currentHex, a);
         return;
       }
@@ -913,7 +942,6 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           if (prev.some((c) => c.hex === currentHex && c.alpha === a)) return prev;
           return [{ hex: currentHex, alpha: a }, ...prev].slice(0, 12);
         });
-        setSelectedRecentIdx(0);
       }
     }, 1000);
 
@@ -935,7 +963,6 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       const filtered = prev.filter((c) => !(c.hex === hex && c.alpha === a));
       return [{ hex, alpha: a }, ...filtered].slice(0, 12);
     });
-    setSelectedRecentIdx(0);
   }, []);
 
   // Solve for multiple channel values given a target 2D position
@@ -1732,7 +1759,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                 label="Clear"
                 icon={Trash2}
                 confirm
-                onClick={(e) => { e.stopPropagation(); setRecentColors([]); setSelectedRecentIdx(null); }}
+                onClick={(e) => { e.stopPropagation(); setRecentColors([]); }}
               />
             </div>
           }
@@ -1745,14 +1772,15 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             {Array.from({ length: 12 }, (_, i) => {
               const entry = recentColors[i];
               const color = entry?.hex;
+              const isSelected = !!entry && swatchKey(entry.hex, entry.alpha) === activeKey;
               return (
                 <button
                   key={i}
                   className="rounded-md cursor-pointer h-8 w-full transition-shadow duration-200 ease-in-out"
                   style={{
                     background: entry ? swatchBackground(entry.hex, entry.alpha) : 'transparent',
-                    boxShadow: i === selectedRecentIdx && color ? '0 0 0 2px white' : 'none',
-                    border: i === selectedRecentIdx && color ? '2px solid transparent' : '1px solid var(--input)',
+                    boxShadow: isSelected ? '0 0 0 2px white' : 'none',
+                    border: isSelected ? '2px solid transparent' : '1px solid var(--input)',
                     opacity: draggedRecent && entry && draggedRecent.hex === entry.hex && draggedRecent.alpha === entry.alpha ? 0.4 : 1,
                   }}
                   disabled={!color}
@@ -1774,7 +1802,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                   onClick={() => {
                     if (entry && color && onAnimateToHsb) {
                       skipNextRecent.current = true;
-                      setSelectedRecentIdx(i);
+                      markPending(entry.hex, entry.alpha);
                       onAlphaRestore?.(entry.alpha);
                       const parsed = rgbToHsb(
                         parseInt(color.slice(1, 3), 16),
@@ -1823,14 +1851,13 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                   e.stopPropagation();
                   setSavedSlots(defaultSaved());
                   setSavedSortMode('user');
-                  setSelectedSavedIdx(null);
                 }}
               />
               <ActionButton
                 label="Clear"
                 icon={Trash2}
                 confirm
-                onClick={(e) => { e.stopPropagation(); setSavedSlots(Array(SAVED_BANK).fill(null)); setSelectedSavedIdx(null); }}
+                onClick={(e) => { e.stopPropagation(); setSavedSlots(Array(SAVED_BANK).fill(null)); }}
                 // A second way to delete one color, alongside dragging it out
                 // of the grid. Marking the drop as handled is what stops
                 // onDragEnd's drop-outside path deleting a second time - by
@@ -1849,7 +1876,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           <div data-swatch-grid className="grid grid-cols-6 md:grid-cols-12 gap-1.5">
             {displaySlots.map(({ slot, userIdx }, displayIdx) => {
               const color = slot?.hex ?? null;
-              const isSelected = userIdx === selectedSavedIdx && color;
+              const isSelected = !!slot && swatchKey(slot.hex, slot.alpha) === activeKey;
               const isDragging = userIdx === draggedUserIdx || userIdx === touchArmedUserIdx;
               const isHovered = dragHover?.displayIdx === displayIdx;
               const isReplaceTarget = isHovered && dragHover?.zone === 'center' && !isDragging;
@@ -1968,7 +1995,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                     if (suppressNextClick.current) { suppressNextClick.current = false; return; }
                     if (color) {
                       if (!onAnimateToHsb) return;
-                      setSelectedSavedIdx(userIdx);
+                      markPending(color, slot?.alpha ?? 100);
                       onAlphaRestore?.(slot?.alpha ?? 100);
                       const parsed = rgbToHsb(
                         parseInt(color.slice(1, 3), 16),
@@ -1984,7 +2011,6 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                       flattened[displayIdx] = { hex: currentHex, alpha, addedAt: Date.now() };
                       setSavedSlots(fitSaved(flattened));
                       setSavedSortMode('user');
-                      setSelectedSavedIdx(displayIdx);
                       playSave();
                       if (navigator.vibrate) navigator.vibrate(10);
                     }

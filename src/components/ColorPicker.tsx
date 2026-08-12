@@ -390,7 +390,6 @@ export default function ColorPicker() {
       toneController.start(hsbRef.current);
     }
   }, [settings.synth.synthEnabled]);
-  const [colorAnimHolding, setColorAnimHolding] = useState(false);
   const colorAnimRaf = useRef<number | null>(null);
   useEffect(() => { colorAnimActiveRef.current = colorAnimActive; }, [colorAnimActive]);
 
@@ -398,7 +397,6 @@ export default function ColorPicker() {
     if (!colorAnimActive) {
       if (colorAnimRaf.current) cancelAnimationFrame(colorAnimRaf.current);
       colorAnimRaf.current = null;
-      setColorAnimHolding(false);
       toneController.release();
       return;
     }
@@ -445,7 +443,6 @@ export default function ColorPicker() {
 
       if (isHolding !== wasHolding) {
         wasHolding = isHolding;
-        setColorAnimHolding(isHolding);
       }
 
       rgbOverride.current = { r, g, b };
@@ -583,7 +580,6 @@ export default function ColorPicker() {
             onColorSpaceChange={setColorSpace}
             hoverMatchRgb={hoverMatchRgb}
             showHtmlOnHex={showHtmlOnHex}
-            animHolding={colorAnimHolding}
             onHoverHtmlColor={setHoveredHtmlColor}
             muted={effectiveMuted}
           />
