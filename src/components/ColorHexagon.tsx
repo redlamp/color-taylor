@@ -1412,9 +1412,15 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
         Two rows animating 0fr <-> 1fr, content kept mounted so there is
         something to transition, and the clip lifted once open so the swatch
         selection rings inside Recent and Saved are not cropped.
+
+        flex-1 only while open, the same condition CollapsibleSection's `fill`
+        carries. It is what passes the card's height down to the stage below, so
+        Recent and Saved can sit at the bottom of the card - but a flex-1 on a
+        row animating to 0fr would hold the height open and the collapse would
+        not close at all.
       */}
       <div
-        className="grid w-full transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none"
+        className={`grid w-full transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none ${hexOpen ? 'flex-1 min-h-0' : ''}`}
         style={{ gridTemplateRows: hexOpen ? '1fr' : '0fr' }}
       >
       <div
@@ -1426,8 +1432,26 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           offsets but sized in fixed px, so anything narrower than
           HEX_PANEL_WIDTH must cap this width to keep them on screen. Padding
           cannot do it - abs-positioned children resolve against the padding
-          box. See figma/ui/figma.css. */}
-      <div id="hex-stage" className="w-full relative m-4" style={{ maxWidth: EXTENT, aspectRatio: `${EXTENT} / ${DISPLAY_HEIGHT}` }}>
+          box. See figma/ui/figma.css.
+
+          `grow` makes this the panel's slack absorber, so whatever the card has
+          spare over its content lands here and Recent and Saved sit at the
+          bottom of the card rather than trailing empty space beneath them. That
+          space was up to 128px at a 900px window, where the hexagon shrinks with
+          the width but the sliders column's rows do not.
+
+          The wheel does not grow with it: the wrapper below is absolute and
+          top-1/2 -translate-y-1/2, so it keeps the size its own width gives it
+          and simply centres in whatever height this ends up with. That is the
+          point - the slack reads as margin around a centred graphic instead of
+          as a gap between two cards.
+
+          `grow` and not `flex-1`: flex-1 sets flex-basis to 0, and this box has
+          no in-flow children to measure - its height comes entirely from the
+          aspect-ratio, which a definite basis overrides. It would collapse to
+          nothing and the wheel would overflow it. Growing from an auto basis
+          keeps the aspect-derived height as the floor. */}
+      <div id="hex-stage" className="w-full relative m-4 grow" style={{ maxWidth: EXTENT, aspectRatio: `${EXTENT} / ${DISPLAY_HEIGHT}` }}>
       <div className="absolute left-0 top-1/2 w-full -translate-y-1/2" style={{ aspectRatio: `${EXTENT} / ${HEX_SIZE}` }}>
         <HexCanvas brightness={brightness} colorSpace={colorSpace} extent={EXTENT} />
         <svg

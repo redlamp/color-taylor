@@ -132,3 +132,99 @@ test.describe('Brightness bar markers', () => {
   });
 });
 
+/**
+ * The two columns' bottom edges, which drift on their own.
+ *
+ * Neither panel declares a height - each is its content - so an edit to either
+ * one moves the relationship, and nothing about the page looks broken when it
+ * does. Removing a single 10px caption from the hexagon header left it 17px
+ * short of the sliders column. See the align-self rules in index.css.
+ */
+test.describe('Picker column heights', () => {
+  /**
+   * Swept across widths on purpose. The hexagon's height follows its width and
+   * the sliders column's rows do not, so the gap between them is a function of
+   * the window - checking one width proved nothing: at 1500px the columns were
+   * 17px apart and at 900px, 128px.
+   */
+  test('the columns end level and Saved sits at the card bottom, at every width', async ({ page }) => {
+    await page.setViewportSize({ width: 1500, height: 1300 });
+    await page.goto('/');
+    await page.locator('#bl-bar').waitFor();
+
+    // CollapsibleSection triggers only - not the Settings popover or the
+    // colour-name combobox, which also carry aria-expanded.
+    for (let pass = 0; pass < 5; pass++) {
+      const closed = page.locator('button[id$="-trigger"][aria-expanded="false"]');
+      const n = await closed.count();
+      if (!n) break;
+      for (let i = n - 1; i >= 0; i--) await closed.nth(i).click().catch(() => {});
+      await page.waitForTimeout(350);
+    }
+    await expect(page.locator('button[id$="-trigger"][aria-expanded="false"]')).toHaveCount(0);
+
+    for (const width of [1900, 1500, 1100, 900]) {
+      await page.setViewportSize({ width, height: 1300 });
+      await page.waitForTimeout(500);
+      const m = await page.evaluate(() => {
+        const r = (s: string) => document.querySelector(s)!.getBoundingClientRect();
+        const card = r('#color-hexagon');
+        return {
+          columnGap: Math.abs(card.bottom - r('#picker-layout').bottom),
+          // Only the card's own p-3 should be left under Saved. Slack goes into
+          // the stage above, where the wheel centres in it.
+          savedGap: card.bottom - r('#saved-colors').bottom,
+        };
+      });
+      expect(m.columnGap, `columns level at ${width}px`).toBeLessThanOrEqual(1);
+      expect(m.savedGap, `Saved flush at ${width}px`).toBeLessThanOrEqual(16);
+    }
+  });
+
+  /**
+   * What replaced the `absorbs` / `data-section-grow` mechanism.
+   *
+   * Both columns stretch unconditionally now, which is only safe because each
+   * has a permanent absorber: the SB box on the right, #hex-stage on the left.
+   * If the SB box ever stops soaking up the room its neighbours give back, the
+   * old failure returns - a stretched card with empty space pooled in it - and
+   * nothing throws.
+   */
+  test('the SB box takes the room when the sections below it close', async ({ page }) => {
+    await page.setViewportSize({ width: 1500, height: 1300 });
+    await page.goto('/');
+    await page.locator('#sb-wrapper').waitFor();
+
+    const sb = page.locator('#sb-wrapper');
+    const before = (await sb.boundingBox())!.height;
+
+    for (const id of ['rgb-group', 'hsb-hsl-group', 'hex-group']) {
+      await page.locator(`#${id}-trigger`).click();
+      await page.waitForTimeout(250);
+    }
+    await page.waitForTimeout(500);
+
+    const after = (await sb.boundingBox())!.height;
+    expect(after, 'SB box should grow into the vacated room').toBeGreaterThan(before + 100);
+
+    // And the columns are still level, with no slack pooled anywhere.
+    const m = await page.evaluate(() => {
+      const r = (s: string) => document.querySelector(s)!.getBoundingClientRect();
+      return { gap: Math.abs(r('#color-hexagon').bottom - r('#picker-layout').bottom) };
+    });
+    expect(m.gap).toBeLessThanOrEqual(1);
+  });
+
+  test('the hexagon still collapses to its header', async ({ page }) => {
+    // The flex-1 that passes height down to the stage is conditional on the
+    // panel being open; left on, it would hold the 0fr row open.
+    await page.setViewportSize({ width: 1500, height: 1300 });
+    await page.goto('/');
+    await page.locator('#bl-bar').waitFor();
+    const card = page.locator('#color-hexagon');
+    expect((await card.boundingBox())!.height).toBeGreaterThan(400);
+    await page.locator('#color-hexagon h2').click();
+    await page.waitForTimeout(600);
+    expect((await card.boundingBox())!.height).toBeLessThan(80);
+  });
+});

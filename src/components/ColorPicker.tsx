@@ -591,63 +591,66 @@ export default function ColorPicker() {
         {/* Right column: Controls. Width comes from the grid track now, so this
             carries only its own surface.
 
-            flex-col here starts a chain of flex-1 down to the Color Editor, so
-            that section absorbs the difference between this column's natural
-            height and the hexagon's: it shrinks when this column would be the
-            taller one, grows when it would be shorter. The grid gives this
-            element a definite height to divide up, which is what makes the
-            chain resolve. */}
+            flex-col here starts a chain of flex-1 down to #sb-wrapper, so the SB
+            box absorbs the difference between this column's natural height and
+            the hexagon's: it shrinks when this column would be the taller one,
+            grows when it would be shorter. The grid gives this element a
+            definite height to divide up, which is what makes the chain resolve. */}
         <div id="picker-layout" className="panel-frame flex flex-col border border-border rounded-lg p-2.5">
-        {/* `fill` and not `absorbs`: this section passes the card's height down,
-            but the section that actually takes up slack is the Color Editor. If
-            this claimed to absorb, the panel would stretch even with the Color
-            Editor closed - the empty-card case. */}
-        <CollapsibleSection id="sliders-group" title="Sliders" level="h2" fill>
+        {/* Named for the whole panel rather than for one of its parts. It was
+            "Sliders", which undersold it: two of the four things below are
+            slider banks, but the SB box, the hex field and the colour-name
+            search are not. `fill` passes the card's height down the chain. */}
+        <CollapsibleSection id="color-editor-group" title="Color Editor" level="h2" fill>
           <div className="flex flex-1 min-h-0 flex-col gap-3">
-        {/* Color Editor: Swatch + SB Box + H Slider */}
-        {/* The one section in this column that can take up slack. The swatch and
-            the hue slider are already self-stretch, so the row's height was set
-            purely by the SB box's aspect ratio; with that gone, all three follow
-            this height.
+        {/* Swatch + SB box + hue strip: the panel's subject, so it sits at the
+            panel's own level rather than boxed in a card of its own. It was a
+            nested "Color Editor" section until that name moved up to the panel,
+            which also settled a smaller thing - the column's slack absorber is
+            no longer something the user can close.
+
+            It is the one thing in this column that can take up slack. The swatch
+            and the hue slider are already self-stretch, so the row's height was
+            set purely by the SB box's aspect ratio; with that gone, all three
+            follow this height.
 
             No ceiling: it takes whatever the other sections leave, so closing
             them hands the room to the box rather than pooling it as empty space
             underneath.
 
-            The floor is what decides how far down the two columns stay flush.
-            The hexagon's height follows its width, so it shrinks as the window
-            narrows while the slider rows below do not - the Color Editor is the
-            only thing that can give, and once it hits the floor the sliders
-            column overhangs. min-h-24 rather than min-h-32 holds flush to about
-            1050px instead of 1150px, with the box at 210x96 at its tightest.
-            Going lower buys little: no floor at all only reaches ~900px, because
-            the rest of the column is fixed height, and the box is a 149x32
-            letterbox by then.
+            min-h-24 is a floor on how far it will give. It used to be the thing
+            that decided how far down the two columns stayed flush - this box was
+            the only part of either column that could shrink, so once it hit the
+            floor this column overhanged the hexagon, at about 1050px with
+            min-h-24 and 1150px with min-h-32.
 
-            Props rather than a flex-1 in className, because the section only
-            fills while it is open - a collapsed one that still grew would be a
-            header stretched down the whole column. */}
-        <CollapsibleSection id="color-editor-group" title="Color Editor" fill absorbs>
-          <div
-            id="sb-wrapper"
-            className="flex flex-1 min-h-24 gap-3 min-w-0 overflow-hidden"
-            // Overrides flex-1's `flex-basis: 0%`. Inline because the value is a
-            // layout constant shared with the note above, not a magic number.
-            style={{ flexBasis: SB_BOX_DEFAULT_HEIGHT }}
-          >
-            <PreviewSwatch hex={hex} />
-            <SBBox
-              hue={hsb.h}
-              saturation={hsb.s}
-              brightness={hsb.b}
-              onChange={(s, b) => { rgbOverride.current = null; setHsb((prev) => { const next = { ...prev, s, b }; pulseTone(next); return next; }); }}
-            />
-            <HSlider
-              hue={hsb.h}
-              onChange={(h) => { rgbOverride.current = null; setHsb((prev) => { const next = { ...prev, h }; pulseTone(next); return next; }); }}
-            />
-          </div>
-        </CollapsibleSection>
+            That is no longer what binds. #hex-stage absorbs on the hexagon side
+            now, so both columns give and they meet in the middle: measured flush
+            at every width from 1100px down to the 768px breakpoint where they
+            stop being columns at all. Below ~1000px both settle at 715px, the
+            hexagon having reached the natural size of its fixed-width card, and
+            the box bottoms out at 143px - comfortably above the 96px floor. So
+            the floor is a guard now rather than the binding constraint, and it
+            stays for the case where something above it grows. */}
+        <div
+          id="sb-wrapper"
+          className="flex flex-1 min-h-24 gap-3 min-w-0 overflow-hidden"
+          // Overrides flex-1's `flex-basis: 0%`. Inline because the value is a
+          // layout constant shared with the note above, not a magic number.
+          style={{ flexBasis: SB_BOX_DEFAULT_HEIGHT }}
+        >
+          <PreviewSwatch hex={hex} />
+          <SBBox
+            hue={hsb.h}
+            saturation={hsb.s}
+            brightness={hsb.b}
+            onChange={(s, b) => { rgbOverride.current = null; setHsb((prev) => { const next = { ...prev, s, b }; pulseTone(next); return next; }); }}
+          />
+          <HSlider
+            hue={hsb.h}
+            onChange={(h) => { rgbOverride.current = null; setHsb((prev) => { const next = { ...prev, h }; pulseTone(next); return next; }); }}
+          />
+        </div>
 
         {/* RGB sliders */}
         <CollapsibleSection
