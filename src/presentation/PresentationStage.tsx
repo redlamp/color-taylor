@@ -115,9 +115,20 @@ export default function PresentationStage({ slide, slideIndex }: { slide: Slide;
   // Only set initialHsb when coming from a static slide.
   const prevIdx = useRef(slideIndex);
   const prevWasStatic = useRef(isStatic);
+  /**
+   * Whether the slide we just left was static, for the animation start-up delay
+   * below to read.
+   *
+   * It cannot read prevWasStatic. That ref is updated by this effect, which is
+   * declared first and so flushes first, so by the time the delay effect runs it
+   * already holds the CURRENT slide's value - and a slide with showRgbAnimate is
+   * never static, which made the longer delay unreachable and the branch dead.
+   */
+  const cameFromStatic = useRef(false);
   useEffect(() => {
     if (slideIndex !== prevIdx.current) {
       const comingFromStatic = prevWasStatic.current;
+      cameFromStatic.current = comingFromStatic;
       prevIdx.current = slideIndex;
       prevWasStatic.current = isStatic;
       if (slide.props?.initialHsb && comingFromStatic) {
@@ -206,11 +217,31 @@ export default function PresentationStage({ slide, slideIndex }: { slide: Slide;
   const [rgbAnimActive, setRgbAnimActive] = useState(false);
   const rgbAnimRaf = useRef(null);
   const rgbAnimKeyframesRef = useRef(null); // track current keyframe set
+  /**
+   * Origin of the keyframe cycle, on the rAF clock, kept across slide changes.
+   *
+   * It has to outlive the animation effect. That effect re-runs on slideIndex,
+   * and when it also recomputed the origin, every slide boundary restarted the
+   * cycle at the beginning of the nearest keyframe's hold - so a colour that was
+   * halfway from black to red reversed and walked back down, then set off again.
+   * Held here, the cycle's phase is continuous and a slide change is invisible
+   * to it.
+   *
+   * null means "not established yet"; the first tick sets it from its own
+   * timestamp. See the note there about which clock.
+   */
+  const cycleStart = useRef<number | null>(null);
 
   const rgbAnimDelay = useRef(null);
   const prevHadRgbAnim = useRef(false);
   useEffect(() => {
     if (rgbAnimDelay.current) clearTimeout(rgbAnimDelay.current);
+    // A slider nudged on the slide before this one must not leave this one
+    // frozen. The pause is a component-level ref with a 4s timer, so it outlived
+    // the slide it belonged to: touch a slider and advance 300ms later, and the
+    // new slide arrived dead for the remaining 3.7s.
+    if (userResumeTimer.current) clearTimeout(userResumeTimer.current);
+    userInteracting.current = false;
     if (!slide.props?.showRgbAnimate) {
       setRgbAnimActive(false);
       prevHadRgbAnim.current = false;
@@ -221,7 +252,7 @@ export default function PresentationStage({ slide, slideIndex }: { slide: Slide;
       prevHadRgbAnim.current = true;
     } else {
       // Starting fresh or coming from static/non-animated slide
-      const delay = prevWasStatic.current ? 1000 : 300;
+      const delay = cameFromStatic.current ? 1000 : 300;
       setRgbAnimActive(false);
       rgbAnimDelay.current = setTimeout(() => setRgbAnimActive(true), delay);
       prevHadRgbAnim.current = true;
@@ -234,12 +265,20 @@ export default function PresentationStage({ slide, slideIndex }: { slide: Slide;
     if (!rgbAnimActive) {
       if (rgbAnimRaf.current) cancelAnimationFrame(rgbAnimRaf.current);
       rgbAnimRaf.current = null;
+      // Next activation should pick up from whatever colour is on screen then,
+      // so the cycle has to be re-established rather than resumed.
+      cycleStart.current = null;
       return;
     }
 
     const redOnly = slide.props?.lockedChannels?.includes('g');
     const keyframes = redOnly ? RED_KEYFRAMES : FULL_KEYFRAMES;
+    const prevKeyframes = rgbAnimKeyframesRef.current;
     rgbAnimKeyframesRef.current = keyframes;
+    // Sync the cycle to the colour on screen only when it is genuinely starting:
+    // first activation, or a switch between the red-only and full keyframe sets
+    // (slide 8 to 9). On every other slide change the cycle carries on.
+    const needsSync = cycleStart.current === null || prevKeyframes !== keyframes;
 
     const TRANSITION_DUR = 1200;
     const HOLD_DUR = 800;
@@ -258,15 +297,37 @@ export default function PresentationStage({ slide, slideIndex }: { slide: Slide;
     // Start the cycle offset so this keyframe is the current hold
     const timeOffset = bestIdx * STEP_DUR;
 
-    const start = performance.now() - timeOffset;
     const LERP_DUR = 1500; // ms to lerp from user color back to animation
     let resumeStart: number | null = null; // when the user stopped interacting
     let resumeFrom: RGB | null = null; // the user's color when they stopped
 
     function getAnimColor(ts: number) {
-      const elapsed = ts - start;
-      const t = elapsed % CYCLE_DUR;
-      const frameIdx = Math.floor(t / STEP_DUR);
+      const elapsed = ts - (cycleStart.current ?? ts);
+      /*
+       * Both guards below are load-bearing, and each one on its own was enough
+       * to kill this loop for the rest of the deck.
+       *
+       * The origin used to come from performance.now() while `ts` is the rAF
+       * clock - the timestamp of the frame that has already begun. A rAF
+       * scheduled from inside a commit running in that same frame gets a `ts`
+       * up to one frame EARLIER than the performance.now() reading it was
+       * subtracted from, so elapsed went negative. Measured: 131 of 4198
+       * callbacks over one run of the deck, by 0.6ms to 17.5ms.
+       *
+       * JS % keeps the sign of its left operand, so a negative elapsed gave a
+       * negative t, floor() gave frameIdx -1, and keyframes[-1] is undefined -
+       * `from.r` threw inside the callback, before the reschedule below. The
+       * animation did not stall, it died, and it stayed dead until the next
+       * slide change re-ran this effect, which usually threw again on the same
+       * dark colour. That is the freeze: 21 seconds pinned across six slides.
+       *
+       * The origin now comes from the same clock it is compared against, which
+       * makes elapsed non-negative by construction. The non-negative modulo and
+       * the clamped index are belt and braces: any future clock slip becomes a
+       * one-frame visual glitch rather than a dead deck.
+       */
+      const t = ((elapsed % CYCLE_DUR) + CYCLE_DUR) % CYCLE_DUR;
+      const frameIdx = Math.min(keyframes.length - 1, Math.max(0, Math.floor(t / STEP_DUR)));
       const frameT = t - frameIdx * STEP_DUR;
 
       if (frameT < HOLD_DUR) {
@@ -282,7 +343,14 @@ export default function PresentationStage({ slide, slideIndex }: { slide: Slide;
       };
     }
 
+    let synced = !needsSync;
     const tick = (ts: number) => {
+      // Established here rather than at effect setup so the origin is read off
+      // the rAF clock, which is the only clock `ts` can safely be compared to.
+      if (!synced) {
+        cycleStart.current = ts - timeOffset;
+        synced = true;
+      }
       if (userInteracting.current) {
         // Paused — user is dragging. Reset resume state.
         resumeStart = null;
@@ -490,14 +558,16 @@ export default function PresentationStage({ slide, slideIndex }: { slide: Slide;
           />
         </div>
 
-        {/* Millions gradient overlay — smooth R/G/B/Gray bars over thousands cells */}
+        {/* Smooth R/G/B/Grey gradients over the discrete ramp cells. Driven by
+            props.smoothOverlay, not by a mode name: the slide that used to own
+            this (05-millions) was merged into the ramps slide. */}
         <div
           style={{
             position: 'absolute',
             inset: 0,
             zIndex: 2,
-            opacity: slide.props?.mode === 'millions' ? 1 : 0,
-            transition: slide.props?.mode === 'millions'
+            opacity: slide.props?.smoothOverlay ? 1 : 0,
+            transition: slide.props?.smoothOverlay
               ? 'opacity 0.3s ease-out 0.9s'
               : 'opacity 0.3s ease-out',
             display: 'flex',
