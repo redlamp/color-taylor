@@ -18,6 +18,8 @@ Every `notes/decision-*.md`, newest first. Each note records what was decided, w
 
 - [[decision-border-color-effects]] — Anodised as the resting style, with a hue- and saturation-derived glow and rim light on top; four reasons it stops at the app
 - [[decision-audio-off-by-default]] — every audible thing behind one setting, off until asked for
+- [[decision-color-editor-is-the-panel]] — the SB box is the right column's subject, not a section in it; "Sliders" was one level too low
+- [[decision-both-columns-absorb-slack]] — both columns stretch unconditionally because each owns a permanent absorber; how a 10px caption broke the old arrangement
 
 ## Shared app + plugin
 
