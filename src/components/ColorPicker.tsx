@@ -38,21 +38,19 @@ const TOP_ROW_GAP_PX = 16;                // Tailwind gap-4
 const ROOT_PADDING_X = 48;                // Tailwind sm:p-6, both sides
 
 /*
- * Default height of the SB box, and with it the Color Editor's.
+ * Resting height of the SB box.
  *
- * Chosen so the sliders column's natural height equals the hexagon column's with
- * Recent and Saved open - 773px at full width - which means the grid has nothing
- * to correct and the Color Editor is not silently resized to make the two meet.
- * Before this it was a leftover: the column measured 726px on its own and got
- * stretched 47px, so the box's height was whatever the hexagon happened to need.
+ * It is a flex-basis, not a min-height, so it sets only the size the box starts
+ * from. The box shrinks toward min-h-24 in a narrow window and grows when the
+ * sections below it are collapsed.
  *
- * It is a flex-basis, not a min-height, so it only sets the resting size. The
- * box still shrinks toward min-h-24 in a narrow window and grows when the other
- * sections are collapsed.
- *
- * Tuned against the hexagon column, so re-check it if either column's content
- * changes. Being wrong is not a breakage - flex goes back to correcting the
- * difference, which is exactly the old behaviour.
+ * This was tuned so the two columns' natural heights matched exactly - 773px at
+ * full width - leaving the grid nothing to correct. That number no longer holds:
+ * the Color Editor card it sat inside is gone, and both columns absorb slack
+ * now, so the box renders about 184px at full width and is stretched off this
+ * basis rather than sitting on it. Harmless, because levelling the columns is no
+ * longer this constant's job - it is flex's, on both sides. Worth retuning only
+ * if the stretch itself ever becomes visible.
  */
 const SB_BOX_DEFAULT_HEIGHT = 143;
 const TOP_ROW_MAX_WIDTH =
