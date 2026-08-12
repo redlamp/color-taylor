@@ -1352,7 +1352,17 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       {...(bare ? {} : { 'data-panel-open': hexOpen ? 'true' : 'false' })}
       style={bare ? undefined : { width: HEX_PANEL_WIDTH }}
     >
-      <div className="flex items-start gap-1.5 w-full">
+      {/*
+        relative z-10 because #hex-svg overhangs this row. Its box is HEX_SIZE
+        tall inside a DISPLAY_HEIGHT stage, so 40 user units of empty canvas
+        stick out above the stage - and a root <svg> takes the hit over its
+        whole box, tabs included. It used to clear the header by a few px only
+        because the caption below the tabs padded this row out; dropping that
+        caption pulled the stage up and the SVG started swallowing tab clicks.
+        The stage cannot simply clip instead: the hue badge legitimately sits
+        outside it near 90 degrees.
+      */}
+      <div className="relative z-10 flex items-start gap-1.5 w-full">
         {/* In `bare` hosts the surrounding chrome is the container, so the
             title and its collapse affordance are redundant. The Bright/Light
             tabs stay - they are a control, not decoration. */}
@@ -1366,27 +1376,31 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           </div>
         )}
         {bare && <div className="flex-1 min-w-0">{headerLeft}</div>}
+        {/*
+          No caption under these tabs. It used to read "Luminance", which is a
+          photometric quantity neither axis computes - B is max(R,G,B) and L is
+          (max+min)/2, both unweighted and both over gamma-encoded values. Blue
+          and yellow land on the same spot of the bar and differ 13x in actual
+          luminance. The bar names the live axis itself now.
+        */}
         {hexOpen && (
           <div className="flex items-start gap-2" onClick={(e) => e.stopPropagation()}>
-            <div className="flex flex-col items-center gap-0.5">
-              <Tabs value={blMode} onValueChange={onBlModeChange}>
-                <TabsList>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span><TabsTrigger value="brightness" className="w-14">HSB</TabsTrigger></span>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" sideOffset={8} className="text-xs font-semibold">HSB brightness</TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span><TabsTrigger value="lightness" className="w-14">HSL</TabsTrigger></span>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" sideOffset={8} className="text-xs font-semibold">HSL lightness</TooltipContent>
-                  </Tooltip>
-                </TabsList>
-              </Tabs>
-              <span className="text-[10px] text-muted-foreground">Luminance</span>
-            </div>
+            <Tabs value={blMode} onValueChange={onBlModeChange}>
+              <TabsList>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span><TabsTrigger value="brightness" className="w-14">HSB</TabsTrigger></span>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" sideOffset={8} className="text-xs font-semibold">HSB brightness</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span><TabsTrigger value="lightness" className="w-14">HSL</TabsTrigger></span>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" sideOffset={8} className="text-xs font-semibold">HSL lightness</TooltipContent>
+                </Tooltip>
+              </TabsList>
+            </Tabs>
           </div>
         )}
       </div>
@@ -1660,7 +1674,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           );
         })()}
         {showHueLine && <HueHandle hue={hue} hueLabel={hueLabel} extent={EXTENT} onMouseDown={handleHueDragStart} />}
-        {blBar && <BrightnessMarkers onPick={animateBLToValue} />}
+        {blBar && <BrightnessMarkers blMode={blMode} onPick={animateBLToValue} />}
         {blBar && (
           <BrightnessHandle
             hue={hue}
