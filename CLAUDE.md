@@ -14,26 +14,18 @@ If a request conflicts with a `decision-*.md` note, surface the conflict before 
 
 ## Commands
 
-Package manager: **bun**. `bun.lock` is the source of truth; no `package-lock.json`.
+Package manager: **bun**. `bun.lock` is the source of truth; no `package-lock.json`. Scripts are in `package.json`; only the two with non-obvious behaviour are worth stating:
 
-- `bun install` — install deps
-- `bun dev` — Vite dev server
-- `bun run build` — production build (writes `dist/`)
-- `bun run lint` — ESLint flat config (`eslint.config.js`)
-- `bun run typecheck` — `tsc --noEmit`
-- `bun run preview` — serve last build
 - `bun run deploy` — GitHub Pages build + publish via `gh-pages`. The script uses POSIX inline env var syntax (`GITHUB_PAGES=1 vite build`); bun's built-in shell handles this on Windows, so no PowerShell `$env:` workaround is needed when invoked via `bun run`.
-- `bun run test` — Playwright e2e against a Vite dev server (auto-started; reuses an existing one on :5173). Use `bun run test:ui` for the inspector and `bun run test:headed` to watch the browser. Specs live in `tests/`.
+- `bun run test` — Playwright e2e against a Vite dev server it starts itself, **reusing an existing one on :5173** if you already have `bun dev` running. Specs live in `tests/`.
 
 The `GITHUB_PAGES` env var flips `vite.config.js`'s `base` between `./` (default, works for local file:// preview) and `/color-taylor/` (gh-pages subpath). Don't hardcode either.
 
 ## Stack
 
-TypeScript + React 19 + Vite 8 + Tailwind v4 (`@tailwindcss/vite`) + shadcn (style `base-nova`, neutral base, CSS variables). Path alias `@/*` → `src/*` is wired in `vite.config.js` and `tsconfig.json` — keep them in sync if you change it. shadcn aliases live in `components.json`.
+Versions are in `package.json`. What it doesn't tell you: the path alias `@/*` → `src/*` is declared **twice**, in `vite.config.js` and `tsconfig.json` — keep them in sync if you change it. shadcn aliases live in `components.json` (style `base-nova`).
 
-`tsconfig.json` runs with `strict: false` for now — implicit `any` is allowed for internal helpers, but component prop boundaries, ref types, and useState generics are typed explicitly. Tightening to full strict is the obvious next step (mostly typing inline event handlers in `ColorHexagon.tsx`).
-
-ESLint flat config has two blocks: `*.{js,jsx}` (unused, but kept for vite.config.js) and `*.{ts,tsx}` with `typescript-eslint`. The unused-var rule ignores `^[A-Z_]` (unused React components / constants), plus `_`-prefixed args for TS.
+`tsconfig.json` runs with `strict: false` for now — implicit `any` is allowed for internal helpers, but component prop boundaries, ref types, and useState generics are typed explicitly anyway. Tightening to full strict is the obvious next step (mostly typing inline event handlers in `ColorHexagon.tsx`).
 
 ## App architecture
 
@@ -57,7 +49,7 @@ Undo/redo lives in `undoStack`/`redoStack` refs in `ColorPicker.tsx` (debounced 
 
 ### Color math
 
-`src/utils/colorConversions.ts` is the math hub: exports `RGB`/`HSB`/`HSL` interfaces, sRGB gamma (`srgbToLinear` / `linearToSrgb`), `hsbToRgb`/`rgbToHsb`, `rgbToHsl`/`hslToRgb`, plus relative-luminance / contrast helpers. `src/utils/sliderGradients.ts` builds the CSS gradients painted under each slider (channel-mode and mixed-mode variants for RGB; per-axis gradients for HSB and HSL that respect a `ColorSpace = 'srgb' | 'linear'` arg). `src/utils/namedColors.ts` is the CSS named-color table used by `NamedColorMatch`. `src/utils/palettes.ts` is shared 1-bit/4-bit/8-bit palette data used by both the picker and the historical-OS presentation slides.
+`src/utils/colorConversions.ts` is the math hub — put conversions and luminance/contrast helpers there rather than inline. Two couplings the files don't advertise: `sliderGradients.ts` takes a `ColorSpace = 'srgb' | 'linear'` argument that every caller must thread through, and `palettes.ts` is shared by both the picker and the presentation's historical-OS slides, so editing it changes two surfaces.
 
 ### Hexagon picker
 
@@ -65,11 +57,11 @@ Undo/redo lives in `undoStack`/`redoStack` refs in `ColorPicker.tsx` (debounced 
 
 ### Presentation
 
-`src/presentation/slides.ts` is a declarative slide array: each slide names a component from `slideComponents.tsx` (`MonitorPanel`, `PixelGrid`, `ColorPalette`, `NarrativeSlide`) **or** uses the special `'PresentationColorPicker'` value that `PresentationStage.tsx` maps to a constrained version of the picker (props like `visiblePanels`, `lockedChannels`, `initialHsb`). Color state persists across slides inside `PresentationStage`. Slide index ↔ URL hash sync happens in `PresentationShell.tsx`; arrow keys / space advance, Escape exits to `#/`.
+See `src/presentation/CLAUDE.md`, which loads when you work in that directory.
 
 ## Conventions
 
-- Components are `.tsx`; pure utilities `.ts`. `tsconfig.json` uses `strict: false` — implicit `any` is allowed for internal helpers, but prop boundaries, ref types, and `useState` generics are explicit.
+- Components are `.tsx`; pure utilities `.ts`. Typing conventions under `## Stack`.
 - Tailwind v4 — no `tailwind.config.js`; theme tokens live in `src/index.css` as CSS variables under `:root` and `.dark`. Prefer the existing `bg-muted` / `text-foreground` / etc. semantic tokens over raw colors.
 - shadcn primitives are in `src/components/ui/` — don't reimplement, extend. Each wrapper currently types its props via `ComponentProps<typeof Primitive>` (sometimes intersected with `VariantProps<typeof xxxVariants>` for cva-driven components).
 - `asChild` is no longer part of base-ui's API (it uses `render` now), but several callers still pass it. `TabsTrigger` and `TooltipTrigger` accept it as a pass-through `{ asChild?: boolean }` for TS-checked code; base-ui ignores it at runtime. If you touch one of those callsites, prefer migrating to `render`.
