@@ -89,3 +89,25 @@ test.describe('Swatch selection ring', () => {
   });
 });
 
+test.describe('Saved sort modes', () => {
+  /**
+   * The app has no opacity - alpha is threaded by the Figma plugin only - so
+   * Sort must not offer a mode that sorts by a value this surface cannot
+   * express. Presence of `onAlphaRestore` is what ColorHexagon keys this on.
+   */
+  test('the app cycle omits alpha', async ({ page }) => {
+    await page.goto('/');
+    const sort = page.locator('#saved-colors button[data-sort-mode]');
+    await sort.waitFor();
+
+    const seen: (string | null)[] = [];
+    for (let i = 0; i < 6; i++) {
+      seen.push(await sort.getAttribute('data-sort-mode'));
+      await sort.click();
+      await page.waitForTimeout(150);
+    }
+    expect(seen).not.toContain('alpha');
+    // And it is a complete cycle of the four that remain, not a truncated one.
+    expect(new Set(seen)).toEqual(new Set(['user', 'hue', 'saturation', 'brightness']));
+  });
+});

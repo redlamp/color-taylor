@@ -186,7 +186,13 @@ const SORT_BTN_W = 'min-w-26';
 
 type SortMode = 'user' | 'hue' | 'saturation' | 'brightness' | 'alpha';
 
-/** Cycle order for the Sort control. */
+/**
+ * Cycle order for the Sort control, at its fullest.
+ *
+ * Alpha is dropped in hosts that have no opacity, which today is every one but
+ * the plugin - see `alphaSorts` below. Sorting by a value the surface cannot
+ * express means four clicks through a mode that does nothing.
+ */
 const SORT_ORDER: readonly SortMode[] = ['user', 'hue', 'saturation', 'brightness', 'alpha'];
 
 const SORT_LABELS: Record<SortMode, string> = {
@@ -665,11 +671,27 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     return true;
   }, [performSavedSwap, performSavedInsert]);
 
+  /**
+   * Whether this host has opacity at all, and so whether Sort offers it.
+   *
+   * `onAlphaRestore` is the signal rather than a flag of its own: it is the
+   * callback a host provides only if it tracks an opacity to restore, which is
+   * the same question. `alpha` cannot answer it - it defaults to 100, so a host
+   * that never passes one is indistinguishable from a host at full opacity.
+   */
+  const sortOrder = useMemo<readonly SortMode[]>(
+    () => (onAlphaRestore ? SORT_ORDER : SORT_ORDER.filter((m) => m !== 'alpha')),
+    [onAlphaRestore],
+  );
+
   const cycleSavedSort = useCallback(() => {
     captureFlipRects(true);
-    const next = SORT_ORDER[(SORT_ORDER.indexOf(savedSortMode) + 1) % SORT_ORDER.length];
+    // indexOf returns -1 for a mode this host does not offer - which can be
+    // held over from a session that ran with alpha - and -1 + 1 lands on
+    // 'user', which is where a mode you cannot cycle back to should go.
+    const next = sortOrder[(sortOrder.indexOf(savedSortMode) + 1) % sortOrder.length];
     setSavedSortMode(next);
-  }, [savedSortMode, captureFlipRects]);
+  }, [savedSortMode, captureFlipRects, sortOrder]);
 
   useLayoutEffect(() => {
     const pending = pendingFlipRects.current;
