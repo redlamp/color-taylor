@@ -354,24 +354,63 @@ body {
  * then one row of twelve. The plugin iframe's viewport *is* the panel, so a
  * plain media query measures the right thing. Overrides the app's own
  * md:grid-cols-12, which keys off a 768px viewport that means nothing here.
+ *
+ * Selected by data attribute, not as `.grid` inside the section.
+ * CollapsibleSection animates its height with a two-row grid, and that wrapper
+ * carries the bare class `grid` too - so `#saved-colors .grid` matched the
+ * *animator* as well and handed it six columns. Its single child, the content
+ * region, was pinned to the first 48px track, and the swatch grid inside then
+ * divided those 48px six ways: swatches under 3px wide, everything jammed
+ * against the left edge. The attribute names what these rules are actually for,
+ * so a future wrapper cannot quietly capture them again.
  */
-#recent-colors .grid,
-#saved-colors .grid {
+[data-swatch-grid] {
   grid-template-columns: repeat(6, minmax(0, 1fr));
 }
 
 /* The app sizes these swatches h-8 (32px) for a 614px column; a side panel
    wants them tighter. Height only - width still divides the row. */
-#recent-colors .grid > button,
-#saved-colors .grid > button {
+[data-swatch-grid] > button {
   height: 22px;
 }
 
 @media (min-width: 512px) {
-  #recent-colors .grid,
-  #saved-colors .grid {
+  [data-swatch-grid] {
     grid-template-columns: repeat(12, minmax(0, 1fr));
   }
+}
+
+/*
+ * Header actions, sized for a 300px panel instead of a 614px column.
+ *
+ * The app holds Sort at a 104px floor and the two confirming actions at 56px
+ * each so the row does not shuffle when their labels change. With the gaps that
+ * is 224px, and it does not fit here: the trigger still needs its chevron and
+ * title, so the header's min-content came to 286px inside a 276px section. A
+ * block cannot be narrower than its min-content, so the section overflowed 10px
+ * to the right and took the panel's right-hand padding with it - the swatch rows
+ * ended 2px from the panel edge instead of 12px.
+ *
+ * These are still floors, for the same reason the app has them. They are just
+ * measured against this panel's 11px type rather than the app's 14px.
+ */
+.figma-root .ctl-quiet {
+  padding-inline: 6px;
+}
+
+/* Holds "Sure?" at 46.8px, which is the widest thing either confirming action
+   shows - wider than the icon it replaces, so this is the number that matters.
+   A 40px floor let the button grow on arming, which is the shuffle these floors
+   exist to prevent. */
+.figma-root .ctl-quiet:not([data-sort-mode]) {
+  min-width: 48px;
+}
+
+/* Holds "Sort: Bright", the widest of the five labels at 85.5px. Measured by
+   cycling all five in the panel, not derived from the app's 104px - Bright and
+   Alpha both overrun a 76px floor, and the row shuffles when they do. */
+.figma-root [data-sort-mode] {
+  min-width: 86px;
 }
 
 /*

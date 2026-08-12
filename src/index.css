@@ -211,30 +211,34 @@ h1, h2 {
    *
    * The columns are grid tracks that stretch to a shared row height, which is
    * what keeps their bottom edges level - but it also meant closing Hexagon or
-   * Sliders left a full-height empty card, because the other column still set
-   * the row height. Opting the closed one out of the stretch lets it collapse
-   * to what it actually contains.
+   * Color Editor left a full-height empty card, because the other column still
+   * set the row height. Opting the closed one out of the stretch lets it
+   * collapse to what it actually contains.
    *
    * Two selectors because the attribute is not always on the frame: the hexagon
-   * card reports its own state, while the sliders and equations panels are
+   * card reports its own state, while the Color Editor and Equations panels are
    * wrappers around an h2 section that reports for them.
+   *
+   * Being open is now the only condition. A second rule used to sit here
+   * exempting any panel with no `[data-section-grow]` inside it, so a panel with
+   * nothing to put slack into stayed at its natural height rather than becoming
+   * a mostly-empty card. That could happen because the absorber - the Color
+   * Editor section - was collapsible: close it and the column had nowhere to
+   * put the space.
+   *
+   * Both columns now have a permanent absorber, so the case is gone. The SB box
+   * is the right column's top-level content and cannot be closed; #hex-stage
+   * grows on the left, centring the wheel in whatever height it gets. Whichever
+   * column is taller sets the row and the other fills it.
+   *
+   * Worth knowing how sharp the old arrangement was: the hexagon was exempt on
+   * the reasoning that it is the taller column and therefore sets the height
+   * others match. Removing one 10px caption from its header took it to 756
+   * against the sliders' 773, and start-aligned it could not be matched
+   * downward - at a 900px window it sat 128px short.
    */
   .panel-frame[data-panel-open='false'],
   .panel-frame:has(> [data-panel-open='false']) {
-    align-self: start;
-  }
-
-  /*
-   * And a panel with nothing that can grow sits at its natural height too.
-   *
-   * Stretching is only worth it if something inside will use the space. With the
-   * Color Editor closed, the sliders panel had no absorber and stretched anyway:
-   * closing all four of its sections left a 773px card with 487px of nothing in
-   * it, while collapsing the panel itself correctly gave 54px. The hexagon panel
-   * has no grow section at all, which is right - it is the reference height the
-   * other column matches, so it should always be its natural size.
-   */
-  .panel-frame:not(:has([data-section-grow])) {
     align-self: start;
   }
 

@@ -37,9 +37,9 @@ type Variant = 'card' | 'flush';
  * components themselves.
  *
  * Closing a section unmounts its children, so a nested section lost its own
- * state and came back at defaultOpen - collapse Sliders with RGB closed, reopen
- * it, and RGB was open again. The state has to sit somewhere that survives the
- * unmount, and the section already has a stable id to key it by.
+ * state and came back at defaultOpen - collapse Color Editor with RGB closed,
+ * reopen it, and RGB was open again. The state has to sit somewhere that
+ * survives the unmount, and the section already has a stable id to key it by.
  *
  * Module scope rather than localStorage on purpose: this is for the length of a
  * session, and persisting it would mean a section you closed once stayed closed
@@ -66,21 +66,22 @@ interface CollapsibleSectionProps {
    * height stops at the wrapper and whatever is inside sizes to its own content.
    */
   fill?: boolean;
-  /**
-   * On top of `fill`: report that this section will soak up slack, so the
-   * enclosing panel is worth stretching to the row height.
-   *
-   * Separate from `fill` because the two are not the same claim. The Sliders
-   * panel's own h2 section fills its card - that is plumbing - but the section
-   * that actually absorbs is the Color Editor nested inside it. If the h2 also
-   * reported absorbing, the panel would stretch even with the Color Editor
-   * closed, which is the empty-card bug this pair exists to avoid.
-   */
-  absorbs?: boolean;
   children: ReactNode;
 }
 
-export default function CollapsibleSection({ id, title, level = 'h3', defaultOpen = true, headerLeft, headerRight, className: extraClass, variant = 'card', fill, absorbs, children }: CollapsibleSectionProps) {
+/*
+ * There was an `absorbs` prop here, reporting `data-section-grow` so the
+ * enclosing .panel-frame could decide whether stretching to the row height was
+ * worth anything. It existed for exactly one caller - the Color Editor section
+ * nested in the sliders panel - and only because that absorber could be closed,
+ * which is what would have left a stretched, mostly-empty card.
+ *
+ * The SB box is the panel's top-level content now and cannot be closed, so both
+ * columns always have somewhere to put slack and both simply stretch. The prop,
+ * the attribute and the CSS rule that read it all went with it.
+ */
+
+export default function CollapsibleSection({ id, title, level = 'h3', defaultOpen = true, headerLeft, headerRight, className: extraClass, variant = 'card', fill, children }: CollapsibleSectionProps) {
   const [open, setOpen] = useState(
     () => (id !== undefined && OPEN_STATE.has(id) ? OPEN_STATE.get(id)! : defaultOpen),
   );
@@ -142,11 +143,6 @@ export default function CollapsibleSection({ id, title, level = 'h3', defaultOpe
       // marking inner sections too would let a nested collapse trigger that.
       // Written as a string rather than a boolean so `false` survives to the DOM.
       {...(level === 'h2' ? { 'data-panel-open': open ? 'true' : 'false' } : {})}
-      // The enclosing .panel-frame reads this to decide whether stretching to
-      // the row height is worth anything: with an open absorbing section it has
-      // somewhere to put the space, without one it should sit at its natural
-      // height instead of becoming a mostly-empty card.
-      {...(absorbs && open ? { 'data-section-grow': 'true' } : {})}
       className={`flex flex-col ${fill && open ? 'flex-1 min-h-0' : ''} ${shell} ${extraClass || ''}`}
     >
       {/* The hit area reaches back over the shell's own padding.

@@ -1,7 +1,7 @@
 import { hsbToRgb, rgbToHex, linearToSrgb } from '../../utils/colorConversions';
 import type { ColorSpace } from '../../utils/sliderGradients';
 import type { HSL } from '../../utils/colorConversions';
-import { BL_BAR_X, BL_BAR_TOP, BL_BAR_HEIGHT, BL_BAR_WIDTH, BL_ARROW_SIZE } from './hexConstants';
+import { BL_BAR_X, BL_BAR_TOP, BL_BAR_HEIGHT, BL_BAR_WIDTH, BL_ARROW_SIZE, SIZE } from './hexConstants';
 import type { MutableRefObject } from 'react';
 
 function hsbToDisplayHex(h: number, s: number, b: number, colorSpace: ColorSpace) {
@@ -94,21 +94,34 @@ export default function BrightnessBar({ hue, saturation, brightness, hsl, blMode
         { value: 50, y: BL_BAR_TOP + BL_BAR_HEIGHT / 2 },
         { value: 0, y: BL_BAR_TOP + BL_BAR_HEIGHT },
       ].map(({ value, y }) => (
-        <line
+        <g
           key={value}
           className="cursor-pointer"
-          x1={BL_BAR_X + BL_BAR_WIDTH}
-          y1={y}
-          x2={BL_BAR_X + BL_BAR_WIDTH + 4}
-          y2={y}
-          stroke="var(--foreground)"
-          strokeWidth={1}
-          opacity={0.5}
           onClick={(e) => {
             e.stopPropagation();
             animateBLToValue(value);
           }}
-        />
+        >
+          {/* The tick itself is 4x1 user units - a click target in name only.
+              This transparent band widens the row to the whole gutter, so the
+              mark and the number beside it both act as one. */}
+          <rect
+            x={BL_BAR_X + BL_BAR_WIDTH}
+            y={y - 7}
+            width={SIZE - (BL_BAR_X + BL_BAR_WIDTH)}
+            height={14}
+            fill="transparent"
+          />
+          <line
+            x1={BL_BAR_X + BL_BAR_WIDTH}
+            y1={y}
+            x2={BL_BAR_X + BL_BAR_WIDTH + 4}
+            y2={y}
+            stroke="var(--foreground)"
+            strokeWidth={1}
+            opacity={0.5}
+          />
+        </g>
       ))}
     </>
   );
