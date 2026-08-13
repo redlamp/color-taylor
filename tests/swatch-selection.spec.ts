@@ -45,10 +45,10 @@ test.describe('Swatch selection ring', () => {
     await page.locator('#saved-colors [data-saved-idx="0"]').click();
     await expect.poll(async () => (await ringed(page)).saved).toEqual(['0:#ff0000']);
 
-    // Let the tween finish before changing the colour. Typing a hex while one
-    // is still running does not take: animateToHsb's rAF loop keeps writing HSB
-    // and lands on its own target regardless, so the field would snap back to
-    // red and this test would be asserting on the wrong colour.
+    // Wait for the tween to land before changing the colour, so this test is
+    // about the ring and not about tween timing. Typing mid-tween does take
+    // effect now - see tests/color-input.spec.ts, which covers exactly that -
+    // but the resulting colour would depend on when the keystroke landed.
     await expect(hexInput).toHaveValue('#FF0000', { timeout: 4000 });
 
     // Any other route to a colour has to clear the ring. The stored index did
