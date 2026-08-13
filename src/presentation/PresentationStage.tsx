@@ -410,6 +410,24 @@ export default function PresentationStage({ slide, slideIndex }: { slide: Slide;
   // ── App reveal: mount hidden at small scale, then expand ──
   const [appReady, setAppReady] = useState(false);  // true = painted at start scale
   const [appExpanded, setAppExpanded] = useState(false); // true = scale up + fade in
+  /**
+   * True once the expand has finished, at which point the scale is dropped
+   * entirely rather than left at scale(1).
+   *
+   * A transform establishes a containing block for `position: fixed`, and the
+   * identity matrix counts - scale(1) captures fixed children just as firmly as
+   * scale(0.6). The app's Settings panel is fixed and hides itself by sliding off
+   * the right of the viewport with translate-x-[110%]; parented to this wrapper
+   * instead, "off the viewport" became "off the wrapper", and 181px of a panel
+   * that reported aria-hidden="true" sat visible on the last slide of the deck.
+   */
+  const [appSettled, setAppSettled] = useState(false);
+  useEffect(() => {
+    if (!appExpanded) { setAppSettled(false); return; }
+    // Just past the 0.3s transform transition below.
+    const t = setTimeout(() => setAppSettled(true), 360);
+    return () => clearTimeout(t);
+  }, [appExpanded]);
   useEffect(() => {
     const hasApp = (slide.props?.visiblePanels || []).includes('color-taylor-app');
     if (!hasApp) { setAppReady(false); setAppExpanded(false); return; }
@@ -455,7 +473,9 @@ export default function PresentationStage({ slide, slideIndex }: { slide: Slide;
       <div
         ref={appRef}
         style={{
-          transform: `scale(${appExpanded ? 1 : startScale})`,
+          // 'none', not scale(1) - see appSettled. Visually identical, but it
+          // hands fixed-position descendants back to the viewport.
+          transform: appSettled ? 'none' : `scale(${appExpanded ? 1 : startScale})`,
           transformOrigin: 'center center',
           opacity: appExpanded ? 1 : 0,
           transition: appReady ? 'transform 0.3s ease-out, opacity 0.3s ease-out' : 'none',
@@ -814,8 +834,11 @@ const DROP = 'drop-shadow(3px 3px 0 rgba(0,0,0,0.9))';
 const R_STYLE = { color: '#FF4444', filter: DROP };
 const G_STYLE = { color: '#44DD44', filter: DROP };
 const B_STYLE = { color: '#6688FF', filter: DROP };
+// Linear at the same 165deg and the same 20-80% inset as S and B below, so the
+// three read as one family. It was a conic sweep, which put a visible pivot in
+// the middle of the glyph and pointed a different way from its two neighbours.
 const H_STYLE = {
-  backgroundImage: 'conic-gradient(from 0deg at 50% 50%, hsl(0,100%,50%), hsl(60,100%,50%), hsl(120,100%,50%), hsl(180,100%,50%), hsl(240,100%,50%), hsl(300,100%,50%), hsl(360,100%,50%))',
+  backgroundImage: 'linear-gradient(165deg, hsl(0,100%,50%) 20%, hsl(60,100%,50%) 30%, hsl(120,100%,50%) 40%, hsl(180,100%,50%) 50%, hsl(240,100%,50%) 60%, hsl(300,100%,50%) 70%, hsl(360,100%,50%) 80%)',
   WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent', filter: DROP,
 };
 const S_STYLE = {

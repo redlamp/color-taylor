@@ -37,7 +37,7 @@ export const slides: Slide[] = [
     type: 'static',
     component: 'MonitorPanel',
     props: { mode: 'intro' },
-    subtitle: 'UX Design Lead at Launchpad',
+    subtitle: 'UX and Product Designer',
     caption: 'I wanted to share a little about RGB colors and how they map to HSB.',
   },
   {
@@ -88,7 +88,10 @@ export const slides: Slide[] = [
     // Merged, the overlay becomes the beat: the ramps arrive in visible steps
     // and then the steps dissolve, which is the whole content of "more bits".
     props: { mode: 'thousands', smoothOverlay: true },
-    caption: 'Then thousands, and then millions - but notice what stops changing. Three channels, Red, Green and Blue, each a ramp from black to full intensity.\nMore bits only made the steps finer, until they were too small to see. _That\'s where RGB came in, and it has not changed since._',
+    // Both dates live in the copy because the merged slide's titleMeta can only
+    // count one bit depth, and losing the 1990 rung lost the interval - the jump
+    // from thousands to millions took a single OS release.
+    caption: 'Thousands came with System 6 in 1990. Millions with System 7, a year later.\nThree channels - Red, Green, Blue - each a ramp from black to full intensity. _More bits only made the steps finer, never the model._',
   },
   {
     id: '06-spectrum',
