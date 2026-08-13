@@ -14,7 +14,11 @@ Top-level Map of Content. See `CLAUDE.md` in this folder for conventions.
 
 - [[plan-figma-plugin-release]] — **the plugin id is the one hard blocker**, and it needs the desktop app signed in as `taylor@redlamp.org`. Everything else on the checklist is done or waiting on it.
 - [[test-plan-2026-08-04-figma-plugin]] — the first deliberate real-Figma pass, 8 sections, still outstanding
-- `fix/plugin-swatch-grid` — tonight's panel-layout fix, committed and unpushed, wants a real-Figma look before it goes to `dev`
+- [[plan-teaching-rgb-to-hsb]] — how to teach the tool and the subject; proposed intro-deck script changes, not yet applied
+
+## Concepts
+
+- [[hexagon-is-the-cube-down-its-diagonal]] — the geometry the picker is built on, and the interactive proof in `docs/prototypes/rgb-cube/`
 
 ## Research
 
@@ -25,6 +29,7 @@ Top-level Map of Content. See `CLAUDE.md` in this folder for conventions.
 
 `wiki/daily/YYYY-MM-DD.md`. Dailies before 2026-08-01 were reconstructed from git history on 2026-08-03 and are marked as such.
 
+- [[2026-08-13]] — intro deck fixes shipped; the RGB cube prototype
 - [[2026-08-11]] — the design-system pass, audio behind a flag, CI gate, listing artboards, and a 2.9px swatch bug
 - [[2026-08-04]] — Saved grows in banks of 12, header hit area
 - [[2026-08-03]] — duplicate ids, guidelines audit, swatch persistence, this wiki

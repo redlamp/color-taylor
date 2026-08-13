@@ -1,0 +1,487 @@
+<!--
+  RGB cube prototype. Open it directly - no build step, no dev server.
+
+  three.js is vendored beside this file rather than fetched, so the page keeps
+  working offline and in ten years. It is the CommonJS build, loaded as a plain
+  script with `exports` shimmed in, because the ES module builds need either a
+  bundler or an HTTP origin and neither is worth it for a prototype you double
+  click. See vendor/README.md.
+-->
+<title>Inside the RGB Cube</title>
+<style>
+  :root {
+    --ground: #0C1418; --panel: #16232A; --rule: #2C3F49;
+    --ink: #E8EDEF; --ink-2: #B6C6CD; --muted: #8195A0;
+    --accent: #3FD8D8;
+    --r: #FF4444; --g: #44DD44; --b: #6688FF;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--ground); color: var(--ink);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 15px; line-height: 1.55; -webkit-font-smoothing: antialiased;
+    min-height: 100vh; padding: clamp(1rem, 3vw, 2rem);
+  }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+          font-variant-numeric: tabular-nums; }
+  .eyebrow { font-family: ui-monospace, Menlo, monospace; font-size: 0.6875rem;
+             text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); }
+  h1 { font-size: clamp(1.5rem, 3.5vw, 2rem); font-weight: 800; letter-spacing: -0.02em;
+       margin: 0.35rem 0 0.3rem; text-wrap: balance; }
+  p { margin: 0; }
+  .shell { max-width: 66rem; margin: 0 auto; display: flex; flex-direction: column; gap: 1.1rem; }
+  .lede { color: var(--ink-2); max-width: 46rem; }
+
+  .rig { display: grid; grid-template-columns: 1fr; gap: 0;
+         border: 1px solid var(--rule); border-radius: 5px; overflow: hidden; background: var(--panel); }
+  @media (min-width: 54rem) { .rig { grid-template-columns: 1fr 17rem; } }
+  #view { display: block; width: 100%; aspect-ratio: 4 / 3; touch-action: none; cursor: grab; }
+  #view.dragging { cursor: grabbing; }
+  .side { border-top: 1px solid var(--rule); padding: 1.15rem;
+          display: flex; flex-direction: column; gap: 1.15rem; }
+  @media (min-width: 54rem) { .side { border-top: 0; border-left: 1px solid var(--rule); } }
+
+  .modes { display: grid; grid-template-columns: 1fr 1fr; gap: 0.3rem; }
+  button {
+    font: inherit; font-size: 0.8125rem; font-weight: 600; text-align: left;
+    background: transparent; color: var(--ink-2);
+    border: 1px solid var(--rule); border-radius: 3px; padding: 0.42rem 0.6rem; cursor: pointer;
+  }
+  button:hover { color: var(--ink); border-color: var(--muted); }
+  button[aria-pressed="true"] { color: #0B1417; background: var(--accent); border-color: var(--accent); }
+  button.wide { grid-column: 1 / -1; text-align: center; }
+  :is(button, input):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .field { display: flex; flex-direction: column; gap: 0.4rem; }
+  .field-head { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+  .val { font-family: ui-monospace, Menlo, monospace; font-size: 0.8125rem; color: var(--accent); }
+  input[type="range"] { width: 100%; accent-color: var(--accent); }
+  input[type="range"]:disabled { opacity: 0.35; }
+
+  .viewnote { font-size: 0.75rem; color: var(--muted); }
+  .viewnote b { color: var(--ink-2); font-weight: 650; }
+  .modes.three { grid-template-columns: 1fr 1fr 1fr; }
+  .viewnote { font-size: 0.75rem; color: var(--muted); }
+  .viewnote b { color: var(--ink-2); font-weight: 650; }
+  .note { font-size: 0.8125rem; color: var(--ink-2); border-top: 1px solid var(--rule); padding-top: 0.9rem; }
+  .note b { color: var(--ink); font-weight: 650; }
+  .legend { display: flex; gap: 0.9rem; flex-wrap: wrap; font-size: 0.75rem; color: var(--muted); }
+  .legend i { display: inline-block; width: 0.55rem; height: 0.55rem; border-radius: 2px; margin-right: 0.3rem; }
+  .foot { display: grid; gap: 0.75rem; grid-template-columns: 1fr; max-width: 46rem; }
+  @media (min-width: 40rem) { .foot { grid-template-columns: 1fr 1fr; } }
+  .foot div { font-size: 0.8125rem; color: var(--ink-2); }
+  .foot b { color: var(--ink); display: block; font-weight: 650; }
+  code { font-family: ui-monospace, Menlo, monospace; font-size: 0.9em; color: var(--accent); }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="shell">
+  <div>
+    <span class="eyebrow">Colour Taylor · geometry</span>
+    <h1>Inside the RGB cube</h1>
+    <p class="lede">Every colour your screen can show is a corner, an edge or an interior point of this solid. Hue, saturation and brightness are not extra ideas layered on top &mdash; each one is a direction or a distance in here. Turn it, then cut it open.</p>
+  </div>
+
+  <div class="rig">
+    <canvas id="view"></canvas>
+    <div class="side">
+      <div class="field">
+        <span class="eyebrow">Cut in half</span>
+        <div class="modes">
+          <button id="m-none" type="button" aria-pressed="true">Whole</button>
+          <button id="m-v" type="button" aria-pressed="false">Brightness</button>
+          <button id="m-h" type="button" aria-pressed="false">Hue</button>
+          <button id="m-s" type="button" aria-pressed="false">Saturation</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="field-head">
+          <label class="eyebrow" id="slabel" for="slider">Value</label>
+          <span class="val" id="sval">&mdash;</span>
+        </div>
+        <input id="slider" type="range" min="0" max="100" step="1" value="50" disabled />
+      </div>
+
+      <div class="field">
+        <span class="eyebrow">Camera</span>
+        <div class="modes">
+          <button id="v-hue" type="button">Hue &middot; down the axis</button>
+          <button id="v-bright" type="button">Brightness &middot; side on</button>
+        </div>
+        <div class="modes three">
+          <button id="v-r" type="button">R face</button>
+          <button id="v-g" type="button">G face</button>
+          <button id="v-b" type="button">B face</button>
+        </div>
+        <p class="viewnote" id="viewnote"></p>
+      </div>
+
+      <p class="note" id="explain"></p>
+    </div>
+  </div>
+
+  <div class="foot">
+    <div><b>The axis everything turns around</b>Black and white are opposite corners, and the line between them is the neutral axis &mdash; every grey lives on it. Stand it upright and brightness is height. Look straight down it and the outline is a regular hexagon, which is the shape of the picker.</div>
+    <div><b>Hue is an angle, saturation is a distance</b>Around that axis, direction is hue &mdash; red at 0&deg;, green at 120&deg;, blue at 240&deg;, which is where <code>DIRS</code> comes from. Distance out from the axis is saturation. The three channel faces sit at the same elevation, 120&deg; apart.</div>
+  </div>
+</div>
+
+<script>var exports = {};</script>
+<script src="vendor/three.min.cjs"></script>
+<script>window.THREE = exports;</script>
+<script>
+(function () {
+  var THREE = window.THREE;
+  var canvas = document.getElementById('view');
+  var renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+  renderer.setClearColor(0x16232A, 1);
+  var scene = new THREE.Scene();
+
+  /*
+   * Orthographic. The hexagon is a property of a PARALLEL projection down the
+   * diagonal; under perspective the near corner swells and the silhouette
+   * bulges into something that is nearly, but never, a hexagon.
+   *
+   * The half-height covers the largest silhouette, which is that hexagon:
+   * circumradius sqrt(2/3), so 1.633 across.
+   */
+  var FRUSTUM = 1.06;   // the axis is sqrt(3) long; leave it a little air
+  var camera = new THREE.OrthographicCamera(-FRUSTUM, FRUSTUM, FRUSTUM, -FRUSTUM, 0.01, 100);
+
+  // ── The frame everything is described in ───────────────────────────
+  /*
+   * The cube stays axis-aligned in world space, so a point's world position IS
+   * its colour and the shader needs no transform. The neutral-axis frame is
+   * therefore applied to the CAMERA instead:
+   *
+   *   nAxis  the black-to-white diagonal, which the orbit turns around
+   *   east   red with its neutral component removed, so red points screen-right
+   *          when looking down the axis - the same construction as DIRS
+   *   third  completes a right-handed set
+   */
+  var nAxis = new THREE.Vector3(1, 1, 1).normalize();
+  var east = new THREE.Vector3(1, 0, 0);
+  east.sub(nAxis.clone().multiplyScalar(east.dot(nAxis))).normalize();
+  var third = new THREE.Vector3().crossVectors(east, nAxis);
+  // Columns map canonical X/Y/Z onto east/up/third, so canonical +X is east and
+  // canonical +Y is the neutral axis.
+  var TO_WORLD = new THREE.Matrix4().makeBasis(east, nAxis, third);
+
+  var VERT = [
+    'varying vec3 vRgb;',
+    'varying vec3 vN;',
+    'varying vec3 vWorld;',
+    'void main() {',
+    '  vec4 w = modelMatrix * vec4(position, 1.0);',
+    '  vWorld = w.xyz;',
+    '  vRgb = clamp(w.xyz + 0.5, 0.0, 1.0);',
+    '  vN = normalize(mat3(modelMatrix) * normal);',
+    '  gl_Position = projectionMatrix * viewMatrix * w;',
+    '}'
+  ].join('\n');
+
+  var FRAG = [
+    'varying vec3 vRgb;',
+    'varying vec3 vN;',
+    'varying vec3 vWorld;',
+    'uniform float uShade;',
+    'uniform float uAlpha;',
+    'uniform float uBox;',      // trim to the cube: for the unbounded cut surfaces
+    'uniform int   uMode;',     // 0 whole, 1 brightness, 2 hue, 3 saturation
+    'uniform vec3  uPlaneN;',
+    'uniform float uPlaneC;',
+    'uniform vec3  uCam;',
+    'uniform float uSat;',
+    'uniform float uWhite;',
+    'uniform float uCut;',      // 1 = obey the cut, 0 = this mesh IS the cut face',
+    'void main() {',
+    // Unbounded shapes - a plane, a cone - are drawn oversized and trimmed here
+    // rather than having their intersection with the cube solved on the CPU.
+    '  if (uBox > 0.5 && any(greaterThan(abs(vWorld), vec3(0.5001)))) discard;',
+    '  if (uCut > 0.5) {',
+    '    if (uMode == 1 || uMode == 2) {',
+    // Drop whichever half is on the camera's side of the plane, so the cut face
+    // is always the thing facing you.
+    '      float s = dot(vWorld, uPlaneN) - uPlaneC;',
+    '      float sc = dot(uCam, uPlaneN) - uPlaneC;',
+    '      if (s * sc > 0.0) discard;',
+    '    } else if (uMode == 3) {',
+    '      float mx = max(max(vRgb.r, vRgb.g), vRgb.b);',
+    '      float mn = min(min(vRgb.r, vRgb.g), vRgb.b);',
+    '      float sat = mx <= 0.0001 ? 0.0 : (mx - mn) / mx;',
+    '      if (sat > uSat) discard;',
+    '    }',
+    '  }',
+    '  float lambert = 0.74 + 0.26 * max(dot(normalize(vN), normalize(vec3(0.35, 0.8, 0.5))), 0.0);',
+    '  vec3 base = uWhite > 0.5 ? vec3(0.91, 0.93, 0.94) : vRgb;',
+    '  vec3 c = base * mix(1.0, lambert, uShade);',
+    '  gl_FragColor = vec4(c, uAlpha);',
+    '}'
+  ].join('\n');
+
+  var shared = {
+    uMode: { value: 0 },
+    uPlaneN: { value: new THREE.Vector3(0, 1, 0) },
+    uPlaneC: { value: 0 },
+    uCam: { value: new THREE.Vector3() },
+    uSat: { value: 1 }
+  };
+
+  function volumeMat(o) {
+    o = o || {};
+    return new THREE.ShaderMaterial({
+      vertexShader: VERT, fragmentShader: FRAG,
+      uniforms: {
+        uShade: { value: o.shade === undefined ? 1 : o.shade },
+        uAlpha: { value: o.alpha === undefined ? 1 : o.alpha },
+        uBox: { value: o.box ? 1 : 0 },
+        uWhite: { value: o.white ? 1 : 0 },
+        uCut: { value: o.cut === false ? 0 : 1 },
+        uMode: shared.uMode, uPlaneN: shared.uPlaneN, uPlaneC: shared.uPlaneC,
+        uCam: shared.uCam, uSat: shared.uSat
+      },
+      transparent: o.alpha !== undefined && o.alpha < 1,
+      // DoubleSide by default: once a half is discarded you are looking at the
+      // inside of the far faces, and back-face culling would leave holes.
+      side: o.side || THREE.DoubleSide
+    });
+  }
+
+  // ── The solid ──────────────────────────────────────────────────────
+  var cube = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), volumeMat({}));
+  scene.add(cube);
+
+  // The exposed cross-section. Oversized and trimmed to the cube, so it reads as
+  // a cut face rather than a floating card.
+  var cap = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 2.6), volumeMat({ shade: 0.12, box: true, cut: false }));
+  cap.visible = false;
+  scene.add(cap);
+
+  // Saturation has no flat cut: its iso-surface is a cone about the axis, so the
+  // cube is carved down to it and the cone itself is the exposed surface.
+  var cone = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1.8, 128, 1, true), volumeMat({ shade: 0.3, box: true, cut: false }));
+  cone.visible = false;
+  scene.add(cone);
+
+  // ── Corner nodes ───────────────────────────────────────────────────
+  /*
+   * Eight corners, each drawn twice: a white shell behind a coloured core. The
+   * shell is what makes the black corner findable at all against a dark ground,
+   * and it doubles as a highlight on the pale ones.
+   */
+  var CORNERS = [
+    [0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0],
+    [0, 0, 1], [1, 0, 1], [1, 1, 1], [0, 1, 1]
+  ];
+  var nodeGeoOuter = new THREE.SphereGeometry(0.05, 24, 16);
+  var nodeGeoInner = new THREE.SphereGeometry(0.036, 24, 16);
+  CORNERS.forEach(function (c) {
+    var p = new THREE.Vector3(c[0] - 0.5, c[1] - 0.5, c[2] - 0.5);
+    /*
+     * The shell renders BackSide, so only its far hemisphere draws and it shows
+     * as a ring peeking out from behind the core. Drawn FrontSide at this radius
+     * it simply enclosed the core and every node came out a white blob.
+     */
+    var shell = new THREE.Mesh(nodeGeoOuter, volumeMat({ white: true, shade: 0, side: THREE.BackSide }));
+    shell.position.copy(p);
+    scene.add(shell);
+    var core = new THREE.Mesh(nodeGeoInner, volumeMat({ shade: 0.45 }));
+    core.position.copy(p);
+    scene.add(core);
+  });
+
+  // ── Cut geometry ───────────────────────────────────────────────────
+  var HALF_SPAN = Math.sqrt(3) / 2;   // how far the corners reach along the axis
+
+  function hueDir(deg) {
+    var a = deg * Math.PI / 180;
+    return east.clone().multiplyScalar(Math.cos(a)).add(third.clone().multiplyScalar(Math.sin(a)));
+  }
+
+  function setBrightnessCut(t) {
+    // A plane square to the neutral axis, slid from the black corner to the
+    // white one. Its cross-section runs triangle, hexagon, triangle.
+    shared.uPlaneN.value.copy(nAxis);
+    shared.uPlaneC.value = (t * 2 - 1) * HALF_SPAN;
+    cap.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), nAxis);
+    cap.position.copy(nAxis).multiplyScalar(shared.uPlaneC.value);
+  }
+
+  function setHueCut(deg) {
+    // A plane containing the axis. Removing the near half leaves two hues facing
+    // you - the chosen one and its complement - which is the honest shape: one
+    // plane through the axis always holds a hue and its opposite.
+    var dir = hueDir(deg);
+    var n = new THREE.Vector3().crossVectors(nAxis, dir).normalize();
+    shared.uPlaneN.value.copy(n);
+    shared.uPlaneC.value = 0;
+    cap.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), n);
+    cap.position.set(0, 0, 0);
+  }
+
+  function setSaturationCut(sat) {
+    shared.uSat.value = sat;
+    cone.geometry.dispose();
+    cone.geometry = new THREE.ConeGeometry(Math.max(sat, 0.001) * 1.0, Math.sqrt(3) * 1.05, 128, 1, true);
+    cone.quaternion.setFromUnitVectors(new THREE.Vector3(0, -1, 0), nAxis);
+    cone.position.copy(nAxis).multiplyScalar(Math.sqrt(3) * 0.525).add(new THREE.Vector3(-0.5, -0.5, -0.5));
+  }
+
+  // ── Orbit, in the neutral-axis frame ───────────────────────────────
+  /*
+   * azimuth turns around the black-white axis; elevation lifts toward it. At
+   * elevation 90 you are looking straight down the axis and the picture is the
+   * hexagon; near 0 the axis is vertical on screen and the picture is brightness
+   * against saturation.
+   */
+  var az = 0.55, el = 0.3, dist = 6;
+  var target = null, dragging = false, lastX = 0, lastY = 0, idle = true;
+  var EL_MAX = Math.PI / 2;
+
+  function place() {
+    var ce = Math.cos(el), se = Math.sin(el);
+    var pos = new THREE.Vector3(ce * Math.sin(az), se, ce * Math.cos(az));
+    // The up vector is the tangent in the elevation direction, which stays well
+    // defined at the pole - a fixed up would go degenerate exactly where the
+    // hexagon view lives, and the roll would be arbitrary rather than red-east.
+    var up = new THREE.Vector3(-se * Math.sin(az), ce, -se * Math.cos(az));
+    pos.applyMatrix4(TO_WORLD).multiplyScalar(dist);
+    up.applyMatrix4(TO_WORLD);
+    camera.position.copy(pos);
+    camera.up.copy(up);
+    camera.lookAt(0, 0, 0);
+    shared.uCam.value.copy(pos);
+  }
+
+  canvas.addEventListener('pointerdown', function (e) {
+    dragging = true; idle = false; target = null;
+    lastX = e.clientX; lastY = e.clientY;
+    canvas.classList.add('dragging'); canvas.setPointerCapture(e.pointerId);
+    viewnote.innerHTML = FREE_NOTE;
+  });
+  canvas.addEventListener('pointermove', function (e) {
+    if (!dragging) return;
+    az -= (e.clientX - lastX) * 0.008;
+    el = Math.max(-EL_MAX, Math.min(EL_MAX, el + (e.clientY - lastY) * 0.008));
+    lastX = e.clientX; lastY = e.clientY;
+  });
+  function endDrag() { dragging = false; canvas.classList.remove('dragging'); }
+  canvas.addEventListener('pointerup', endDrag);
+  canvas.addEventListener('pointercancel', endDrag);
+
+  // Looking down a single channel's axis sits at elevation asin(1/sqrt3), and the
+  // three of them are 120 degrees apart - the same 120 the hexagon shows.
+  var FACE_EL = Math.asin(1 / Math.sqrt(3));
+  var VIEWS = {
+    hue: { az: 0, el: EL_MAX, note: 'Straight down the neutral axis, red pointing east. Silhouette: a <b>regular hexagon</b>. Direction is hue; distance from the centre is saturation. Black and white are both under the middle.' },
+    bright: { az: 0, el: 0.12, note: 'Side on, with the axis upright &mdash; <b>white at the top, black at the bottom</b>. Height is brightness. Drag sideways to orbit the axis and bring another hue to the front.' },
+    r: { az: 0, el: FACE_EL, note: 'Down the <b>red</b> axis. The face you see is every colour at R&nbsp;=&nbsp;255, and it is a square gradient &mdash; the same shape as an ordinary picker.' },
+    g: { az: 2 * Math.PI / 3, el: FACE_EL, note: 'Down the <b>green</b> axis, 120&deg; round from red. Every colour at G&nbsp;=&nbsp;255.' },
+    b: { az: 4 * Math.PI / 3, el: FACE_EL, note: 'Down the <b>blue</b> axis, 240&deg; round from red. Every colour at B&nbsp;=&nbsp;255.' }
+  };
+  var viewnote = document.getElementById('viewnote');
+  var FREE_NOTE = 'Free view &mdash; drag to orbit the axis, or jump to a viewpoint.';
+
+  function goTo(k) {
+    var v = VIEWS[k];
+    idle = false;
+    var twoPi = Math.PI * 2;
+    az = ((az % twoPi) + twoPi) % twoPi;
+    if (az - v.az > Math.PI) az -= twoPi;
+    if (v.az - az > Math.PI) az += twoPi;
+    target = { az: v.az, el: v.el };
+    viewnote.innerHTML = v.note;
+  }
+  Object.keys(VIEWS).forEach(function (k) {
+    document.getElementById('v-' + k).addEventListener('click', function () { goTo(k); });
+  });
+
+  // ── Modes ──────────────────────────────────────────────────────────
+  var MODES = {
+    none: { code: 0, label: 'Value', unit: '', explain:
+      'Eight corners: black, white, the three primaries and the three secondaries. Every point between them is a real colour, so the faces are gradients rather than flat swatches. <b>Cut it in half</b> to see inside &mdash; the half nearer the camera is removed, so the cut face is always the one you are looking at.' },
+    v: { code: 1, label: 'Brightness', unit: '%', explain:
+      'A plane square to the neutral axis, sliding from black to white. The cross-section starts as a triangle at the black corner, opens into a <b>hexagon</b> at the middle, and closes to a triangle at white. The picker draws that hexagon.' },
+    h: { code: 2, label: 'Hue', unit: '&deg;', explain:
+      'A plane containing the axis. The exposed face carries the chosen hue on one side of the axis and its <b>complement</b> on the other, at every brightness and saturation &mdash; because one plane through a line always holds two opposite directions.' },
+    s: { code: 3, label: 'Saturation', unit: '%', explain:
+      'Not a flat cut: saturation is <b>chroma / max</b>, so a constant-saturation surface is a cone around the axis with its apex at black. The cube is carved back to that cone. Slide it to nothing and only the grey axis survives.' }
+  };
+  var mode = 'none';
+  var slider = document.getElementById('slider');
+  var sval = document.getElementById('sval');
+  var slabel = document.getElementById('slabel');
+  var explain = document.getElementById('explain');
+  var last = { v: 50, h: 0, s: 60 };
+
+  function setMode(next) {
+    mode = next;
+    ['none', 'v', 'h', 's'].forEach(function (k) {
+      document.getElementById('m-' + k).setAttribute('aria-pressed', String(k === next));
+    });
+    var m = MODES[next];
+    slabel.innerHTML = m.label;
+    explain.innerHTML = m.explain;
+    slider.disabled = next === 'none';
+    shared.uMode.value = m.code;
+    shared.uSat.value = 1;
+    cap.visible = next === 'v' || next === 'h';
+    cone.visible = next === 's';
+    if (next === 'none') { sval.innerHTML = '&mdash;'; return; }
+    slider.max = next === 'h' ? 359 : 100;
+    slider.value = String(last[next]);
+    applyValue();
+  }
+
+  function applyValue() {
+    if (mode === 'none') return;
+    var raw = Number(slider.value);
+    last[mode] = raw;
+    sval.innerHTML = raw + MODES[mode].unit;
+    if (mode === 'v') setBrightnessCut(raw / 100);
+    else if (mode === 'h') setHueCut(raw);
+    else setSaturationCut(raw / 100);
+  }
+
+  slider.addEventListener('input', applyValue);
+  ['none', 'v', 'h', 's'].forEach(function (k) {
+    document.getElementById('m-' + k).addEventListener('click', function () { setMode(k); });
+  });
+
+  // ── Resize + loop ──────────────────────────────────────────────────
+  function resize() {
+    var w = canvas.clientWidth || 640, h = canvas.clientHeight || 480;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setSize(w, h, false);
+    var a = w / h;
+    camera.left = -FRUSTUM * a; camera.right = FRUSTUM * a;
+    camera.top = FRUSTUM; camera.bottom = -FRUSTUM;
+    camera.updateProjectionMatrix();
+  }
+  window.addEventListener('resize', resize);
+
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function frame() {
+    if (target) {
+      az += (target.az - az) * 0.09;
+      el += (target.el - el) * 0.09;
+      if (Math.abs(target.az - az) < 0.0008 && Math.abs(target.el - el) < 0.0008) {
+        az = target.az; el = target.el; target = null;
+      }
+    } else if (idle && !dragging && !reduce) {
+      az += 0.0018;
+    }
+    place();
+    renderer.render(scene, camera);
+    requestAnimationFrame(frame);
+  }
+
+  resize();
+  viewnote.innerHTML = FREE_NOTE;
+  setMode('none');
+  place();
+  frame();
+  window.__cubeReady = true;
+})();
+</script>
