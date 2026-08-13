@@ -276,6 +276,30 @@ export default function ColorPicker() {
   // Ref-based animation stopper — called from user interaction handlers only
   const colorAnimActiveRef = useRef<boolean | 'stop'>(false);
 
+  /**
+   * Hand the colour back to the user: stop the play cycle and cancel any tween
+   * still in flight.
+   *
+   * Stopping the cycle was not enough. A tween is a rAF loop calling setHsb every
+   * frame, so a handler that only sets state loses the argument - the loop
+   * overwrites it on the next frame and still lands on its own target up to a
+   * second later. Typing a hex during a tween was discarded that way, and so was
+   * dragging a slider; the value would appear, then snap back.
+   *
+   * isUndoRedoing is cleared for the same reason animateToHsb clears it when it
+   * pre-empts itself: the flag suppresses undo pushes for the duration of a
+   * tween, and a tween that is cancelled rather than finished would otherwise
+   * leave it set and swallow the next few pushes.
+   */
+  const takeOverFromAnimation = useCallback(() => {
+    if (colorAnimActiveRef.current) colorAnimActiveRef.current = 'stop';
+    if (animRef.current) {
+      cancelAnimationFrame(animRef.current);
+      animRef.current = null;
+      isUndoRedoing.current = false;
+    }
+  }, []);
+
   const animateToHsb = useCallback((target: HSB) => {
     rgbOverride.current = null;
     if (animRef.current) {
@@ -325,7 +349,7 @@ export default function ColorPicker() {
   }, [hsb]);
 
   const handleRgbChange = useCallback((channel: 'r' | 'g' | 'b', value: number) => {
-    if (colorAnimActiveRef.current) colorAnimActiveRef.current = 'stop';
+    takeOverFromAnimation();
     setHsb((prev) => {
       const currentRgb = rgbOverride.current || hsbToRgb(prev.h, prev.s, prev.b);
       const newRgb = { ...currentRgb, [channel]: value };
@@ -334,10 +358,10 @@ export default function ColorPicker() {
       pulseTone(next);
       return next;
     });
-  }, [pulseTone]);
+  }, [pulseTone, takeOverFromAnimation]);
 
   const handleHslChange = useCallback((channel: 'h' | 's' | 'l', value: number) => {
-    if (colorAnimActiveRef.current) colorAnimActiveRef.current = 'stop';
+    takeOverFromAnimation();
     rgbOverride.current = null;
     setHsb((prev) => {
       const currentRgb = hsbToRgb(prev.h, prev.s, prev.b);
@@ -348,7 +372,7 @@ export default function ColorPicker() {
       pulseTone(next);
       return next;
     });
-  }, [pulseTone]);
+  }, [pulseTone, takeOverFromAnimation]);
 
   const showHsb = hslMode === 'hsb' || hslMode === 'both';
   const showHsl = hslMode === 'hsl' || hslMode === 'both';
@@ -567,9 +591,9 @@ export default function ColorPicker() {
             brightness={hsb.b}
             saturation={hsb.s}
             hsl={hsl}
-            onHueChange={(h) => { if (colorAnimActiveRef.current) colorAnimActiveRef.current = 'stop'; rgbOverride.current = null; setHsb((prev) => ({ ...prev, h })); }}
+            onHueChange={(h) => { takeOverFromAnimation(); rgbOverride.current = null; setHsb((prev) => ({ ...prev, h })); }}
             onRgbChange={handleRgbChange}
-            onHsbChange={(newHsb) => { if (colorAnimActiveRef.current) colorAnimActiveRef.current = 'stop'; rgbOverride.current = null; setHsb((prev) => ({ ...prev, ...newHsb })); }}
+            onHsbChange={(newHsb) => { takeOverFromAnimation(); rgbOverride.current = null; setHsb((prev) => ({ ...prev, ...newHsb })); }}
             onHslChange={handleHslChange}
             onAnimateToHsb={(target) => { if (colorAnimActiveRef.current) colorAnimActiveRef.current = 'stop'; animateToHsb(target); }}
             blMode={blMode}
@@ -780,7 +804,7 @@ export default function ColorPicker() {
               <div className="flex-1 min-w-0">
                 <HexInput
                   hex={hex}
-                  onChange={(parsed) => { rgbOverride.current = null; const next = rgbToHsb(parsed.r, parsed.g, parsed.b); pulseTone(next); setHsb(next); }}
+                  onChange={(parsed) => { takeOverFromAnimation(); rgbOverride.current = null; const next = rgbToHsb(parsed.r, parsed.g, parsed.b); pulseTone(next); setHsb(next); }}
                 />
               </div>
             </div>

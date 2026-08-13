@@ -65,10 +65,10 @@ function assignIds(cells: Omit<LayoutCell, 'id'>[]): LayoutCell[] {
   });
 }
 
-// For an unmatched HSL cell, compute a "birth" position within the millions bars
+// For an unmatched HSL cell, compute a "birth" position within the channel bars
 // based on the cell's dominant RGB channel. The cell appears to emerge from the
 // relevant color bar before tweening to its HSL grid position.
-function getMillionsBirthPos(color: string) {
+function getChannelBarBirthPos(color: string) {
   const raw = color.replace('#', '');
   const r = parseInt(raw.slice(0, 2), 16);
   const g = parseInt(raw.slice(2, 4), 16);
@@ -331,25 +331,34 @@ export default function AnimatedGrid({ mode, swatchColor, enterColor }: Animated
       removed = [];
     }
 
-    // Enrich millions↔hsl-gradient transitions: convert "added" cells into
-    // matched pairs with birth positions in the millions bars, so they tween
-    // into place instead of just fading in.
-    const isMillionsToGradient = fromMode === 'millions' && mode === 'hsl-gradient';
-    const isGradientToMillions = fromMode === 'hsl-gradient' && mode === 'millions';
-    if (isMillionsToGradient && added.length > 0) {
+    /*
+     * Enrich bars↔hsl-gradient transitions: convert "added" cells into matched
+     * pairs with birth positions in the channel bars, so the spectrum's 1024
+     * cells appear to emerge out of the four ramps instead of just fading in.
+     *
+     * Keyed on 'thousands' as well as 'millions'. It used to name only
+     * 'millions', because a separate millions slide sat between the ramps and
+     * the spectrum and was always the one you arrived from. Folding that slide
+     * into the ramps left this condition matching nothing, which cost the best
+     * transition in the deck with no error and nothing to see - so it stays
+     * widened even though 'millions' no longer appears in slides.ts.
+     */
+    const isBarsToGradient = (fromMode === 'millions' || fromMode === 'thousands') && mode === 'hsl-gradient';
+    const isGradientToBars = fromMode === 'hsl-gradient' && (mode === 'millions' || mode === 'thousands');
+    if (isBarsToGradient && added.length > 0) {
       const enriched = added.map(c => ({
         key: `seed:${c.id}`,
-        from: { ...c, ...getMillionsBirthPos(c.color), opacity: 0 },
+        from: { ...c, ...getChannelBarBirthPos(c.color), opacity: 0 },
         to: c,
       }));
       pairs.push(...enriched);
       added = [];
     }
-    if (isGradientToMillions && removed.length > 0) {
+    if (isGradientToBars && removed.length > 0) {
       const enriched = removed.map(c => ({
         key: `seed:${c.id}`,
         from: c,
-        to: { ...c, ...getMillionsBirthPos(c.color), opacity: 0 },
+        to: { ...c, ...getChannelBarBirthPos(c.color), opacity: 0 },
       }));
       pairs.push(...enriched);
       removed = [];

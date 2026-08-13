@@ -5,15 +5,10 @@ import {
   hueGradient, saturationGradient, brightnessGradient,
   redChannelGradient, greenChannelGradient, blueChannelGradient,
 } from '../utils/sliderGradients';
-import { PANEL_W, PANEL_H } from './slides/MonitorPanel';
+import { PANEL_W, PANEL_H } from './panelConstants';
 import AnimatedGrid from './slides/AnimatedGrid';
 import ColorSlider from '../components/ColorSlider';
-import PreviewSwatch from '../components/PreviewSwatch';
-import HexInput from '../components/HexInput';
 import EquationsPanel from '../components/EquationsPanel';
-import ColorOperations from '../components/ColorOperations';
-import ColorHexagon from '../components/ColorHexagon';
-import NarrativeSlide from './slides/NarrativeSlide';
 import HsbCircle from './HsbCircle';
 import ColorPicker from '../components/ColorPicker';
 
@@ -37,7 +32,6 @@ export default function PresentationStage({ slide, slideIndex }: { slide: Slide;
   const [hsb, setHsb] = useState<HSB>({ h: 0, s: 100, b: 100 });
   const hsbRef = useRef(hsb);
   useEffect(() => { hsbRef.current = hsb; }, [hsb]);
-  const animRef = useRef<number | null>(null);
   const rgbOverride = useRef<RGB | null>(null);
 
   const rgbFromHsb = useMemo(() => hsbToRgb(hsb.h, hsb.s, hsb.b), [hsb.h, hsb.s, hsb.b]);
@@ -46,31 +40,6 @@ export default function PresentationStage({ slide, slideIndex }: { slide: Slide;
   const rgb = rgbOverride.current || rgbFromHsb;
   const hex = useMemo(() => rgbToHex(rgb.r, rgb.g, rgb.b), [rgb.r, rgb.g, rgb.b]);
   const hsl = useMemo(() => rgbToHsl(rgb.r, rgb.g, rgb.b), [rgb.r, rgb.g, rgb.b]);
-
-  const animateToHsb = useCallback((target: HSB) => {
-    rgbOverride.current = null;
-    if (animRef.current) cancelAnimationFrame(animRef.current);
-    const duration = 1000;
-    const from = { ...hsbRef.current };
-    let start: number | null = null;
-    const easeInOut = (t: number) => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
-    const tick = (ts: number) => {
-      if (start === null) start = ts;
-      const t = easeInOut(Math.min((ts - start) / duration, 1));
-      let dh = target.h - from.h;
-      if (dh > 180) dh -= 360;
-      if (dh < -180) dh += 360;
-      setHsb({
-        h: Math.round(((from.h + dh * t) % 360 + 360) % 360),
-        s: Math.round(from.s + (target.s - from.s) * t),
-        b: Math.round(from.b + (target.b - from.b) * t),
-      });
-      rgbOverride.current = null;
-      if ((ts - start) < duration) animRef.current = requestAnimationFrame(tick);
-      else animRef.current = null;
-    };
-    animRef.current = requestAnimationFrame(tick);
-  }, []);
 
   // ── User interaction pause for RGB animation ───────────────────────
   const userInteracting = useRef(false);
@@ -103,21 +72,30 @@ export default function PresentationStage({ slide, slideIndex }: { slide: Slide;
 
   // ── Slide classification ──────────────────────────────────────────
   const isStatic = slide.type === 'static';
-  const isNarrative = slide.type === 'narrative';
   const panels = slide.props?.visiblePanels || [];
   const has = (p: string) => panels.includes(p);
-  const hasHexagon = has('hexagon');
   const locked = slide.props?.lockedChannels || [];
-  const hasSliders = has('rgb-sliders') || has('hsb-sliders') || has('hex-input') || has('equations') || has('conversions');
+  const hasSliders = has('rgb-sliders') || has('hsb-sliders') || has('equations');
 
   // ── Set color when entering a new interactive slide ────────────────
   // Between interactive slides, keep the current color (no reset).
   // Only set initialHsb when coming from a static slide.
   const prevIdx = useRef(slideIndex);
   const prevWasStatic = useRef(isStatic);
+  /**
+   * Whether the slide we just left was static, for the animation start-up delay
+   * below to read.
+   *
+   * It cannot read prevWasStatic. That ref is updated by this effect, which is
+   * declared first and so flushes first, so by the time the delay effect runs it
+   * already holds the CURRENT slide's value - and a slide with showRgbAnimate is
+   * never static, which made the longer delay unreachable and the branch dead.
+   */
+  const cameFromStatic = useRef(false);
   useEffect(() => {
     if (slideIndex !== prevIdx.current) {
       const comingFromStatic = prevWasStatic.current;
+      cameFromStatic.current = comingFromStatic;
       prevIdx.current = slideIndex;
       prevWasStatic.current = isStatic;
       if (slide.props?.initialHsb && comingFromStatic) {
@@ -163,41 +141,6 @@ export default function PresentationStage({ slide, slideIndex }: { slide: Slide;
     return () => cancelAnimationFrame(id);
   }, [slideIndex]);
 
-  // ── Sine wave animation (Finding HSB slide) ───────────────────────
-  const [sineActive, setSineActive] = useState(false);
-  const [sinePeriods] = useState({ h: 15000, s: 11000, b: 9000 });
-  const sinePeriodsRef = useRef(sinePeriods);
-  useEffect(() => { sinePeriodsRef.current = sinePeriods; }, [sinePeriods]);
-  const sineRaf = useRef(null);
-
-  // Reset sine wave when leaving the slide
-  useEffect(() => {
-    if (!slide.props?.showSineWave) setSineActive(false);
-  }, [slideIndex, slide.props?.showSineWave]);
-
-  useEffect(() => {
-    if (!sineActive) {
-      if (sineRaf.current) cancelAnimationFrame(sineRaf.current);
-      sineRaf.current = null;
-      return;
-    }
-    const start = performance.now();
-    const tick = (ts: number) => {
-      const elapsed = ts - start;
-      const p = sinePeriodsRef.current;
-      const h = Math.round(((elapsed % p.h) / p.h) * 360);
-      const s = Math.round(((Math.sin(elapsed * 2 * Math.PI / p.s) + 1) / 2) * 100);
-      const b = Math.round(Math.pow((Math.sin(elapsed * 2 * Math.PI / p.b) + 1) / 2, 0.4) * 100);
-      rgbOverride.current = null;
-      setHsb({ h, s, b });
-      sineRaf.current = requestAnimationFrame(tick);
-    };
-    sineRaf.current = requestAnimationFrame(tick);
-    return () => {
-      if (sineRaf.current) cancelAnimationFrame(sineRaf.current);
-    };
-  }, [sineActive]);
-
   // ── RGB keyframe animation ──────────────────────────────────────────
   // Always auto-starts when showRgbAnimate is set. No checkbox UI.
   // Slide 8: red only. Slide 9+: full Black,R,Y,G,C,B,M,W cycle.
@@ -206,11 +149,31 @@ export default function PresentationStage({ slide, slideIndex }: { slide: Slide;
   const [rgbAnimActive, setRgbAnimActive] = useState(false);
   const rgbAnimRaf = useRef(null);
   const rgbAnimKeyframesRef = useRef(null); // track current keyframe set
+  /**
+   * Origin of the keyframe cycle, on the rAF clock, kept across slide changes.
+   *
+   * It has to outlive the animation effect. That effect re-runs on slideIndex,
+   * and when it also recomputed the origin, every slide boundary restarted the
+   * cycle at the beginning of the nearest keyframe's hold - so a colour that was
+   * halfway from black to red reversed and walked back down, then set off again.
+   * Held here, the cycle's phase is continuous and a slide change is invisible
+   * to it.
+   *
+   * null means "not established yet"; the first tick sets it from its own
+   * timestamp. See the note there about which clock.
+   */
+  const cycleStart = useRef<number | null>(null);
 
   const rgbAnimDelay = useRef(null);
   const prevHadRgbAnim = useRef(false);
   useEffect(() => {
     if (rgbAnimDelay.current) clearTimeout(rgbAnimDelay.current);
+    // A slider nudged on the slide before this one must not leave this one
+    // frozen. The pause is a component-level ref with a 4s timer, so it outlived
+    // the slide it belonged to: touch a slider and advance 300ms later, and the
+    // new slide arrived dead for the remaining 3.7s.
+    if (userResumeTimer.current) clearTimeout(userResumeTimer.current);
+    userInteracting.current = false;
     if (!slide.props?.showRgbAnimate) {
       setRgbAnimActive(false);
       prevHadRgbAnim.current = false;
@@ -221,7 +184,7 @@ export default function PresentationStage({ slide, slideIndex }: { slide: Slide;
       prevHadRgbAnim.current = true;
     } else {
       // Starting fresh or coming from static/non-animated slide
-      const delay = prevWasStatic.current ? 1000 : 300;
+      const delay = cameFromStatic.current ? 1000 : 300;
       setRgbAnimActive(false);
       rgbAnimDelay.current = setTimeout(() => setRgbAnimActive(true), delay);
       prevHadRgbAnim.current = true;
@@ -234,12 +197,20 @@ export default function PresentationStage({ slide, slideIndex }: { slide: Slide;
     if (!rgbAnimActive) {
       if (rgbAnimRaf.current) cancelAnimationFrame(rgbAnimRaf.current);
       rgbAnimRaf.current = null;
+      // Next activation should pick up from whatever colour is on screen then,
+      // so the cycle has to be re-established rather than resumed.
+      cycleStart.current = null;
       return;
     }
 
     const redOnly = slide.props?.lockedChannels?.includes('g');
     const keyframes = redOnly ? RED_KEYFRAMES : FULL_KEYFRAMES;
+    const prevKeyframes = rgbAnimKeyframesRef.current;
     rgbAnimKeyframesRef.current = keyframes;
+    // Sync the cycle to the colour on screen only when it is genuinely starting:
+    // first activation, or a switch between the red-only and full keyframe sets
+    // (slide 8 to 9). On every other slide change the cycle carries on.
+    const needsSync = cycleStart.current === null || prevKeyframes !== keyframes;
 
     const TRANSITION_DUR = 1200;
     const HOLD_DUR = 800;
@@ -258,15 +229,37 @@ export default function PresentationStage({ slide, slideIndex }: { slide: Slide;
     // Start the cycle offset so this keyframe is the current hold
     const timeOffset = bestIdx * STEP_DUR;
 
-    const start = performance.now() - timeOffset;
     const LERP_DUR = 1500; // ms to lerp from user color back to animation
     let resumeStart: number | null = null; // when the user stopped interacting
     let resumeFrom: RGB | null = null; // the user's color when they stopped
 
     function getAnimColor(ts: number) {
-      const elapsed = ts - start;
-      const t = elapsed % CYCLE_DUR;
-      const frameIdx = Math.floor(t / STEP_DUR);
+      const elapsed = ts - (cycleStart.current ?? ts);
+      /*
+       * Both guards below are load-bearing, and each one on its own was enough
+       * to kill this loop for the rest of the deck.
+       *
+       * The origin used to come from performance.now() while `ts` is the rAF
+       * clock - the timestamp of the frame that has already begun. A rAF
+       * scheduled from inside a commit running in that same frame gets a `ts`
+       * up to one frame EARLIER than the performance.now() reading it was
+       * subtracted from, so elapsed went negative. Measured: 131 of 4198
+       * callbacks over one run of the deck, by 0.6ms to 17.5ms.
+       *
+       * JS % keeps the sign of its left operand, so a negative elapsed gave a
+       * negative t, floor() gave frameIdx -1, and keyframes[-1] is undefined -
+       * `from.r` threw inside the callback, before the reschedule below. The
+       * animation did not stall, it died, and it stayed dead until the next
+       * slide change re-ran this effect, which usually threw again on the same
+       * dark colour. That is the freeze: 21 seconds pinned across six slides.
+       *
+       * The origin now comes from the same clock it is compared against, which
+       * makes elapsed non-negative by construction. The non-negative modulo and
+       * the clamped index are belt and braces: any future clock slip becomes a
+       * one-frame visual glitch rather than a dead deck.
+       */
+      const t = ((elapsed % CYCLE_DUR) + CYCLE_DUR) % CYCLE_DUR;
+      const frameIdx = Math.min(keyframes.length - 1, Math.max(0, Math.floor(t / STEP_DUR)));
       const frameT = t - frameIdx * STEP_DUR;
 
       if (frameT < HOLD_DUR) {
@@ -282,7 +275,14 @@ export default function PresentationStage({ slide, slideIndex }: { slide: Slide;
       };
     }
 
+    let synced = !needsSync;
     const tick = (ts: number) => {
+      // Established here rather than at effect setup so the origin is read off
+      // the rAF clock, which is the only clock `ts` can safely be compared to.
+      if (!synced) {
+        cycleStart.current = ts - timeOffset;
+        synced = true;
+      }
       if (userInteracting.current) {
         // Paused — user is dragging. Reset resume state.
         resumeStart = null;
@@ -342,6 +342,24 @@ export default function PresentationStage({ slide, slideIndex }: { slide: Slide;
   // ── App reveal: mount hidden at small scale, then expand ──
   const [appReady, setAppReady] = useState(false);  // true = painted at start scale
   const [appExpanded, setAppExpanded] = useState(false); // true = scale up + fade in
+  /**
+   * True once the expand has finished, at which point the scale is dropped
+   * entirely rather than left at scale(1).
+   *
+   * A transform establishes a containing block for `position: fixed`, and the
+   * identity matrix counts - scale(1) captures fixed children just as firmly as
+   * scale(0.6). The app's Settings panel is fixed and hides itself by sliding off
+   * the right of the viewport with translate-x-[110%]; parented to this wrapper
+   * instead, "off the viewport" became "off the wrapper", and 181px of a panel
+   * that reported aria-hidden="true" sat visible on the last slide of the deck.
+   */
+  const [appSettled, setAppSettled] = useState(false);
+  useEffect(() => {
+    if (!appExpanded) { setAppSettled(false); return; }
+    // Just past the 0.3s transform transition below.
+    const t = setTimeout(() => setAppSettled(true), 360);
+    return () => clearTimeout(t);
+  }, [appExpanded]);
   useEffect(() => {
     const hasApp = (slide.props?.visiblePanels || []).includes('color-taylor-app');
     if (!hasApp) { setAppReady(false); setAppExpanded(false); return; }
@@ -374,9 +392,6 @@ export default function PresentationStage({ slide, slideIndex }: { slide: Slide;
   // Must be declared above ALL early returns — rules-of-hooks
   const appRef = useRef(null);
 
-  // ── Narrative slides ──────────────────────────────────────────────
-  if (isNarrative) return <NarrativeSlide {...(slide.props || {})} />;
-
   // ── Color Taylor App reveal — scales up from presentation width ───
   if (has('color-taylor-app')) {
      
@@ -387,41 +402,15 @@ export default function PresentationStage({ slide, slideIndex }: { slide: Slide;
       <div
         ref={appRef}
         style={{
-          transform: `scale(${appExpanded ? 1 : startScale})`,
+          // 'none', not scale(1) - see appSettled. Visually identical, but it
+          // hands fixed-position descendants back to the viewport.
+          transform: appSettled ? 'none' : `scale(${appExpanded ? 1 : startScale})`,
           transformOrigin: 'center center',
           opacity: appExpanded ? 1 : 0,
           transition: appReady ? 'transform 0.3s ease-out, opacity 0.3s ease-out' : 'none',
         }}
       >
         <ColorPicker />
-      </div>
-    );
-  }
-
-  // ── Hexagon slides (different layout entirely) ────────────────────
-  if (hasHexagon) {
-    return (
-      <div className="flex gap-6 items-start">
-        <div className="shrink-0">
-          <ColorHexagon
-            rgb={rgb} hue={hsb.h} brightness={hsb.b} saturation={hsb.s} hsl={hsl}
-            onHueChange={(h) => setHsbClear(p => ({ ...p, h }))}
-            onRgbChange={handleRgbChange}
-            onHsbChange={(v) => setHsbClear(p => ({ ...p, ...v }))}
-            onHslChange={() => {}} onAnimateToHsb={animateToHsb}
-            blMode="brightness" onBlModeChange={() => {}}
-            colorSpace="srgb" onColorSpaceChange={() => {}}
-            hoverMatchRgb={null} showHtmlOnHex={false} onHoverHtmlColor={() => {}}
-          />
-        </div>
-        {has('preview') && (
-          <div className="flex flex-col gap-4 min-w-[360px]">
-            <div className="flex gap-3 items-stretch">
-              <PreviewSwatch hex={hex} />
-              <div className="flex-1 font-mono text-lg flex items-center">{hex.toUpperCase()}</div>
-            </div>
-          </div>
-        )}
       </div>
     );
   }
@@ -490,14 +479,16 @@ export default function PresentationStage({ slide, slideIndex }: { slide: Slide;
           />
         </div>
 
-        {/* Millions gradient overlay — smooth R/G/B/Gray bars over thousands cells */}
+        {/* Smooth R/G/B/Grey gradients over the discrete ramp cells. Driven by
+            props.smoothOverlay, not by a mode name: the slide that used to own
+            this (05-millions) was merged into the ramps slide. */}
         <div
           style={{
             position: 'absolute',
             inset: 0,
             zIndex: 2,
-            opacity: slide.props?.mode === 'millions' ? 1 : 0,
-            transition: slide.props?.mode === 'millions'
+            opacity: slide.props?.smoothOverlay ? 1 : 0,
+            transition: slide.props?.smoothOverlay
               ? 'opacity 0.3s ease-out 0.9s'
               : 'opacity 0.3s ease-out',
             display: 'flex',
@@ -696,38 +687,9 @@ export default function PresentationStage({ slide, slideIndex }: { slide: Slide;
                 <ColorSlider group='hsb' label="B" value={hsb.b} max={100} gradient={brightnessGradient(hsb.h, hsb.s, 'srgb')} onChange={(v) => setHsbClear(p => ({ ...p, b: v }))} hideStepper={!showCircle} />
               </div>
             </div>
-          {has('hex-input') && (
-            <div className="border border-border rounded-lg p-3">
-              <h3 className="text-sm font-semibold mb-2">Hex</h3>
-              <div className="flex gap-3 items-stretch">
-                <PreviewSwatch hex={hex} />
-                <div className="flex-1 min-w-0">
-                  <HexInput hex={hex} onChange={(parsed) => setHsbClear(rgbToHsb(parsed.r, parsed.g, parsed.b))} />
-                </div>
-              </div>
-            </div>
-          )}
           {/* Equations panel is now in the left column above the swatch */}
-          {has('conversions') && (
-            <div className="col-span-2">
-              <ColorOperations hsb={hsb} onAnimateToHsb={animateToHsb} />
-            </div>
-          )}
         </div>
         {/* Animate Colors checkbox removed — animation auto-starts */}
-        {slide.props?.showSineWave && (
-          <div className="mt-3 flex flex-col gap-2">
-            <label className="flex items-center gap-2 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={sineActive}
-                onChange={(e) => setSineActive(e.target.checked)}
-                className="w-4 h-4 rounded accent-current cursor-pointer"
-              />
-              <span className="text-sm text-muted-foreground">Animate HSB</span>
-            </label>
-          </div>
-        )}
       </div>
     </div>
   );
@@ -744,8 +706,11 @@ const DROP = 'drop-shadow(3px 3px 0 rgba(0,0,0,0.9))';
 const R_STYLE = { color: '#FF4444', filter: DROP };
 const G_STYLE = { color: '#44DD44', filter: DROP };
 const B_STYLE = { color: '#6688FF', filter: DROP };
+// Linear at the same 165deg and the same 20-80% inset as S and B below, so the
+// three read as one family. It was a conic sweep, which put a visible pivot in
+// the middle of the glyph and pointed a different way from its two neighbours.
 const H_STYLE = {
-  backgroundImage: 'conic-gradient(from 0deg at 50% 50%, hsl(0,100%,50%), hsl(60,100%,50%), hsl(120,100%,50%), hsl(180,100%,50%), hsl(240,100%,50%), hsl(300,100%,50%), hsl(360,100%,50%))',
+  backgroundImage: 'linear-gradient(165deg, hsl(0,100%,50%) 20%, hsl(60,100%,50%) 30%, hsl(120,100%,50%) 40%, hsl(180,100%,50%) 50%, hsl(240,100%,50%) 60%, hsl(300,100%,50%) 70%, hsl(360,100%,50%) 80%)',
   WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent', filter: DROP,
 };
 const S_STYLE = {
