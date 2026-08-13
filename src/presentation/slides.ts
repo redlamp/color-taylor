@@ -8,22 +8,13 @@ interface SlideProps {
   showRgbAnimate?: boolean;
   showHexInPreview?: boolean;
   showHsbInPreview?: boolean;
-  showSteppers?: boolean;
   hsbCircleShape?: 'circle' | 'hexagon';
-  showSineWave?: boolean;
-  heading?: string;
-  subheading?: string;
-  body?: string;
-  introText?: string[];
-  palette?: 'cga16' | 'websafe256';
-  bitDepth?: number;
 }
 
 export interface Slide {
   id: string;
   title?: string;
   type?: string;
-  component?: string;
   props?: SlideProps;
   subtitle?: string;
   caption?: string;
@@ -35,7 +26,6 @@ export const slides: Slide[] = [
     id: '00-intro',
     title: 'Hi, I\u2019m Taylor',
     type: 'static',
-    component: 'MonitorPanel',
     props: { mode: 'intro' },
     subtitle: 'UX and Product Designer',
     caption: 'I wanted to share a little about RGB colors and how they map to HSB.',
@@ -44,7 +34,6 @@ export const slides: Slide[] = [
     id: '00b-acronyms',
     title: '',
     type: 'static',
-    component: 'MonitorPanel',
     props: { mode: 'acronyms' },
     caption: 'RGB stands for Red, Green, and Blue. HSB stands for Hue, Saturation, and Brightness.\nThese are two different ways to describe colors on computer screens.',
   },
@@ -53,7 +42,6 @@ export const slides: Slide[] = [
     title: 'Black & White',
     titleMeta: { bits: 1, colorCount: 2, year: 1984, os: 'System 1.0' },
     type: 'static',
-    component: 'MonitorPanel',
     props: { mode: 'bw' },
     caption: 'But first, a little history. My first computer was a Macintosh Plus,\nwhich had exactly two colors, Black and White.',
   },
@@ -62,7 +50,6 @@ export const slides: Slide[] = [
     title: '16 Colors',
     titleMeta: { bits: 4, colorCount: 16, year: 1987, os: 'System 5' },
     type: 'static',
-    component: 'MonitorPanel',
     props: { mode: 'c16' },
     caption: 'Then came sixteen colors. Still a pretty small world...\nbut suddenly things felt a little more alive.',
   },
@@ -71,7 +58,6 @@ export const slides: Slide[] = [
     title: '256 Colors',
     titleMeta: { bits: 8, colorCount: 256, year: 1987, os: 'System 5' },
     type: 'static',
-    component: 'MonitorPanel',
     props: { mode: 'c256' },
     caption: '256 colors. Each one had a number, a fixed spot in a lookup table.\nYou didn\'t describe the color, you referenced it.',
   },
@@ -80,7 +66,6 @@ export const slides: Slide[] = [
     title: 'Thousands, then Millions',
     titleMeta: { bits: 24, colorCount: 16777216, year: 1991, os: 'System 7' },
     type: 'static',
-    component: 'MonitorPanel',
     // Was two slides, 04-thousands and 05-millions. They rendered the identical
     // cell grid from the same generator; the only difference was this overlay,
     // and AnimatedGrid's own fast path detected that nothing moved between them
@@ -97,7 +82,6 @@ export const slides: Slide[] = [
     id: '06-spectrum',
     title: 'The Full Spectrum',
     type: 'static',
-    component: 'MonitorPanel',
     props: { mode: 'hsl-gradient' },
     caption: 'In reality, those millions of colors fill a continuous spectrum.\nHue across, lightness top to bottom. Every color the screen can show.',
   },
@@ -105,7 +89,6 @@ export const slides: Slide[] = [
     id: '07-red',
     title: 'The Red Channel',
     type: 'interactive',
-    component: 'PresentationColorPicker',
     props: {
       visiblePanels: ['rgb-sliders', 'large-preview'],
       lockedChannels: ['g', 'b'],
@@ -118,7 +101,6 @@ export const slides: Slide[] = [
     id: '08-mixing',
     title: 'Mixing in Green and Blue',
     type: 'interactive',
-    component: 'PresentationColorPicker',
     props: {
       visiblePanels: ['rgb-sliders', 'large-preview'],
       initialHsb: { h: 200, s: 80, b: 90 },
@@ -130,7 +112,6 @@ export const slides: Slide[] = [
     id: '09-hex',
     title: 'Describing Colors with Numbers',
     type: 'interactive',
-    component: 'PresentationColorPicker',
     props: {
       visiblePanels: ['rgb-sliders', 'large-preview'],
       showHexInPreview: true,
@@ -143,7 +124,6 @@ export const slides: Slide[] = [
     id: '09-hsb',
     title: 'Finding HSB',
     type: 'interactive',
-    component: 'PresentationColorPicker',
     props: {
       visiblePanels: ['rgb-sliders', 'hsb-sliders', 'large-preview'],
       showHexInPreview: true,
@@ -157,10 +137,8 @@ export const slides: Slide[] = [
     id: '10-hsb-circle',
     title: 'The Color Wheel',
     type: 'interactive',
-    component: 'PresentationColorPicker',
     props: {
       visiblePanels: ['rgb-sliders', 'hsb-sliders', 'hsb-circle'],
-      showSteppers: true,
       initialHsb: { h: 200, s: 80, b: 90 },
       showRgbAnimate: true,
     },
@@ -170,10 +148,8 @@ export const slides: Slide[] = [
     id: '12-hexagon',
     title: 'The Color Hexagon',
     type: 'interactive',
-    component: 'PresentationColorPicker',
     props: {
       visiblePanels: ['rgb-sliders', 'hsb-sliders', 'hsb-circle'],
-      showSteppers: true,
       hsbCircleShape: 'hexagon',
       initialHsb: { h: 200, s: 80, b: 90 },
       showRgbAnimate: true,
@@ -184,10 +160,8 @@ export const slides: Slide[] = [
     id: '13-equations',
     title: 'The Equations',
     type: 'interactive',
-    component: 'PresentationColorPicker',
     props: {
       visiblePanels: ['rgb-sliders', 'hsb-sliders', 'hsb-circle', 'equations'],
-      showSteppers: true,
       hsbCircleShape: 'hexagon',
       initialHsb: { h: 200, s: 80, b: 90 },
       showRgbAnimate: true,
@@ -199,7 +173,6 @@ export const slides: Slide[] = [
     title: 'Introducing Color Taylor \uD83E\uDDF5',
     subtitle: 'A tool to explore how RGB and HSB work together',
     type: 'interactive',
-    component: 'PresentationColorPicker',
     props: {
       visiblePanels: ['color-taylor-app'],
     },
