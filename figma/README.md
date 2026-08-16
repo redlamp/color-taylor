@@ -32,6 +32,11 @@ bun run build:figma     # one-off build - required once after cloning
 bun run watch:figma     # rebuild ui.html on every save
 ```
 
+`code.js` stays plain JS with no build, but it is typechecked in place:
+`tsc -p figma` (part of `bun run typecheck`, so CI gates it) checks it against
+`@figma/plugin-typings` via JSDoc, plus the bridge protocol both halves share
+in `messages.ts`. Change a message shape on one side only and typecheck fails.
+
 `ui.html` is generated and gitignored (a ~180 KB bundle that would rewrite
 itself on every app change), so a fresh clone has to build once before Figma can
 load the plugin.

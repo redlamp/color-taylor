@@ -55,14 +55,20 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import BlendIcon from './lite/BlendIcon';
 import { Ban, Brush, PaintBucket } from 'lucide-react';
 import ColorHexagon from '../../src/components/ColorHexagon';
+// The bridge protocol, shared with code.js - the one place the two halves of
+// the plugin are kept from drifting apart.
+import type {
+  PaintTarget,
+  SandboxToUiMessage,
+  SelectionMessage,
+  UiToSandboxMessage,
+} from '../messages';
 // figma.css imports the app's index.css, so this is the only stylesheet entry.
 import './figma.css';
 
-function post(msg: Record<string, unknown>) {
+function post(msg: UiToSandboxMessage) {
   parent.postMessage({ pluginMessage: msg }, '*');
 }
-
-type PaintTarget = 'fill' | 'stroke' | 'none';
 
 /**
  * Which slider blocks are on show. Multi-select rather than tabs: these are
@@ -353,7 +359,7 @@ function PluginApp() {
   useEffect(() => {
     // Figma can emit document changes faster than the hexagon can repaint, so
     // keep only the newest and apply it once per frame.
-    let queued: { count: number; hex?: string; opacity?: number } | null = null;
+    let queued: SelectionMessage | null = null;
     let frame = 0;
     const flush = () => {
       frame = 0;
@@ -361,7 +367,7 @@ function PluginApp() {
       queued = null;
       if (msg) applySelection(msg);
     };
-    const applySelection = (msg: { count: number; hex?: string; opacity?: number }) => {
+    const applySelection = (msg: SelectionMessage) => {
         setSelectionCount(msg.count);
         if (msg.hex) {
           const next = hexToRgb(msg.hex);
@@ -409,7 +415,7 @@ function PluginApp() {
     };
 
     const onMessage = (event: MessageEvent) => {
-      const msg = event.data?.pluginMessage;
+      const msg: SandboxToUiMessage | undefined = event.data?.pluginMessage;
       if (!msg) return;
       if (msg.type === 'wake') {
         wake();

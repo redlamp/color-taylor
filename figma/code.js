@@ -1,13 +1,26 @@
+// @ts-check
 /**
  * Color Taylor - Figma plugin sandbox side.
  *
  * Runs in Figma's QuickJS sandbox: no DOM, no fetch. Plain ES2017 so it loads
- * straight from "Import plugin from manifest" with no build step of its own.
+ * straight from "Import plugin from manifest" with no build step of its own -
+ * typechecked in place against @figma/plugin-typings via `tsc -p figma`.
  * The UI half is built from the app - see figma/README.md.
  *
  * There is no Apply button: picking a color paints the selection immediately.
  * The Fill/Stroke/None tabs choose which paint that is. This file's whole job
  * is that bridge.
+ */
+
+/** @typedef {import('./messages').UiToSandboxMessage} UiToSandboxMessage */
+/** @typedef {import('./messages').SandboxToUiMessage} SandboxToUiMessage */
+/** @typedef {import('./messages').PaintTarget} PaintTarget */
+
+/**
+ * A node the picker might paint. The API has no one type for "has fills or
+ * strokes" - those live on per-shape mixins - so the dynamic `node[prop]`
+ * access goes through this Partial instead of a per-node-type switch.
+ * @typedef {SceneNode & Partial<MinimalFillsMixin> & Partial<MinimalStrokesMixin>} PaintableNode
  */
 
 const MIN_W = 300;
@@ -25,7 +38,11 @@ const DEFAULT_H = 595;
 
 figma.showUI(__html__, { width: DEFAULT_W, height: DEFAULT_H, themeColors: true });
 
-/** Figma paint components are sRGB 0..1, not linear. Straight /255. */
+/**
+ * Figma paint components are sRGB 0..1, not linear. Straight /255.
+ * @param {unknown} hex
+ * @returns {RGB | null}
+ */
 function hexToPaintColor(hex) {
   if (typeof hex !== 'string') return null;
   let s = hex.trim().replace(/^#/, '');
@@ -35,16 +52,19 @@ function hexToPaintColor(hex) {
   return { r: ((n >> 16) & 255) / 255, g: ((n >> 8) & 255) / 255, b: (n & 255) / 255 };
 }
 
+/** @param {number} c */
 function channelToHex(c) {
   const n = Math.round(Math.min(1, Math.max(0, c)) * 255);
   return (n < 16 ? '0' : '') + n.toString(16);
 }
 
+/** @param {RGB} color */
 function paintColorToHex(color) {
   return '#' + channelToHex(color.r) + channelToHex(color.g) + channelToHex(color.b);
 }
 
 // Which paint the picker reads and writes. Driven by the UI's Fill/Stroke tabs.
+/** @type {PaintTarget} */
 let target = 'fill';
 
 // 'none' still reads from fills so the picker keeps showing the selection; it
@@ -53,11 +73,14 @@ function paintProp() {
   return target === 'stroke' ? 'strokes' : 'fills';
 }
 
-/** First visible solid paint in the selection, so the picker opens on it. */
+/**
+ * First visible solid paint in the selection, so the picker opens on it.
+ * @returns {{ hex: string, opacity: number } | null}
+ */
 function selectionPaint() {
   const prop = paintProp();
   for (const node of figma.currentPage.selection) {
-    const paints = node[prop];
+    const paints = /** @type {PaintableNode} */ (node)[prop];
     // May be figma.mixed (a symbol) on mixed-paint text; Array.isArray guards it.
     if (!Array.isArray(paints)) continue;
     for (const paint of paints) {
@@ -72,9 +95,19 @@ function selectionPaint() {
   return null;
 }
 
+/**
+ * Typed front door for figma.ui.postMessage, whose parameter is `any` - this
+ * is where an outbound message that drifted from the protocol fails typecheck.
+ * @param {SandboxToUiMessage} msg
+ */
+function send(msg) {
+  figma.ui.postMessage(msg);
+}
+
+/** @param {{ hex: string, opacity: number } | null} [known] */
 function postSelection(known) {
   const paint = known === undefined ? selectionPaint() : known;
-  figma.ui.postMessage({
+  send({
     type: 'selection',
     count: figma.currentPage.selection.length,
     hex: paint ? paint.hex : null,
@@ -88,6 +121,8 @@ function postSelection(known) {
  * solid appended rather than having their gradient discarded.
  *
  * Called on every color change, so it stays silent - no notify() per frame.
+ * @param {string} hex
+ * @param {number} opacity
  */
 function applyPaint(hex, opacity) {
   const color = hexToPaintColor(hex);
@@ -96,9 +131,10 @@ function applyPaint(hex, opacity) {
   const prop = paintProp();
   lastWritten = paintKey(hex, alpha);
 
-  for (const node of figma.currentPage.selection) {
+  for (const node of /** @type {PaintableNode[]} */ (figma.currentPage.selection)) {
     if (!(prop in node)) continue;
     const current = node[prop];
+    /** @type {Paint[]} */
     let next;
     if (Array.isArray(current) && current.length > 0) {
       next = current.slice();
@@ -127,14 +163,20 @@ function applyPaint(hex, opacity) {
 const size = { w: DEFAULT_W, h: DEFAULT_H };
 
 // Height is always the content's - there is deliberately no manual height.
+/** @param {number} w */
 function clampW(w) {
   return Math.min(MAX_W, Math.max(MIN_W, Math.round(w)));
 }
 
+/** @param {number} h */
 function clampH(h) {
   return Math.min(MAX_H, Math.max(MIN_H, Math.round(h)));
 }
 
+/**
+ * @param {number} w
+ * @param {number} h
+ */
 function applySize(w, h) {
   const nw = clampW(w);
   const nh = clampH(h);
@@ -158,6 +200,10 @@ function readPosition() {
   }
 }
 
+/**
+ * @param {number} x
+ * @param {number} y
+ */
 function moveTo(x, y) {
   if (!isFinite(x) || !isFinite(y)) return;
   try {
@@ -182,8 +228,11 @@ function moveTo(x, y) {
  * one. Degraded, but the panel can never be flung off-screen again.
  */
 const PROBE_PX = 8;
+/** @type {boolean | null} */
 let westCapable = null;
+/** @type {{ x: number, y: number } | null} */
 let westBias = null;
+/** @type {{ x: number, y: number, w: number } | null} */
 let westAnchor = null;
 
 /**
@@ -245,6 +294,10 @@ function holdWestAnchor() {
   );
 }
 
+/**
+ * @param {number} width
+ * @param {boolean} fromLeft
+ */
 function resizeWidth(width, fromLeft) {
   if (fromLeft && !westAnchor && canReposition()) {
     const pos = readPosition();
@@ -262,8 +315,13 @@ function resizeWidth(width, fromLeft) {
  * tell an echo from a genuine edit; without it every drag frame would bounce
  * back and fight the picker.
  */
+/** @type {string | null} */
 let lastWritten = null;
 
+/**
+ * @param {string} hex
+ * @param {number} opacity
+ */
 function paintKey(hex, opacity) {
   return String(hex).toLowerCase() + '|' + Math.round(opacity * 1000);
 }
@@ -275,8 +333,10 @@ function paintKey(hex, opacity) {
  * only ever sent once however it was noticed, and the echo rule is written
  * down once rather than in each caller.
  */
+/** @type {string | null} */
 let lastSeen = null;
 
+/** @param {boolean} force */
 function pushIfChanged(force) {
   const count = figma.currentPage.selection.length;
   const paint = selectionPaint();
@@ -290,7 +350,7 @@ function pushIfChanged(force) {
   // the drag. A change in how many nodes are selected still has to get through
   // or the "Selected: N" caption goes stale.
   if (paint && colorKey === lastWritten) {
-    figma.ui.postMessage({ type: 'selection', count: count, hex: null, opacity: 1 });
+    send({ type: 'selection', count: count, hex: null, opacity: 1 });
     return;
   }
   postSelection(paint);
@@ -316,9 +376,10 @@ function pushIfChanged(force) {
  * synchronous and cheap (selectionPaint stops at the first solid paint).
  */
 function wakeUi() {
-  figma.ui.postMessage({ type: 'wake' });
+  send({ type: 'wake' });
 }
 
+/** @param {NodeChangeEvent} event */
 function onNodeChange(event) {
   const selected = new Set(figma.currentPage.selection.map((n) => n.id));
   if (selected.size === 0) return;
@@ -348,6 +409,7 @@ function onNodeChange(event) {
  * The cost is that the listener belongs to a page, not the file, so it has to
  * follow the user when they switch pages.
  */
+/** @type {PageNode | null} */
 let watched = null;
 
 function watchCurrentPage() {
@@ -367,7 +429,10 @@ function watchCurrentPage() {
   } catch (err) {
     // No PageNode.on on this host. Selection tracking still works; only
     // following an edit made from Figma's own picker is lost.
-    console.warn('[Color Taylor] nodechange unavailable:', err && err.message);
+    console.warn(
+      '[Color Taylor] nodechange unavailable:',
+      err instanceof Error ? err.message : err,
+    );
   }
 }
 
@@ -390,10 +455,11 @@ watchCurrentPage();
  * on every swatch change, and one setAsync is cheaper than several.
  */
 const SWATCH_KEY = 'swatches';
+/** @type {Record<string, unknown> | null} */
 let swatches = null;
 
 function sendSwatches() {
-  figma.ui.postMessage({ type: 'swatches', data: swatches || {} });
+  send({ type: 'swatches', data: swatches || {} });
 }
 
 function loadSwatches() {
@@ -410,7 +476,7 @@ function loadSwatches() {
     });
 }
 
-figma.ui.onmessage = (msg) => {
+figma.ui.onmessage = (/** @type {UiToSandboxMessage} */ msg) => {
   if (!msg || typeof msg.type !== 'string') return;
 
   switch (msg.type) {
