@@ -12,9 +12,14 @@
  * is that bridge.
  */
 
-/** @typedef {import('./messages').UiToSandboxMessage} UiToSandboxMessage */
-/** @typedef {import('./messages').SandboxToUiMessage} SandboxToUiMessage */
-/** @typedef {import('./messages').PaintTarget} PaintTarget */
+/*
+ * The bridge protocol types - UiToSandboxMessage, SandboxToUiMessage,
+ * PaintTarget - arrive as globals via messages-globals.d.ts, not the usual
+ * JSDoc module reference: Figma's loader scans this file's raw source for
+ * dynamic-module syntax and rejects it, comments included. Keep this file
+ * free of anything shaped like a dynamic-module call - the word alone in
+ * prose (the header above) is proven safe, the call form is not.
+ */
 
 /**
  * A node the picker might paint. The API has no one type for "has fills or

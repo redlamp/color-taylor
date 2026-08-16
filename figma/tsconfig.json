@@ -31,5 +31,5 @@
     // sandbox - and typeRoots auto-inclusion proved unreliable under TS 6.
     "types": ["@figma/plugin-typings"]
   },
-  "include": ["code.js", "messages.ts"]
+  "include": ["code.js", "messages.ts", "messages-globals.d.ts"]
 }
