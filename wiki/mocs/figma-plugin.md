@@ -21,7 +21,8 @@ The app's color hexagon running inside Figma. Started 2026-08-01 on `feat/figma-
 - [[decision-frame-clocked-follow]] — how the picker tracks Figma's own color picker
 - [[decision-content-fit-height]] — the panel is always exactly as tall as its content
 - [[decision-plugin-css-hooks]] — how panel CSS is allowed to reach into shared markup
-- [[decision-figma-listing-assets]] — generated icon and thumbnail, and where the listing artwork lives
+- [[decision-figma-listing-assets]] — generated thumbnail, and where the listing artwork lives
+- [[decision-logo-source]] — the designed logo frame in Figma is the icon's source of truth
 
 ## Platform knowledge
 

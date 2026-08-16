@@ -8,6 +8,10 @@ tags:
 
 **2026-08-04.** The plugin icon and Community thumbnail are produced by `figma/brand/make-assets.mjs` from the same HSV-hexagon math the app renders, rather than being drawn once and exported.
 
+> **2026-08-16: superseded for the icon.** The icon is now an export of the
+> designed logo frame - see [[decision-logo-source]]. The thumbnail half of
+> this note still stands; `make-assets.mjs` no longer produces the icon.
+
 ## Why
 
 The hexagon *is* the product. An icon drawn by hand is a second source of truth for what the hexagon looks like, and it starts drifting the first time the field's math changes. Generating it means the icon cannot disagree with the thing it depicts.

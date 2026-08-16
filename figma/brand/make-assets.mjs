@@ -1,13 +1,18 @@
 /**
- * Generates the Community listing assets from the same hexagon math the app
- * draws, so the icon cannot drift from the product.
+ * Generates the Community thumbnail from the same hexagon math the app draws.
  *
- *   bun run figma/brand/make-assets.mjs
+ *   node figma/brand/make-assets.mjs
  *
- * Outputs icon-128.png and cover-1920x1080.png next to this file. Both are the
- * sizes Figma's publish modal recommends - 128 square for the icon, 16:9 for
- * the thumbnail, which is the one image the modal actually requires. Committed so the listing can be
- * refreshed without a browser, but regenerate rather than editing by hand.
+ * (node, not bun - chromium.launch() hangs under bun on Windows.)
+ *
+ * Outputs cover-1920x1080.png next to this file - 16:9, the one image the
+ * publish modal actually requires. Committed so the listing can be refreshed
+ * without a browser, but regenerate rather than editing by hand.
+ *
+ * icon-128.png is NOT generated here any more. Since 2026-08-16 the icon is
+ * the designed logo, exported from the "Color Taylor - Logo" frame (node
+ * 59:179) in the Color Taylor Figma file - see wiki decision-logo-source and
+ * brand/README.md. Do not add icon output back without reading that note.
  *
  * Needs Playwright, which the repo already has for the e2e specs - the canvas
  * work happens in a real browser rather than pulling in an image library.
@@ -105,13 +110,6 @@ const save = (name, dataUrl) => {
   writeFileSync(join(HERE, name), Buffer.from(dataUrl.split(',')[1], 'base64'));
   console.log('wrote %s', name);
 };
-
-// --- icon: 128x128, hexagon centred on a neutral dark tile -----------------
-save('icon-128.png', await page.evaluate(({ src }) => {
-  const draw = new Function('return ' + src)();
-  const c = draw(128, 128, 64, 64, 52, '#2c2c2c', 28);
-  return c.toDataURL('image/png');
-}, { src: DRAW.toString() }));
 
 // --- thumbnail: 1920x1080, hexagon left, wordmark right --------------------
 save('cover-1920x1080.png', await page.evaluate(({ src }) => {
