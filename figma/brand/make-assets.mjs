@@ -119,14 +119,18 @@ save('cover-1920x1080.png', await page.evaluate(({ src }) => {
   const W = 1920, H = 1080;
   const c = draw(W, H, 640, H / 2, 360, '#2c2c2c', 0);
   const ctx = c.getContext('2d');
+  ctx.textBaseline = 'alphabetic';
   ctx.fillStyle = '#ffffff';
   ctx.font = '600 104px Inter, "Segoe UI", system-ui, sans-serif';
-  ctx.textBaseline = 'alphabetic';
-  ctx.fillText('Color Taylor', 1112, 512);
+  ctx.fillText('Color Taylor', 1112, 464);
+  // The lockup settled 2026-08-18: motion as the headline, the hands-on
+  // model relationship as the subtitle. Italic on the headline is deliberate.
+  ctx.font = 'italic 500 50px Inter, "Segoe UI", system-ui, sans-serif';
+  ctx.fillText('Understand color by moving it.', 1112, 566);
   ctx.fillStyle = 'rgba(255,255,255,0.62)';
-  ctx.font = '400 42px Inter, "Segoe UI", system-ui, sans-serif';
-  ctx.fillText('See how RGB, HSB and HSL', 1112, 596);
-  ctx.fillText('describe the same color.', 1112, 652);
+  ctx.font = '400 36px Inter, "Segoe UI", system-ui, sans-serif';
+  ctx.fillText('Get hands-on with how RGB, HSB,', 1112, 634);
+  ctx.fillText('and HSL colors relate.', 1112, 682);
   return c.toDataURL('image/png');
 }, { src: DRAW.toString() }));
 
