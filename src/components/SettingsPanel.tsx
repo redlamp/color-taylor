@@ -1,5 +1,32 @@
-import { useEffect, useRef, useState } from 'react';
-import { X, RotateCcw } from 'lucide-react';
+/**
+ * Settings, as a right-edge sheet.
+ *
+ * It used to be a hand-rolled `position: fixed` <aside> that floated over the
+ * app at top-20 right-4 and could be dragged anywhere. That carried its own
+ * Escape listener, its own drag maths, a mobile-only backdrop, and a
+ * hide-by-translating-off-screen trick - and with it a list of defects:
+ *
+ *   - `aria-hidden` on a subtree that stayed tabbable, so a closed panel's
+ *     controls were still reachable by keyboard while hidden from screen
+ *     readers. That is the textbook aria-hidden violation.
+ *   - No dialog semantics, no focus trap, no focus return to the trigger.
+ *   - Click-outside dismissed it on mobile only; on desktop nothing did.
+ *   - Hiding by sliding "off the viewport" broke inside the presentation,
+ *     where a transformed ancestor makes `fixed` resolve against the wrapper
+ *     instead - 181px of a supposedly hidden panel sat on the last slide, and
+ *     the fix had to live in the consumer (PresentationStage). Portalling to
+ *     the body removes the failure mode rather than working around it.
+ *   - The drag position was captured in an inline style guarded by a
+ *     `window.innerWidth` read at render, so it went stale on resize/rotate.
+ *
+ * base-ui's Dialog supplies portal, backdrop, focus trap, focus restore,
+ * Escape and click-outside, so all of the above is deleted rather than fixed.
+ * The sheet shape is the same one the panel already used below `md` - now it
+ * is the only shape, which is why the drag went: a panel anchored to an edge
+ * has nowhere to be dragged to.
+ */
+import { RotateCcw, X } from 'lucide-react';
+import { Dialog as DialogPrimitive } from '@base-ui/react/dialog';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
 import { AudioSettings } from '@/components/settings/AudioSettings';
@@ -20,16 +47,6 @@ export function SettingsPanel({ open, onClose, muted, onToggleMute, colorFx, onT
   const { reset: resetSynth, settings, setAudioEnabled } = useSettings();
   const audioEnabled = settings.audioEnabled;
   const { reset: resetTheme } = useTheme();
-  const asideRef = useRef<HTMLElement | null>(null);
-  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
-  const dragOffset = useRef<{ x: number; y: number } | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
 
   const resetAll = () => {
     resetSynth();
@@ -37,114 +54,71 @@ export function SettingsPanel({ open, onClose, muted, onToggleMute, colorFx, onT
     window.dispatchEvent(new CustomEvent('color-taylor:reset-all'));
   };
 
-  const onHeaderPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (window.innerWidth < 768) return;
-    if (e.target instanceof Element && e.target.closest('button')) return;
-    const aside = asideRef.current;
-    if (!aside) return;
-    const rect = aside.getBoundingClientRect();
-    dragOffset.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-    setPos({ x: rect.left, y: rect.top });
-    e.currentTarget.setPointerCapture(e.pointerId);
-  };
-  const onHeaderPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!dragOffset.current) return;
-    const aside = asideRef.current;
-    const w = aside?.offsetWidth ?? 360;
-    const h = aside?.offsetHeight ?? 200;
-    const nx = Math.max(0, Math.min(window.innerWidth - w, e.clientX - dragOffset.current.x));
-    const ny = Math.max(0, Math.min(window.innerHeight - h, e.clientY - dragOffset.current.y));
-    setPos({ x: nx, y: ny });
-  };
-  const onHeaderPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!dragOffset.current) return;
-    dragOffset.current = null;
-    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch { /* */ }
-  };
-
   return (
-    <>
-      {/* Mobile backdrop */}
-      <div
-        className={
-          'md:hidden fixed inset-0 z-40 bg-black/40 transition-opacity ' +
-          (open ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none')
-        }
-        onClick={onClose}
-      />
-      <aside
-        ref={asideRef}
-        aria-hidden={!open}
-        className={
-          'fixed z-50 bg-background border border-border rounded-lg shadow-xl ' +
-          // Read dragOffset ref during render to switch transition style — avoids
-          // triggering a re-render on every drag frame. Lint exception intentional.
-          // eslint-disable-next-line react-hooks/refs
-          (dragOffset.current ? '' : (pos ? 'transition-opacity duration-200 ease-out ' : 'transition-transform duration-200 ease-out ')) +
-          'flex flex-col ' +
-          // desktop default position (overridden by inline style when dragged)
-          (pos ? '' : 'md:top-20 md:right-4 ') +
-          'md:w-[360px] md:max-h-[calc(100vh-6rem)] ' +
-          // mobile
-          'max-md:top-0 max-md:right-0 max-md:bottom-0 max-md:w-[88vw] max-md:max-w-[360px] max-md:rounded-none max-md:border-l max-md:border-y-0 max-md:border-r-0 ' +
-          (pos
-            ? (open ? 'opacity-100' : 'opacity-0 pointer-events-none')
-            : (open ? 'translate-x-0' : 'translate-x-[110%]'))
-        }
-        style={pos && window.innerWidth >= 768 ? { top: pos.y, left: pos.x, right: 'auto' } : undefined}
-      >
-        <div
-          className="flex items-center justify-between px-3 py-2 border-b border-border md:cursor-grab md:active:cursor-grabbing select-none md:touch-none"
-          onPointerDown={onHeaderPointerDown}
-          onPointerMove={onHeaderPointerMove}
-          onPointerUp={onHeaderPointerUp}
-          onPointerCancel={onHeaderPointerUp}
+    <DialogPrimitive.Root open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
+      <DialogPrimitive.Portal>
+        {/*
+          Deliberately faint, and no backdrop-blur. Two of the settings behind
+          it - theme and the border colour effects - are judged by looking at
+          the app while you toggle them, and this is a colour tool besides, so
+          the scrim says "modal" without recolouring what it sits over.
+        */}
+        <DialogPrimitive.Backdrop className="fixed inset-0 isolate z-50 bg-black/20 duration-200 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0" />
+        <DialogPrimitive.Popup
+          className={
+            'fixed top-0 right-0 bottom-0 z-50 flex w-[min(88vw,380px)] flex-col ' +
+            'border-l border-border bg-background shadow-xl outline-none duration-200 ' +
+            'data-open:animate-in data-open:slide-in-from-right ' +
+            'data-closed:animate-out data-closed:slide-out-to-right'
+          }
         >
-          <h2 className="text-sm font-semibold">Settings</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close settings"
-            className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer select-none"
-          >
-            <X className="size-4" />
-          </button>
-        </div>
-        <div className="overflow-y-auto px-3 pb-3 flex-1">
-          <Accordion multiple defaultValue={['display', 'audio']}>
-            <AccordionItem value="display">
-              <AccordionTrigger>Display</AccordionTrigger>
-              <AccordionContent keepMounted>
-                <DisplaySettings
-                  colorFx={colorFx}
-                  onToggleColorFx={onToggleColorFx}
-                  audioEnabled={audioEnabled}
-                  onToggleAudio={() => setAudioEnabled(!audioEnabled)}
-                />
-              </AccordionContent>
-            </AccordionItem>
-            {/* The Audio section only exists once the feature is switched on -
-                its own switch lives in Display, which is always there, so there
-                is somewhere to turn it on from. AudioSettings previews the synth
-                as you adjust it, so mounting it while the feature is off would
-                pull the engine in behind the user's back. */}
-            {audioEnabled && (
-              <AccordionItem value="audio">
-                <AccordionTrigger>Audio</AccordionTrigger>
+          <div className="flex items-center justify-between border-b border-border px-3 py-2">
+            <DialogPrimitive.Title className="text-sm font-semibold">Settings</DialogPrimitive.Title>
+            <DialogPrimitive.Close
+              aria-label="Close settings"
+              className="cursor-pointer select-none rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              <X className="size-4" />
+            </DialogPrimitive.Close>
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-3 pb-3">
+            <Accordion multiple defaultValue={['display', 'audio']}>
+              <AccordionItem value="display">
+                <AccordionTrigger>Display</AccordionTrigger>
                 <AccordionContent keepMounted>
-                  <AudioSettings muted={muted} onToggleMute={onToggleMute} />
+                  <DisplaySettings
+                    colorFx={colorFx}
+                    onToggleColorFx={onToggleColorFx}
+                    audioEnabled={audioEnabled}
+                    onToggleAudio={() => setAudioEnabled(!audioEnabled)}
+                  />
                 </AccordionContent>
               </AccordionItem>
-            )}
-          </Accordion>
-        </div>
-        <div className="border-t border-border px-3 py-2">
-          <Button variant="secondary" size="sm" onClick={resetAll} className="w-full">
-            <RotateCcw className="size-4" />
-            Reset all settings
-          </Button>
-        </div>
-      </aside>
-    </>
+              {/* The Audio section only exists once the feature is switched on -
+                  its own switch lives in Display, which is always there, so there
+                  is somewhere to turn it on from. AudioSettings previews the synth
+                  as you adjust it, so mounting it while the feature is off would
+                  pull the engine in behind the user's back. */}
+              {audioEnabled && (
+                <AccordionItem value="audio">
+                  <AccordionTrigger>Audio</AccordionTrigger>
+                  <AccordionContent keepMounted>
+                    <AudioSettings muted={muted} onToggleMute={onToggleMute} />
+                  </AccordionContent>
+                </AccordionItem>
+              )}
+            </Accordion>
+          </div>
+
+          <div className="border-t border-border px-3 py-2">
+            <Button variant="secondary" size="sm" onClick={resetAll} className="w-full">
+              <RotateCcw className="size-4" />
+              Reset all settings
+            </Button>
+          </div>
+        </DialogPrimitive.Popup>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   );
 }

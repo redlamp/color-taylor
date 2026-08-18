@@ -3,6 +3,7 @@ import globals from 'globals'
 import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 import tseslint from 'typescript-eslint'
+import figmaPlugins from '@figma/eslint-plugin-figma-plugins'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
@@ -38,10 +39,17 @@ export default defineConfig([
   },
   {
     // Figma plugin sandbox: QuickJS, not a browser. `figma` and `__html__` are
-    // injected by the host.
+    // injected by the host. Figma's own rules (deprecated sync APIs, dynamic-page
+    // advice) are type-aware, so the TS parser reads types from figma/tsconfig.json
+    // - the same project `tsc -p figma` checks.
     files: ['figma/code.js'],
+    extends: [figmaPlugins.flatConfigs.recommended],
     languageOptions: {
       globals: { ...globals.browser, figma: 'readonly', __html__: 'readonly' },
+      parser: tseslint.parser,
+      parserOptions: {
+        project: './figma/tsconfig.json',
+      },
     },
   },
   {

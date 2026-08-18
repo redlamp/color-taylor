@@ -1,13 +1,31 @@
+// @ts-check
 /**
  * Color Taylor - Figma plugin sandbox side.
  *
  * Runs in Figma's QuickJS sandbox: no DOM, no fetch. Plain ES2017 so it loads
- * straight from "Import plugin from manifest" with no build step of its own.
+ * straight from "Import plugin from manifest" with no build step of its own -
+ * typechecked in place against @figma/plugin-typings via `tsc -p figma`.
  * The UI half is built from the app - see figma/README.md.
  *
  * There is no Apply button: picking a color paints the selection immediately.
  * The Fill/Stroke/None tabs choose which paint that is. This file's whole job
  * is that bridge.
+ */
+
+/*
+ * The bridge protocol types - UiToSandboxMessage, SandboxToUiMessage,
+ * PaintTarget - arrive as globals via messages-globals.d.ts, not the usual
+ * JSDoc module reference: Figma's loader scans this file's raw source for
+ * dynamic-module syntax and rejects it, comments included. Keep this file
+ * free of anything shaped like a dynamic-module call - the word alone in
+ * prose (the header above) is proven safe, the call form is not.
+ */
+
+/**
+ * A node the picker might paint. The API has no one type for "has fills or
+ * strokes" - those live on per-shape mixins - so the dynamic `node[prop]`
+ * access goes through this Partial instead of a per-node-type switch.
+ * @typedef {SceneNode & Partial<MinimalFillsMixin> & Partial<MinimalStrokesMixin>} PaintableNode
  */
 
 const MIN_W = 300;
@@ -16,16 +34,44 @@ const MIN_W = 300;
 const MIN_H = 160;
 const MAX_W = 900;
 const MAX_H = 1200;
-// A wider default means a larger hexagon out of the box; users can drag either
-// way. DEFAULT_H is the measured content height at DEFAULT_W, so the window
-// opens already fitted instead of jumping when the UI reports its first
-// measurement. Measured with Recent and Saved collapsed, which is how they open.
-const DEFAULT_W = 500;
-const DEFAULT_H = 595;
+// Opens at the minimum width. A plugin panel is a guest in someone else's
+// window, so it takes as little of the canvas as it can and lets the user
+// widen it if they want a bigger hexagon; the width they drag to is remembered
+// in clientStorage, so this only ever applies on a first run.
+//
+// DEFAULT_H is the measured content height at DEFAULT_W, so the window opens
+// already fitted instead of jumping when the UI reports its first measurement.
+// Measured with Recent and Saved collapsed, which is how they open.
+//
+// Re-measured 2026-08-18 against the built ui.html: 651 at 300, 690 at 340,
+// 767 at 420, 844 at 500. The previous pair (500 / 595) was stale by about
+// 235px at every width - the app grew an alpha slider and the group toggles
+// after it was taken, and nothing here is derived automatically. If the panel
+// visibly jumps on open, this is the number to re-measure.
+const DEFAULT_W = MIN_W;
+const DEFAULT_H = 651;
 
-figma.showUI(__html__, { width: DEFAULT_W, height: DEFAULT_H, themeColors: true });
+/**
+ * Placement belongs to Figma. Measured, not assumed: with `position` omitted
+ * on 2026-08-19, the panel opened somewhere sensible and reopened in the same
+ * place after being moved and closed. Figma persists window position itself,
+ * so a stored `windowPos` and a hardcoded opening point were both duplicating
+ * the host - and the hardcoded one was wrong anyway, since calibration proved
+ * `position` takes canvas coordinates, which land somewhere different at every
+ * pan and zoom.
+ *
+ * The single exception is the one-time calibration below, which has to dictate
+ * a position in order to recognise it coming back. These are the coordinates
+ * it uses for that, on that one launch only.
+ */
+const CALIBRATION_X = 280;
+const CALIBRATION_Y = 72;
 
-/** Figma paint components are sRGB 0..1, not linear. Straight /255. */
+/**
+ * Figma paint components are sRGB 0..1, not linear. Straight /255.
+ * @param {unknown} hex
+ * @returns {RGB | null}
+ */
 function hexToPaintColor(hex) {
   if (typeof hex !== 'string') return null;
   let s = hex.trim().replace(/^#/, '');
@@ -35,16 +81,19 @@ function hexToPaintColor(hex) {
   return { r: ((n >> 16) & 255) / 255, g: ((n >> 8) & 255) / 255, b: (n & 255) / 255 };
 }
 
+/** @param {number} c */
 function channelToHex(c) {
   const n = Math.round(Math.min(1, Math.max(0, c)) * 255);
   return (n < 16 ? '0' : '') + n.toString(16);
 }
 
+/** @param {RGB} color */
 function paintColorToHex(color) {
   return '#' + channelToHex(color.r) + channelToHex(color.g) + channelToHex(color.b);
 }
 
 // Which paint the picker reads and writes. Driven by the UI's Fill/Stroke tabs.
+/** @type {PaintTarget} */
 let target = 'fill';
 
 // 'none' still reads from fills so the picker keeps showing the selection; it
@@ -53,11 +102,14 @@ function paintProp() {
   return target === 'stroke' ? 'strokes' : 'fills';
 }
 
-/** First visible solid paint in the selection, so the picker opens on it. */
+/**
+ * First visible solid paint in the selection, so the picker opens on it.
+ * @returns {{ hex: string, opacity: number } | null}
+ */
 function selectionPaint() {
   const prop = paintProp();
   for (const node of figma.currentPage.selection) {
-    const paints = node[prop];
+    const paints = /** @type {PaintableNode} */ (node)[prop];
     // May be figma.mixed (a symbol) on mixed-paint text; Array.isArray guards it.
     if (!Array.isArray(paints)) continue;
     for (const paint of paints) {
@@ -72,9 +124,19 @@ function selectionPaint() {
   return null;
 }
 
+/**
+ * Typed front door for figma.ui.postMessage, whose parameter is `any` - this
+ * is where an outbound message that drifted from the protocol fails typecheck.
+ * @param {SandboxToUiMessage} msg
+ */
+function send(msg) {
+  figma.ui.postMessage(msg);
+}
+
+/** @param {{ hex: string, opacity: number } | null} [known] */
 function postSelection(known) {
   const paint = known === undefined ? selectionPaint() : known;
-  figma.ui.postMessage({
+  send({
     type: 'selection',
     count: figma.currentPage.selection.length,
     hex: paint ? paint.hex : null,
@@ -88,6 +150,8 @@ function postSelection(known) {
  * solid appended rather than having their gradient discarded.
  *
  * Called on every color change, so it stays silent - no notify() per frame.
+ * @param {string} hex
+ * @param {number} opacity
  */
 function applyPaint(hex, opacity) {
   const color = hexToPaintColor(hex);
@@ -96,9 +160,10 @@ function applyPaint(hex, opacity) {
   const prop = paintProp();
   lastWritten = paintKey(hex, alpha);
 
-  for (const node of figma.currentPage.selection) {
+  for (const node of /** @type {PaintableNode[]} */ (figma.currentPage.selection)) {
     if (!(prop in node)) continue;
     const current = node[prop];
+    /** @type {Paint[]} */
     let next;
     if (Array.isArray(current) && current.length > 0) {
       next = current.slice();
@@ -127,14 +192,20 @@ function applyPaint(hex, opacity) {
 const size = { w: DEFAULT_W, h: DEFAULT_H };
 
 // Height is always the content's - there is deliberately no manual height.
+/** @param {number} w */
 function clampW(w) {
   return Math.min(MAX_W, Math.max(MIN_W, Math.round(w)));
 }
 
+/** @param {number} h */
 function clampH(h) {
   return Math.min(MAX_H, Math.max(MIN_H, Math.round(h)));
 }
 
+/**
+ * @param {number} w
+ * @param {number} h
+ */
 function applySize(w, h) {
   const nw = clampW(w);
   const nh = clampH(h);
@@ -146,18 +217,59 @@ function applySize(w, h) {
   holdWestAnchor();
 }
 
-// getPosition returns { windowSpace, canvasSpace } - not a bare {x, y}.
-function readPosition() {
+/**
+ * Which of getPosition's two spaces `reposition` actually speaks.
+ *
+ * Decided by measurement at startup, not assumed - see calibrateWindowSpace.
+ * Until then reads default to windowSpace, which is only used for logging.
+ *
+ * @type {'window' | 'canvas'}
+ */
+let positionSpace = 'window';
+
+/** Both spaces, raw. getPosition returns a pair, not a bare {x, y}. */
+function readRawPosition() {
   try {
     if (typeof figma.ui.getPosition !== 'function') return null;
     const pos = figma.ui.getPosition();
-    return pos && pos.windowSpace ? pos.windowSpace : null;
+    return pos && pos.windowSpace && pos.canvasSpace ? pos : null;
   } catch (err) {
     void err;
     return null;
   }
 }
 
+/** The panel's position in the space `reposition` writes in. */
+function readPosition() {
+  const pos = readRawPosition();
+  if (!pos) return null;
+  return positionSpace === 'canvas' ? pos.canvasSpace : pos.windowSpace;
+}
+
+/**
+ * Converts a distance in screen pixels into the units the write space uses.
+ *
+ * The panel's width is screen pixels - figma.ui.resize deals in them - but its
+ * position may be canvas coordinates, and those are only the same thing at
+ * 100% zoom. Subtracting a pixel width delta straight from a canvas x is
+ * therefore wrong by a factor of the zoom, which is what made west dragging
+ * overshoot: reported 2026-08-19 as the panel growing *and* sliding west, so
+ * the east edge crept instead of staying pinned. Zoomed in, every pixel of
+ * growth moved the window more than a pixel.
+ *
+ * @param {number} px
+ */
+function pxToWrite(px) {
+  if (positionSpace !== 'canvas') return px;
+  const zoom = figma.viewport.zoom;
+  return isFinite(zoom) && zoom > 0 ? px / zoom : px;
+}
+
+
+/**
+ * @param {number} x
+ * @param {number} y
+ */
 function moveTo(x, y) {
   if (!isFinite(x) || !isFinite(y)) return;
   try {
@@ -175,60 +287,92 @@ function moveTo(x, y) {
  * nothing at all - so every version of "read here, write there" has been a
  * guess.
  *
- * So: prove it before relying on it. Nudge the window a known amount, read
- * back, and only enable west anchoring if it actually moved by that amount. A
- * stale readback and a mismatched space both fail the check, and a failure
- * means we simply never reposition - the west edge then resizes like the east
- * one. Degraded, but the panel can never be flung off-screen again.
+ * It is now answered without moving anything. The docs describe `reposition`
+ * and showUI's `position` option as the same setting - "the position can also
+ * be set in the initial options" - so they share a coordinate space, and we
+ * *choose* the position we pass to showUI. Reading getPosition() straight
+ * afterwards therefore measures the offset between the two spaces directly:
+ *
+ *     bias = getPosition().windowSpace - the position we asked for
+ *
+ * Everything after that converts between them by subtracting the bias.
+ *
+ * This replaces a nudge-and-verify probe that moved the window 8px and put it
+ * back using a position it had read itself. That was circular - if the spaces
+ * disagreed, which is the thing it was trying to detect, "back" was somewhere
+ * else - and on 2026-08-18 it opened the panel on top of Figma's left menus.
+ * The probe also chased a wrong hypothesis: it waited for repositions to
+ * "settle" asynchronously, but the docs state reposition is synchronous.
  */
-const PROBE_PX = 8;
+/** @type {boolean | null} */
 let westCapable = null;
-let westBias = null;
+/** @type {{ x: number, y: number, w: number } | null} */
 let westAnchor = null;
 
+/** How close a reading has to be to count as "this is the space we wrote in". */
+const SPACE_MATCH_TOLERANCE = 2;
+
 /**
- * Nudge a known amount, see where we actually land, and keep the difference as
- * a correction. Then put the window back using that correction and check it
- * worked. Three outcomes:
+ * Works out which space `reposition` speaks, by asking showUI for a position
+ * we chose and seeing which of getPosition's two readings comes back holding
+ * it. Whichever matches is the space reposition writes in, because the docs
+ * describe showUI's `position` and `reposition` as the same setting.
  *
- *   spaces agree        bias 0, verification exact, west anchoring on
- *   constant offset     bias measured, verification exact, west anchoring on
- *   anything else       verification fails, west anchoring off for the session
+ * Nothing moves and there is nothing to restore - the measurement is just a
+ * comparison against a number we already know.
  *
- * The third case includes a stale readback and any non-translation transform.
- * Off means the west edge resizes like the east one - the panel stays put and
- * usable instead of being flung somewhere unrecoverable.
+ * The first attempt at this compared only against windowSpace, and on
+ * 2026-08-18 a real session returned asked (280, 72) against windowSpace
+ * (1370, 407). Read as an offset that is nonsense - 1090px is not chrome - but
+ * as a *canvas pan* it is entirely ordinary, which is what suggested checking
+ * both spaces rather than assuming one.
+ *
+ * If neither matches, showUI's position was not honoured at all, west
+ * anchoring stays off, and the west edge resizes like the east one.
+ *
+ * @param {{ x: number, y: number }} asked - the position passed to showUI
  */
-function canReposition() {
-  if (westCapable !== null) return westCapable;
-  westCapable = false;
-  const p0 = readPosition();
-  if (!p0) return false;
-
-  moveTo(p0.x + PROBE_PX, p0.y);
-  const p1 = readPosition();
-  if (!p1) {
-    moveTo(p0.x, p0.y);
-    return false;
+function calibrateWindowSpace(asked) {
+  const pos = readRawPosition();
+  if (!pos) {
+    westCapable = false;
+    console.log('[Color Taylor] window-space calibration: OFF (no position available)');
+    return;
   }
 
-  const bias = { x: p1.x - (p0.x + PROBE_PX), y: p1.y - p0.y };
-  moveTo(p0.x - bias.x, p0.y - bias.y);
-  const p2 = readPosition();
-  const err = p2 ? Math.abs(p2.x - p0.x) + Math.abs(p2.y - p0.y) : Infinity;
+  /** @param {{x: number, y: number}} v */
+  const missBy = (v) => Math.abs(v.x - asked.x) + Math.abs(v.y - asked.y);
+  const windowMiss = missBy(pos.windowSpace);
+  const canvasMiss = missBy(pos.canvasSpace);
 
-  westCapable = err <= 1;
-  westBias = westCapable ? bias : null;
-  // Only the failure is worth a line. The success case ran on every session
-  // and put plugin internals in the user's console for no reason.
-  if (!westCapable) {
-    console.warn(
-      '[Color Taylor] west-edge anchoring off, reposition probe missed by',
-      err,
-    );
-  }
-  return westCapable;
+  if (canvasMiss <= SPACE_MATCH_TOLERANCE) positionSpace = 'canvas';
+  else if (windowMiss <= SPACE_MATCH_TOLERANCE) positionSpace = 'window';
+
+  westCapable = canvasMiss <= SPACE_MATCH_TOLERANCE || windowMiss <= SPACE_MATCH_TOLERANCE;
+
+  console.log(
+    '[Color Taylor] window-space calibration: ' +
+      (westCapable ? 'ON (' + positionSpace + ' space)' : 'OFF (position not honoured)'),
+    JSON.stringify({
+      asked: asked,
+      windowSpace: pos.windowSpace,
+      canvasSpace: pos.canvasSpace,
+      windowMiss: windowMiss,
+      canvasMiss: canvasMiss,
+      zoom: figma.viewport.zoom,
+      viewportBounds: figma.viewport.bounds,
+      hasReposition: typeof figma.ui.reposition === 'function',
+    }),
+  );
 }
+
+/*
+ * Calibrate here rather than beside showUI, even though that reads better.
+ * westCapable and positionSpace are `let` bindings declared above, so calling
+ * this any earlier lands in their temporal dead zone and throws. Everything to
+ * this point is synchronous top-level code, so the window is still sitting
+ * exactly where showUI put it - which is the only thing the measurement needs.
+ */
 
 /**
  * Holds the east edge still while the west edge moves.
@@ -238,15 +382,18 @@ function canReposition() {
  * anchor, so it cannot accumulate: the same width always maps to the same x.
  */
 function holdWestAnchor() {
-  if (!westAnchor || !westBias) return;
-  moveTo(
-    Math.max(0, westAnchor.x + (westAnchor.w - size.w)) - westBias.x,
-    westAnchor.y - westBias.y,
-  );
+  if (!westAnchor) return;
+  // The width delta is screen pixels; the position may not be. See pxToWrite.
+  moveTo(westAnchor.x + pxToWrite(westAnchor.w - size.w), westAnchor.y);
 }
 
+/**
+ * @param {number} width
+ * @param {boolean} fromLeft
+ */
 function resizeWidth(width, fromLeft) {
-  if (fromLeft && !westAnchor && canReposition()) {
+  // westCapable is already settled - the probe runs at startup, not here.
+  if (fromLeft && !westAnchor && westCapable === true) {
     const pos = readPosition();
     if (pos) westAnchor = { x: pos.x, y: pos.y, w: size.w };
   }
@@ -262,8 +409,13 @@ function resizeWidth(width, fromLeft) {
  * tell an echo from a genuine edit; without it every drag frame would bounce
  * back and fight the picker.
  */
+/** @type {string | null} */
 let lastWritten = null;
 
+/**
+ * @param {string} hex
+ * @param {number} opacity
+ */
 function paintKey(hex, opacity) {
   return String(hex).toLowerCase() + '|' + Math.round(opacity * 1000);
 }
@@ -275,8 +427,10 @@ function paintKey(hex, opacity) {
  * only ever sent once however it was noticed, and the echo rule is written
  * down once rather than in each caller.
  */
+/** @type {string | null} */
 let lastSeen = null;
 
+/** @param {boolean} force */
 function pushIfChanged(force) {
   const count = figma.currentPage.selection.length;
   const paint = selectionPaint();
@@ -290,7 +444,7 @@ function pushIfChanged(force) {
   // the drag. A change in how many nodes are selected still has to get through
   // or the "Selected: N" caption goes stale.
   if (paint && colorKey === lastWritten) {
-    figma.ui.postMessage({ type: 'selection', count: count, hex: null, opacity: 1 });
+    send({ type: 'selection', count: count, hex: null, opacity: 1 });
     return;
   }
   postSelection(paint);
@@ -316,9 +470,10 @@ function pushIfChanged(force) {
  * synchronous and cheap (selectionPaint stops at the first solid paint).
  */
 function wakeUi() {
-  figma.ui.postMessage({ type: 'wake' });
+  send({ type: 'wake' });
 }
 
+/** @param {NodeChangeEvent} event */
 function onNodeChange(event) {
   const selected = new Set(figma.currentPage.selection.map((n) => n.id));
   if (selected.size === 0) return;
@@ -348,6 +503,7 @@ function onNodeChange(event) {
  * The cost is that the listener belongs to a page, not the file, so it has to
  * follow the user when they switch pages.
  */
+/** @type {PageNode | null} */
 let watched = null;
 
 function watchCurrentPage() {
@@ -367,7 +523,10 @@ function watchCurrentPage() {
   } catch (err) {
     // No PageNode.on on this host. Selection tracking still works; only
     // following an edit made from Figma's own picker is lost.
-    console.warn('[Color Taylor] nodechange unavailable:', err && err.message);
+    console.warn(
+      '[Color Taylor] nodechange unavailable:',
+      err instanceof Error ? err.message : err,
+    );
   }
 }
 
@@ -390,10 +549,11 @@ watchCurrentPage();
  * on every swatch change, and one setAsync is cheaper than several.
  */
 const SWATCH_KEY = 'swatches';
+/** @type {Record<string, unknown> | null} */
 let swatches = null;
 
 function sendSwatches() {
-  figma.ui.postMessage({ type: 'swatches', data: swatches || {} });
+  send({ type: 'swatches', data: swatches || {} });
 }
 
 function loadSwatches() {
@@ -410,7 +570,7 @@ function loadSwatches() {
     });
 }
 
-figma.ui.onmessage = (msg) => {
+figma.ui.onmessage = (/** @type {UiToSandboxMessage} */ msg) => {
   if (!msg || typeof msg.type !== 'string') return;
 
   switch (msg.type) {
@@ -463,6 +623,7 @@ figma.ui.onmessage = (msg) => {
       resizeWidth(msg.width, msg.fromLeft === true);
       break;
 
+    // Width is ours to remember; position is not - Figma already keeps that.
     case 'resizeEnd':
       westAnchor = null;
       figma.clientStorage.setAsync('windowWidth', size.w);
@@ -474,9 +635,67 @@ figma.ui.onmessage = (msg) => {
   }
 };
 
-// Restore the last width only. Height always starts as a fit to the content -
-// the UI measures itself on mount and reports it. Restoring a stored height
-// here would land after that measurement and overwrite it.
-figma.clientStorage.getAsync('windowWidth').then((saved) => {
-  if (typeof saved === 'number') applySize(saved, size.h);
+
+/**
+ * Startup.
+ *
+ * showUI is deliberately called from here rather than at the top of the file,
+ * because two things have to be known before the window exists and both come
+ * from clientStorage: the width to open at, and whether the coordinate space
+ * has already been identified. Doing it this way also removes the width hop -
+ * the panel used to open at the default and resize a moment later.
+ *
+ * Placement is Figma's. It remembers where the user left the window, so
+ * nothing here passes `position` - except on the single launch where the space
+ * still has to be calibrated, which is the one case that must dictate a
+ * position in order to recognise it coming back.
+ *
+ * Height is never restored: it is always a fit to the content, and the UI
+ * measures itself on mount and reports it, so a stored height would land after
+ * that measurement and immediately be overwritten.
+ */
+function start() {
+  return Promise.all([
+    figma.clientStorage.getAsync('positionSpace'),
+    figma.clientStorage.getAsync('windowWidth'),
+  ]).then(function (stored) {
+    const cachedSpace = stored[0];
+    const savedWidth = stored[1];
+
+    const width = typeof savedWidth === 'number' ? clampW(savedWidth) : DEFAULT_W;
+    size.w = width;
+    size.h = DEFAULT_H;
+
+    const known = cachedSpace === 'canvas' || cachedSpace === 'window';
+
+    if (known) {
+      // The common path: space already known, so Figma is left to place the
+      // window wherever the user last had it.
+      positionSpace = /** @type {'canvas' | 'window'} */ (cachedSpace);
+      westCapable = true;
+      figma.showUI(__html__, { width: width, height: DEFAULT_H, themeColors: true });
+      return;
+    }
+
+    // Once, ever. Dictating a position is the only way to tell which of
+    // getPosition's two readings reposition speaks, and the answer is cached
+    // so no later launch has to override Figma's remembered placement again.
+    figma.showUI(__html__, {
+      width: width,
+      height: DEFAULT_H,
+      position: { x: CALIBRATION_X, y: CALIBRATION_Y },
+      themeColors: true,
+    });
+    calibrateWindowSpace({ x: CALIBRATION_X, y: CALIBRATION_Y });
+    if (westCapable === true) {
+      figma.clientStorage.setAsync('positionSpace', positionSpace);
+    }
+  });
+}
+
+start().catch(function (err) {
+  // Never leave the plugin with no UI: if storage fails, open on the defaults
+  // and carry on without west anchoring.
+  console.warn('[Color Taylor] startup fell back to defaults:', err && err.message);
+  figma.showUI(__html__, { width: DEFAULT_W, height: DEFAULT_H, themeColors: true });
 });

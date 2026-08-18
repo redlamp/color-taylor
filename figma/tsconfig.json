@@ -1,0 +1,35 @@
+{
+  // Typechecks the sandbox half only: code.js (via checkJs) against the real
+  // plugin API surface from @figma/plugin-typings, plus the shared bridge
+  // protocol in messages.ts. Run as `tsc -p figma` - wired into
+  // `bun run typecheck`. There is still no build step; code.js ships as-is.
+  //
+  // Vite picks the *nearest* tsconfig.json per file, so this file also shadows
+  // the root one for the figma/ui build. The syntax-relevant flags (jsx,
+  // useDefineForClassFields) are therefore mirrored from the root config -
+  // keep them in sync or the UI build's transform changes silently.
+  "compilerOptions": {
+    // The sandbox is QuickJS, roughly ES2017, with no DOM - see code.js.
+    "target": "ES2017",
+    "lib": ["ES2017"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+
+    "strict": true,
+    "noFallthroughCasesInSwitch": true,
+
+    // Mirrored from the root tsconfig for the Vite shadowing reason above.
+    "jsx": "react-jsx",
+    "useDefineForClassFields": true,
+
+    // Only @figma/plugin-typings, named outright. An empty `types` list keeps
+    // the default @types root out - node and react globals don't exist in the
+    // sandbox - and typeRoots auto-inclusion proved unreliable under TS 6.
+    "types": ["@figma/plugin-typings"]
+  },
+  "include": ["code.js", "messages.ts", "messages-globals.d.ts"]
+}

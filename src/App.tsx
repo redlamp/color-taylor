@@ -1,6 +1,7 @@
 import { useEffect, Suspense, lazy } from 'react'
 import ErrorBoundary from './components/ErrorBoundary'
 import ColorPicker from './components/ColorPicker'
+import PluginBanner from './components/PluginBanner'
 import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ThemeProvider, useTheme } from './hooks/useTheme'
@@ -51,9 +52,16 @@ function AppInner() {
           <PresentationShell navigate={navigate} />
         </Suspense>
       ) : (
-        <div className="relative min-h-svh flex items-center justify-center p-5">
-          <ColorPicker />
-          <Toaster position="top-center" />
+        <div className="relative min-h-svh flex flex-col">
+          {/* A sibling above the centring row rather than a child of it, so it
+              displaces the picker instead of overlaying it and the picker still
+              centres in whatever height is left. Living at app level also keeps
+              it off the presentation route entirely. */}
+          <PluginBanner />
+          <div className="flex flex-1 items-center justify-center p-5">
+            <ColorPicker />
+            <Toaster position="top-center" />
+          </div>
         </div>
       )}
     </>

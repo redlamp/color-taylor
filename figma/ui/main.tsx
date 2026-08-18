@@ -55,14 +55,20 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import BlendIcon from './lite/BlendIcon';
 import { Ban, Brush, PaintBucket } from 'lucide-react';
 import ColorHexagon from '../../src/components/ColorHexagon';
+// The bridge protocol, shared with code.js - the one place the two halves of
+// the plugin are kept from drifting apart.
+import type {
+  PaintTarget,
+  SandboxToUiMessage,
+  SelectionMessage,
+  UiToSandboxMessage,
+} from '../messages';
 // figma.css imports the app's index.css, so this is the only stylesheet entry.
 import './figma.css';
 
-function post(msg: Record<string, unknown>) {
+function post(msg: UiToSandboxMessage) {
   parent.postMessage({ pluginMessage: msg }, '*');
 }
-
-type PaintTarget = 'fill' | 'stroke' | 'none';
 
 /**
  * Which slider blocks are on show. Multi-select rather than tabs: these are
@@ -193,7 +199,9 @@ function ScrollIndicator() {
 }
 
 function PluginApp() {
-  const [hsb, setHsb] = useState<HSB>({ h: 0, s: 100, b: 100 });
+  // #4F95FF, matching the app's default and the branding. Only ever seen with
+  // nothing selected - any selection seeds the picker from its own fill.
+  const [hsb, setHsb] = useState<HSB>({ h: 216, s: 69, b: 100 });
   const [blMode, setBlMode] = useState<'brightness' | 'lightness'>('brightness');
   const [colorSpace, setColorSpace] = useState<ColorSpace>('srgb');
   const [selectionCount, setSelectionCount] = useState(0);
@@ -353,7 +361,7 @@ function PluginApp() {
   useEffect(() => {
     // Figma can emit document changes faster than the hexagon can repaint, so
     // keep only the newest and apply it once per frame.
-    let queued: { count: number; hex?: string; opacity?: number } | null = null;
+    let queued: SelectionMessage | null = null;
     let frame = 0;
     const flush = () => {
       frame = 0;
@@ -361,7 +369,7 @@ function PluginApp() {
       queued = null;
       if (msg) applySelection(msg);
     };
-    const applySelection = (msg: { count: number; hex?: string; opacity?: number }) => {
+    const applySelection = (msg: SelectionMessage) => {
         setSelectionCount(msg.count);
         if (msg.hex) {
           const next = hexToRgb(msg.hex);
@@ -409,7 +417,7 @@ function PluginApp() {
     };
 
     const onMessage = (event: MessageEvent) => {
-      const msg = event.data?.pluginMessage;
+      const msg: SandboxToUiMessage | undefined = event.data?.pluginMessage;
       if (!msg) return;
       if (msg.type === 'wake') {
         wake();
@@ -803,16 +811,25 @@ function PluginApp() {
 
 /**
  * Content height per pixel of panel width. The hexagon holds its ratio, so the
- * content gets taller as the panel gets wider - measured at 453/524/595/701 for
- * widths 340/420/500/620, i.e. a straight line at ~0.887.
+ * content gets taller as the panel gets wider.
  *
- * Only used as the gain of a feedback loop, never to predict an absolute size.
- * At the measured value the loop lands on target in a single frame; it still
- * converges anywhere from roughly 0.5x to 2x that, just over a few frames.
- * Below about half it oscillates instead - so if the layout changes enough to
- * move this slope, re-measure it rather than guess.
+ * Re-measured 2026-08-18 against the built ui.html: 651/690/767/844 for widths
+ * 300/340/420/500, a straight line at ~0.96. The previous figure (0.887, from
+ * 453/524/595/701) had gone stale the same way DEFAULT_H in code.js had - the
+ * app grew after it was taken and nothing here re-derives itself.
+ *
+ * Used open-loop: the south edge divides its pointer travel by this to get the
+ * width that produces that height change, anchored to the width at
+ * pointerdown. It was previously the gain of a feedback loop, which tolerated
+ * a wrong value by converging over several frames - at the cost of visible
+ * hunting whenever a resize had not landed before the next frame measured.
+ *
+ * Open-loop cannot hunt, but it also cannot self-correct: an inaccurate slope
+ * here now shows as the bottom edge drifting away from the cursor over a long
+ * drag rather than as jitter. So re-measure it when the layout changes, rather
+ * than guessing.
  */
-const HEIGHT_PER_WIDTH = 0.887;
+const HEIGHT_PER_WIDTH = 0.96;
 
 /**
  * Invisible resize strips - no widget, just the cursor, the way a normal app
@@ -836,24 +853,58 @@ function ResizeEdge({ side }: { side: Side }) {
     el.setPointerCapture(e.pointerId);
     const originX = e.screenX;
     const originY = e.screenY;
+    // The width at pointerdown is the only thing read from the window all
+    // drag: every edge is a delta from here. Height is not needed at all now
+    // that south is open-loop.
     const startW = window.innerWidth;
-    const startH = window.innerHeight;
     const fromLeft = side === 'w' || side === 'sw';
 
-    const move = (ev: PointerEvent) => {
+    /*
+     * One update per animation frame, from the newest pointer position, and
+     * every edge computes its width open-loop from the pointer delta alone.
+     *
+     * South used to solve backwards through a feedback loop - "nudge the width
+     * by whatever height error is left" - reading window.innerWidth and
+     * innerHeight each time. Those only change once a resize has round-tripped
+     * to the sandbox and back, which is not guaranteed within one frame, so a
+     * frame that ran before the previous resize landed measured the same error
+     * again and asked for the same correction again. The window overshot and
+     * hunted. rAF throttling alone reduced that but could not fix it: the loop
+     * needs the resize to have *landed*, not merely a frame to have passed.
+     *
+     * Open-loop removes the question. Height is a straight line in width
+     * (HEIGHT_PER_WIDTH), so the width that produces a given height change is
+     * just the height change divided by the slope. Anchoring to the width at
+     * pointerdown means the content's own height at that moment is the
+     * intercept, so collapsed sections need no special handling - it drops out.
+     * Nothing is read back mid-drag, so nothing can lag, and south now behaves
+     * exactly like east and west: one subtraction from the start value.
+     */
+    let latest: { x: number; y: number } | null = null;
+    let frame = 0;
+
+    const flush = () => {
+      frame = 0;
+      if (!latest) return;
       let width: number;
       if (side === 's') {
-        const targetH = startH + (ev.screenY - originY);
-        width = window.innerWidth + (targetH - window.innerHeight) / HEIGHT_PER_WIDTH;
+        // Pointer travel is the height change we want; divide by the slope to
+        // get the width that produces it.
+        width = startW + (latest.y - originY) / HEIGHT_PER_WIDTH;
       } else {
         // Corners included: horizontal only, same as their edge. Height follows
         // width anyway, so a diagonal drag still grows the panel in both
         // directions - the corner cursor is honest without needing to fold the
         // vertical delta in as a second driver for the same one output.
-        const dx = ev.screenX - originX;
+        const dx = latest.x - originX;
         width = fromLeft ? startW - dx : startW + dx;
       }
       post({ type: 'resizeWidth', width: Math.round(width), fromLeft });
+    };
+
+    const move = (ev: PointerEvent) => {
+      latest = { x: ev.screenX, y: ev.screenY };
+      if (!frame) frame = requestAnimationFrame(flush);
     };
     const up = (ev: PointerEvent) => {
       try {
@@ -863,6 +914,11 @@ function ResizeEdge({ side }: { side: Side }) {
       }
       el.removeEventListener('pointermove', move);
       el.removeEventListener('pointerup', up);
+      // Land on the last position rather than dropping whatever arrived after
+      // the final frame, then close the drag.
+      if (frame) cancelAnimationFrame(frame);
+      frame = 0;
+      flush();
       post({ type: 'resizeEnd' });
     };
     el.addEventListener('pointermove', move);
