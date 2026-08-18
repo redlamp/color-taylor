@@ -2,7 +2,7 @@
 
 The app's color hexagon running inside Figma. Started 2026-08-01 on `feat/figma-plugin`, merged into `dev` on 2026-08-11 so CI had something to say about it; work happens on branches off `dev` now.
 
-**Status:** works, gate-clean, and the user has run it in real Figma without problems — but the deliberate pass in [[test-plan-2026-08-04-figma-plugin]] is still outstanding, and every *test* so far has been headless Chromium against the built `ui.html`.
+**Status: published.** Approved by Figma's review on 2026-08-18 and live on the Community — https://www.figma.com/community/plugin/1671457712575610716/color-taylor. The deliberate pass in [[test-plan-2026-08-04-figma-plugin]] is still outstanding, and every *automated* test remains headless Chromium against the built `ui.html`.
 
 **Watch out:** the app is upstream of this ([[decision-single-source-picker]]), and an app-side change with no plugin intent can break the panel silently. It has happened — [[decision-plugin-css-hooks]]. Re-check the panel at its 300px minimum after any work on shared components.
 
@@ -21,7 +21,8 @@ The app's color hexagon running inside Figma. Started 2026-08-01 on `feat/figma-
 - [[decision-frame-clocked-follow]] — how the picker tracks Figma's own color picker
 - [[decision-content-fit-height]] — the panel is always exactly as tall as its content
 - [[decision-plugin-css-hooks]] — how panel CSS is allowed to reach into shared markup
-- [[decision-figma-listing-assets]] — generated icon and thumbnail, and where the listing artwork lives
+- [[decision-figma-listing-assets]] — generated thumbnail, and where the listing artwork lives
+- [[decision-logo-source]] — the designed logo frame in Figma is the icon's source of truth
 
 ## Platform knowledge
 

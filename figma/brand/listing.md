@@ -8,7 +8,12 @@ Draft for the Figma publish modal. Assets alongside: `icon-128.png`, `cover-1920
 
 ## Tagline
 
-    See how RGB, HSB and HSL describe the same color.
+    Understand color by moving it.
+
+The full lockup (settled 2026-08-18, used on the thumbnail): the tagline as
+headline, then "Get hands-on with how RGB, HSB, and HSL colors relate." The
+previous tagline ("See how RGB, HSB and HSL describe the same color.") is
+retired but the description below still carries the same idea.
 
 ## Description
 
@@ -45,6 +50,13 @@ Draft for the Figma publish modal. Assets alongside: `icon-128.png`, `cover-1920
 
     Each drag is its own undo step.
 
+    TRY IT IN A BROWSER
+
+    The same picker runs as a web app, with a few extras the panel leaves out
+    - the equations view and a walkthrough of how color models relate:
+
+    https://redlamp.github.io/color-taylor/
+
     PRIVACY
 
     Nothing leaves the plugin. There is no network access at all, declared in
@@ -57,7 +69,40 @@ Draft for the Figma publish modal. Assets alongside: `icon-128.png`, `cover-1920
 
 ## Support contact
 
-Needs a decision. The repo is the natural home - GitHub Issues on `redlamp/color-taylor` - and the guidelines only require an established way for users to reach you. Alternative is an email alias.
+    support@redlamp.org
+
+Settled 2026-08-19. An alias on a domain the user owns rather than a personal
+inbox: the contact renders publicly on the Community page and gets scraped, so
+the address needs to be one that can be retired and replaced without touching
+anything else.
+
+## Links
+
+    https://redlamp.github.io/color-taylor/
+
+The web app, verified live 2026-08-19 (200, and the `/color-taylor/` path
+matches `vite.config.js`'s GitHub Pages base). It is the *running app*, not the
+source - the repository is https://github.com/redlamp/color-taylor, which is
+worth adding too if the intent is to point developers at the code.
+
+## Data security questionnaire
+
+The publish modal's "Share how your plugin handles data" section. Answers
+below are checked against the built bundle (2026-08-18) and appear publicly
+on the Community page, so keep them true if the plugin ever gains network
+access or a backend.
+
+1. **Backend service** - No, I do not host a backend service.
+2. **Network requests** - Does not make any network requests. Verified: no
+   `fetch`/`XMLHttpRequest`/`WebSocket`/`sendBeacon`/`@font-face`/external
+   `<img>` or `<script src>` in `ui.html`; the only `http` strings are W3C
+   XML namespace identifiers. Matches `networkAccess: ["none"]`.
+3. **User authentication** - No, does not require or use any.
+4. **Stores data read/derived from the plugin API** - Yes, locally. Saved and
+   recent swatches plus the panel width live in `figma.clientStorage`, and a
+   swatch can hold a color seeded from a selected layer's fill, so it is
+   plugin-API-derived data. Never leaves the machine.
+5. **Updates** - Solo developer.
 
 ## Screenshots to capture
 

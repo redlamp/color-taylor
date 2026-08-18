@@ -104,6 +104,6 @@ Do not re-report these.
 
 - **Locked-layer writes fail silently.** `applyPaint` swallows per-node errors because it runs every drag frame. If *all* selected nodes reject, there is no feedback. A `figma.notify` on `commit` when nothing landed is the fix; not done.
 - **The slider track isn't keyboard-focusable.** `role="slider"` with no `tabIndex`. The numeric input beside it is fully operable, so a keyboard path exists.
-- **`manifest.json` id is `color-taylor-local-dev`** — correct for local development, replaced at publish.
+- **`manifest.json` id** was `color-taylor-local-dev` when this plan was written; replaced with the real id `1671457712575610716` on 2026-08-18. A manifest change needs one re-import in the desktop app.
 - **Color variables / styles binding** — not implemented.
 - **Duplicate DOM ids** — fixed and verified 2026-08-03 ([[decision-scoped-slider-ids]]). Nothing to test by hand.

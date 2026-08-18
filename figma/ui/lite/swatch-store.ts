@@ -15,15 +15,17 @@
  * overwrite the real data on its way in - the swatches would vanish on every
  * launch, which is worse than not persisting at all.
  */
+import type { SandboxToUiMessage, SaveSwatchesMessage } from '../../messages';
+
 export const SWATCHES_READY = 'color-taylor:swatches-ready';
 
 let cache: Record<string, unknown> = {};
 let hydrated = false;
 
 window.addEventListener('message', (event: MessageEvent) => {
-  const msg = event.data?.pluginMessage;
+  const msg: SandboxToUiMessage | undefined = event.data?.pluginMessage;
   if (!msg || msg.type !== 'swatches') return;
-  cache = (msg.data as Record<string, unknown>) ?? {};
+  cache = msg.data ?? {};
   hydrated = true;
   window.dispatchEvent(new Event(SWATCHES_READY));
 });
@@ -35,5 +37,6 @@ export function readSwatch(key: string): unknown {
 export function writeSwatch(key: string, value: unknown): void {
   cache[key] = value;
   if (!hydrated) return;
-  parent.postMessage({ pluginMessage: { type: 'saveSwatches', key, value } }, '*');
+  const msg: SaveSwatchesMessage = { type: 'saveSwatches', key, value };
+  parent.postMessage({ pluginMessage: msg }, '*');
 }

@@ -93,13 +93,24 @@ const ANIM_HOLD_DUR = 800;
 const ANIM_STEP_DUR = ANIM_TRANSITION_DUR + ANIM_HOLD_DUR;
 const ANIM_CYCLE_DUR = COLOR_KEYFRAMES.length * ANIM_STEP_DUR;
 
+/**
+ * #4F95FF, the blue of the logo and the Community thumbnail, so a first visit
+ * opens on the colour the branding leads with.
+ *
+ * Held as HSB because HSB is canonical here (see the root CLAUDE.md); it
+ * converts back to exactly rgb(79, 149, 255), so nothing is lost round-tripping
+ * it. Named rather than inlined because "Reset all settings" returns here too,
+ * and two copies of the starting colour would be one too many.
+ */
+const DEFAULT_HSB: HSB = { h: 216, s: 69, b: 100 };
+
 export default function ColorPicker() {
   const [hsb, setHsb] = useState<HSB>(() => {
     try {
       const saved = localStorage.getItem('color-taylor-hsb');
       if (saved) return JSON.parse(saved);
     } catch { /* localStorage unavailable */ }
-    return { h: 327, s: 12, b: 98 };
+    return DEFAULT_HSB;
   });
   const [hslMode, setHslMode] = useState<HslMode>('hsb');
   const [rgbGradientMode, setRgbGradientMode] = useState<RgbGradientMode>('channel');
@@ -348,6 +359,31 @@ export default function ColorPicker() {
     localStorage.setItem('color-taylor-hsb', JSON.stringify(hsb));
   }, [hsb]);
 
+  /*
+   * "Reset all settings" returns the colour to DEFAULT_HSB.
+   *
+   * Same event SettingsPanel dispatches for the swatches and the plugin
+   * banner. It tweens rather than snapping, because every other way the colour
+   * moves on its own in this app tweens - undo, a swatch, a vertex letter -
+   * and a reset that teleports would be the odd one out.
+   *
+   * takeOverFromAnimation first: a reset pressed while the play cycle is
+   * running has to stop it, or the cycle's own rAF loop would overwrite the
+   * tween on its next frame. It also flags the cycle to clear its React state,
+   * so the play button does not stay showing Pause with nothing animating.
+   *
+   * No need to clear the stored colour - the persist effect above writes the
+   * new value as soon as the tween starts.
+   */
+  useEffect(() => {
+    const onResetAll = () => {
+      takeOverFromAnimation();
+      animateToHsb(DEFAULT_HSB);
+    };
+    window.addEventListener('color-taylor:reset-all', onResetAll);
+    return () => window.removeEventListener('color-taylor:reset-all', onResetAll);
+  }, [takeOverFromAnimation, animateToHsb]);
+
   const handleRgbChange = useCallback((channel: 'r' | 'g' | 'b', value: number) => {
     takeOverFromAnimation();
     setHsb((prev) => {
@@ -483,7 +519,13 @@ export default function ColorPicker() {
   return (
     <div id="color-picker-root" className="mx-auto w-full px-0.5 py-1 sm:p-6" style={{ maxWidth: TOP_ROW_MAX_WIDTH }}>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
-        <h1 id="color-picker-title" className="text-2xl font-semibold tracking-tight text-primary">Color Taylor 🎨🧵</h1>
+        {/* The emoji sit outside .wordmark on purpose: that class paints the
+            glyphs with a background clipped to the text, so anything inside it
+            loses its own colour - the palette and thread would come out as
+            flat grey silhouettes. */}
+        <h1 id="color-picker-title" className="text-2xl font-semibold">
+          <span className="wordmark">Color Taylor</span> 🎨🧵
+        </h1>
         <div className="flex items-center justify-end gap-2">
           {import.meta.env.VITE_INTRO_ENABLED === 'true' && (
             <button
@@ -548,7 +590,10 @@ export default function ColorPicker() {
                   className="ctl-quiet-icon"
                   onClick={() => setSettingsOpen(o => !o)}
                   aria-label="Open settings"
-                  aria-expanded={settingsOpen}
+                  // aria-haspopup, not aria-expanded: the panel is a modal
+                  // dialog now rather than a disclosure region, and it is
+                  // portalled out of this button's subtree.
+                  aria-haspopup="dialog"
                 >
                   <Settings className="size-4" />
                 </button>

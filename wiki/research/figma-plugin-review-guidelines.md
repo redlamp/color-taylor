@@ -44,7 +44,7 @@ tags:
 | `documentAccess` | `dynamic-page`, required for new plugins |
 | **Long-running background process** | **Was a violation.** See below |
 | Component instances / locked layers | Writes are per-node try/catch. Correct, but silent - see [[plan-figma-plugin-release]] |
-| Plugin id | Still `color-taylor-local-dev`. Blocks publish |
+| Plugin id | Real id since 2026-08-18. No longer blocks publish |
 | Recreates core Figma functionality? | No. It is a tool for understanding how RGB and HSB/HSL interact; painting a selection is a convenience on top, not the point. Settled 2026-08-04 |
 
 ## The violation found

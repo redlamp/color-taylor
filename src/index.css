@@ -267,6 +267,47 @@ h1, h2 {
            bg-muted text-muted-foreground select-none
            transition-colors hover:bg-muted/80 hover:text-foreground;
   }
+
+  /*
+   * The wordmark, matched to the Community thumbnail's "Color Taylor" - node
+   * 78:478 in the Figma file, the frame the listing artwork is exported from.
+   *
+   * Taken from there: Barlow SemiBold (already the app's face and weight),
+   * +1% letter-spacing, a vertical fade holding solid to 44% before falling
+   * away, and a 1px/2px drop shadow at 50% black.
+   *
+   * Deliberately NOT taken: the 96px size, which is thumbnail scale and would
+   * dwarf a 24px header, and the 155% line-height, which is that text box's
+   * value rather than a heading decision and only adds vertical space to a
+   * single line.
+   *
+   * The gradient is expressed against the theme tokens rather than the
+   * thumbnail's literal white -> #ccc, because the thumbnail only ever sits on
+   * one dark background and this heading has to work in both themes. The
+   * relationship is what carries over: full-strength foreground, falling to
+   * 80% of the way toward the page behind it. In dark mode that resolves to
+   * very nearly the original white -> #ccc.
+   */
+  .wordmark {
+    letter-spacing: 0.01em;
+    background-image: linear-gradient(
+      to bottom,
+      var(--foreground) 44%,
+      color-mix(in oklab, var(--foreground) 80%, var(--background)) 100%
+    );
+    background-clip: text;
+    color: transparent;
+    /* filter, not text-shadow: the glyphs are a clipped background, so a
+       text-shadow would have nothing to cast from. */
+    filter: drop-shadow(1px 2px 1px rgb(0 0 0 / 0.5));
+  }
+
+  /* The shadow is a dark-background effect. Kept in light mode but much
+     softer, where a half-black shadow under near-black text reads as blur
+     rather than depth. */
+  :root:not(.dark) .wordmark {
+    filter: drop-shadow(1px 1px 1px rgb(0 0 0 / 0.18));
+  }
 }
 
 /*

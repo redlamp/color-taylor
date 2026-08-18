@@ -1,12 +1,16 @@
 ---
 tags:
   - domain/figma-plugin
-  - status/adopted
+  - status/superseded
 ---
 
 # Decision: Listing Assets Are Generated, Not Drawn
 
 **2026-08-04.** The plugin icon and Community thumbnail are produced by `figma/brand/make-assets.mjs` from the same HSV-hexagon math the app renders, rather than being drawn once and exported.
+
+> **2026-08-16: superseded for the icon; 2026-08-18: fully superseded.** Both
+> the icon and the thumbnail are now exports of designed frames - see
+> [[decision-logo-source]]. `make-assets.mjs` is deleted (git history has it).
 
 ## Why
 

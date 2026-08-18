@@ -32,6 +32,11 @@ bun run build:figma     # one-off build - required once after cloning
 bun run watch:figma     # rebuild ui.html on every save
 ```
 
+`code.js` stays plain JS with no build, but it is typechecked in place:
+`tsc -p figma` (part of `bun run typecheck`, so CI gates it) checks it against
+`@figma/plugin-typings` via JSDoc, plus the bridge protocol both halves share
+in `messages.ts`. Change a message shape on one side only and typecheck fails.
+
 `ui.html` is generated and gitignored (a ~180 KB bundle that would rewrite
 itself on every app change), so a fresh clone has to build once before Figma can
 load the plugin.
@@ -73,16 +78,71 @@ Width is dragged from lanes down the east, west and south edges plus the SW/SE
 corners; height is always the content's. Two constraints shaped that, both
 learned the hard way:
 
-- **West-edge dragging is proven, not assumed.** Resizing from the west needs
-  `figma.ui.reposition` alongside `resize`, and those two are not documented as
-  sharing a coordinate space with `getPosition` - three versions of "read here,
-  write there" flung the panel off-screen. `canReposition()` now nudges the
-  window a known 8px, reads back, keeps the difference as a bias and verifies
-  the correction. If verification fails, west anchoring stays off for the
-  session and the west edge simply resizes like the east one.
+- **West-edge dragging needs a coordinate-space mapping, and it is measured,
+  not guessed.** Resizing from the west means moving the window as it resizes,
+  and `getPosition` reports `{ windowSpace, canvasSpace }` while `reposition`
+  documents no space at all - three versions of "read here, write there" flung
+  the panel off-screen.
+
+  The answer is that the docs describe `reposition` and `showUI`'s `position`
+  as the same setting, and **we choose what we pass to `showUI`**. So
+  `calibrateWindowSpace()` reads `getPosition()` immediately after `showUI` and
+  keeps the difference:
+
+  ```
+  bias = getPosition().windowSpace - the position we asked for
+  ```
+
+  Nothing moves, there is nothing to verify and nothing to put back. If the
+  offset is missing or implausible the bias stays null and west anchoring never
+  engages, leaving the west edge resizing like the east one.
+
+  This replaced a nudge-and-verify probe, which was circular: it moved the
+  window 8px and restored it using a position it had read itself, so when the
+  spaces disagreed - the thing it existed to detect - "back" was somewhere
+  else. On 2026-08-18 it opened the panel on top of Figma's left menus. It also
+  chased a wrong theory, waiting for repositions to settle asynchronously when
+  the docs state `reposition` is synchronous.
+
+- **South-edge dragging is open-loop, and has to be.** Height is the content's,
+  so dragging the bottom works backwards through the width. That used to be a
+  feedback loop - nudge the width by whatever height error remains - reading
+  `window.innerWidth`/`innerHeight` each update. Those only change once a
+  resize has round-tripped through the sandbox, so any update that ran before
+  the previous one landed measured the same error twice and corrected twice.
+  The window overshot and hunted. rAF throttling reduced it but could not fix
+  it: the loop needs the resize to have *landed*, not merely a frame to have
+  passed.
+
+  It now computes `startW + pointerTravel / HEIGHT_PER_WIDTH`, anchored to the
+  width at pointerdown, reading nothing back mid-drag - so it behaves like east
+  and west, which never had the problem. Anchoring at pointerdown is also what
+  makes collapsed sections need no special handling: the content's height at
+  that moment is the intercept, and it cancels. The trade is that an inaccurate
+  `HEIGHT_PER_WIDTH` now shows as the bottom edge drifting from the cursor over
+  a long drag instead of as jitter, so it is worth re-measuring when the layout
+  changes.
 - **The lane owns a column.** `.figma-scroll` stops where the lane begins. When
   the handles floated over the content at `right: 0` they sat on the same pixels
   as the scrollbar, so neither could be grabbed reliably.
+
+**Placement is Figma's job, not ours.** Tested on 2026-08-19 by omitting
+`position` entirely: the panel opened somewhere sensible and reopened in the
+same place after being moved and closed. Figma persists window position itself,
+so the `windowPos` entry and the hardcoded opening point that used to live here
+were both duplicating the host - and the hardcoded point was wrong regardless,
+since `position` takes canvas coordinates, which land somewhere different at
+every pan and zoom.
+
+The one exception is calibration, which must dictate a position in order to
+recognise it coming back. That now happens **once ever**: the detected space is
+cached in `clientStorage` under `positionSpace`, and every launch after it
+leaves placement alone. `showUI` therefore runs from `start()` after storage
+resolves rather than at the top of the file - which also removed the width hop,
+since the stored width is known before the window exists.
+
+Width is still ours (`DEFAULT_W` is the minimum, and drags are remembered);
+height is always the content's.
 
 Height has exactly one source - the `ResizeObserver` in `main.tsx` reporting
 `.figma-root`'s `offsetHeight`. That is what makes dead space below the content
@@ -127,6 +187,11 @@ There is no published recipe for this; the official docs and
 ## Not wired up
 
 - Color variables and styles binding.
-- Publishing. Loaded locally via Import from manifest; `manifest.json` still
-  carries the `color-taylor-local-dev` placeholder id. See
-  `wiki/notes/plan-figma-plugin-release.md` for what a Community listing needs.
+
+## Publishing
+
+`manifest.json` carries the real plugin id (`1671457712575610716`, generated
+2026-08-18 under `taylor@redlamp.org`), so the plugin is publishable rather
+than dev-only. Changing the manifest means re-importing it in the desktop app
+once - Figma only re-reads `code.js` and `ui.html` between runs. See
+`wiki/notes/plan-figma-plugin-release.md` for what is left before submitting.

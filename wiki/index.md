@@ -12,7 +12,7 @@ Top-level Map of Content. See `CLAUDE.md` in this folder for conventions.
 
 ## Active
 
-- [[plan-figma-plugin-release]] — **the plugin id is the one hard blocker**, and it needs the desktop app signed in as `taylor@redlamp.org`. Everything else on the checklist is done or waiting on it.
+- [[plan-figma-plugin-release]] — **done: the plugin is approved and live** (2026-08-18). Hands on three follow-ups: deploy the app, widen `editorType` to FigJam/Slides, capture the carousel screenshots.
 - [[test-plan-2026-08-04-figma-plugin]] — the first deliberate real-Figma pass, 8 sections, still outstanding
 - [[plan-teaching-rgb-to-hsb]] — how to teach the tool and the subject; proposed intro-deck script changes, not yet applied
 
