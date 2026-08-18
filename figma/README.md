@@ -81,10 +81,28 @@ learned the hard way:
 - **West-edge dragging is proven, not assumed.** Resizing from the west needs
   `figma.ui.reposition` alongside `resize`, and those two are not documented as
   sharing a coordinate space with `getPosition` - three versions of "read here,
-  write there" flung the panel off-screen. `canReposition()` now nudges the
+  write there" flung the panel off-screen. `probeWestAnchoring()` nudges the
   window a known 8px, reads back, keeps the difference as a bias and verifies
   the correction. If verification fails, west anchoring stays off for the
   session and the west edge simply resizes like the east one.
+
+  **The readback has to wait, or the probe always fails.** It originally read
+  position synchronously right after each `reposition`. Reported on 2026-08-18:
+  the west edge resized without ever moving the window. Figma applies the move
+  asynchronously, so the immediate read returned the *old* position and
+  verification missed by the full probe distance - silently, every session, for
+  everyone. Each step now waits `PROBE_SETTLE_MS`, which makes the probe async,
+  which is why it runs once at startup instead of on the first drag.
+
+- **South-edge dragging is rAF-throttled, and has to be.** Height is the
+  content's, so dragging the bottom solves backwards: each update nudges the
+  width by the remaining height error. That loop reads `window.innerWidth` and
+  `innerHeight`, which only change once a resize has round-tripped through the
+  sandbox. Posting from every `pointermove` meant several events per frame all
+  measured the same not-yet-applied error and asked for the same correction
+  again, so the window overshot and hunted - visibly choppy, and only on this
+  edge, because east and west compute their width straight from the pointer.
+  One post per animation frame gives the resize time to land.
 - **The lane owns a column.** `.figma-scroll` stops where the lane begins. When
   the handles floated over the content at `right: 0` they sat on the same pixels
   as the scrollbar, so neither could be grabbed reliably.

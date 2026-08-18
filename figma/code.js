@@ -243,12 +243,30 @@ function moveTo(x, y) {
  * one. Degraded, but the panel can never be flung off-screen again.
  */
 const PROBE_PX = 8;
+/**
+ * How long to let a reposition land before reading the position back.
+ *
+ * The probe used to read immediately after each move, and that is why west
+ * anchoring was always off in real Figma: reposition moves a host window, the
+ * host applies it asynchronously, and the synchronous readback therefore
+ * returned the *old* position every time. That makes the verification step
+ * compare a stale p2 against p0 and miss by the full probe distance, so the
+ * capability check failed even though repositioning works fine.
+ */
+const PROBE_SETTLE_MS = 120;
 /** @type {boolean | null} */
 let westCapable = null;
 /** @type {{ x: number, y: number } | null} */
 let westBias = null;
 /** @type {{ x: number, y: number, w: number } | null} */
 let westAnchor = null;
+
+/** @param {number} ms */
+function delay(ms) {
+  return new Promise(function (resolve) {
+    setTimeout(resolve, ms);
+  });
+}
 
 /**
  * Nudge a known amount, see where we actually land, and keep the difference as
@@ -259,25 +277,37 @@ let westAnchor = null;
  *   constant offset     bias measured, verification exact, west anchoring on
  *   anything else       verification fails, west anchoring off for the session
  *
- * The third case includes a stale readback and any non-translation transform.
- * Off means the west edge resizes like the east one - the panel stays put and
- * usable instead of being flung somewhere unrecoverable.
+ * The third case includes any non-translation transform. Off means the west
+ * edge resizes like the east one - the panel stays put and usable instead of
+ * being flung somewhere unrecoverable.
+ *
+ * Every readback waits PROBE_SETTLE_MS first. Reading synchronously is what
+ * made this fail in real Figma: the move had not been applied yet, so p2 still
+ * held the pre-move position and the verification missed by the whole probe
+ * distance. Which meant the west edge silently resized without anchoring, for
+ * everyone, always.
+ *
+ * Async, so it runs once at startup rather than on the first west drag - a
+ * drag cannot wait 240ms to find out how it should behave.
  */
-function canReposition() {
-  if (westCapable !== null) return westCapable;
+async function probeWestAnchoring() {
+  if (westCapable !== null) return;
   westCapable = false;
+
   const p0 = readPosition();
-  if (!p0) return false;
+  if (!p0) return;
 
   moveTo(p0.x + PROBE_PX, p0.y);
+  await delay(PROBE_SETTLE_MS);
   const p1 = readPosition();
   if (!p1) {
     moveTo(p0.x, p0.y);
-    return false;
+    return;
   }
 
   const bias = { x: p1.x - (p0.x + PROBE_PX), y: p1.y - p0.y };
   moveTo(p0.x - bias.x, p0.y - bias.y);
+  await delay(PROBE_SETTLE_MS);
   const p2 = readPosition();
   const err = p2 ? Math.abs(p2.x - p0.x) + Math.abs(p2.y - p0.y) : Infinity;
 
@@ -291,7 +321,6 @@ function canReposition() {
       err,
     );
   }
-  return westCapable;
 }
 
 /**
@@ -314,7 +343,8 @@ function holdWestAnchor() {
  * @param {boolean} fromLeft
  */
 function resizeWidth(width, fromLeft) {
-  if (fromLeft && !westAnchor && canReposition()) {
+  // westCapable is already settled - the probe runs at startup, not here.
+  if (fromLeft && !westAnchor && westCapable === true) {
     const pos = readPosition();
     if (pos) westAnchor = { x: pos.x, y: pos.y, w: size.w };
   }
@@ -560,4 +590,17 @@ figma.ui.onmessage = (/** @type {UiToSandboxMessage} */ msg) => {
 // here would land after that measurement and overwrite it.
 figma.clientStorage.getAsync('windowWidth').then((saved) => {
   if (typeof saved === 'number') applySize(saved, size.h);
+
+  /*
+   * Settle the west-anchoring question once, up front, so a drag never has to
+   * wait on it. Deliberately after the width restore: probing first would nudge
+   * a window that is about to move anyway.
+   *
+   * The cost is one 8px round trip at launch, which returns to where it
+   * started. Failure is safe by construction - west anchoring simply stays off
+   * and the west edge resizes like the east one.
+   */
+  probeWestAnchoring().catch((err) => {
+    console.warn('[Color Taylor] west-anchoring probe failed:', err && err.message);
+  });
 });

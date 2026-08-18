@@ -854,20 +854,45 @@ function ResizeEdge({ side }: { side: Side }) {
     const startH = window.innerHeight;
     const fromLeft = side === 'w' || side === 'sw';
 
-    const move = (ev: PointerEvent) => {
+    /*
+     * One update per animation frame, from the newest pointer position.
+     *
+     * Posting straight from pointermove made the south edge visibly chop, and
+     * only the south edge, which is the tell: east and west compute a width
+     * directly from the pointer delta, while south solves backwards through a
+     * feedback loop that reads window.innerWidth/innerHeight. Those only change
+     * after a resize has round-tripped to the sandbox and back. Pointermove
+     * fires faster than that - several times per frame with coalescing - so
+     * every event in a burst measured the same not-yet-applied error and asked
+     * for the same correction again, and the window overshot and hunted.
+     *
+     * Throttling to rAF gives the resize a frame to land before the error is
+     * measured again, which is what the loop assumed all along.
+     */
+    let latest: { x: number; y: number } | null = null;
+    let frame = 0;
+
+    const flush = () => {
+      frame = 0;
+      if (!latest) return;
       let width: number;
       if (side === 's') {
-        const targetH = startH + (ev.screenY - originY);
+        const targetH = startH + (latest.y - originY);
         width = window.innerWidth + (targetH - window.innerHeight) / HEIGHT_PER_WIDTH;
       } else {
         // Corners included: horizontal only, same as their edge. Height follows
         // width anyway, so a diagonal drag still grows the panel in both
         // directions - the corner cursor is honest without needing to fold the
         // vertical delta in as a second driver for the same one output.
-        const dx = ev.screenX - originX;
+        const dx = latest.x - originX;
         width = fromLeft ? startW - dx : startW + dx;
       }
       post({ type: 'resizeWidth', width: Math.round(width), fromLeft });
+    };
+
+    const move = (ev: PointerEvent) => {
+      latest = { x: ev.screenX, y: ev.screenY };
+      if (!frame) frame = requestAnimationFrame(flush);
     };
     const up = (ev: PointerEvent) => {
       try {
@@ -877,6 +902,11 @@ function ResizeEdge({ side }: { side: Side }) {
       }
       el.removeEventListener('pointermove', move);
       el.removeEventListener('pointerup', up);
+      // Land on the last position rather than dropping whatever arrived after
+      // the final frame, then close the drag.
+      if (frame) cancelAnimationFrame(frame);
+      frame = 0;
+      flush();
       post({ type: 'resizeEnd' });
     };
     el.addEventListener('pointermove', move);
