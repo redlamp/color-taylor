@@ -55,6 +55,34 @@ test.describe('Plugin banner', () => {
     await expect(banner(page)).toBeVisible();
   });
 
+  test('stacks on a phone and stays inside the viewport', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 700 });
+    await page.goto('/');
+    const box = await banner(page).boundingBox();
+    if (!box) throw new Error('banner not rendered');
+
+    // Its own right edge must stay on screen. The page as a whole still
+    // overflows at this width, but that is #hex-stage and the brightness-bar
+    // handle, and it is unchanged with this banner dismissed - not ours.
+    expect(box.x + box.width).toBeLessThanOrEqual(320);
+
+    // Stacked: caption on one line, CTA on the next, so it is taller than the
+    // single-row pill. Side by side at 320 both labels wrapped mid-phrase.
+    expect(box.height).toBeGreaterThan(60);
+
+    const link = banner(page).getByRole('link');
+    const linkBox = await link.boundingBox();
+    // One line of button text, never "Get the / plugin".
+    expect(linkBox!.height).toBeLessThan(40);
+  });
+
+  test('is a single-row pill on a wide viewport', async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 800 });
+    await page.goto('/');
+    const box = await banner(page).boundingBox();
+    expect(box!.height).toBeLessThan(60);
+  });
+
   test('does not appear in the presentation', async ({ page }) => {
     // PresentationStage renders a whole ColorPicker inside a scaled wrapper,
     // and a transformed ancestor captures position:fixed. Mounting the banner

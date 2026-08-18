@@ -97,14 +97,36 @@ export default function PluginBanner() {
   // header is the one that has to win. In flow it displaces instead, so it
   // cannot hide anything at any width, and the layout closes back up when it
   // is dismissed.
+  /*
+   * Two shapes, one DOM.
+   *
+   * Inline as a pill from `sm` up. Below it the caption and the button stack,
+   * because side by side in a 320px viewport both of them wrapped - "Color
+   * Taylor now / runs inside Figma" beside "Get the / plugin" - and the pill
+   * still could not shrink enough, pushing 65px of horizontal scroll onto the
+   * whole page.
+   *
+   * Stacked, the glyph sits to the left spanning both rows, with the caption
+   * and the button as a column beside it. That comes from `sm:contents` on the
+   * column wrapper: below the breakpoint it is a real flex column, and at `sm`
+   * it dissolves so its children become flex items of the pill itself and
+   * everything lands back on one line. Both layouts, one copy of the markup.
+   *
+   * The dismiss button is absolutely placed while stacked and returns to the
+   * flow at `sm`, which keeps it out of the duplication too. The column's
+   * right padding is what stops the text running under it.
+   */
   return (
     <div className="flex justify-center p-3">
       <div
         role="region"
         aria-label="Color Taylor plugin"
-        className="flex items-center gap-2 rounded-full border border-border bg-card/95 py-1.5 pr-1.5 pl-3.5 shadow-lg supports-backdrop-filter:backdrop-blur-sm"
+        className={
+          'relative flex w-full max-w-sm items-center gap-2.5 rounded-2xl border border-border ' +
+          'bg-card/95 px-3.5 py-2.5 shadow-lg supports-backdrop-filter:backdrop-blur-sm ' +
+          'sm:w-auto sm:max-w-none sm:gap-2 sm:rounded-full sm:py-1.5 sm:pr-1.5 sm:pl-3.5'
+        }
       >
-        {Glyph && <Glyph className="size-4 shrink-0" />}
         {/*
           The message states, the button acts. It read "Try the Color Taylor
           plugin" beside "Get it for Figma", which is two imperatives for one
@@ -112,14 +134,26 @@ export default function PluginBanner() {
           are the same ask. The platform also appeared only on the button, so
           the sentence was incomplete on its own. Now the sentence carries the
           news and names the platform, and the button is the only verb.
+
+          While the listing is private there is no link at all: an invitation
+          pointing at a 404 is worse than saying it is not ready yet.
         */}
-        {live ? (
-          <>
-            <span className="text-sm text-foreground">
-              Color Taylor now runs inside {item.platform}
-            </span>
+        {/* Outside the column, so stacked it spans both rows. Larger there to
+            match the taller block it sits against. */}
+        {Glyph && <Glyph className="size-6 shrink-0 sm:size-4" />}
+
+        <div className="flex min-w-0 flex-1 flex-col items-start gap-2 pr-7 sm:contents sm:pr-0">
+          <span className="text-sm text-foreground">
+            {live
+              ? `Try Color Taylor in ${item.platform}`
+              : `Color Taylor is coming to ${item.platform}`}
+          </span>
+
+          {live && (
             <a
-              className="ctl-quiet h-7 rounded-full px-3 text-xs no-underline"
+              // nowrap: at 320px the label broke to "Get the / plugin" inside a
+              // pill sized for one line.
+              className="ctl-quiet h-7 shrink-0 rounded-full px-3 text-xs whitespace-nowrap no-underline"
               href={item.href}
               target="_blank"
               rel="noopener noreferrer"
@@ -130,19 +164,19 @@ export default function PluginBanner() {
                 on the {item.platform} Community (opens in a new tab)
               </span>
             </a>
-          </>
-        ) : (
-          // No link while the listing is private - an invitation pointing at a
-          // 404 is worse than saying it is not ready yet.
-          <span className="text-sm text-foreground">
-            Color Taylor is coming to {item.platform}
-          </span>
-        )}
+          )}
+        </div>
+
         <button
           type="button"
           onClick={dismiss}
           aria-label="Dismiss"
-          className="ml-0.5 inline-flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted-foreground select-none hover:bg-muted hover:text-foreground"
+          className={
+            'absolute top-2 right-2 inline-flex size-7 shrink-0 cursor-pointer items-center ' +
+            'justify-center rounded-full text-muted-foreground select-none ' +
+            'hover:bg-muted hover:text-foreground ' +
+            'sm:static sm:ml-0.5'
+          }
         >
           <X className="size-4" />
         </button>
