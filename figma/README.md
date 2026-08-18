@@ -126,14 +126,23 @@ learned the hard way:
   the handles floated over the content at `right: 0` they sat on the same pixels
   as the scrollbar, so neither could be grabbed reliably.
 
-The panel opens at `INITIAL_X`/`INITIAL_Y` (280, 72) on a first run - clear of
-the toolbar and the layers panel, in canvas space rather than over the chrome -
-and remembers where it was afterwards. `windowPos` in `clientStorage` holds the
-position *in reposition space*, converted through the calibrated bias on the
-way in and out, so what is stored is the same kind of number `reposition` wants
-back. Restoring happens after `clientStorage` resolves, so a remembered
-position hops into place a moment after launch; the alternative is awaiting
-storage before showing any UI, which trades the hop for a blank panel.
+**Placement is Figma's job, not ours.** Tested on 2026-08-19 by omitting
+`position` entirely: the panel opened somewhere sensible and reopened in the
+same place after being moved and closed. Figma persists window position itself,
+so the `windowPos` entry and the hardcoded opening point that used to live here
+were both duplicating the host - and the hardcoded point was wrong regardless,
+since `position` takes canvas coordinates, which land somewhere different at
+every pan and zoom.
+
+The one exception is calibration, which must dictate a position in order to
+recognise it coming back. That now happens **once ever**: the detected space is
+cached in `clientStorage` under `positionSpace`, and every launch after it
+leaves placement alone. `showUI` therefore runs from `start()` after storage
+resolves rather than at the top of the file - which also removed the width hop,
+since the stored width is known before the window exists.
+
+Width is still ours (`DEFAULT_W` is the minimum, and drags are remembered);
+height is always the content's.
 
 Height has exactly one source - the `ResizeObserver` in `main.tsx` reporting
 `.figma-root`'s `offsetHeight`. That is what makes dead space below the content

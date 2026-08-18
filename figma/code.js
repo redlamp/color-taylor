@@ -52,46 +52,20 @@ const DEFAULT_W = MIN_W;
 const DEFAULT_H = 651;
 
 /**
- * EXPERIMENT, 2026-08-19. Flip to false to restore the previous behaviour.
+ * Placement belongs to Figma. Measured, not assumed: with `position` omitted
+ * on 2026-08-19, the panel opened somewhere sensible and reopened in the same
+ * place after being moved and closed. Figma persists window position itself,
+ * so a stored `windowPos` and a hardcoded opening point were both duplicating
+ * the host - and the hardcoded one was wrong anyway, since calibration proved
+ * `position` takes canvas coordinates, which land somewhere different at every
+ * pan and zoom.
  *
- * Figma has no native resize handle and no docking, so the drag machinery here
- * has to exist - but placement may be a different story. Two things it is
- * testing at once:
- *
- *   1. Does Figma place the window sensibly on its own? The complaint that it
- *      opened over the left menus arrived *after* a probe was added that moved
- *      the window at startup, so Figma's own placement may never have been the
- *      problem. And since calibration showed `position` is in canvas
- *      coordinates, the hardcoded 280/72 was wrong anyway - not 280px from the
- *      screen edge, but a canvas point that lands somewhere different at every
- *      pan and zoom.
- *
- *   2. Does Figma already remember the position between runs? Nothing in the
- *      docs or the forums says it does, and the convention is that plugins
- *      persist it themselves - but nobody rules it out, and we should not
- *      maintain code that duplicates the host.
- *
- * Cost while this is true: space calibration needs a position it dictated in
- * order to recognise which reading came back, so it cannot run, and west-edge
- * anchoring is therefore off for the session. East and south are unaffected.
+ * The single exception is the one-time calibration below, which has to dictate
+ * a position in order to recognise it coming back. These are the coordinates
+ * it uses for that, on that one launch only.
  */
-const LET_FIGMA_PLACE = true;
-
-/** Only used when LET_FIGMA_PLACE is false. Canvas coordinates, not pixels. */
-const INITIAL_X = 280;
-const INITIAL_Y = 72;
-
-figma.showUI(
-  __html__,
-  LET_FIGMA_PLACE
-    ? { width: DEFAULT_W, height: DEFAULT_H, themeColors: true }
-    : {
-        width: DEFAULT_W,
-        height: DEFAULT_H,
-        position: { x: INITIAL_X, y: INITIAL_Y },
-        themeColors: true,
-      },
-);
+const CALIBRATION_X = 280;
+const CALIBRATION_Y = 72;
 
 /**
  * Figma paint components are sRGB 0..1, not linear. Straight /255.
@@ -291,27 +265,6 @@ function pxToWrite(px) {
   return isFinite(zoom) && zoom > 0 ? px / zoom : px;
 }
 
-/**
- * Moves the panel so its top-left lands on a given *windowSpace* point.
- *
- * Positions are remembered in window space on purpose, even when we write in
- * canvas space: window space is where the user actually put the panel on their
- * screen, and it survives panning and zooming between sessions. A stored
- * canvas coordinate would reopen the panel wherever that bit of canvas has
- * since scrolled to.
- *
- * @param {number} wx
- * @param {number} wy
- */
-function moveToWindowPoint(wx, wy) {
-  const raw = readRawPosition();
-  if (!raw) return;
-  const here = positionSpace === 'canvas' ? raw.canvasSpace : raw.windowSpace;
-  moveTo(
-    here.x + pxToWrite(wx - raw.windowSpace.x),
-    here.y + pxToWrite(wy - raw.windowSpace.y),
-  );
-}
 
 /**
  * @param {number} x
@@ -420,21 +373,6 @@ function calibrateWindowSpace(asked) {
  * this point is synchronous top-level code, so the window is still sitting
  * exactly where showUI put it - which is the only thing the measurement needs.
  */
-if (LET_FIGMA_PLACE) {
-  // Nothing was dictated, so there is no known value to recognise coming back.
-  westCapable = false;
-  const raw = readRawPosition();
-  console.log(
-    '[Color Taylor] placement left to Figma (experiment); west anchoring off',
-    JSON.stringify({
-      openedAt: raw,
-      zoom: figma.viewport.zoom,
-      viewportBounds: figma.viewport.bounds,
-    }),
-  );
-} else {
-  calibrateWindowSpace({ x: INITIAL_X, y: INITIAL_Y });
-}
 
 /**
  * Holds the east edge still while the west edge moves.
@@ -685,10 +623,10 @@ figma.ui.onmessage = (/** @type {UiToSandboxMessage} */ msg) => {
       resizeWidth(msg.width, msg.fromLeft === true);
       break;
 
+    // Width is ours to remember; position is not - Figma already keeps that.
     case 'resizeEnd':
       westAnchor = null;
       figma.clientStorage.setAsync('windowWidth', size.w);
-      rememberPosition();
       break;
 
     case 'close':
@@ -697,50 +635,67 @@ figma.ui.onmessage = (/** @type {UiToSandboxMessage} */ msg) => {
   }
 };
 
+
 /**
- * Stores where the panel is so the next launch can put it back.
+ * Startup.
  *
- * Only once calibration has identified the space - otherwise the number would
- * be in whichever space we guessed, and restoring it next launch would move
- * the panel somewhere arbitrary. Better to reopen at the default than to
- * persist a coordinate we cannot interpret.
+ * showUI is deliberately called from here rather than at the top of the file,
+ * because two things have to be known before the window exists and both come
+ * from clientStorage: the width to open at, and whether the coordinate space
+ * has already been identified. Doing it this way also removes the width hop -
+ * the panel used to open at the default and resize a moment later.
+ *
+ * Placement is Figma's. It remembers where the user left the window, so
+ * nothing here passes `position` - except on the single launch where the space
+ * still has to be calibrated, which is the one case that must dictate a
+ * position in order to recognise it coming back.
+ *
+ * Height is never restored: it is always a fit to the content, and the UI
+ * measures itself on mount and reports it, so a stored height would land after
+ * that measurement and immediately be overwritten.
  */
-function rememberPosition() {
-  if (westCapable !== true) return;
-  const raw = readRawPosition();
-  if (!raw) return;
-  // Window space, always - see moveToWindowPoint for why.
-  figma.clientStorage.setAsync('windowPos', {
-    x: raw.windowSpace.x,
-    y: raw.windowSpace.y,
+function start() {
+  return Promise.all([
+    figma.clientStorage.getAsync('positionSpace'),
+    figma.clientStorage.getAsync('windowWidth'),
+  ]).then(function (stored) {
+    const cachedSpace = stored[0];
+    const savedWidth = stored[1];
+
+    const width = typeof savedWidth === 'number' ? clampW(savedWidth) : DEFAULT_W;
+    size.w = width;
+    size.h = DEFAULT_H;
+
+    const known = cachedSpace === 'canvas' || cachedSpace === 'window';
+
+    if (known) {
+      // The common path: space already known, so Figma is left to place the
+      // window wherever the user last had it.
+      positionSpace = /** @type {'canvas' | 'window'} */ (cachedSpace);
+      westCapable = true;
+      figma.showUI(__html__, { width: width, height: DEFAULT_H, themeColors: true });
+      return;
+    }
+
+    // Once, ever. Dictating a position is the only way to tell which of
+    // getPosition's two readings reposition speaks, and the answer is cached
+    // so no later launch has to override Figma's remembered placement again.
+    figma.showUI(__html__, {
+      width: width,
+      height: DEFAULT_H,
+      position: { x: CALIBRATION_X, y: CALIBRATION_Y },
+      themeColors: true,
+    });
+    calibrateWindowSpace({ x: CALIBRATION_X, y: CALIBRATION_Y });
+    if (westCapable === true) {
+      figma.clientStorage.setAsync('positionSpace', positionSpace);
+    }
   });
 }
 
-/*
- * Restore the remembered width and position.
- *
- * Height is deliberately not restored: it is always a fit to the content, and
- * the UI measures itself on mount and reports it, so a stored height would
- * land after that measurement and overwrite it.
- *
- * Position is applied with `reposition` rather than being passed to showUI,
- * because clientStorage is async and showUI has already run by the time this
- * resolves. That means a first-run-since-move opens at INITIAL_X/Y for a
- * moment and then hops to the remembered spot. Accepted: the alternative is
- * awaiting storage before showing any UI at all, which trades a small hop for
- * a blank panel on every launch.
- */
-figma.clientStorage.getAsync('windowWidth').then((saved) => {
-  if (typeof saved === 'number') applySize(saved, size.h);
-});
-
-figma.clientStorage.getAsync('windowPos').then((saved) => {
-  if (westCapable !== true) return;
-  if (!saved || typeof saved.x !== 'number' || typeof saved.y !== 'number') return;
-  if (!isFinite(saved.x) || !isFinite(saved.y)) return;
-  // Entries written before positions were stored in window space carried a
-  // `space` field. Those coordinates mean something different; ignore them and
-  // let this session write a fresh one.
-  if (saved.space) return;
-  moveToWindowPoint(saved.x, saved.y);
+start().catch(function (err) {
+  // Never leave the plugin with no UI: if storage fails, open on the defaults
+  // and carry on without west anchoring.
+  console.warn('[Color Taylor] startup fell back to defaults:', err && err.message);
+  figma.showUI(__html__, { width: DEFAULT_W, height: DEFAULT_H, themeColors: true });
 });
