@@ -223,16 +223,33 @@ function applySize(w, h) {
   holdWestAnchor();
 }
 
-// getPosition returns { windowSpace, canvasSpace } - not a bare {x, y}.
-function readPosition() {
+/**
+ * Which of getPosition's two spaces `reposition` actually speaks.
+ *
+ * Decided by measurement at startup, not assumed - see calibrateWindowSpace.
+ * Until then reads default to windowSpace, which is only used for logging.
+ *
+ * @type {'window' | 'canvas'}
+ */
+let positionSpace = 'window';
+
+/** Both spaces, raw. getPosition returns a pair, not a bare {x, y}. */
+function readRawPosition() {
   try {
     if (typeof figma.ui.getPosition !== 'function') return null;
     const pos = figma.ui.getPosition();
-    return pos && pos.windowSpace ? pos.windowSpace : null;
+    return pos && pos.windowSpace && pos.canvasSpace ? pos : null;
   } catch (err) {
     void err;
     return null;
   }
+}
+
+/** The panel's position in the space `reposition` writes in. */
+function readPosition() {
+  const pos = readRawPosition();
+  if (!pos) return null;
+  return positionSpace === 'canvas' ? pos.canvasSpace : pos.windowSpace;
 }
 
 /**
@@ -275,72 +292,69 @@ function moveTo(x, y) {
  */
 /** @type {boolean | null} */
 let westCapable = null;
-/** @type {{ x: number, y: number } | null} */
-let westBias = null;
 /** @type {{ x: number, y: number, w: number } | null} */
 let westAnchor = null;
 
-/**
- * How far apart the two spaces may plausibly be. An offset the size of the
- * app's chrome is believable; anything larger means the reading is not a
- * translation of what we asked for - a clamp, a per-axis origin change, or a
- * scale - and the mapping cannot be trusted.
- */
-const MAX_SANE_BIAS = 400;
+/** How close a reading has to be to count as "this is the space we wrote in". */
+const SPACE_MATCH_TOLERANCE = 2;
 
 /**
- * Measures the offset between getPosition()'s window space and the space that
- * reposition() and showUI's `position` use, by comparing a position we chose
- * against what getPosition reports back.
+ * Works out which space `reposition` speaks, by asking showUI for a position
+ * we chose and seeing which of getPosition's two readings comes back holding
+ * it. Whichever matches is the space reposition writes in, because the docs
+ * describe showUI's `position` and `reposition` as the same setting.
  *
- * No window movement, nothing to verify, nothing to put back - which is the
- * whole point. Runs once, immediately after showUI.
+ * Nothing moves and there is nothing to restore - the measurement is just a
+ * comparison against a number we already know.
  *
- * If getPosition is unavailable, or the offset is implausible, the bias stays
- * null and west anchoring never engages: the west edge then resizes like the
- * east one, which is what it has always actually done.
+ * The first attempt at this compared only against windowSpace, and on
+ * 2026-08-18 a real session returned asked (280, 72) against windowSpace
+ * (1370, 407). Read as an offset that is nonsense - 1090px is not chrome - but
+ * as a *canvas pan* it is entirely ordinary, which is what suggested checking
+ * both spaces rather than assuming one.
+ *
+ * If neither matches, showUI's position was not honoured at all, west
+ * anchoring stays off, and the west edge resizes like the east one.
  *
  * @param {{ x: number, y: number }} asked - the position passed to showUI
  */
 function calibrateWindowSpace(asked) {
-  const seen = readPosition();
-  if (!seen) {
+  const pos = readRawPosition();
+  if (!pos) {
     westCapable = false;
     console.log('[Color Taylor] window-space calibration: OFF (no position available)');
     return;
   }
 
-  const bias = { x: seen.x - asked.x, y: seen.y - asked.y };
-  const sane =
-    isFinite(bias.x) &&
-    isFinite(bias.y) &&
-    Math.abs(bias.x) <= MAX_SANE_BIAS &&
-    Math.abs(bias.y) <= MAX_SANE_BIAS;
+  /** @param {{x: number, y: number}} v */
+  const missBy = (v) => Math.abs(v.x - asked.x) + Math.abs(v.y - asked.y);
+  const windowMiss = missBy(pos.windowSpace);
+  const canvasMiss = missBy(pos.canvasSpace);
 
-  westCapable = sane;
-  westBias = sane ? bias : null;
+  if (canvasMiss <= SPACE_MATCH_TOLERANCE) positionSpace = 'canvas';
+  else if (windowMiss <= SPACE_MATCH_TOLERANCE) positionSpace = 'window';
+
+  westCapable = canvasMiss <= SPACE_MATCH_TOLERANCE || windowMiss <= SPACE_MATCH_TOLERANCE;
 
   console.log(
-    '[Color Taylor] window-space calibration: ' + (sane ? 'ON' : 'OFF'),
+    '[Color Taylor] window-space calibration: ' +
+      (westCapable ? 'ON (' + positionSpace + ' space)' : 'OFF (position not honoured)'),
     JSON.stringify({
       asked: asked,
-      seen: seen,
-      bias: bias,
+      windowSpace: pos.windowSpace,
+      canvasSpace: pos.canvasSpace,
+      windowMiss: windowMiss,
+      canvasMiss: canvasMiss,
+      zoom: figma.viewport.zoom,
+      viewportBounds: figma.viewport.bounds,
       hasReposition: typeof figma.ui.reposition === 'function',
     }),
   );
 }
 
-/** getPosition's reading converted into the space reposition expects. */
-function currentRepositionSpace() {
-  const seen = readPosition();
-  if (!seen || !westBias) return null;
-  return { x: seen.x - westBias.x, y: seen.y - westBias.y };
-}
-
 /*
  * Calibrate here rather than beside showUI, even though that reads better.
- * westCapable and westBias are `let` bindings declared just above, so calling
+ * westCapable and positionSpace are `let` bindings declared above, so calling
  * this any earlier lands in their temporal dead zone and throws. Everything to
  * this point is synchronous top-level code, so the window is still sitting
  * exactly where showUI put it - which is the only thing the measurement needs.
@@ -355,11 +369,10 @@ calibrateWindowSpace({ x: INITIAL_X, y: INITIAL_Y });
  * anchor, so it cannot accumulate: the same width always maps to the same x.
  */
 function holdWestAnchor() {
-  if (!westAnchor || !westBias) return;
-  moveTo(
-    Math.max(0, westAnchor.x + (westAnchor.w - size.w)) - westBias.x,
-    westAnchor.y - westBias.y,
-  );
+  if (!westAnchor) return;
+  // No bias term any more: readPosition already reports in the space
+  // reposition writes in, so the anchor and this write are the same units.
+  moveTo(westAnchor.x + (westAnchor.w - size.w), westAnchor.y);
 }
 
 /**
@@ -611,17 +624,18 @@ figma.ui.onmessage = (/** @type {UiToSandboxMessage} */ msg) => {
 };
 
 /**
- * Stores where the panel is, in reposition space, so the next launch can put
- * it back. Reads through the calibrated bias rather than storing getPosition's
- * raw value, so what goes to disk is the same kind of number showUI wants back.
+ * Stores where the panel is so the next launch can put it back.
  *
- * Silent no-op when calibration failed - better to reopen at the default than
- * to persist a coordinate we cannot interpret.
+ * Only once calibration has identified the space - otherwise the number would
+ * be in whichever space we guessed, and restoring it next launch would move
+ * the panel somewhere arbitrary. Better to reopen at the default than to
+ * persist a coordinate we cannot interpret.
  */
 function rememberPosition() {
-  const pos = currentRepositionSpace();
+  if (westCapable !== true) return;
+  const pos = readPosition();
   if (!pos) return;
-  figma.clientStorage.setAsync('windowPos', pos);
+  figma.clientStorage.setAsync('windowPos', { x: pos.x, y: pos.y, space: positionSpace });
 }
 
 /*
@@ -643,9 +657,12 @@ figma.clientStorage.getAsync('windowWidth').then((saved) => {
 });
 
 figma.clientStorage.getAsync('windowPos').then((saved) => {
+  if (westCapable !== true) return;
   if (!saved || typeof saved.x !== 'number' || typeof saved.y !== 'number') return;
-  // Never restore a position we could not have produced - a corrupt or
-  // stale-format entry should not be able to put the panel off-screen.
-  if (!isFinite(saved.x) || !isFinite(saved.y) || saved.x < 0 || saved.y < 0) return;
+  if (!isFinite(saved.x) || !isFinite(saved.y)) return;
+  // Written in a different space than we are reading in now - the viewport has
+  // moved, or a stale entry predates the space being identified. Restoring it
+  // would put the panel somewhere unrelated, so fall back to where it opened.
+  if (saved.space !== positionSpace) return;
   moveTo(saved.x, saved.y);
 });
