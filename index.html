@@ -2,7 +2,20 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!--
+      Icons. %BASE_URL% rather than a leading slash: vite.config.js flips `base`
+      to /color-taylor/ for the GitHub Pages build, and an absolute /favicon.ico
+      would 404 there. The old emoji-in-an-SVG favicon is gone - it depended on
+      whichever emoji font the OS happened to have.
+
+      Regenerate all of these with `node scripts/make-favicons.mjs`.
+    -->
+    <link rel="icon" href="%BASE_URL%favicon.ico" sizes="32x32" />
+    <link rel="icon" type="image/png" sizes="16x16" href="%BASE_URL%favicon-16.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="%BASE_URL%favicon-32.png" />
+    <link rel="apple-touch-icon" href="%BASE_URL%apple-touch-icon.png" />
+    <link rel="manifest" href="%BASE_URL%manifest.webmanifest" />
+    <meta name="theme-color" content="#111111" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Color Taylor 🎨🧵</title>
     <!--
