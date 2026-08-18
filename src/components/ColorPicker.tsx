@@ -64,6 +64,7 @@ import CollapsibleSection from './CollapsibleSection';
 import NamedColorMatch from './NamedColorMatch';
 import ThemeToggle from './ThemeToggle';
 import { SettingsPanel } from './SettingsPanel';
+import IntegrationsFooter from './IntegrationsFooter';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { VolumeControl } from './VolumeControl';
 import { useSettings } from '@/hooks/useSettings';
@@ -548,7 +549,10 @@ export default function ColorPicker() {
                   className="ctl-quiet-icon"
                   onClick={() => setSettingsOpen(o => !o)}
                   aria-label="Open settings"
-                  aria-expanded={settingsOpen}
+                  // aria-haspopup, not aria-expanded: the panel is a modal
+                  // dialog now rather than a disclosure region, and it is
+                  // portalled out of this button's subtree.
+                  aria-haspopup="dialog"
                 >
                   <Settings className="size-4" />
                 </button>
@@ -839,6 +843,7 @@ export default function ColorPicker() {
 
       {/* Learn section — hidden for now */}
       </div>
+      <IntegrationsFooter />
       <SettingsPanel
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}

@@ -10,12 +10,15 @@ Every `notes/decision-*.md`, newest first. Each note records what was decided, w
 - [[decision-clientstorage-swatch-seam]] — `localStorage` is unusable in a null-origin iframe; the seam that fixed persistence
 - [[decision-frame-clocked-follow]] — the sandbox has no clock, so the iframe drives polling; revised to `nodechange`
 - [[decision-content-fit-height]] — height has exactly one source, and the two things that forbids
-- [[decision-figma-listing-assets]] — icon and thumbnail generated from the app's own hexagon math, so they cannot drift
+- [[decision-figma-listing-assets]] — icon and thumbnail generated from the app's own hexagon math *(superseded by [[decision-logo-source]])*
+- [[decision-logo-source]] — the designed Figma frames are the source of truth for the logo and thumbnail; the generator is gone
 
 - [[decision-plugin-css-hooks]] — panel CSS selects `data-*`, never a Tailwind class; the 2.9px swatch bug that established it
 
 ## App only
 
+- [[decision-settings-sheet]] — Settings is a modal right-edge sheet on base-ui `Dialog`; what the free-floating draggable panel had accumulated, and why the drag went
+- [[decision-integrations-footer]] — "Also available in" as a data-driven list, and why the Figma link stays unrendered until the listing is public
 - [[decision-border-color-effects]] — Anodised as the resting style, with a hue- and saturation-derived glow and rim light on top; four reasons it stops at the app
 - [[decision-audio-off-by-default]] — every audible thing behind one setting, off until asked for
 - [[decision-color-editor-is-the-panel]] — the SB box is the right column's subject, not a section in it; "Sliders" was one level too low

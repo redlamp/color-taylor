@@ -12,7 +12,7 @@ Top-level Map of Content. See `CLAUDE.md` in this folder for conventions.
 
 ## Active
 
-- [[plan-figma-plugin-release]] — **the plugin id is the one hard blocker**, and it needs the desktop app signed in as `taylor@redlamp.org`. Everything else on the checklist is done or waiting on it.
+- [[plan-figma-plugin-release]] — the plugin id blocker is **cleared** (2026-08-18). What's left: a support-contact decision, and the listing is with Figma for review.
 - [[test-plan-2026-08-04-figma-plugin]] — the first deliberate real-Figma pass, 8 sections, still outstanding
 - [[plan-teaching-rgb-to-hsb]] — how to teach the tool and the subject; proposed intro-deck script changes, not yet applied
 

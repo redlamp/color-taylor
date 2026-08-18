@@ -4,6 +4,7 @@ import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
+import { SettingsSwitch, SwitchRow } from '@/components/settings/SettingsSwitch';
 import { Volume, Volume1, Volume2, VolumeOff } from 'lucide-react';
 import { hsbToRgb, rgbToHex } from '@/utils/colorConversions';
 import { toneController } from '@/utils/toneControllerLazy';
@@ -223,26 +224,12 @@ export function AudioSettings({ muted, onToggleMute }: AudioSettingsProps) {
         />
       </div>
 
-      <div className="flex items-center justify-between">
-        <Label className="text-sm text-muted-foreground">Color Synth</Label>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={s.synthEnabled}
-          onClick={() => updateSynth({ synthEnabled: !s.synthEnabled })}
-          className={
-            'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border border-input transition-colors select-none ' +
-            (s.synthEnabled ? 'bg-primary' : 'bg-muted')
-          }
-        >
-          <span
-            className={
-              'inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform ' +
-              (s.synthEnabled ? 'translate-x-4' : 'translate-x-0.5')
-            }
-          />
-        </button>
-      </div>
+      <SwitchRow
+        label="Color Synth"
+        checked={s.synthEnabled}
+        onToggle={() => updateSynth({ synthEnabled: !s.synthEnabled })}
+        ariaLabel="Toggle color synth"
+      />
 
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center justify-between gap-2">
@@ -345,23 +332,12 @@ export function AudioSettings({ muted, onToggleMute }: AudioSettingsProps) {
                   {isChord && (
                     <div className="flex items-center gap-1.5 shrink-0">
                       <Label className="text-xs text-muted-foreground">Linked</Label>
-                      <button
-                        type="button"
-                        role="switch"
-                        aria-checked={s.oscLinked}
-                        onClick={() => updateSynth({ oscLinked: !s.oscLinked })}
-                        className={
-                          'relative inline-flex h-4 w-8 shrink-0 cursor-pointer rounded-full border border-input transition-colors select-none ' +
-                          (s.oscLinked ? 'bg-primary' : 'bg-muted')
-                        }
-                      >
-                        <span
-                          className={
-                            'inline-block h-3 w-3 rounded-full bg-white shadow transform transition-transform ' +
-                            (s.oscLinked ? 'translate-x-4' : 'translate-x-0.5')
-                          }
-                        />
-                      </button>
+                      <SettingsSwitch
+                        size="sm"
+                        checked={s.oscLinked}
+                        onToggle={() => updateSynth({ oscLinked: !s.oscLinked })}
+                        ariaLabel="Link oscillator across channels"
+                      />
                     </div>
                   )}
                 </div>
@@ -442,47 +418,19 @@ export function AudioSettings({ muted, onToggleMute }: AudioSettingsProps) {
                 </AccordionItem>
               </Accordion>
 
-              <div className="flex items-center justify-between">
-                <Label className="text-sm text-muted-foreground">Compressor</Label>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={s.compressorOn}
-                  onClick={() => updateSynth({ compressorOn: !s.compressorOn })}
-                  className={
-                    'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border border-input transition-colors select-none ' +
-                    (s.compressorOn ? 'bg-primary' : 'bg-muted')
-                  }
-                >
-                  <span
-                    className={
-                      'inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform ' +
-                      (s.compressorOn ? 'translate-x-4' : 'translate-x-0.5')
-                    }
-                  />
-                </button>
-              </div>
+              <SwitchRow
+                label="Compressor"
+                checked={s.compressorOn}
+                onToggle={() => updateSynth({ compressorOn: !s.compressorOn })}
+                ariaLabel="Toggle compressor"
+              />
 
-              <div className="flex items-center justify-between">
-                <Label className="text-sm text-muted-foreground">Hold note</Label>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={s.sustainLatch}
-                  onClick={() => updateSynth({ sustainLatch: !s.sustainLatch })}
-                  className={
-                    'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border border-input transition-colors select-none ' +
-                    (s.sustainLatch ? 'bg-primary' : 'bg-muted')
-                  }
-                >
-                  <span
-                    className={
-                      'inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform ' +
-                      (s.sustainLatch ? 'translate-x-4' : 'translate-x-0.5')
-                    }
-                  />
-                </button>
-              </div>
+              <SwitchRow
+                label="Hold note"
+                checked={s.sustainLatch}
+                onToggle={() => updateSynth({ sustainLatch: !s.sustainLatch })}
+                ariaLabel="Toggle hold note"
+              />
             </div>
           </AccordionContent>
         </AccordionItem>
