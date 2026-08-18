@@ -253,6 +253,47 @@ function readPosition() {
 }
 
 /**
+ * Converts a distance in screen pixels into the units the write space uses.
+ *
+ * The panel's width is screen pixels - figma.ui.resize deals in them - but its
+ * position may be canvas coordinates, and those are only the same thing at
+ * 100% zoom. Subtracting a pixel width delta straight from a canvas x is
+ * therefore wrong by a factor of the zoom, which is what made west dragging
+ * overshoot: reported 2026-08-19 as the panel growing *and* sliding west, so
+ * the east edge crept instead of staying pinned. Zoomed in, every pixel of
+ * growth moved the window more than a pixel.
+ *
+ * @param {number} px
+ */
+function pxToWrite(px) {
+  if (positionSpace !== 'canvas') return px;
+  const zoom = figma.viewport.zoom;
+  return isFinite(zoom) && zoom > 0 ? px / zoom : px;
+}
+
+/**
+ * Moves the panel so its top-left lands on a given *windowSpace* point.
+ *
+ * Positions are remembered in window space on purpose, even when we write in
+ * canvas space: window space is where the user actually put the panel on their
+ * screen, and it survives panning and zooming between sessions. A stored
+ * canvas coordinate would reopen the panel wherever that bit of canvas has
+ * since scrolled to.
+ *
+ * @param {number} wx
+ * @param {number} wy
+ */
+function moveToWindowPoint(wx, wy) {
+  const raw = readRawPosition();
+  if (!raw) return;
+  const here = positionSpace === 'canvas' ? raw.canvasSpace : raw.windowSpace;
+  moveTo(
+    here.x + pxToWrite(wx - raw.windowSpace.x),
+    here.y + pxToWrite(wy - raw.windowSpace.y),
+  );
+}
+
+/**
  * @param {number} x
  * @param {number} y
  */
@@ -370,9 +411,8 @@ calibrateWindowSpace({ x: INITIAL_X, y: INITIAL_Y });
  */
 function holdWestAnchor() {
   if (!westAnchor) return;
-  // No bias term any more: readPosition already reports in the space
-  // reposition writes in, so the anchor and this write are the same units.
-  moveTo(westAnchor.x + (westAnchor.w - size.w), westAnchor.y);
+  // The width delta is screen pixels; the position may not be. See pxToWrite.
+  moveTo(westAnchor.x + pxToWrite(westAnchor.w - size.w), westAnchor.y);
 }
 
 /**
@@ -633,9 +673,13 @@ figma.ui.onmessage = (/** @type {UiToSandboxMessage} */ msg) => {
  */
 function rememberPosition() {
   if (westCapable !== true) return;
-  const pos = readPosition();
-  if (!pos) return;
-  figma.clientStorage.setAsync('windowPos', { x: pos.x, y: pos.y, space: positionSpace });
+  const raw = readRawPosition();
+  if (!raw) return;
+  // Window space, always - see moveToWindowPoint for why.
+  figma.clientStorage.setAsync('windowPos', {
+    x: raw.windowSpace.x,
+    y: raw.windowSpace.y,
+  });
 }
 
 /*
@@ -660,9 +704,9 @@ figma.clientStorage.getAsync('windowPos').then((saved) => {
   if (westCapable !== true) return;
   if (!saved || typeof saved.x !== 'number' || typeof saved.y !== 'number') return;
   if (!isFinite(saved.x) || !isFinite(saved.y)) return;
-  // Written in a different space than we are reading in now - the viewport has
-  // moved, or a stale entry predates the space being identified. Restoring it
-  // would put the panel somewhere unrelated, so fall back to where it opened.
-  if (saved.space !== positionSpace) return;
-  moveTo(saved.x, saved.y);
+  // Entries written before positions were stored in window space carried a
+  // `space` field. Those coordinates mean something different; ignore them and
+  // let this session write a fresh one.
+  if (saved.space) return;
+  moveToWindowPoint(saved.x, saved.y);
 });
