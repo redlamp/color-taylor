@@ -34,12 +34,22 @@ const MIN_W = 300;
 const MIN_H = 160;
 const MAX_W = 900;
 const MAX_H = 1200;
-// A wider default means a larger hexagon out of the box; users can drag either
-// way. DEFAULT_H is the measured content height at DEFAULT_W, so the window
-// opens already fitted instead of jumping when the UI reports its first
-// measurement. Measured with Recent and Saved collapsed, which is how they open.
-const DEFAULT_W = 500;
-const DEFAULT_H = 595;
+// Opens at the minimum width. A plugin panel is a guest in someone else's
+// window, so it takes as little of the canvas as it can and lets the user
+// widen it if they want a bigger hexagon; the width they drag to is remembered
+// in clientStorage, so this only ever applies on a first run.
+//
+// DEFAULT_H is the measured content height at DEFAULT_W, so the window opens
+// already fitted instead of jumping when the UI reports its first measurement.
+// Measured with Recent and Saved collapsed, which is how they open.
+//
+// Re-measured 2026-08-18 against the built ui.html: 651 at 300, 690 at 340,
+// 767 at 420, 844 at 500. The previous pair (500 / 595) was stale by about
+// 235px at every width - the app grew an alpha slider and the group toggles
+// after it was taken, and nothing here is derived automatically. If the panel
+// visibly jumps on open, this is the number to re-measure.
+const DEFAULT_W = MIN_W;
+const DEFAULT_H = 651;
 
 figma.showUI(__html__, { width: DEFAULT_W, height: DEFAULT_H, themeColors: true });
 

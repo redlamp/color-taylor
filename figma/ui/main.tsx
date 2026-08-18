@@ -811,16 +811,22 @@ function PluginApp() {
 
 /**
  * Content height per pixel of panel width. The hexagon holds its ratio, so the
- * content gets taller as the panel gets wider - measured at 453/524/595/701 for
- * widths 340/420/500/620, i.e. a straight line at ~0.887.
+ * content gets taller as the panel gets wider.
+ *
+ * Re-measured 2026-08-18 against the built ui.html: 651/690/767/844 for widths
+ * 300/340/420/500, a straight line at ~0.96. The previous figure (0.887, from
+ * 453/524/595/701) had gone stale the same way DEFAULT_H in code.js had - the
+ * app grew after it was taken and nothing here re-derives itself.
  *
  * Only used as the gain of a feedback loop, never to predict an absolute size.
  * At the measured value the loop lands on target in a single frame; it still
  * converges anywhere from roughly 0.5x to 2x that, just over a few frames.
  * Below about half it oscillates instead - so if the layout changes enough to
- * move this slope, re-measure it rather than guess.
+ * move this slope, re-measure it rather than guess. (0.887 was inside the
+ * converging range, so the south edge worked either way; this just costs
+ * fewer frames.)
  */
-const HEIGHT_PER_WIDTH = 0.887;
+const HEIGHT_PER_WIDTH = 0.96;
 
 /**
  * Invisible resize strips - no widget, just the cursor, the way a normal app
