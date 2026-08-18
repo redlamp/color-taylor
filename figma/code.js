@@ -51,7 +51,27 @@ const MAX_H = 1200;
 const DEFAULT_W = MIN_W;
 const DEFAULT_H = 651;
 
-figma.showUI(__html__, { width: DEFAULT_W, height: DEFAULT_H, themeColors: true });
+/**
+ * Where the panel opens.
+ *
+ * Left unset, it landed over Figma's own left-hand menus. These clear the
+ * toolbar and the layers/assets panel and leave a small margin, so it opens in
+ * canvas space rather than on top of the chrome.
+ *
+ * `position` in showUI is the documented way to place the window, and unlike
+ * `reposition` it is applied once at creation - so it does not depend on the
+ * getPosition/reposition coordinate-space question that west anchoring is
+ * still stuck on.
+ */
+const INITIAL_X = 280;
+const INITIAL_Y = 72;
+
+figma.showUI(__html__, {
+  width: DEFAULT_W,
+  height: DEFAULT_H,
+  position: { x: INITIAL_X, y: INITIAL_Y },
+  themeColors: true,
+});
 
 /**
  * Figma paint components are sRGB 0..1, not linear. Straight /255.
@@ -628,16 +648,25 @@ figma.ui.onmessage = (/** @type {UiToSandboxMessage} */ msg) => {
 figma.clientStorage.getAsync('windowWidth').then((saved) => {
   if (typeof saved === 'number') applySize(saved, size.h);
 
-  /*
-   * Settle the west-anchoring question once, up front, so a drag never has to
-   * wait on it. Deliberately after the width restore: probing first would nudge
-   * a window that is about to move anyway.
-   *
-   * The cost is one 8px round trip at launch, which returns to where it
-   * started. Failure is safe by construction - west anchoring simply stays off
-   * and the west edge resizes like the east one.
-   */
-  probeWestAnchoring().catch((err) => {
-    console.warn('[Color Taylor] west-anchoring probe failed:', err && err.message);
-  });
 });
+
+/*
+ * The west-anchoring probe does NOT run here.
+ *
+ * It did briefly, on the reasoning that settling the question at launch beats
+ * making the first drag wait for it. That was a mistake: the probe moves the
+ * window and puts it back using a position it read itself, so if the two
+ * coordinate spaces disagree - the exact thing it exists to find out - "back"
+ * is somewhere else, and the panel opened over Figma's left menus. A
+ * diagnostic that damages the thing it measures is worse than no diagnostic.
+ *
+ * So it stays opt-in until the logging from a real session says which failure
+ * mode we are in. Nothing calls it today, which means west anchoring is off
+ * and the west edge resizes like the east one - the same behaviour the panel
+ * has always actually had, now without a launch-time window move.
+ *
+ * To collect that reading, call it from the plugin console - it is hung off
+ * globalThis below for exactly that - and it logs its raw p0/p1/p2 readings.
+ * That is also what stops it being dead code: the diagnostic is the point.
+ */
+globalThis.colorTaylorProbeWest = probeWestAnchoring;
