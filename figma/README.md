@@ -132,6 +132,11 @@ There is no published recipe for this; the official docs and
 ## Not wired up
 
 - Color variables and styles binding.
-- Publishing. Loaded locally via Import from manifest; `manifest.json` still
-  carries the `color-taylor-local-dev` placeholder id. See
-  `wiki/notes/plan-figma-plugin-release.md` for what a Community listing needs.
+
+## Publishing
+
+`manifest.json` carries the real plugin id (`1671457712575610716`, generated
+2026-08-18 under `taylor@redlamp.org`), so the plugin is publishable rather
+than dev-only. Changing the manifest means re-importing it in the desktop app
+once - Figma only re-reads `code.js` and `ui.html` between runs. See
+`wiki/notes/plan-figma-plugin-release.md` for what is left before submitting.
