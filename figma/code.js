@@ -294,14 +294,47 @@ async function probeWestAnchoring() {
   if (westCapable !== null) return;
   westCapable = false;
 
+  /*
+   * Reports the whole probe, pass or fail.
+   *
+   * It used to log only on failure and only the miss distance, which turned
+   * out to be too little to act on: "did it fail, and in which of three ways"
+   * needs the raw readings, and "no output" was ambiguous between passing and
+   * never running. One line that always prints settles it.
+   */
+  /**
+   * @param {string} verdict
+   * @param {Record<string, unknown>} extra
+   */
+  const report = (verdict, extra) => {
+    console.log(
+      '[Color Taylor] west-anchoring probe: ' + verdict,
+      JSON.stringify(
+        Object.assign(
+          {
+            hasReposition: typeof figma.ui.reposition === 'function',
+            hasGetPosition: typeof figma.ui.getPosition === 'function',
+            settleMs: PROBE_SETTLE_MS,
+            probePx: PROBE_PX,
+          },
+          extra,
+        ),
+      ),
+    );
+  };
+
   const p0 = readPosition();
-  if (!p0) return;
+  if (!p0) {
+    report('no position available', {});
+    return;
+  }
 
   moveTo(p0.x + PROBE_PX, p0.y);
   await delay(PROBE_SETTLE_MS);
   const p1 = readPosition();
   if (!p1) {
     moveTo(p0.x, p0.y);
+    report('position unreadable after move', { p0 });
     return;
   }
 
@@ -313,14 +346,18 @@ async function probeWestAnchoring() {
 
   westCapable = err <= 1;
   westBias = westCapable ? bias : null;
-  // Only the failure is worth a line. The success case ran on every session
-  // and put plugin internals in the user's console for no reason.
-  if (!westCapable) {
-    console.warn(
-      '[Color Taylor] west-edge anchoring off, reposition probe missed by',
-      err,
-    );
-  }
+
+  // moved = did the window actually go anywhere on the first nudge? That one
+  // number separates "reposition does nothing here" from "it works but in a
+  // different coordinate space", which need opposite fixes.
+  report(westCapable ? 'ON' : 'OFF', {
+    p0,
+    p1,
+    p2,
+    bias,
+    err,
+    movedOnNudge: p1.x - p0.x,
+  });
 }
 
 /**
