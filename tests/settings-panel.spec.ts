@@ -72,6 +72,22 @@ test.describe('Settings sheet', () => {
     await expect(themeSwitch).not.toHaveAttribute('aria-checked', before ?? '');
   });
 
+  test('"Reset all settings" returns the colour to the default', async ({ page }) => {
+    const hexInput = page.locator('input[value^="#"]').first();
+    await expect(hexInput).toHaveValue('#4F95FF');
+
+    // Move the colour somewhere else and let it persist.
+    await hexInput.fill('#FF0000');
+    await hexInput.press('Enter');
+    await expect(hexInput).toHaveValue('#FF0000');
+
+    await gear(page).click();
+    await sheet(page).getByRole('button', { name: /reset all settings/i }).click();
+
+    // Tweened, not snapped, so allow it to arrive.
+    await expect(hexInput).toHaveValue('#4F95FF', { timeout: 4000 });
+  });
+
   test('audio section appears only once audio is enabled, and its switches are named', async ({ page }) => {
     await gear(page).click();
     await expect(sheet(page).getByRole('button', { name: 'Audio', exact: true })).toHaveCount(0);

@@ -199,7 +199,9 @@ function ScrollIndicator() {
 }
 
 function PluginApp() {
-  const [hsb, setHsb] = useState<HSB>({ h: 0, s: 100, b: 100 });
+  // #4F95FF, matching the app's default and the branding. Only ever seen with
+  // nothing selected - any selection seeds the picker from its own fill.
+  const [hsb, setHsb] = useState<HSB>({ h: 216, s: 69, b: 100 });
   const [blMode, setBlMode] = useState<'brightness' | 'lightness'>('brightness');
   const [colorSpace, setColorSpace] = useState<ColorSpace>('srgb');
   const [selectionCount, setSelectionCount] = useState(0);
