@@ -50,6 +50,13 @@ retired but the description below still carries the same idea.
 
     Each drag is its own undo step.
 
+    TRY IT IN A BROWSER
+
+    The same picker runs as a web app, with a few extras the panel leaves out
+    - the equations view and a walkthrough of how color models relate:
+
+    https://redlamp.github.io/color-taylor/
+
     PRIVACY
 
     Nothing leaves the plugin. There is no network access at all, declared in
@@ -62,7 +69,21 @@ retired but the description below still carries the same idea.
 
 ## Support contact
 
-Needs a decision. The repo is the natural home - GitHub Issues on `redlamp/color-taylor` - and the guidelines only require an established way for users to reach you. Alternative is an email alias.
+    support@redlamp.org
+
+Settled 2026-08-19. An alias on a domain the user owns rather than a personal
+inbox: the contact renders publicly on the Community page and gets scraped, so
+the address needs to be one that can be retired and replaced without touching
+anything else.
+
+## Links
+
+    https://redlamp.github.io/color-taylor/
+
+The web app, verified live 2026-08-19 (200, and the `/color-taylor/` path
+matches `vite.config.js`'s GitHub Pages base). It is the *running app*, not the
+source - the repository is https://github.com/redlamp/color-taylor, which is
+worth adding too if the intent is to point developers at the code.
 
 ## Data security questionnaire
 
