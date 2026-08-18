@@ -1,6 +1,7 @@
 import { useEffect, Suspense, lazy } from 'react'
 import ErrorBoundary from './components/ErrorBoundary'
 import ColorPicker from './components/ColorPicker'
+import PluginBanner from './components/PluginBanner'
 import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ThemeProvider, useTheme } from './hooks/useTheme'
@@ -53,6 +54,11 @@ function AppInner() {
       ) : (
         <div className="relative min-h-svh flex items-center justify-center p-5">
           <ColorPicker />
+          {/* App-level, not inside ColorPicker: the presentation renders a whole
+              ColorPicker inside a scaled wrapper, and a transformed ancestor
+              captures `position: fixed`. Mounted here it can only ever appear on
+              the picker route. */}
+          <PluginBanner />
           <Toaster position="top-center" />
         </div>
       )}

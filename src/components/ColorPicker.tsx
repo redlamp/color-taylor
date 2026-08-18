@@ -64,7 +64,6 @@ import CollapsibleSection from './CollapsibleSection';
 import NamedColorMatch from './NamedColorMatch';
 import ThemeToggle from './ThemeToggle';
 import { SettingsPanel } from './SettingsPanel';
-import IntegrationsFooter from './IntegrationsFooter';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { VolumeControl } from './VolumeControl';
 import { useSettings } from '@/hooks/useSettings';
@@ -843,7 +842,6 @@ export default function ColorPicker() {
 
       {/* Learn section — hidden for now */}
       </div>
-      <IntegrationsFooter />
       <SettingsPanel
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
