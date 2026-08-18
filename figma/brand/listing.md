@@ -64,6 +64,25 @@ retired but the description below still carries the same idea.
 
 Needs a decision. The repo is the natural home - GitHub Issues on `redlamp/color-taylor` - and the guidelines only require an established way for users to reach you. Alternative is an email alias.
 
+## Data security questionnaire
+
+The publish modal's "Share how your plugin handles data" section. Answers
+below are checked against the built bundle (2026-08-18) and appear publicly
+on the Community page, so keep them true if the plugin ever gains network
+access or a backend.
+
+1. **Backend service** - No, I do not host a backend service.
+2. **Network requests** - Does not make any network requests. Verified: no
+   `fetch`/`XMLHttpRequest`/`WebSocket`/`sendBeacon`/`@font-face`/external
+   `<img>` or `<script src>` in `ui.html`; the only `http` strings are W3C
+   XML namespace identifiers. Matches `networkAccess: ["none"]`.
+3. **User authentication** - No, does not require or use any.
+4. **Stores data read/derived from the plugin API** - Yes, locally. Saved and
+   recent swatches plus the panel width live in `figma.clientStorage`, and a
+   swatch can hold a color seeded from a selected layer's fill, so it is
+   plugin-API-derived data. Never leaves the machine.
+5. **Updates** - Solo developer.
+
 ## Screenshots to capture
 
 In this order, so the first thing anyone sees is the models moving together.
