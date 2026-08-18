@@ -104,15 +104,24 @@ learned the hard way:
   chased a wrong theory, waiting for repositions to settle asynchronously when
   the docs state `reposition` is synchronous.
 
-- **South-edge dragging is rAF-throttled, and has to be.** Height is the
-  content's, so dragging the bottom solves backwards: each update nudges the
-  width by the remaining height error. That loop reads `window.innerWidth` and
-  `innerHeight`, which only change once a resize has round-tripped through the
-  sandbox. Posting from every `pointermove` meant several events per frame all
-  measured the same not-yet-applied error and asked for the same correction
-  again, so the window overshot and hunted - visibly choppy, and only on this
-  edge, because east and west compute their width straight from the pointer.
-  One post per animation frame gives the resize time to land.
+- **South-edge dragging is open-loop, and has to be.** Height is the content's,
+  so dragging the bottom works backwards through the width. That used to be a
+  feedback loop - nudge the width by whatever height error remains - reading
+  `window.innerWidth`/`innerHeight` each update. Those only change once a
+  resize has round-tripped through the sandbox, so any update that ran before
+  the previous one landed measured the same error twice and corrected twice.
+  The window overshot and hunted. rAF throttling reduced it but could not fix
+  it: the loop needs the resize to have *landed*, not merely a frame to have
+  passed.
+
+  It now computes `startW + pointerTravel / HEIGHT_PER_WIDTH`, anchored to the
+  width at pointerdown, reading nothing back mid-drag - so it behaves like east
+  and west, which never had the problem. Anchoring at pointerdown is also what
+  makes collapsed sections need no special handling: the content's height at
+  that moment is the intercept, and it cancels. The trade is that an inaccurate
+  `HEIGHT_PER_WIDTH` now shows as the bottom edge drifting from the cursor over
+  a long drag instead of as jitter, so it is worth re-measuring when the layout
+  changes.
 - **The lane owns a column.** `.figma-scroll` stops where the lane begins. When
   the handles floated over the content at `right: 0` they sat on the same pixels
   as the scrollbar, so neither could be grabbed reliably.

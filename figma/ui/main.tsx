@@ -818,13 +818,16 @@ function PluginApp() {
  * 453/524/595/701) had gone stale the same way DEFAULT_H in code.js had - the
  * app grew after it was taken and nothing here re-derives itself.
  *
- * Only used as the gain of a feedback loop, never to predict an absolute size.
- * At the measured value the loop lands on target in a single frame; it still
- * converges anywhere from roughly 0.5x to 2x that, just over a few frames.
- * Below about half it oscillates instead - so if the layout changes enough to
- * move this slope, re-measure it rather than guess. (0.887 was inside the
- * converging range, so the south edge worked either way; this just costs
- * fewer frames.)
+ * Used open-loop: the south edge divides its pointer travel by this to get the
+ * width that produces that height change, anchored to the width at
+ * pointerdown. It was previously the gain of a feedback loop, which tolerated
+ * a wrong value by converging over several frames - at the cost of visible
+ * hunting whenever a resize had not landed before the next frame measured.
+ *
+ * Open-loop cannot hunt, but it also cannot self-correct: an inaccurate slope
+ * here now shows as the bottom edge drifting away from the cursor over a long
+ * drag rather than as jitter. So re-measure it when the layout changes, rather
+ * than guessing.
  */
 const HEIGHT_PER_WIDTH = 0.96;
 
@@ -850,24 +853,32 @@ function ResizeEdge({ side }: { side: Side }) {
     el.setPointerCapture(e.pointerId);
     const originX = e.screenX;
     const originY = e.screenY;
+    // The width at pointerdown is the only thing read from the window all
+    // drag: every edge is a delta from here. Height is not needed at all now
+    // that south is open-loop.
     const startW = window.innerWidth;
-    const startH = window.innerHeight;
     const fromLeft = side === 'w' || side === 'sw';
 
     /*
-     * One update per animation frame, from the newest pointer position.
+     * One update per animation frame, from the newest pointer position, and
+     * every edge computes its width open-loop from the pointer delta alone.
      *
-     * Posting straight from pointermove made the south edge visibly chop, and
-     * only the south edge, which is the tell: east and west compute a width
-     * directly from the pointer delta, while south solves backwards through a
-     * feedback loop that reads window.innerWidth/innerHeight. Those only change
-     * after a resize has round-tripped to the sandbox and back. Pointermove
-     * fires faster than that - several times per frame with coalescing - so
-     * every event in a burst measured the same not-yet-applied error and asked
-     * for the same correction again, and the window overshot and hunted.
+     * South used to solve backwards through a feedback loop - "nudge the width
+     * by whatever height error is left" - reading window.innerWidth and
+     * innerHeight each time. Those only change once a resize has round-tripped
+     * to the sandbox and back, which is not guaranteed within one frame, so a
+     * frame that ran before the previous resize landed measured the same error
+     * again and asked for the same correction again. The window overshot and
+     * hunted. rAF throttling alone reduced that but could not fix it: the loop
+     * needs the resize to have *landed*, not merely a frame to have passed.
      *
-     * Throttling to rAF gives the resize a frame to land before the error is
-     * measured again, which is what the loop assumed all along.
+     * Open-loop removes the question. Height is a straight line in width
+     * (HEIGHT_PER_WIDTH), so the width that produces a given height change is
+     * just the height change divided by the slope. Anchoring to the width at
+     * pointerdown means the content's own height at that moment is the
+     * intercept, so collapsed sections need no special handling - it drops out.
+     * Nothing is read back mid-drag, so nothing can lag, and south now behaves
+     * exactly like east and west: one subtraction from the start value.
      */
     let latest: { x: number; y: number } | null = null;
     let frame = 0;
@@ -877,8 +888,9 @@ function ResizeEdge({ side }: { side: Side }) {
       if (!latest) return;
       let width: number;
       if (side === 's') {
-        const targetH = startH + (latest.y - originY);
-        width = window.innerWidth + (targetH - window.innerHeight) / HEIGHT_PER_WIDTH;
+        // Pointer travel is the height change we want; divide by the slope to
+        // get the width that produces it.
+        width = startW + (latest.y - originY) / HEIGHT_PER_WIDTH;
       } else {
         // Corners included: horizontal only, same as their edge. Height follows
         // width anyway, so a diagonal drag still grows the panel in both
