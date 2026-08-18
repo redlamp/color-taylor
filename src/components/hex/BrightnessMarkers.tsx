@@ -84,7 +84,11 @@ export default function BrightnessMarkers({
           // `code, pre` and gives it `font-size: 1em`, which lands after the
           // text-size utilities and silently overrides them. tabular-nums gets
           // the digit alignment without the trap.
-          className="absolute z-[6] -translate-y-1/2 cursor-pointer select-none px-1 py-1 text-left text-[10px] leading-none tabular-nums text-muted-foreground hover:text-foreground"
+          // text-sm rather than the old text-[10px]: 10px made these read as
+          // tick annotations instead of the targets they are. A named step also
+          // lets figma.css catch them with its text-xs/sm/base rule, which an
+          // arbitrary literal escaped - so the panel keeps its 11px chrome.
+          className="absolute z-[6] -translate-y-1/2 cursor-pointer select-none px-1 py-1 text-left text-sm leading-none tabular-nums text-muted-foreground hover:text-foreground"
           // px-1/py-1 turn a 5x10px target into a 13x18px one; the -4px pulls
           // the padding back off the left so the digits stay where they were.
           style={{ left: `calc(${GUTTER_LEFT}% - 4px)`, top: `${(y / HEX_SIZE) * 100}%` }}

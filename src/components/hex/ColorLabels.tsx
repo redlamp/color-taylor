@@ -66,8 +66,13 @@ export default function ColorLabels({
             that hue's vertex, and one of these is under the pointer most of the
             time you are working the wheel. The name survives as the accessible
             label, where "R" on its own said nothing. */}
+        {/* text-sm, not text-xs: at 12px these read as annotation rather than
+            as the labels for the six vertices the whole wheel is built on. The
+            plugin is unaffected - figma.css flattens text-xs/sm/base to its own
+            11px chrome size, so a semantic step here does not leak into the
+            panel the way a text-[[Npx]] literal would. */}
         <button
-          className="flex items-center justify-center w-8 h-6 text-xs font-bold select-none cursor-pointer rounded-full"
+          className="flex items-center justify-center w-8 h-6 text-sm font-bold select-none cursor-pointer rounded-full"
           style={{ color: displayColor }}
           aria-label={name}
           onClick={() => onColorClick(deg)}
