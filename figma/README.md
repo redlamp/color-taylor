@@ -78,21 +78,31 @@ Width is dragged from lanes down the east, west and south edges plus the SW/SE
 corners; height is always the content's. Two constraints shaped that, both
 learned the hard way:
 
-- **West-edge dragging is proven, not assumed.** Resizing from the west needs
-  `figma.ui.reposition` alongside `resize`, and those two are not documented as
-  sharing a coordinate space with `getPosition` - three versions of "read here,
-  write there" flung the panel off-screen. `probeWestAnchoring()` nudges the
-  window a known 8px, reads back, keeps the difference as a bias and verifies
-  the correction. If verification fails, west anchoring stays off for the
-  session and the west edge simply resizes like the east one.
+- **West-edge dragging needs a coordinate-space mapping, and it is measured,
+  not guessed.** Resizing from the west means moving the window as it resizes,
+  and `getPosition` reports `{ windowSpace, canvasSpace }` while `reposition`
+  documents no space at all - three versions of "read here, write there" flung
+  the panel off-screen.
 
-  **The readback has to wait, or the probe always fails.** It originally read
-  position synchronously right after each `reposition`. Reported on 2026-08-18:
-  the west edge resized without ever moving the window. Figma applies the move
-  asynchronously, so the immediate read returned the *old* position and
-  verification missed by the full probe distance - silently, every session, for
-  everyone. Each step now waits `PROBE_SETTLE_MS`, which makes the probe async,
-  which is why it runs once at startup instead of on the first drag.
+  The answer is that the docs describe `reposition` and `showUI`'s `position`
+  as the same setting, and **we choose what we pass to `showUI`**. So
+  `calibrateWindowSpace()` reads `getPosition()` immediately after `showUI` and
+  keeps the difference:
+
+  ```
+  bias = getPosition().windowSpace - the position we asked for
+  ```
+
+  Nothing moves, there is nothing to verify and nothing to put back. If the
+  offset is missing or implausible the bias stays null and west anchoring never
+  engages, leaving the west edge resizing like the east one.
+
+  This replaced a nudge-and-verify probe, which was circular: it moved the
+  window 8px and restored it using a position it had read itself, so when the
+  spaces disagreed - the thing it existed to detect - "back" was somewhere
+  else. On 2026-08-18 it opened the panel on top of Figma's left menus. It also
+  chased a wrong theory, waiting for repositions to settle asynchronously when
+  the docs state `reposition` is synchronous.
 
 - **South-edge dragging is rAF-throttled, and has to be.** Height is the
   content's, so dragging the bottom solves backwards: each update nudges the
@@ -106,6 +116,15 @@ learned the hard way:
 - **The lane owns a column.** `.figma-scroll` stops where the lane begins. When
   the handles floated over the content at `right: 0` they sat on the same pixels
   as the scrollbar, so neither could be grabbed reliably.
+
+The panel opens at `INITIAL_X`/`INITIAL_Y` (280, 72) on a first run - clear of
+the toolbar and the layers panel, in canvas space rather than over the chrome -
+and remembers where it was afterwards. `windowPos` in `clientStorage` holds the
+position *in reposition space*, converted through the calibrated bias on the
+way in and out, so what is stored is the same kind of number `reposition` wants
+back. Restoring happens after `clientStorage` resolves, so a remembered
+position hops into place a moment after launch; the alternative is awaiting
+storage before showing any UI, which trades the hop for a blank panel.
 
 Height has exactly one source - the `ResizeObserver` in `main.tsx` reporting
 `.figma-root`'s `offsetHeight`. That is what makes dead space below the content

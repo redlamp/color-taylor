@@ -256,24 +256,23 @@ function moveTo(x, y) {
  * nothing at all - so every version of "read here, write there" has been a
  * guess.
  *
- * So: prove it before relying on it. Nudge the window a known amount, read
- * back, and only enable west anchoring if it actually moved by that amount. A
- * stale readback and a mismatched space both fail the check, and a failure
- * means we simply never reposition - the west edge then resizes like the east
- * one. Degraded, but the panel can never be flung off-screen again.
- */
-const PROBE_PX = 8;
-/**
- * How long to let a reposition land before reading the position back.
+ * It is now answered without moving anything. The docs describe `reposition`
+ * and showUI's `position` option as the same setting - "the position can also
+ * be set in the initial options" - so they share a coordinate space, and we
+ * *choose* the position we pass to showUI. Reading getPosition() straight
+ * afterwards therefore measures the offset between the two spaces directly:
  *
- * The probe used to read immediately after each move, and that is why west
- * anchoring was always off in real Figma: reposition moves a host window, the
- * host applies it asynchronously, and the synchronous readback therefore
- * returned the *old* position every time. That makes the verification step
- * compare a stale p2 against p0 and miss by the full probe distance, so the
- * capability check failed even though repositioning works fine.
+ *     bias = getPosition().windowSpace - the position we asked for
+ *
+ * Everything after that converts between them by subtracting the bias.
+ *
+ * This replaces a nudge-and-verify probe that moved the window 8px and put it
+ * back using a position it had read itself. That was circular - if the spaces
+ * disagreed, which is the thing it was trying to detect, "back" was somewhere
+ * else - and on 2026-08-18 it opened the panel on top of Figma's left menus.
+ * The probe also chased a wrong hypothesis: it waited for repositions to
+ * "settle" asynchronously, but the docs state reposition is synchronous.
  */
-const PROBE_SETTLE_MS = 120;
 /** @type {boolean | null} */
 let westCapable = null;
 /** @type {{ x: number, y: number } | null} */
@@ -281,104 +280,72 @@ let westBias = null;
 /** @type {{ x: number, y: number, w: number } | null} */
 let westAnchor = null;
 
-/** @param {number} ms */
-function delay(ms) {
-  return new Promise(function (resolve) {
-    setTimeout(resolve, ms);
-  });
-}
+/**
+ * How far apart the two spaces may plausibly be. An offset the size of the
+ * app's chrome is believable; anything larger means the reading is not a
+ * translation of what we asked for - a clamp, a per-axis origin change, or a
+ * scale - and the mapping cannot be trusted.
+ */
+const MAX_SANE_BIAS = 400;
 
 /**
- * Nudge a known amount, see where we actually land, and keep the difference as
- * a correction. Then put the window back using that correction and check it
- * worked. Three outcomes:
+ * Measures the offset between getPosition()'s window space and the space that
+ * reposition() and showUI's `position` use, by comparing a position we chose
+ * against what getPosition reports back.
  *
- *   spaces agree        bias 0, verification exact, west anchoring on
- *   constant offset     bias measured, verification exact, west anchoring on
- *   anything else       verification fails, west anchoring off for the session
+ * No window movement, nothing to verify, nothing to put back - which is the
+ * whole point. Runs once, immediately after showUI.
  *
- * The third case includes any non-translation transform. Off means the west
- * edge resizes like the east one - the panel stays put and usable instead of
- * being flung somewhere unrecoverable.
+ * If getPosition is unavailable, or the offset is implausible, the bias stays
+ * null and west anchoring never engages: the west edge then resizes like the
+ * east one, which is what it has always actually done.
  *
- * Every readback waits PROBE_SETTLE_MS first. Reading synchronously is what
- * made this fail in real Figma: the move had not been applied yet, so p2 still
- * held the pre-move position and the verification missed by the whole probe
- * distance. Which meant the west edge silently resized without anchoring, for
- * everyone, always.
- *
- * Async, so it runs once at startup rather than on the first west drag - a
- * drag cannot wait 240ms to find out how it should behave.
+ * @param {{ x: number, y: number }} asked - the position passed to showUI
  */
-async function probeWestAnchoring() {
-  if (westCapable !== null) return;
-  westCapable = false;
-
-  /*
-   * Reports the whole probe, pass or fail.
-   *
-   * It used to log only on failure and only the miss distance, which turned
-   * out to be too little to act on: "did it fail, and in which of three ways"
-   * needs the raw readings, and "no output" was ambiguous between passing and
-   * never running. One line that always prints settles it.
-   */
-  /**
-   * @param {string} verdict
-   * @param {Record<string, unknown>} extra
-   */
-  const report = (verdict, extra) => {
-    console.log(
-      '[Color Taylor] west-anchoring probe: ' + verdict,
-      JSON.stringify(
-        Object.assign(
-          {
-            hasReposition: typeof figma.ui.reposition === 'function',
-            hasGetPosition: typeof figma.ui.getPosition === 'function',
-            settleMs: PROBE_SETTLE_MS,
-            probePx: PROBE_PX,
-          },
-          extra,
-        ),
-      ),
-    );
-  };
-
-  const p0 = readPosition();
-  if (!p0) {
-    report('no position available', {});
+function calibrateWindowSpace(asked) {
+  const seen = readPosition();
+  if (!seen) {
+    westCapable = false;
+    console.log('[Color Taylor] window-space calibration: OFF (no position available)');
     return;
   }
 
-  moveTo(p0.x + PROBE_PX, p0.y);
-  await delay(PROBE_SETTLE_MS);
-  const p1 = readPosition();
-  if (!p1) {
-    moveTo(p0.x, p0.y);
-    report('position unreadable after move', { p0 });
-    return;
-  }
+  const bias = { x: seen.x - asked.x, y: seen.y - asked.y };
+  const sane =
+    isFinite(bias.x) &&
+    isFinite(bias.y) &&
+    Math.abs(bias.x) <= MAX_SANE_BIAS &&
+    Math.abs(bias.y) <= MAX_SANE_BIAS;
 
-  const bias = { x: p1.x - (p0.x + PROBE_PX), y: p1.y - p0.y };
-  moveTo(p0.x - bias.x, p0.y - bias.y);
-  await delay(PROBE_SETTLE_MS);
-  const p2 = readPosition();
-  const err = p2 ? Math.abs(p2.x - p0.x) + Math.abs(p2.y - p0.y) : Infinity;
+  westCapable = sane;
+  westBias = sane ? bias : null;
 
-  westCapable = err <= 1;
-  westBias = westCapable ? bias : null;
-
-  // moved = did the window actually go anywhere on the first nudge? That one
-  // number separates "reposition does nothing here" from "it works but in a
-  // different coordinate space", which need opposite fixes.
-  report(westCapable ? 'ON' : 'OFF', {
-    p0,
-    p1,
-    p2,
-    bias,
-    err,
-    movedOnNudge: p1.x - p0.x,
-  });
+  console.log(
+    '[Color Taylor] window-space calibration: ' + (sane ? 'ON' : 'OFF'),
+    JSON.stringify({
+      asked: asked,
+      seen: seen,
+      bias: bias,
+      hasReposition: typeof figma.ui.reposition === 'function',
+    }),
+  );
 }
+
+/** getPosition's reading converted into the space reposition expects. */
+function currentRepositionSpace() {
+  const seen = readPosition();
+  if (!seen || !westBias) return null;
+  return { x: seen.x - westBias.x, y: seen.y - westBias.y };
+}
+
+/*
+ * Calibrate here rather than beside showUI, even though that reads better.
+ * westCapable and westBias are `let` bindings declared just above, so calling
+ * this any earlier lands in their temporal dead zone and throws. Everything to
+ * this point is synchronous top-level code, so the window is still sitting
+ * exactly where showUI put it - which is the only thing the measurement needs.
+ */
+calibrateWindowSpace({ x: INITIAL_X, y: INITIAL_Y });
 
 /**
  * Holds the east edge still while the west edge moves.
@@ -634,6 +601,7 @@ figma.ui.onmessage = (/** @type {UiToSandboxMessage} */ msg) => {
     case 'resizeEnd':
       westAnchor = null;
       figma.clientStorage.setAsync('windowWidth', size.w);
+      rememberPosition();
       break;
 
     case 'close':
@@ -642,31 +610,42 @@ figma.ui.onmessage = (/** @type {UiToSandboxMessage} */ msg) => {
   }
 };
 
-// Restore the last width only. Height always starts as a fit to the content -
-// the UI measures itself on mount and reports it. Restoring a stored height
-// here would land after that measurement and overwrite it.
-figma.clientStorage.getAsync('windowWidth').then((saved) => {
-  if (typeof saved === 'number') applySize(saved, size.h);
-
-});
+/**
+ * Stores where the panel is, in reposition space, so the next launch can put
+ * it back. Reads through the calibrated bias rather than storing getPosition's
+ * raw value, so what goes to disk is the same kind of number showUI wants back.
+ *
+ * Silent no-op when calibration failed - better to reopen at the default than
+ * to persist a coordinate we cannot interpret.
+ */
+function rememberPosition() {
+  const pos = currentRepositionSpace();
+  if (!pos) return;
+  figma.clientStorage.setAsync('windowPos', pos);
+}
 
 /*
- * The west-anchoring probe does NOT run here.
+ * Restore the remembered width and position.
  *
- * It did briefly, on the reasoning that settling the question at launch beats
- * making the first drag wait for it. That was a mistake: the probe moves the
- * window and puts it back using a position it read itself, so if the two
- * coordinate spaces disagree - the exact thing it exists to find out - "back"
- * is somewhere else, and the panel opened over Figma's left menus. A
- * diagnostic that damages the thing it measures is worse than no diagnostic.
+ * Height is deliberately not restored: it is always a fit to the content, and
+ * the UI measures itself on mount and reports it, so a stored height would
+ * land after that measurement and overwrite it.
  *
- * So it stays opt-in until the logging from a real session says which failure
- * mode we are in. Nothing calls it today, which means west anchoring is off
- * and the west edge resizes like the east one - the same behaviour the panel
- * has always actually had, now without a launch-time window move.
- *
- * To collect that reading, call it from the plugin console - it is hung off
- * globalThis below for exactly that - and it logs its raw p0/p1/p2 readings.
- * That is also what stops it being dead code: the diagnostic is the point.
+ * Position is applied with `reposition` rather than being passed to showUI,
+ * because clientStorage is async and showUI has already run by the time this
+ * resolves. That means a first-run-since-move opens at INITIAL_X/Y for a
+ * moment and then hops to the remembered spot. Accepted: the alternative is
+ * awaiting storage before showing any UI at all, which trades a small hop for
+ * a blank panel on every launch.
  */
-globalThis.colorTaylorProbeWest = probeWestAnchoring;
+figma.clientStorage.getAsync('windowWidth').then((saved) => {
+  if (typeof saved === 'number') applySize(saved, size.h);
+});
+
+figma.clientStorage.getAsync('windowPos').then((saved) => {
+  if (!saved || typeof saved.x !== 'number' || typeof saved.y !== 'number') return;
+  // Never restore a position we could not have produced - a corrupt or
+  // stale-format entry should not be able to put the panel off-screen.
+  if (!isFinite(saved.x) || !isFinite(saved.y) || saved.x < 0 || saved.y < 0) return;
+  moveTo(saved.x, saved.y);
+});
