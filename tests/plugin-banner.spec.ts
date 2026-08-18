@@ -24,11 +24,17 @@ test.describe('Plugin banner', () => {
     await expect(banner(page)).toBeHidden();
   });
 
-  test('offers no link while the listing is still in review', async ({ page }) => {
+  test('links to the Community listing, in a new tab', async ({ page }) => {
     await page.goto('/');
-    // A link published before the Community listing is public is a 404 for
-    // every visitor, so the in-review state deliberately renders no anchor.
-    await expect(banner(page).getByRole('link')).toHaveCount(0);
+    const link = banner(page).getByRole('link');
+    await expect(link).toHaveAttribute(
+      'href',
+      'https://www.figma.com/community/plugin/1671457712575610716/color-taylor',
+    );
+    // target=_blank without rel=noopener hands the opened page a reference
+    // back to this window.
+    await expect(link).toHaveAttribute('target', '_blank');
+    await expect(link).toHaveAttribute('rel', /noopener/);
   });
 
   test('does not appear in the presentation', async ({ page }) => {

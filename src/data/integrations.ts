@@ -7,10 +7,17 @@
  */
 
 /**
- * `live` links out. Anything else deliberately renders no link: a Figma
- * Community listing is private until review passes, so a link published early
- * is a 404 for every visitor. Flip to 'live' when the listing goes public -
- * that one word is the whole change.
+ * `live` links out; anything else renders no link, because a listing that is
+ * still private is a 404 for every visitor.
+ *
+ * Figma is marked `live` even though the listing is still with Figma's
+ * reviewers, on an explicit call (2026-08-18): **the app is not deployed until
+ * the plugin is approved**, so by the time anyone can see this banner the link
+ * resolves. The gate is the deploy, not the flag - do not run `bun run deploy`
+ * until the Community listing is public.
+ *
+ * The flag still matters for anything added later: a second platform in review
+ * while Figma is live must be `in-review`, or it ships a dead link.
  */
 export type IntegrationStatus = 'live' | 'in-review';
 
@@ -30,7 +37,7 @@ export const INTEGRATIONS: Integration[] = [
     icon: 'figma',
     platform: 'Figma',
     href: 'https://www.figma.com/community/plugin/1671457712575610716/color-taylor',
-    status: 'in-review',
+    status: 'live',
   },
 ];
 

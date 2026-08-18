@@ -52,14 +52,16 @@ function AppInner() {
           <PresentationShell navigate={navigate} />
         </Suspense>
       ) : (
-        <div className="relative min-h-svh flex items-center justify-center p-5">
-          <ColorPicker />
-          {/* App-level, not inside ColorPicker: the presentation renders a whole
-              ColorPicker inside a scaled wrapper, and a transformed ancestor
-              captures `position: fixed`. Mounted here it can only ever appear on
-              the picker route. */}
+        <div className="relative min-h-svh flex flex-col">
+          {/* A sibling above the centring row rather than a child of it, so it
+              displaces the picker instead of overlaying it and the picker still
+              centres in whatever height is left. Living at app level also keeps
+              it off the presentation route entirely. */}
           <PluginBanner />
-          <Toaster position="top-center" />
+          <div className="flex flex-1 items-center justify-center p-5">
+            <ColorPicker />
+            <Toaster position="top-center" />
+          </div>
         </div>
       )}
     </>

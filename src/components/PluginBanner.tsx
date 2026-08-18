@@ -65,12 +65,22 @@ export default function PluginBanner() {
   // A centred pill rather than a full-width bar: the app is a centred column,
   // so a bar spanning the whole viewport underlines nothing and reads as
   // chrome from a different product.
+  //
+  // At the top rather than the bottom (user call, 2026-08-18) - it is an
+  // announcement, and the bottom edge is where a page's least important
+  // furniture lives.
+  //
+  // In the flow, not `fixed`. Pinned, it covered the app's own title outright
+  // at phone widths: a top strip and the header want the same pixels, and the
+  // header is the one that has to win. In flow it displaces instead, so it
+  // cannot hide anything at any width, and the layout closes back up when it
+  // is dismissed.
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center p-3">
+    <div className="flex justify-center p-3">
       <div
         role="region"
         aria-label="Color Taylor plugin"
-        className="pointer-events-auto flex items-center gap-2 rounded-full border border-border bg-card/95 py-1.5 pr-1.5 pl-3.5 shadow-lg supports-backdrop-filter:backdrop-blur-sm"
+        className="flex items-center gap-2 rounded-full border border-border bg-card/95 py-1.5 pr-1.5 pl-3.5 shadow-lg supports-backdrop-filter:backdrop-blur-sm"
       >
         {Glyph && <Glyph className="size-4 shrink-0" />}
         {live ? (

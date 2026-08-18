@@ -483,7 +483,13 @@ export default function ColorPicker() {
   return (
     <div id="color-picker-root" className="mx-auto w-full px-0.5 py-1 sm:p-6" style={{ maxWidth: TOP_ROW_MAX_WIDTH }}>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
-        <h1 id="color-picker-title" className="text-2xl font-semibold tracking-tight text-primary">Color Taylor 🎨🧵</h1>
+        {/* The emoji sit outside .wordmark on purpose: that class paints the
+            glyphs with a background clipped to the text, so anything inside it
+            loses its own colour - the palette and thread would come out as
+            flat grey silhouettes. */}
+        <h1 id="color-picker-title" className="text-2xl font-semibold">
+          <span className="wordmark">Color Taylor</span> 🎨🧵
+        </h1>
         <div className="flex items-center justify-end gap-2">
           {import.meta.env.VITE_INTRO_ENABLED === 'true' && (
             <button
