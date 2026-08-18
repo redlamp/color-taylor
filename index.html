@@ -2,7 +2,20 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/color-taylor/favicon.svg" />
+    <!--
+      Icons. /color-taylor/ rather than a leading slash: vite.config.js flips `base`
+      to /color-taylor/ for the GitHub Pages build, and an absolute /favicon.ico
+      would 404 there. The old emoji-in-an-SVG favicon is gone - it depended on
+      whichever emoji font the OS happened to have.
+
+      Regenerate all of these with `node scripts/make-favicons.mjs`.
+    -->
+    <link rel="icon" href="/color-taylor/favicon.ico" sizes="32x32" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/color-taylor/favicon-16.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/color-taylor/favicon-32.png" />
+    <link rel="apple-touch-icon" href="/color-taylor/apple-touch-icon.png" />
+    <link rel="manifest" href="/color-taylor/manifest.webmanifest" />
+    <meta name="theme-color" content="#111111" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Color Taylor 🎨🧵</title>
     <!--
@@ -33,14 +46,14 @@
         }
       })();
     </script>
-    <script type="module" crossorigin src="/color-taylor/assets/index-C-wUipx6.js"></script>
+    <script type="module" crossorigin src="/color-taylor/assets/index-Bx_jvhsm.js"></script>
     <link rel="modulepreload" crossorigin href="/color-taylor/assets/rolldown-runtime-DF2fYuay.js">
-    <link rel="modulepreload" crossorigin href="/color-taylor/assets/icons-pw1IQ87P.js">
-    <link rel="modulepreload" crossorigin href="/color-taylor/assets/react-D4HQTjJf.js">
-    <link rel="modulepreload" crossorigin href="/color-taylor/assets/vendor-Cw17ySCk.js">
-    <link rel="modulepreload" crossorigin href="/color-taylor/assets/sonner-D1MPx0wl.js">
+    <link rel="modulepreload" crossorigin href="/color-taylor/assets/icons-C6L5uPj3.js">
+    <link rel="modulepreload" crossorigin href="/color-taylor/assets/react-CwSAWvpP.js">
+    <link rel="modulepreload" crossorigin href="/color-taylor/assets/vendor-CYvkyYMt.js">
+    <link rel="modulepreload" crossorigin href="/color-taylor/assets/sonner-CGtluagy.js">
     <link rel="modulepreload" crossorigin href="/color-taylor/assets/synthConfig-ygxeSFnF.js">
-    <link rel="stylesheet" crossorigin href="/color-taylor/assets/index-ItxF7geO.css">
+    <link rel="stylesheet" crossorigin href="/color-taylor/assets/index-nplfmy_M.css">
   </head>
   <body>
     <div id="root"></div>
