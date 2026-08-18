@@ -37,6 +37,24 @@ test.describe('Plugin banner', () => {
     await expect(link).toHaveAttribute('rel', /noopener/);
   });
 
+  test('"Reset all settings" brings it back after a dismissal', async ({ page }) => {
+    await page.goto('/');
+    await banner(page).getByRole('button', { name: 'Dismiss' }).click();
+    await expect(banner(page)).toBeHidden();
+
+    await page.getByRole('button', { name: 'Open settings' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: /reset all settings/i }).click();
+
+    // Dismissing is a preference like any other; a reset that restores the
+    // theme and swatches but leaves this hidden would be lying about scope.
+    await expect(banner(page)).toBeVisible();
+
+    // And the reset has to clear the stored flag too, not just the in-memory
+    // state - otherwise it reappears now and vanishes again on reload.
+    await page.reload();
+    await expect(banner(page)).toBeVisible();
+  });
+
   test('does not appear in the presentation', async ({ page }) => {
     // PresentationStage renders a whole ColorPicker inside a scaled wrapper,
     // and a transformed ancestor captures position:fixed. Mounting the banner

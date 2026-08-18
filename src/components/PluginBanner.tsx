@@ -14,7 +14,7 @@
  * visit after being dismissed is a dark pattern, and this one has nothing
  * urgent enough to justify nagging.
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ArrowUpRight, X } from 'lucide-react';
 import { primaryIntegration } from '@/data/integrations';
 
@@ -50,6 +50,28 @@ export default function PluginBanner() {
   const [dismissed, setDismissed] = useState(readDismissed);
   const item = primaryIntegration();
 
+  /*
+   * "Reset all settings" brings the banner back.
+   *
+   * Dismissing it is a preference like any other, so a reset that restores the
+   * theme and the swatches but silently leaves this one hidden would be lying
+   * about what it reset. SettingsPanel's resetAll() dispatches this event for
+   * exactly this purpose - ColorHexagon already listens for it to restore the
+   * default swatches.
+   *
+   * Declared before the early return below, because hooks cannot sit after one.
+   */
+  useEffect(() => {
+    const onResetAll = () => {
+      try {
+        localStorage.removeItem(DISMISS_KEY);
+      } catch { /* nothing stored; clearing the state below is enough */ }
+      setDismissed(false);
+    };
+    window.addEventListener('color-taylor:reset-all', onResetAll);
+    return () => window.removeEventListener('color-taylor:reset-all', onResetAll);
+  }, []);
+
   if (!item || dismissed) return null;
 
   const Glyph = GLYPHS[item.icon];
@@ -83,25 +105,37 @@ export default function PluginBanner() {
         className="flex items-center gap-2 rounded-full border border-border bg-card/95 py-1.5 pr-1.5 pl-3.5 shadow-lg supports-backdrop-filter:backdrop-blur-sm"
       >
         {Glyph && <Glyph className="size-4 shrink-0" />}
+        {/*
+          The message states, the button acts. It read "Try the Color Taylor
+          plugin" beside "Get it for Figma", which is two imperatives for one
+          action - the eye takes "try", then "get", and has to work out they
+          are the same ask. The platform also appeared only on the button, so
+          the sentence was incomplete on its own. Now the sentence carries the
+          news and names the platform, and the button is the only verb.
+        */}
         {live ? (
           <>
-            <span className="text-sm text-foreground">Try the Color Taylor plugin</span>
+            <span className="text-sm text-foreground">
+              Color Taylor now runs inside {item.platform}
+            </span>
             <a
               className="ctl-quiet h-7 rounded-full px-3 text-xs no-underline"
               href={item.href}
               target="_blank"
               rel="noopener noreferrer"
             >
-              Get it for {item.platform}
+              Get the plugin
               <ArrowUpRight className="size-3.5" aria-hidden="true" />
-              <span className="sr-only">(opens in a new tab)</span>
+              <span className="sr-only">
+                on the {item.platform} Community (opens in a new tab)
+              </span>
             </a>
           </>
         ) : (
-          // No link while the listing is private - "Try it" pointing at a 404
-          // is worse than saying it is not ready.
+          // No link while the listing is private - an invitation pointing at a
+          // 404 is worse than saying it is not ready yet.
           <span className="text-sm text-foreground">
-            Coming soon: the Color Taylor plugin for {item.platform}
+            Color Taylor is coming to {item.platform}
           </span>
         )}
         <button

@@ -1,10 +1,27 @@
 ---
 tags:
   - domain/figma-plugin
-  - status/open
+  - status/adopted
 ---
 
 # Plan: Getting The Figma Plugin Out
+
+> **2026-08-18: approved and published.** Figma's review passed. The plugin is
+> live on the Community at
+> https://www.figma.com/community/plugin/1671457712575610716/color-taylor
+>
+> This plan is closed. What it hands on:
+> - **Deploying the app is now unblocked** — the in-app banner links to the
+>   listing, and the only thing that was keeping that from being a dead link
+>   was not having deployed. `bun run deploy`.
+> - **Widen `editorType` to FigJam and Slides.** One line in `manifest.json`
+>   plus a guard for the `SLIDE` node type, on an already-reviewed plugin —
+>   the cheapest reach available. Needs a resubmit.
+> - **The four carousel screenshots** are still uncaptured; they can be added
+>   to a published listing at any time.
+> - **Support contact**: whatever was entered in the publish modal needs
+>   writing back into `figma/brand/listing.md`, which still says "needs a
+>   decision".
 
 **2026-08-03, updated 2026-08-04.** What stands between the current state and a Figma Community listing.
 
