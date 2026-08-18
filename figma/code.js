@@ -52,26 +52,46 @@ const DEFAULT_W = MIN_W;
 const DEFAULT_H = 651;
 
 /**
- * Where the panel opens.
+ * EXPERIMENT, 2026-08-19. Flip to false to restore the previous behaviour.
  *
- * Left unset, it landed over Figma's own left-hand menus. These clear the
- * toolbar and the layers/assets panel and leave a small margin, so it opens in
- * canvas space rather than on top of the chrome.
+ * Figma has no native resize handle and no docking, so the drag machinery here
+ * has to exist - but placement may be a different story. Two things it is
+ * testing at once:
  *
- * `position` in showUI is the documented way to place the window, and unlike
- * `reposition` it is applied once at creation - so it does not depend on the
- * getPosition/reposition coordinate-space question that west anchoring is
- * still stuck on.
+ *   1. Does Figma place the window sensibly on its own? The complaint that it
+ *      opened over the left menus arrived *after* a probe was added that moved
+ *      the window at startup, so Figma's own placement may never have been the
+ *      problem. And since calibration showed `position` is in canvas
+ *      coordinates, the hardcoded 280/72 was wrong anyway - not 280px from the
+ *      screen edge, but a canvas point that lands somewhere different at every
+ *      pan and zoom.
+ *
+ *   2. Does Figma already remember the position between runs? Nothing in the
+ *      docs or the forums says it does, and the convention is that plugins
+ *      persist it themselves - but nobody rules it out, and we should not
+ *      maintain code that duplicates the host.
+ *
+ * Cost while this is true: space calibration needs a position it dictated in
+ * order to recognise which reading came back, so it cannot run, and west-edge
+ * anchoring is therefore off for the session. East and south are unaffected.
  */
+const LET_FIGMA_PLACE = true;
+
+/** Only used when LET_FIGMA_PLACE is false. Canvas coordinates, not pixels. */
 const INITIAL_X = 280;
 const INITIAL_Y = 72;
 
-figma.showUI(__html__, {
-  width: DEFAULT_W,
-  height: DEFAULT_H,
-  position: { x: INITIAL_X, y: INITIAL_Y },
-  themeColors: true,
-});
+figma.showUI(
+  __html__,
+  LET_FIGMA_PLACE
+    ? { width: DEFAULT_W, height: DEFAULT_H, themeColors: true }
+    : {
+        width: DEFAULT_W,
+        height: DEFAULT_H,
+        position: { x: INITIAL_X, y: INITIAL_Y },
+        themeColors: true,
+      },
+);
 
 /**
  * Figma paint components are sRGB 0..1, not linear. Straight /255.
@@ -400,7 +420,21 @@ function calibrateWindowSpace(asked) {
  * this point is synchronous top-level code, so the window is still sitting
  * exactly where showUI put it - which is the only thing the measurement needs.
  */
-calibrateWindowSpace({ x: INITIAL_X, y: INITIAL_Y });
+if (LET_FIGMA_PLACE) {
+  // Nothing was dictated, so there is no known value to recognise coming back.
+  westCapable = false;
+  const raw = readRawPosition();
+  console.log(
+    '[Color Taylor] placement left to Figma (experiment); west anchoring off',
+    JSON.stringify({
+      openedAt: raw,
+      zoom: figma.viewport.zoom,
+      viewportBounds: figma.viewport.bounds,
+    }),
+  );
+} else {
+  calibrateWindowSpace({ x: INITIAL_X, y: INITIAL_Y });
+}
 
 /**
  * Holds the east edge still while the west edge moves.
