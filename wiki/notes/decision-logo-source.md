@@ -7,6 +7,14 @@ tags:
 
 # Decision: The Logo Is Designed in Figma, and the Icon Is an Export of It
 
+> **2026-08-18: extended to the thumbnail.** The user designed the 1920x1080
+> cover in the "thumbnail / 1920x1080 / 16:9" frame (node `49:3`) - logo,
+> wordmark, the slogan lockup, and the hex with picker handles - and
+> `cover-1920x1080.png` is now an export of it. With both images designed,
+> `make-assets.mjs` was deleted so a re-run cannot overwrite either export;
+> the generator survives in git history. This fully supersedes
+> [[decision-figma-listing-assets]].
+
 **2026-08-16.** Color Taylor has a designed logo: the "Color Taylor - Logo"
 frame, node `59:179` in the Color Taylor Figma file. It is the hex field with
 three of the picker's vector handles walking across it, on a dark tile.

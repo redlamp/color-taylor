@@ -5,20 +5,23 @@ need the plugin running in real Figma.
 
 | File | What |
 |---|---|
-| `make-assets.mjs` | Generates the thumbnail. `node figma/brand/make-assets.mjs` (node, not bun - see script header) |
-| `icon-128.png` | Plugin icon, 128x128 - **exported from Figma, not generated** |
+| `icon-128.png` | Plugin icon, 128x128 - export of the logo frame |
 | `logo-512.png` | The same logo at 4x, for anywhere that needs it larger |
-| `cover-1920x1080.png` | Community thumbnail, 1920x1080 (16:9) - generated |
+| `cover-1920x1080.png` | Community thumbnail, 1920x1080 (16:9) - export of the thumbnail frame |
 | `listing.md` | Name, tagline, description, tags, screenshot shot-list |
 
-The icon is the designed logo: the "Color Taylor - Logo" frame (node `59:179`)
-in the Color Taylor Figma file is the source of truth, and the PNGs here are
-exports of it - re-export from Figma rather than editing them by hand:
-https://www.figma.com/design/4exm8SJNJP4xO0bqAbyBwO/Color-Taylor?node-id=59-179
+Both images are exports of designed frames in the Color Taylor Figma file -
+the file is the source of truth, so re-export rather than editing the PNGs:
 
-The thumbnail is still generated from the same HSV-hexagon math the app draws.
-It is committed so the listing can be refreshed without a browser, but
-regenerate rather than editing by hand.
+- Logo: "Color Taylor - Logo", node `59:179`
+  https://www.figma.com/design/4exm8SJNJP4xO0bqAbyBwO/Color-Taylor?node-id=59-179
+- Thumbnail: "thumbnail / 1920x1080 / 16:9", node `49:3`
+  https://www.figma.com/design/4exm8SJNJP4xO0bqAbyBwO/Color-Taylor?node-id=49-3
+
+`make-assets.mjs`, which used to generate both from the app's hexagon math, is
+deleted (git history has it) so a re-run can't overwrite the designed exports.
+The same per-pixel hex-field renderer also lives on as the image fills placed
+in the Figma file ("Hex / pixel-exact" frames).
 
 This replaced `figma/icon.svg`, which was a placeholder emoji referenced
 nowhere.
