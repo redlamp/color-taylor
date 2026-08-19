@@ -52,9 +52,9 @@ retired but the description below still carries the same idea.
 
     ALSO IN THE BROWSER
 
-    The same hexagon runs as a free web app, with the parts that do not fit in
-    a side panel: the equations behind every conversion, a hex field and HTML
-    color search, and theme and sound settings.
+    The same Color Hexagon runs as a free web app, with parts that do not fit
+    in the plugin, including a saturation/brightness box and hue strip, Hex and
+    HTML colors, and the equations used to convert between color models.
 
     https://redlamp.github.io/color-taylor/
 
@@ -104,6 +104,19 @@ rather than cramming the description. Four rules bear on it:
 `networkAccess: ["none"]` is not in tension with this. It constrains requests
 the plugin *code* makes at runtime; a hyperlink the reader clicks in their own
 browser is unrelated, so the offline claim stays true.
+
+**The web app is not a superset of the plugin.** Surveyed both surfaces on
+2026-08-19 by listing every `role="slider"` each one exposes:
+
+| | Web app | Plugin |
+|---|---|---|
+| Saturation/brightness box, hue strip, brightness bar | yes | no |
+| Hex field, HTML color search, equations | yes | no |
+| **Alpha slider** | **no** | **yes** |
+
+So "additional color sliders" is the one claim not to make - the plugin has a
+slider the app does not, and a reader would find it immediately. Name the
+specific controls instead.
 
 **Only claim what production actually has.** An earlier draft of this section
 advertised the presentation/walkthrough. It is not reachable on the deployed
