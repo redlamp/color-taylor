@@ -50,10 +50,11 @@ retired but the description below still carries the same idea.
 
     Each drag is its own undo step.
 
-    TRY IT IN A BROWSER
+    ALSO IN THE BROWSER
 
-    The same picker runs as a web app, with a few extras the panel leaves out
-    - the equations view and a walkthrough of how color models relate:
+    The same hexagon runs as a free web app, with the parts that do not fit in
+    a side panel: the equations behind every conversion, a hex field and HTML
+    color search, and theme and sound settings.
 
     https://redlamp.github.io/color-taylor/
 
@@ -84,6 +85,14 @@ The web app, verified live 2026-08-19 (200, and the `/color-taylor/` path
 matches `vite.config.js`'s GitHub Pages base). It is the *running app*, not the
 source - the repository is https://github.com/redlamp/color-taylor, which is
 worth adding too if the intent is to point developers at the code.
+
+**Only claim what production actually has.** An earlier draft of this section
+advertised the presentation/walkthrough. It is not reachable on the deployed
+site: `useHashRoute`'s `gate()` redirects `#/presentation` to `#/` unless
+`VITE_INTRO_ENABLED` is set, and the CI deploy does not set it, so both the
+Intro button and the route are off. Checked against the live site on
+2026-08-19 - the equations panel, hex field, HTML color search and settings
+are all there; the deck is not.
 
 ## Data security questionnaire
 
