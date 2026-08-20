@@ -33,6 +33,10 @@ Every `notes/decision-*.md`, newest first. Each note records what was decided, w
 - [[decision-alpha-in-swatch-identity]] — a swatch is `{hex, alpha}`, not a color with a side map
 - [[decision-audio-as-optional-module]] — audio is a loadable module, separated on principle rather than for bytes
 
+## Build and CI
+
+- [[decision-pin-bun-version-in-ci]] — an exact `bun-version` in both jobs, not `latest`; what bun 1.4 did and did not change, including the lockfile that stayed at v1
+
 ## Recorded in git only
 
 Decisions from before the wiki existed (2026-03 to 2026-05) are visible in the daily notes but were never written up. Worth backfilling if any of them come back into question:
