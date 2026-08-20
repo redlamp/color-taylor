@@ -2,9 +2,10 @@
 
 ![The Color Taylor hexagon, a six-cornered color field with red, green and blue vectors drawn across it, beside the words "Understand color by moving it."](public/og-image.jpg)
 
-A color picker built to show how RGB and HSB/HSL describe the same color. Drag one channel and the other two move in response. Pull saturation down and watch three RGB values converge. It is about the relationship between the models more than the swatch you walk away with.
+This tool was made to show the relationship between color modes, and how the sliders relate to each other. Drag the channel handles on the hexagon to see how individual R, G and B values map into the space. Pull saturation down and watch three RGB values converge.
 
 **Web app:** https://redlamp.github.io/color-taylor/
+
 **Figma plugin:** https://www.figma.com/community/plugin/1671457712575610716/color-taylor
 
 ## What it does
@@ -77,4 +78,6 @@ The deeper notes live in [`CLAUDE.md`](./CLAUDE.md): the color math conventions,
 
 ## License
 
-Personal project, no license file. Assume all rights reserved unless noted otherwise.
+[MIT](./LICENSE). Do what you like with it, keep the copyright notice, and it comes with no warranty.
+
+It was GPL-3.0 from the initial commit until 2026-08-20, which was the new-repo checkbox rather than a decision. Anything taken from a commit before then is still available under GPL-3.0.
