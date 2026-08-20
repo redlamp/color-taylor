@@ -1,5 +1,7 @@
 # Color Taylor 🎨🧵
 
+![The Color Taylor hexagon, a six-cornered color field with red, green and blue vectors drawn across it, beside the words "Understand color by moving it."](public/og-image.jpg)
+
 A color picker built to show how RGB and HSB/HSL describe the same color. Drag one channel and the other two move in response. Pull saturation down and watch three RGB values converge. It is about the relationship between the models more than the swatch you walk away with.
 
 **Web app:** https://redlamp.github.io/color-taylor/
