@@ -17,6 +17,12 @@ connecting lines dissolve below about 32px. `scripts/make-favicons.mjs` turns
 these three PNGs into everything in `public/` - run it after re-exporting any
 of them.
 
+`cover-1920x1080.png` has a second consumer: `scripts/make-og-image.mjs` crops
+and compresses it into `public/og-image.jpg`, the link-preview card the web app
+shows when its URL is pasted into WhatsApp, Discord, Slack, X or Bluesky. Same
+artwork on the Community listing and in a chat window, on purpose - see
+[[decision-link-preview-card]]. Re-run it too after re-exporting the thumbnail.
+
 Both images are exports of designed frames in the Color Taylor Figma file -
 the file is the source of truth, so re-export rather than editing the PNGs:
 

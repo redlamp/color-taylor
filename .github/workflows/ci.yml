@@ -72,6 +72,11 @@ jobs:
       - run: bun run build
         env:
           GITHUB_PAGES: '1'
+      # Validates the link-preview tags against the artifact about to be
+      # published - absolute URLs, the image present, declared size honest.
+      # The test job checks the same tags off the dev server; this one checks
+      # what actually ships, which is where %SITE_URL% is resolved for real.
+      - run: node scripts/preview-link-card.mjs
       - uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}

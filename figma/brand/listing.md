@@ -52,9 +52,9 @@ retired but the description below still carries the same idea.
 
     ALSO IN THE BROWSER
 
-    The same hexagon runs as a free web app, with the parts that do not fit in
-    a side panel: the equations behind every conversion, a hex field and HTML
-    color search, and theme and sound settings.
+    The same Color Hexagon runs as a free web app, with parts that do not fit
+    in the plugin, including a saturation/brightness box and hue strip, Hex and
+    HTML colors, and the equations used to convert between color models.
 
     https://redlamp.github.io/color-taylor/
 
@@ -85,6 +85,38 @@ The web app, verified live 2026-08-19 (200, and the `/color-taylor/` path
 matches `vite.config.js`'s GitHub Pages base). It is the *running app*, not the
 source - the repository is https://github.com/redlamp/color-taylor, which is
 worth adding too if the intent is to point developers at the code.
+
+**Links are allowed.** Checked against the review guidelines 2026-08-19.
+Nothing forbids external links in a description, and Figma's "Grow your
+audience on Community" guidance recommends linking to supplemental information
+rather than cramming the description. Four rules bear on it:
+
+- *Accuracy* - "Your plugin or widget should operate as described." This is the
+  binding one, and the reason for the note below.
+- *Monetization* - links to a third party are allowed, but Figma "reserve[s]
+  the right to reject plugins and widgets that attempt to monetize in poor
+  taste". Not applicable: the linked app is free.
+- *Disclosure* - a required third-party account, payment or licence must be
+  stated in the description. Not applicable: none required.
+- *Ads* - the ban is on ads "into design files or... in the plugin UI or widget
+  UI". It governs the plugin's own surface, not the listing text.
+
+`networkAccess: ["none"]` is not in tension with this. It constrains requests
+the plugin *code* makes at runtime; a hyperlink the reader clicks in their own
+browser is unrelated, so the offline claim stays true.
+
+**The web app is not a superset of the plugin.** Surveyed both surfaces on
+2026-08-19 by listing every `role="slider"` each one exposes:
+
+| | Web app | Plugin |
+|---|---|---|
+| Saturation/brightness box, hue strip, brightness bar | yes | no |
+| Hex field, HTML color search, equations | yes | no |
+| **Alpha slider** | **no** | **yes** |
+
+So "additional color sliders" is the one claim not to make - the plugin has a
+slider the app does not, and a reader would find it immediately. Name the
+specific controls instead.
 
 **Only claim what production actually has.** An earlier draft of this section
 advertised the presentation/walkthrough. It is not reachable on the deployed

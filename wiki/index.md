@@ -29,6 +29,9 @@ Top-level Map of Content. See `CLAUDE.md` in this folder for conventions.
 
 `wiki/daily/YYYY-MM-DD.md`. Dailies before 2026-08-01 were reconstructed from git history on 2026-08-03 and are marked as such.
 
+- [[2026-08-19]] — shipped; the coordinate-space and zoom bugs behind west-edge resize; what Figma owns
+- [[2026-08-18]] — plugin approved, logo and favicons, settings sheet, the banner
+
 - [[2026-08-13]] — intro deck fixes shipped; the RGB cube prototype
 - [[2026-08-11]] — the design-system pass, audio behind a flag, CI gate, listing artboards, and a 2.9px swatch bug
 - [[2026-08-04]] — Saved grows in banks of 12, header hit area

@@ -23,6 +23,7 @@ Every `notes/decision-*.md`, newest first. Each note records what was decided, w
 - [[decision-audio-off-by-default]] — every audible thing behind one setting, off until asked for
 - [[decision-color-editor-is-the-panel]] — the SB box is the right column's subject, not a section in it; "Sliders" was one level too low
 - [[decision-both-columns-absorb-slack]] — both columns stretch unconditionally because each owns a permanent absorber; how a 10px caption broke the old arrangement
+- [[decision-link-preview-card]] — the shared link's preview card is the Figma thumbnail; why the Open Graph URLs cannot use `%BASE_URL%`
 
 ## Shared app + plugin
 

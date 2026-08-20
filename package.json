@@ -11,6 +11,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit && tsc -p figma",
     "preview": "vite preview",
+  "preview:card": "GITHUB_PAGES=1 vite build && node scripts/preview-link-card.mjs",
     "test": "playwright test",
     "test:ui": "playwright test --ui",
     "test:headed": "playwright test --headed",
