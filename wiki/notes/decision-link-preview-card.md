@@ -1,8 +1,9 @@
 ---
 tags:
-  - domain/app
+  - domain/ui
   - domain/figma-plugin
-  - status/active
+  - status/adopted
+  - origin/user-call
 ---
 
 # Decision: The Link Preview Reuses the Figma Thumbnail
@@ -36,6 +37,49 @@ Both were measured, not assumed.
 ## Why `twitter:*` is still written out
 
 X and Bluesky both fall back to `og:*` when the `twitter:*` pair is absent, so the title/description/image duplication buys nothing on its own. `twitter:card` is the exception — it has no Open Graph equivalent, and without `summary_large_image` X renders the small square thumbnail instead of the wide one. Having declared the card type, the matching tags are written alongside it rather than left as an odd single-tag block.
+
+## How to test it before it is live
+
+Three rungs, cheapest first. Nothing below the third is evidence a real platform
+will render the card - the first two only prove the tags are what we meant.
+
+**1. Offline, instant.** `bun run preview:card` builds and runs
+`scripts/preview-link-card.mjs`, which reads the built `dist/index.html` and
+checks the things that are properties of our own output: tags present, `og:url`
+and `og:image` absolute, `twitter:card` set to `summary_large_image`, the image
+actually in `dist/`, its declared width and height matching the JPEG's real SOF
+dimensions, and the byte size inside the range where previews are reliable. It
+exits non-zero on any of those, and the deploy job runs it against the artifact
+it is about to publish. It also writes a mock card to the temp dir showing the
+three framings - full aspect, cropped to 1.91:1, and WhatsApp's narrower box
+with one line of description - which is how to answer "does the crop cut the
+wordmark" without deploying anything.
+
+**2. A tunnel, for the real scrapers, touching nothing.** `SITE_URL` overrides
+the computed origin, so a build can be pointed at a temporary public hostname:
+
+    SITE_URL=https://<tunnel-host>/ GITHUB_PAGES=1 bun run build
+
+then serve `dist/` and expose it (`cloudflared tunnel --url http://localhost:4173`
+over `bunx vite preview`). Paste the tunnel URL into a real chat and the real
+scraper fetches it. Without the override the build advertises the production
+URL and every scraper would report on whatever is already deployed there,
+which is the trap this exists to avoid. Note the base path: a `GITHUB_PAGES=1`
+build expects to be served from `/color-taylor/`, so either serve it there or
+build with the default `./` base and let `SITE_URL` carry the origin alone.
+
+**3. The dev channel.** `bun run deploy:dev` publishes to
+`https://redlamp.github.io/color-taylor/dev/`, a real public GitHub Pages URL
+that is not production. `SITE_URL` already resolves to that path for a
+`GH_PAGES_DEV` build, so the card is self-consistent there. `gh-pages -e dev`
+scopes its cleanup to the `dev/` subdirectory, so this cannot disturb the live
+site - but it does publish, so it is not a private test.
+
+**Caching bites at rungs 2 and 3.** Scrapers cache by exact URL, WhatsApp for
+roughly a week. Append a throwaway query string (`?v=2`) to force a fresh fetch;
+it is a different URL to them and the same page to us. Facebook's Sharing
+Debugger will force a re-scrape of a canonical URL and is the quickest check
+that the tags parse at all, since it covers Messenger and WhatsApp both.
 
 ## What is not covered
 

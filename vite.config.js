@@ -22,8 +22,16 @@ const base = process.env.GH_PAGES_DEV
  * The default `./` build has no origin to speak of, so it falls back to the
  * production URL: a local or file:// preview is never scraped, and pointing the
  * tags at the live site is more useful than emitting a broken one.
+ *
+ * `SITE_URL=... vite build` overrides it. That exists for one job: pointing a
+ * build at a temporary public origin - a Cloudflare or ngrok tunnel over
+ * `vite preview` - so the real scrapers can be tested against a card that is
+ * not yet on the live site. Without the override they would fetch the
+ * production URL and report on whatever is deployed there instead. Include the
+ * trailing slash; the image is appended to it.
  */
 const SITE_URL =
+  process.env.SITE_URL ||
   'https://redlamp.github.io' + (base.startsWith('/') ? base : '/color-taylor/')
 
 /** Fills `%SITE_URL%` in index.html, the way Vite itself fills `%BASE_URL%`. */
