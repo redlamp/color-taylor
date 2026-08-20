@@ -1,24 +1,36 @@
 # Color Taylor 🎨🧵
 
-A color picker designed to show the relationship between RGB (Red, Green, Blue) and HSB/HSL (Hue, Saturation, Brightness/Lightness). The primary goal is to illustrate the math and behavior that connect color modes, helping designers understand each mode and how it shapes their process.
+![The Color Taylor hexagon, a six-cornered color field with red, green and blue vectors drawn across it, beside the words "Understand color by moving it."](public/og-image.jpg)
 
-**Live:** https://redlamp.github.io/color-taylor/
+This tool was made to show the relationship between color modes, and how the sliders relate to each other. Drag the channel handles on the hexagon to see how individual R, G and B values map into the space. Pull saturation down and watch three RGB values converge.
+
+**Web app:** https://redlamp.github.io/color-taylor/
+
+**Figma plugin:** https://www.figma.com/community/plugin/1671457712575610716/color-taylor
 
 ## What it does
 
-- **Color picker** — custom hex-shaped color wheel with brightness/lightness bar, RGB / HSB / HSL sliders, hex input, named-color matcher, recent + saved swatches, undo/redo.
-- **Color synth** — maps the current color to audio. Two modes: hue → pitch ("Hue voice") or RGB → three-voice chord ("RGB chord"). Configurable chord shape, tuning (just / equal), oscillator waveform, ADSR, detune spread.
-- **History presentation** — a short narrated slideshow about color history (1-bit → 4-bit → 8-bit eras, named CSS colors, sRGB vs linear). Press the **Intro** button to launch.
+The picker is a hexagon with red, yellow, green, cyan, blue and magenta at the corners and white in the middle. Every color sits somewhere inside it. Around it are a saturation/brightness box, a hue strip, sliders for RGB, HSB, HSL and alpha, a hex field, a named-color matcher, and the equations used to convert between models. Recent and saved swatches persist in `localStorage`, and each drag is its own undo step.
+
+There is also a color synth that maps the current color to sound: hue to pitch, or RGB to a three-voice chord, with configurable tuning, waveform and ADSR. It ships switched off. Turn it on in Settings; nothing audio-related loads until you do.
+
+A narrated slideshow about color history sits behind the `VITE_INTRO_ENABLED` build flag. The deploy does not set it, so the Intro button and the `#/presentation` route are not on the live site. Run `VITE_INTRO_ENABLED=true bun dev` if you want to see it.
+
+## Figma plugin
+
+`figma/` is a Figma plugin that renders the app's real `ColorHexagon` rather than a copy of it, so the two surfaces cannot drift apart. Select a layer, pick a color, and the fill or stroke updates as you drag. It makes no network requests, which the manifest declares.
+
+`bun run build:figma` writes `figma/ui.html`, a generated bundle that is gitignored. Run it once after cloning.
 
 ## Tech stack
 
-- TypeScript (with `strict: false` for now — see [#16](https://github.com/redlamp/color-taylor/issues/16))
+- TypeScript, with `strict: false` for now (see [#16](https://github.com/redlamp/color-taylor/issues/16))
 - React 19
-- Vite 8 (rolldown bundler)
-- Tailwind v4 via `@tailwindcss/vite`
-- shadcn (style `base-nova`, neutral base, CSS variables)
+- Vite 8, rolldown bundler
+- Tailwind v4 through `@tailwindcss/vite`
+- shadcn, style `base-nova`, neutral base, CSS variables
 - base-ui primitives
-- bun (package manager + script runner)
+- bun as package manager and script runner
 
 ## Quick start
 
@@ -31,35 +43,41 @@ bun dev          # localhost:5173
 
 | Command | What it does |
 |---|---|
-| `bun install` | Install deps (uses `bun.lock`) |
+| `bun install` | Install deps from `bun.lock` |
 | `bun dev` | Vite dev server with HMR |
-| `bun run build` | Production build → `dist/` |
-| `bun run preview` | Serve last build locally |
-| `bun run typecheck` | `tsc --noEmit` |
+| `bun run build` | Production build to `dist/` |
+| `bun run preview` | Serve the last build locally |
+| `bun run test` | Playwright e2e. Starts its own dev server, or reuses one already on :5173 |
 | `bun run lint` | ESLint flat config |
-| `bun run deploy` | Build with GitHub Pages base path + publish to `gh-pages` branch (production root) |
-| `bun run deploy:dev` | Build + publish current branch to the `dev/` subfolder of `gh-pages` for mobile preview at `redlamp.github.io/color-taylor/dev/` |
+| `bun run typecheck` | `tsc --noEmit`, plus the plugin's own tsconfig |
+| `bun run build:figma` | Build the plugin UI bundle |
+| `bun run preview:card` | Check the link-preview tags on a build and open a mock of the card |
+| `bun run deploy` | Build and publish to `gh-pages` by hand, skipping the tests CI would run |
+| `bun run deploy:dev` | Publish the current branch to `gh-pages/dev/` for preview at `redlamp.github.io/color-taylor/dev/` |
 
 ## Branch workflow
 
 ```
-main ← dev ← feature/*
+main <- dev <- feature/*
 ```
 
-- Branch features off `dev`. Open PR → `dev`. Merge with `--no-ff`.
-- Promote `dev → main` only when ready to ship. Tracked via PR for visibility.
-- Deploy (`bun run deploy`) runs from `main` only. `gh-pages` is the published artifact branch — never edit it directly.
-- Tasks tracked as [GitHub Issues](https://github.com/redlamp/color-taylor/issues). PRs link via `Closes #N`.
+Branch off `dev`, open a PR into `dev`, merge with `--no-ff`. Promote `dev` to `main` through a PR when it is ready to ship.
+
+Pushing to `main` runs the tests and then publishes `dist/` to `gh-pages` automatically, so the deploy cannot outrun a failure. `gh-pages` is a build artifact. Never edit it directly.
+
+Work is tracked as [GitHub Issues](https://github.com/redlamp/color-taylor/issues). PRs close them with `Closes #N`.
 
 ## Architecture notes
 
-The app is a single-page SPA with two top-level views routed by URL hash:
+Two top-level views, routed by URL hash:
 
-- `#/` (default) → the color picker
-- `#/presentation` / `#/presentation/N` → lazy-loaded slideshow
+- `#/` is the color picker
+- `#/presentation/N` is the lazy-loaded slideshow, when the flag is on
 
-Deep architecture notes — color math conventions, the `HSB-canonical + RGB-override-ref` state pattern, the manual rAF tween loops, undo/redo strategy — live in [`CLAUDE.md`](./CLAUDE.md).
+The deeper notes live in [`CLAUDE.md`](./CLAUDE.md): the color math conventions, the HSB-canonical state with its RGB override ref, the hand-rolled rAF tweens, and how undo/redo works. Decisions and their reasoning are in [`wiki/`](./wiki), an Obsidian vault, starting at [`wiki/index.md`](./wiki/index.md).
 
 ## License
 
-Personal project. No license file — assume all rights reserved unless otherwise noted.
+[MIT](./LICENSE). Do what you like with it, keep the copyright notice, and it comes with no warranty.
+
+It was GPL-3.0 from the initial commit until 2026-08-20, which was the new-repo checkbox rather than a decision. Anything taken from a commit before then is still available under GPL-3.0.
