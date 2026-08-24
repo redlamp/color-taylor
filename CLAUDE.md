@@ -25,7 +25,7 @@ The `GITHUB_PAGES` env var flips `vite.config.js`'s `base` between `./` (default
 
 Versions are in `package.json`. What it doesn't tell you: the path alias `@/*` → `src/*` is declared **twice**, in `vite.config.js` and `tsconfig.json` — keep them in sync if you change it. shadcn aliases live in `components.json` (style `base-nova`).
 
-`tsconfig.json` runs with `strict: false` for now — implicit `any` is allowed for internal helpers, but component prop boundaries, ref types, and useState generics are typed explicitly anyway. Tightening to full strict is the obvious next step (mostly typing inline event handlers in `ColorHexagon.tsx`).
+`tsconfig.json` runs with `strict: true`, matching `figma/tsconfig.json`. The individual flags it implies are still listed explicitly so that turning `strict` off would not silently take six other checks with it. The one pattern worth knowing: `useRef(null)` with no generic infers `null` and then narrows to `never`, which costs you *all* checking on `.current` — always give refs a generic (`useRef<PointerDownState | null>(null)`).
 
 ## App architecture
 

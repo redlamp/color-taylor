@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
-import { hsbToRgb, rgbToHsb, rgbToHex, rgbToHsl, hslToRgb, type HSB, type RGB } from '../utils/colorConversions';
+import { hsbToRgb, rgbToHsb, rgbToHex, rgbToHsl, type HSB, type RGB } from '../utils/colorConversions';
 import type { ColorSpace } from '../utils/sliderGradients';
+import { writeHslChannel, hslOriginFrom, type HslOrigin } from '../utils/hslWrite';
 import { HSB_TWEEN_MS, hsbAtProgress } from '../utils/colorTween';
 import {
   hueGradient,
@@ -209,6 +210,7 @@ export default function ColorPicker() {
           if (navigator.vibrate) navigator.vibrate(10);
           redoStack.current.push({ ...hsbRef.current });
           const prev = undoStack.current.pop();
+          if (!prev) return;
           lastPushed.current = `${prev.h},${prev.s},${prev.b}`;
           rgbOverride.current = null;
           isUndoRedoing.current = true;
@@ -247,6 +249,7 @@ export default function ColorPicker() {
           if (navigator.vibrate) navigator.vibrate(10);
           undoStack.current.push({ ...hsbRef.current });
           const next = redoStack.current.pop();
+          if (!next) return;
           lastPushed.current = `${next.h},${next.s},${next.b}`;
           rgbOverride.current = null;
           isUndoRedoing.current = true;
@@ -396,17 +399,36 @@ export default function ColorPicker() {
     });
   }, [pulseTone, takeOverFromAnimation]);
 
+  /**
+   * The H and S an HSL slider gesture began from - see utils/hslWrite for why a
+   * write needs one. Taken on the first write of a gesture and dropped at both
+   * ends of a pointer press, so a gesture can never inherit a stale one from a
+   * wheel adjust, which has no pointerup of its own.
+   */
+  const hslOrigin = useRef<HslOrigin | null>(null);
+  useEffect(() => {
+    const clear = () => { hslOrigin.current = null; };
+    window.addEventListener('pointerdown', clear);
+    window.addEventListener('pointerup', clear);
+    document.documentElement.addEventListener('pointerleave', clear);
+    return () => {
+      window.removeEventListener('pointerdown', clear);
+      window.removeEventListener('pointerup', clear);
+      document.documentElement.removeEventListener('pointerleave', clear);
+    };
+  }, []);
+
   const handleHslChange = useCallback((channel: 'h' | 's' | 'l', value: number) => {
     takeOverFromAnimation();
-    rgbOverride.current = null;
     setHsb((prev) => {
-      const currentRgb = hsbToRgb(prev.h, prev.s, prev.b);
-      const currentHsl = rgbToHsl(currentRgb.r, currentRgb.g, currentRgb.b);
-      const newHsl = { ...currentHsl, [channel]: value };
-      const newRgb = hslToRgb(newHsl.h, newHsl.s, newHsl.l);
-      const next = rgbToHsb(newRgb.r, newRgb.g, newRgb.b);
-      pulseTone(next);
-      return next;
+      // The exact colour, not the rounded HSB - same first move handleRgbChange
+      // makes, and what stops a run of HSL edits from degrading.
+      const currentRgb = rgbOverride.current || hsbToRgb(prev.h, prev.s, prev.b);
+      if (!hslOrigin.current) hslOrigin.current = hslOriginFrom(prev.h, currentRgb);
+      const { rgb, hsb } = writeHslChannel(currentRgb, channel, value, hslOrigin.current);
+      rgbOverride.current = rgb;
+      pulseTone(hsb);
+      return hsb;
     });
   }, [pulseTone, takeOverFromAnimation]);
 

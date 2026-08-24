@@ -1,77 +1,106 @@
 import { useRef, useEffect, useState } from 'react';
-import { hsbToRgb, linearToSrgb } from '../../utils/colorConversions';
+import { hsbToRgb, hslToRgb, linearToSrgb } from '../../utils/colorConversions';
 import type { ColorSpace } from '../../utils/sliderGradients';
-import { HEX_SIZE, SIZE, CENTER_X, CENTER_Y, RADIUS, PI, hexEdgeDist } from './hexConstants';
+import { HEX_SIZE, SIZE, CENTER_X, CENTER_Y, RADIUS, PI, hexEdgeDist, blLimitScale, type BLMode } from './hexConstants';
 import { createHexGL, type HexGL } from './hexShader';
 
 /**
- * The field at full brightness. 540x540 with an atan2 and a sqrt per pixel is
- * ~292k iterations, so this is the expensive pass - and it only has to run when
- * the color space changes.
+ * The field, drawn the way the geometry actually works.
+ *
+ * Radius is chroma, not saturation: at brightness b the reachable colours are
+ * the cube's cross-section, a hexagon of radius b/100. Inside it saturation is
+ * measured against *that* edge, so the vector chain's tip lands under the
+ * cursor. Outside it each pixel previews what dragging there would select -
+ * full saturation at the brightness that reach requires - at a low alpha,
+ * because getting there means moving the brightness bar. See hexShader.ts,
+ * which does the same thing on the GPU and is the path that normally runs.
+ *
+ * This used to cache a brightness-100 base and scale it per frame, since HSB is
+ * linear in brightness. That no longer holds: the cross-section's edge moves
+ * with brightness, so the saturation at a given pixel is not a fixed value
+ * being dimmed. The trig runs per draw now - 540x540 with an atan2 and a sqrt
+ * each - which is why this is the fallback and WebGL is the path taken.
  */
-function buildBase(isLinear: boolean): Uint8ClampedArray {
+function buildField(isLinear: boolean, brightness: number, lightness: number, mode: BLMode): Uint8ClampedArray {
   const data = new Uint8ClampedArray(HEX_SIZE * HEX_SIZE * 4);
-  {
-    const brightness = 100;
 
-      for (let py = 0; py < HEX_SIZE; py++) {
-        for (let px = 0; px < HEX_SIZE; px++) {
-          const dx = px - CENTER_X;
-          const dy = py - CENTER_Y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
+  for (let py = 0; py < HEX_SIZE; py++) {
+    for (let px = 0; px < HEX_SIZE; px++) {
+      const dx = px - CENTER_X;
+      const dy = py - CENTER_Y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist > RADIUS) continue;
 
-          if (dist > RADIUS) continue;
+      const angle = Math.atan2(-dy, dx);
+      const edgeDist = hexEdgeDist(angle, RADIUS);
+      if (dist > edgeDist) continue;
 
-          const angle = Math.atan2(-dy, dx);
-          const edgeDist = hexEdgeDist(angle, RADIUS);
+      let h = (angle * 180) / PI;
+      if (h < 0) h += 360;
 
-          if (dist > edgeDist) continue;
+      const limit = edgeDist * blLimitScale(mode, brightness, lightness);
+      const rN = dist / edgeDist;
+      const sIn = limit > 0 ? Math.min((dist / limit) * 100, 100) : 0;
+      const inside = dist <= limit;
+      const a = inside ? 255 : 82; // 82 is the 0.32 the shader uses
 
-          let h = (angle * 180) / PI;
-          if (h < 0) h += 360;
-          const s = (dist / edgeDist) * 100;
-          const idx = (py * HEX_SIZE + px) * 4;
-
-          let r, g, b;
-          if (isLinear) {
-            const bLinear = brightness / 100;
-            const sNorm = s / 100;
-            const c = bLinear * sNorm;
-            const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
-            const m = bLinear - c;
-            let r1, g1, b1;
-            if (h < 60) { [r1, g1, b1] = [c, x, 0]; }
-            else if (h < 120) { [r1, g1, b1] = [x, c, 0]; }
-            else if (h < 180) { [r1, g1, b1] = [0, c, x]; }
-            else if (h < 240) { [r1, g1, b1] = [0, x, c]; }
-            else if (h < 300) { [r1, g1, b1] = [x, 0, c]; }
-            else { [r1, g1, b1] = [c, 0, x]; }
-            // Stored linear and un-transferred; linearToSrgb is applied after
-            // the brightness scale, since the two do not commute.
-            r = (r1 + m) * 255;
-            g = (g1 + m) * 255;
-            b = (b1 + m) * 255;
-          } else {
-            const color = hsbToRgb(h, s, brightness);
-            r = color.r;
-            g = color.g;
-            b = color.b;
-          }
-
-          data[idx] = r;
-          data[idx + 1] = g;
-          data[idx + 2] = b;
-          data[idx + 3] = 255;
-        }
+      // Under HSL the field is HSL colours against the HSL cross-section, and
+      // expanding runs L toward 50 rather than up. Values are carried as HSB
+      // below only because that is what the srgb branch needs.
+      let s: number;
+      let b: number;
+      if (mode === 'brightness') {
+        s = inside ? sIn : 100;
+        b = inside ? brightness : rN * 100;
+      } else {
+        const lOut = lightness <= 50 ? rN * 50 : 100 - rN * 50;
+        const asRgb = inside ? hslToRgb(h, sIn, lightness) : hslToRgb(h, 100, lOut);
+        const idxL = (py * HEX_SIZE + px) * 4;
+        data[idxL] = isLinear ? linearToSrgb(asRgb.r / 255) : asRgb.r;
+        data[idxL + 1] = isLinear ? linearToSrgb(asRgb.g / 255) : asRgb.g;
+        data[idxL + 2] = isLinear ? linearToSrgb(asRgb.b / 255) : asRgb.b;
+        data[idxL + 3] = a;
+        continue;
       }
 
+      const idx = (py * HEX_SIZE + px) * 4;
+      let r: number, g: number, bl: number;
+      if (isLinear) {
+        const bN = b / 100;
+        const sN = s / 100;
+        const c = bN * sN;
+        const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+        const m = bN - c;
+        let r1: number, g1: number, b1: number;
+        if (h < 60) { [r1, g1, b1] = [c, x, 0]; }
+        else if (h < 120) { [r1, g1, b1] = [x, c, 0]; }
+        else if (h < 180) { [r1, g1, b1] = [0, c, x]; }
+        else if (h < 240) { [r1, g1, b1] = [0, x, c]; }
+        else if (h < 300) { [r1, g1, b1] = [x, 0, c]; }
+        else { [r1, g1, b1] = [c, 0, x]; }
+        // The transfer is applied after the brightness scale; the two do not
+        // commute.
+        r = linearToSrgb(r1 + m);
+        g = linearToSrgb(g1 + m);
+        bl = linearToSrgb(b1 + m);
+      } else {
+        const color = hsbToRgb(h, s, b);
+        r = color.r;
+        g = color.g;
+        bl = color.b;
+      }
+
+      data[idx] = r;
+      data[idx + 1] = g;
+      data[idx + 2] = bl;
+      data[idx + 3] = a;
+    }
   }
   return data;
 }
 
-export default function HexCanvas({ brightness, colorSpace, extent = SIZE, svgHeight = HEX_SIZE }: { brightness: number; colorSpace: ColorSpace; extent?: number; svgHeight?: number }) {
+export default function HexCanvas({ brightness, lightness = 50, blMode = 'brightness', colorSpace, extent = SIZE, svgHeight = HEX_SIZE }: { brightness: number; lightness?: number; blMode?: BLMode; colorSpace: ColorSpace; extent?: number; svgHeight?: number }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const baseRef = useRef<{ space: ColorSpace; data: Uint8ClampedArray } | null>(null);
   const glRef = useRef<HexGL | null | undefined>(undefined);
   const [box, setBox] = useState({ w: HEX_SIZE, h: HEX_SIZE });
 
@@ -104,7 +133,7 @@ export default function HexCanvas({ brightness, colorSpace, extent = SIZE, svgHe
 
       if (gl) {
         if (canvas.width !== box.w || canvas.height !== box.h) gl.resize(box.w, box.h);
-        gl.draw(brightness, colorSpace === 'linear');
+        gl.draw(brightness, lightness, blMode === 'lightness', colorSpace === 'linear');
         return;
       }
 
@@ -116,35 +145,14 @@ export default function HexCanvas({ brightness, colorSpace, extent = SIZE, svgHe
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      // HSB is linear in brightness: rgb(h, s, b) === (b/100) * rgb(h, s, 100).
-      // So the trig-heavy pass runs once per color space and a brightness
-      // change becomes a per-channel multiply.
-      if (!baseRef.current || baseRef.current.space !== colorSpace) {
-        baseRef.current = { space: colorSpace, data: buildBase(colorSpace === 'linear') };
-      }
-      const base = baseRef.current.data;
+      // Rebuilt per draw rather than scaled from a cached base - see buildField
+      // for why the brightness-is-a-multiply shortcut no longer holds.
       const out = ctx.createImageData(HEX_SIZE, HEX_SIZE);
-      const data = out.data;
-      const k = brightness / 100;
-      const isLinear = colorSpace === 'linear';
-
-      for (let i = 0; i < base.length; i += 4) {
-        if (base[i + 3] === 0) continue;
-        if (isLinear) {
-          data[i] = linearToSrgb((base[i] / 255) * k);
-          data[i + 1] = linearToSrgb((base[i + 1] / 255) * k);
-          data[i + 2] = linearToSrgb((base[i + 2] / 255) * k);
-        } else {
-          data[i] = base[i] * k;
-          data[i + 1] = base[i + 1] * k;
-          data[i + 2] = base[i + 2] * k;
-        }
-        data[i + 3] = 255;
-      }
+      out.data.set(buildField(colorSpace === 'linear', brightness, lightness, blMode));
       ctx.putImageData(out, 0, 0);
     });
     return () => cancelAnimationFrame(rafId);
-  }, [brightness, colorSpace, box]);
+  }, [brightness, lightness, blMode, colorSpace, box]);
 
   useEffect(() => () => glRef.current?.dispose(), []);
 

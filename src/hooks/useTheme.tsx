@@ -10,7 +10,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   });
 
   // Saved theme before presentation override
-  const savedTheme = useRef(null);
+  const savedTheme = useRef<boolean | null>(null);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', isDark);

@@ -1,12 +1,23 @@
 import { hsbToDisplay, type ColorSpace } from '../../utils/sliderGradients';
+import { hslToRgb, linearToSrgb } from '../../utils/colorConversions';
 import { rgbToHex } from '../../utils/colorConversions';
 import {
   SAT_BAR_LEFT, SAT_BAR_TOP, SAT_BAR_WIDTH, SAT_BAR_HEIGHT, SAT_ARROW_SIZE,
 } from './hexConstants';
 import type { MutableRefObject } from 'react';
+import type { PointerDownState } from './hexConstants';
 
 function displayHex(h: number, s: number, b: number, colorSpace: ColorSpace) {
   const c = hsbToDisplay(h, s, b, colorSpace);
+  return rgbToHex(c.r, c.g, c.b);
+}
+
+/** The HSL twin, for when the bar is driving HSL's S at a held lightness. */
+function displayHslHex(h: number, s: number, l: number, colorSpace: ColorSpace) {
+  const c = hslToRgb(h, s, l);
+  if (colorSpace === 'linear') {
+    return rgbToHex(linearToSrgb(c.r / 255), linearToSrgb(c.g / 255), linearToSrgb(c.b / 255));
+  }
   return rgbToHex(c.r, c.g, c.b);
 }
 
@@ -14,7 +25,10 @@ interface SaturationBarProps {
   hue: number;
   saturation: number;
   brightness: number;
-  satPointerDownRef: MutableRefObject<{ clientX: number; clientY: number; time: number; isDragging: boolean } | null>;
+  /** Which model the bar is showing - HSL's S ramps at a held L, not a held b. */
+  blMode: 'brightness' | 'lightness';
+  lightness: number;
+  satPointerDownRef: MutableRefObject<PointerDownState | null>;
   /** Grabbing the arrow drags immediately, with no tap-vs-drag threshold. */
   onArrowDragStart: () => void;
   animateSatToValue: (v: number) => void;
@@ -29,15 +43,19 @@ interface SaturationBarProps {
  * runs between - grey at the current brightness, and full chroma at the current
  * hue - so the two controls agree by construction rather than by eye.
  */
-export default function SaturationBar({ hue, saturation, brightness, satPointerDownRef, onArrowDragStart, animateSatToValue, colorSpace }: SaturationBarProps) {
+export default function SaturationBar({ hue, saturation, brightness, blMode, lightness, satPointerDownRef, onArrowDragStart, animateSatToValue, colorSpace }: SaturationBarProps) {
   const arrowX = SAT_BAR_LEFT + (saturation / 100) * SAT_BAR_WIDTH;
 
   return (
     <>
       <defs>
         <linearGradient id="sat-gradient" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stopColor={displayHex(hue, 0, brightness, colorSpace)} />
-          <stop offset="100%" stopColor={displayHex(hue, 100, brightness, colorSpace)} />
+          <stop offset="0%" stopColor={blMode === 'brightness'
+            ? displayHex(hue, 0, brightness, colorSpace)
+            : displayHslHex(hue, 0, lightness, colorSpace)} />
+          <stop offset="100%" stopColor={blMode === 'brightness'
+            ? displayHex(hue, 100, brightness, colorSpace)
+            : displayHslHex(hue, 100, lightness, colorSpace)} />
         </linearGradient>
       </defs>
       <rect

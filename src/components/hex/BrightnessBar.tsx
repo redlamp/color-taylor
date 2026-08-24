@@ -3,6 +3,7 @@ import type { ColorSpace } from '../../utils/sliderGradients';
 import type { HSL } from '../../utils/colorConversions';
 import { BL_BAR_X, BL_BAR_TOP, BL_BAR_HEIGHT, BL_BAR_WIDTH, BL_ARROW_SIZE, SIZE } from './hexConstants';
 import type { MutableRefObject } from 'react';
+import type { PointerDownState } from './hexConstants';
 
 function hsbToDisplayHex(h: number, s: number, b: number, colorSpace: ColorSpace) {
   if (colorSpace === 'linear') {
@@ -27,7 +28,7 @@ interface BrightnessBarProps {
   brightness: number;
   hsl: HSL;
   blMode: 'brightness' | 'lightness';
-  blPointerDownRef: MutableRefObject<{ clientX: number; clientY: number; time: number; isDragging: boolean } | null>;
+  blPointerDownRef: MutableRefObject<PointerDownState | null>;
   /** Grabbing the arrow drags immediately, with no tap-vs-drag threshold. */
   onArrowDragStart: () => void;
   animateBLToValue: (v: number) => void;

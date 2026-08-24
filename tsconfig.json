@@ -12,14 +12,13 @@
     "noEmit": true,
     "jsx": "react-jsx",
 
-    // Working toward "strict": true (#16). Every flag it implies is on here
-    // except strictNullChecks, which is the entire remaining cost - 71 errors
-    // across 5 files, 34 of them in ColorHexagon.tsx. strictPropertyInitialization
-    // cannot be turned on without it. The others were already satisfied, so
-    // they are pinned to keep them that way: a regression fails typecheck now
-    // rather than surfacing later during the flip.
-    "strict": false,
+    // Full strict as of #16, matching figma/tsconfig.json, which has been
+    // strict since it was written. The individual flags below are no longer
+    // needed - "strict" implies every one of them - but stay listed so that
+    // turning "strict" off does not silently take six other checks with it.
+    "strict": true,
     "noImplicitAny": true,
+    "strictNullChecks": true,
     "strictFunctionTypes": true,
     "strictBindCallApply": true,
     "noImplicitThis": true,
