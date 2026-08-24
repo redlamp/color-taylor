@@ -1,4 +1,4 @@
-import { hsbToRgb, type RGB } from '../../utils/colorConversions';
+import { hsbToRgb, hslToRgb, type RGB } from '../../utils/colorConversions';
 
 export const HEX_SIZE = 540;
 // Visible vertical extent of the hex panel. The hex polygon is only
@@ -115,7 +115,31 @@ export function hexPoints(cx: number, cy: number, r: number): string {
   }).join(' ');
 }
 
-export function colorAtPoint(px: number, py: number, brightness: number): RGB {
+/**
+ * The colour the field shows at a pixel - the CPU twin of the fragment shader.
+ *
+ * Radius is chroma: at `brightness` the reachable colours are the cube's
+ * cross-section, a hexagon of radius brightness/100, and saturation is measured
+ * against *that* edge. Beyond it the field is previewing what raising
+ * brightness would reach, so the colour there is full saturation at whatever
+ * brightness the reach implies. Keep this in step with hexShader.ts and with
+ * HexCanvas's buildField - all three describe the same surface.
+ */
+export type BLMode = 'brightness' | 'lightness';
+
+/**
+ * How much of the hexagon is reachable at the current value on the B/L bar.
+ *
+ * Under HSB that is `b/100`. Under HSL the cross-section is widest at L=50 and
+ * tapers to nothing at either end, which is a different number for anything
+ * less than fully saturated. Everything that draws or hit-tests the
+ * cross-section reads the bound from here.
+ */
+export function blLimitScale(mode: BLMode, b: number, l: number): number {
+  return mode === 'brightness' ? b / 100 : 1 - Math.abs(2 * (l / 100) - 1);
+}
+
+export function colorAtPoint(px: number, py: number, brightness: number, lightness = 50, mode: BLMode = 'brightness'): RGB {
   const dx = px - CENTER_X;
   const dy = py - CENTER_Y;
   const dist = Math.sqrt(dx * dx + dy * dy);
@@ -123,8 +147,21 @@ export function colorAtPoint(px: number, py: number, brightness: number): RGB {
   const edgeDist = hexEdgeDist(angle, RADIUS);
   let h = (angle * 180) / PI;
   if (h < 0) h += 360;
-  const s = Math.min((dist / edgeDist) * 100, 100);
-  return hsbToRgb(h, s, brightness);
+
+  const limit = edgeDist * blLimitScale(mode, brightness, lightness);
+  const sIn = limit > 0 ? Math.min((dist / limit) * 100, 100) : 0;
+  const r = dist / edgeDist;
+
+  if (mode === 'brightness') {
+    return dist <= limit
+      ? hsbToRgb(h, sIn, brightness)
+      : hsbToRgb(h, 100, Math.min(100, r * 100));
+  }
+  // Expanding under HSL runs L toward 50, the direction the cross-section
+  // widens in - up from the dark half, down from the light one.
+  const rPinned = Math.min(1, r);
+  const lOut = lightness <= 50 ? rPinned * 50 : 100 - rPinned * 50;
+  return dist <= limit ? hslToRgb(h, sIn, lightness) : hslToRgb(h, 100, lOut);
 }
 
 export function getOrder(mode: ChannelOrder, rgb: RGB): Channel[] {
