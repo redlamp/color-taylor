@@ -518,7 +518,19 @@ export default function ColorPicker() {
 
   return (
     <div id="color-picker-root" className="mx-auto w-full px-0.5 py-1 sm:p-6" style={{ maxWidth: TOP_ROW_MAX_WIDTH }}>
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
+      {/*
+        One row wherever it fits, two where it does not - `flex-wrap` decides,
+        not a breakpoint.
+
+        This used to be flex-col until `sm`, which stacked the title above the
+        buttons on every phone whether or not there was room. At 375 there is:
+        the title measures 200px against a 331px container and the three icon
+        buttons need 112px, so it lands with room to spare. Wrapping keeps the
+        narrow cases honest without a second breakpoint to tune - a 320px
+        device, or a dev build where VITE_INTRO_ENABLED adds a fourth control,
+        simply falls back to two rows on its own.
+      */}
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
         {/* The emoji sit outside .wordmark on purpose: that class paints the
             glyphs with a background clipped to the text, so anything inside it
             loses its own colour - the palette and thread would come out as
