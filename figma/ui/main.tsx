@@ -49,7 +49,7 @@ import {
   type ColorSpace,
 } from '../../src/utils/sliderGradients';
 import { HSB_TWEEN_MS, easeInOutQuad, hsbAtProgress } from '../../src/utils/colorTween';
-import { writeHslChannel, hslOriginFrom, type HslOrigin } from '../../src/utils/hslWrite';
+import { writeHslChannel, type HslOrigin } from '../../src/utils/hslWrite';
 import ColorSlider from '../../src/components/ColorSlider';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
@@ -247,7 +247,35 @@ function PluginApp() {
    */
   const [hslIntent, setHslIntent] = useState<HSL | null>(null);
   const derivedHsl = useMemo(() => rgbToHsl(rgb.r, rgb.g, rgb.b), [rgb.r, rgb.g, rgb.b]);
-  const hsl = hslIntent ?? derivedHsl;
+  /**
+   * Kept for as long as it still describes the colour on screen.
+   *
+   * The check is the whole safety argument: an intent is only shown while
+   * converting it reproduces the current RGB exactly. Anything else that sets a
+   * colour - the hex field, an RGB slider, a swatch, a tween - moves the colour
+   * out from under it and it stops being used, with no invalidation to remember
+   * to write. Nothing can drift apart.
+   *
+   * Holding it past the gesture is what lets a saturation set at L=0 or L=100
+   * come back when lightness leaves the end. CSS Color 4 calls saturation there
+   * *powerless* rather than unavailable - the value still exists, it just stops
+   * affecting the colour - and this is what that looks like in a picker. The
+   * first version of this cleared on release and the field snapped to 0, which
+   * read as a control refusing to move.
+   *
+   * It also removes what looked like a rounding settle on release. Both triples
+   * convert to the same RGB, so neither is more correct than the other, and the
+   * one the user actually set is the better thing to show.
+   */
+  const hsl = useMemo(() => {
+    if (hslIntent) {
+      const c = hslToRgb(hslIntent.h, hslIntent.s, hslIntent.l);
+      if (c.r === rgb.r && c.g === rgb.g && c.b === rgb.b) return hslIntent;
+    }
+    return derivedHsl;
+  }, [hslIntent, derivedHsl, rgb.r, rgb.g, rgb.b]);
+  const hslRef = useRef(hsl);
+  useEffect(() => { hslRef.current = hsl; }, [hsl]);
   const hex = useMemo(() => rgbToHex(rgb.r, rgb.g, rgb.b), [rgb.r, rgb.g, rgb.b]);
 
   // Live-apply. No button: picking a color *is* the action - but only picking.
@@ -546,7 +574,7 @@ function PluginApp() {
    */
   const hslOrigin = useRef<HslOrigin | null>(null);
   useEffect(() => {
-    const clear = () => { hslOrigin.current = null; setHslIntent(null); };
+    const clear = () => { hslOrigin.current = null; };
     window.addEventListener('pointerdown', clear);
     window.addEventListener('pointerup', clear);
     return () => {
@@ -558,11 +586,17 @@ function PluginApp() {
   const onHslChange = useCallback((channel: 'h' | 's' | 'l', value: number) => {
     userEditRef.current = true;
     setHsb((prev) => {
-      // The exact colour rather than the rounded HSB, and kept in rgbOverride
-      // afterwards: without it two adjacent HSL saturations collapse into one
-      // HSB bucket and the stepper stops responding.
-      const currentRgb = rgbOverride.current || hsbToRgb(prev.h, prev.s, prev.b);
-      if (!hslOrigin.current) hslOrigin.current = hslOriginFrom(prev.h, currentRgb);
+      if (!hslOrigin.current) {
+        // Straight off what is on screen, so a remembered saturation carries
+        // into the new gesture. Hue falls back to HSB only when the displayed
+        // colour is achromatic and so has none of its own to give.
+        const shown = hslRef.current;
+        hslOrigin.current = {
+          h: shown.s <= 0 ? prev.h : shown.h,
+          s: shown.s,
+          l: shown.l,
+        };
+      }
       const { rgb, hsb, hsl: intent } = writeHslChannel(channel, value, hslOrigin.current);
       rgbOverride.current = rgb;
       setHslIntent(intent);

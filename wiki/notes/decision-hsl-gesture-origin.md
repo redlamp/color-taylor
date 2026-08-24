@@ -44,20 +44,34 @@ steady colour underneath a jittering number. So `hslIntent` holds what the
 gesture asked for and is displayed in place of the derived value while the
 gesture is in flight.
 
-## What we deliberately did not do
+## The intent outlives the gesture, guarded by a match test
 
-**Keep the intent after release.** Doing so would remove the last artefact — the
-fields re-derive on pointerup and can settle by a point or two, `S 64 → 62` at
-L=95 where the cross-section is narrowest. But then the HSL readout would go on
-claiming 64 while the hex field describes a colour whose saturation is 62. For a
-tool whose purpose is teaching colour, the honest derived value wins over the
-steadier number. This is the trade a canonical-HSL picker makes in the other
-direction, and it is reversible if it ever feels wrong.
+First version cleared the intent on pointerup. Two things were wrong with that.
+
+A saturation set at L=0 or L=100 snapped back to 0 the moment you let go, so the
+control read as refusing to move. CSS Color 4 calls saturation there
+**powerless** rather than unavailable - the value still exists, it just stops
+affecting the colour - and remembering it is what that looks like in a picker.
+This replaces an earlier plan to grey the control out; see [[hsl-degenerate-states]].
+
+The other was a settle on release, `S 64 -> 62` at L=95, which the first draft of
+this note defended as "the honest derived value". That was wrong. Both triples
+convert to the *same RGB* - neither is more correct - so the one the user
+actually set is the better thing to show.
+
+**The intent is used only while converting it reproduces the current RGB
+exactly.** That check is the whole safety argument: anything else that sets a
+colour - the hex field, an RGB slider, a swatch, a tween - moves the colour out
+from under it and it stops being used. There is no invalidation to remember to
+write anywhere, so nothing can drift apart. Verified: with a remembered
+`299 / 90 / 40`, typing `#2E8B57` drops straight to the derived `146 / 51 / 36`.
+
+## What we deliberately did not do
 
 **Resurrect saturation mid-range.** Hue is recovered whenever the colour is on
 the neutral axis, including plain grey at a normal lightness. Saturation is only
 recovered at the ends of L, where it is forced to zero. A mid-range `S=0` is
-taken at face value — there the user asked for grey, and restoring a saturation
+taken at face value - there the user asked for grey, and restoring a saturation
 would fight them.
 
 ## One implementation, two hosts

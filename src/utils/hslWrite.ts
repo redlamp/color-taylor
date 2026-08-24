@@ -25,29 +25,13 @@
  * Deriving the *next* edit from that exact RGB rather than from rounded HSB is
  * what keeps a run of edits from degrading.
  */
-import { hsbToRgb, rgbToHsb, rgbToHsl, hslToRgb, type HSB, type HSL, type RGB } from './colorConversions';
+import { rgbToHsb, hslToRgb, type HSB, type HSL, type RGB } from './colorConversions';
 
 /** The whole HSL colour a gesture started from. */
 export interface HslOrigin {
   h: number;
   s: number;
   l: number;
-}
-
-/**
- * Capture at the start of a gesture, from state that is not yet degenerate.
- *
- * Hue comes from HSB rather than from the colour, because HSB holds it through
- * black where the colour cannot.
- */
-export function hslOriginFrom(hsbHue: number, rgb: RGB): HslOrigin {
-  const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
-  return { h: hsbHue, s: hsl.s, l: hsl.l };
-}
-
-/** Convenience for callers holding HSB rather than an exact RGB. */
-export function hslOriginFromHsb(hsb: HSB): HslOrigin {
-  return hslOriginFrom(hsb.h, hsbToRgb(hsb.h, hsb.s, hsb.b));
 }
 
 export interface HslWrite {
@@ -76,7 +60,8 @@ export interface HslWrite {
  * ends and the fields re-derive, but that is a single settle rather than
  * continuous noise.
  *
- * @param origin what the gesture began with; capture with hslOriginFrom
+ * @param origin what the gesture began with - the HSL that was on screen, with
+ *               hue taken from HSB if that colour was achromatic
  */
 export function writeHslChannel(
   channel: 'h' | 's' | 'l',
