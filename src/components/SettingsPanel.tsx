@@ -31,6 +31,7 @@ import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/
 import { Button } from '@/components/ui/button';
 import { AudioSettings } from '@/components/settings/AudioSettings';
 import { DisplaySettings } from '@/components/settings/DisplaySettings';
+import { IntegrationNews } from '@/components/settings/IntegrationNews';
 import { useSettings } from '@/hooks/useSettings';
 import { useTheme } from '@/hooks/useTheme';
 
@@ -109,6 +110,10 @@ export function SettingsPanel({ open, onClose, muted, onToggleMute, colorFx, onT
                 </AccordionItem>
               )}
             </Accordion>
+
+            {/* Below the settings, not among them: it is news, not a control,
+                and it hides itself from `sm` up where the banner takes over. */}
+            <IntegrationNews />
           </div>
 
           <div className="border-t border-border px-3 py-2">

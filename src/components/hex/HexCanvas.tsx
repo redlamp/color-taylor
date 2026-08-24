@@ -69,7 +69,7 @@ function buildBase(isLinear: boolean): Uint8ClampedArray {
   return data;
 }
 
-export default function HexCanvas({ brightness, colorSpace, extent = SIZE }: { brightness: number; colorSpace: ColorSpace; extent?: number }) {
+export default function HexCanvas({ brightness, colorSpace, extent = SIZE, svgHeight = HEX_SIZE }: { brightness: number; colorSpace: ColorSpace; extent?: number; svgHeight?: number }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const baseRef = useRef<{ space: ColorSpace; data: Uint8ClampedArray } | null>(null);
   const glRef = useRef<HexGL | null | undefined>(undefined);
@@ -153,7 +153,11 @@ export default function HexCanvas({ brightness, colorSpace, extent = SIZE }: { b
       id="hex-canvas"
       ref={canvasRef}
       className="absolute top-0 left-0 rounded-sm"
-      style={{ width: `${(HEX_SIZE / extent) * 100}%`, height: '100%' }}
+      // The field is HEX_SIZE user units square. Both axes are percentages of
+      // the wrapper for that reason - `height: 100%` was only ever right while
+      // the wrapper was exactly HEX_SIZE tall, and it stretches the hexagon
+      // past its own outline once the saturation bar makes the box taller.
+      style={{ width: `${(HEX_SIZE / extent) * 100}%`, height: `${(HEX_SIZE / svgHeight) * 100}%` }}
     />
   );
 }

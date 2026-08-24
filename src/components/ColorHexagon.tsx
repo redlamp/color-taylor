@@ -15,6 +15,8 @@ import useUiSounds from '../hooks/useUiSounds';
 import {
   HEX_SIZE, SIZE, HEX_PANEL_WIDTH, CENTER_X, CENTER_Y, RADIUS, PI, DIRS, DISPLAY_HEIGHT,
   BL_BAR_X, BL_BAR_TOP, BL_BAR_HEIGHT, BL_ARROW_SIZE,
+  SAT_BAR_LEFT, SAT_BAR_WIDTH, DISPLAY_HEIGHT_SAT, SVG_HEIGHT_SAT,
+  HUE_LABEL_OFFSET,
   hexEdgeDist, hexPoints, colorAtPoint, getOrder,
 } from './hex/hexConstants';
 import HexCanvas from './hex/HexCanvas';
@@ -23,6 +25,9 @@ import ColorLabels from './hex/ColorLabels';
 import HueHandle from './hex/HueHandle';
 import BrightnessHandle from './hex/BrightnessHandle';
 import BrightnessMarkers from './hex/BrightnessMarkers';
+import SaturationBar from './hex/SaturationBar';
+import SaturationHandle from './hex/SaturationHandle';
+import SaturationMarkers from './hex/SaturationMarkers';
 
 /** The three channel vectors, at full strength. Stems and handle borders share
  *  these so the two can never drift apart. */
@@ -166,6 +171,48 @@ function parseSaved(raw: unknown): SavedSlot[] {
 }
 
 const DEFAULT_RECENT = ['#ff0000', '#ffff00', '#00ff00', '#00ffff', '#0000ff', '#ff00ff', '#ffffff', '#808080', '#000000'];
+
+/**
+ * The two callout lines that tie a slider to the hexagon.
+ *
+ * White rather than the grey the limit hexagon wears. These only exist while a
+ * slider is being dragged, so they are a transient pointer and have to read at
+ * a glance - and they cross the colour field, which can be any hue at any
+ * brightness, so no single flat colour has contrast everywhere. The shadow is
+ * what carries them over the pale end: white on full-brightness yellow is
+ * nearly invisible without it.
+ *
+ * Shared rather than repeated at all three callsites - the brightness line is
+ * drawn twice, once against the bar and once for hosts that put brightness on
+ * their own slider, and the three drifted apart the first time they were
+ * written out by hand.
+ */
+const CALLOUT_LINE = {
+  stroke: '#fff',
+  strokeLinecap: 'round' as const,
+  style: { filter: 'drop-shadow(0 0 2px rgba(0,0,0,0.9))' },
+};
+
+/**
+ * How the two shapes each slider explains look at rest.
+ *
+ * Dragging a slider swaps them for CALLOUT_LINE, so the shape the connector
+ * points at picks up the connector's own colour. Spreading a whole object
+ * rather than branching per attribute keeps `style` out of the resting case -
+ * an omitted prop clears the filter, a `style: undefined` would not read as
+ * clearly.
+ */
+const HIGHLIGHT_IN = 'transition-opacity duration-150 ease-out motion-reduce:transition-none';
+const HIGHLIGHT_OUT = 'transition-opacity duration-500 ease-out motion-reduce:transition-none';
+
+const QUIET_LIMIT_HEX = {
+  stroke: 'rgba(128,128,128,0.5)',
+  strokeLinecap: 'round' as const,
+};
+const QUIET_HUE_LINE = {
+  stroke: 'rgba(255,255,255,0.5)',
+  strokeLinecap: 'round' as const,
+};
 
 /** The shared quiet control, at the app's one 32px control height. */
 const ACTION_BTN_CLASS = 'ctl-quiet px-2.5';
@@ -354,15 +401,6 @@ interface ColorHexagonProps {
    */
   blBar?: boolean;
   /**
-   * Where the host's brightness handle sits, as a fraction of the hexagon's
-   * width. Only used when blBar is off, to land the limit-hexagon connector on
-   * the handle rather than near it - the slider's track and the hexagon are
-   * different widths, so the value alone is not enough.
-   */
-  blHandleX?: number | null;
-  /** Draw the line tying the brightness control to the limit hexagon. */
-  blConnector?: boolean;
-  /**
    * Rendered stem thickness in CSS px as [min, max]. The stems scale with the
    * hexagon, which across the plugin's range means 1.15px at the narrow end and
    * 3.3px at the wide one - too thin to read, then heavier than the handles.
@@ -370,6 +408,12 @@ interface ColorHexagonProps {
    * 2-user-unit behavior.
    */
   stemRange?: [number, number] | null;
+  /**
+   * The horizontal saturation bar under the hexagon, and the dashed line tying
+   * it to the vector chain's tip. Off in `bare` hosts, which put saturation on
+   * an ordinary slider in their own editor - see figma/ui/lite/no-saturation.
+   */
+  satBar?: boolean;
 }
 
 interface HoveredMarker {
@@ -379,13 +423,19 @@ interface HoveredMarker {
   name: string;
 }
 
-export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, onHoverHtmlColor, muted, bare, headerLeft, belowStage, collapsedSections, sectionVariant = 'card', alpha = 100, onAlphaRestore, wheelAdjusts = true, blBar = true, blHandleX = null, blConnector = true, stemRange = null }: ColorHexagonProps) {
+export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, onHoverHtmlColor, muted, bare, headerLeft, belowStage, collapsedSections, sectionVariant = 'card', alpha = 100, onAlphaRestore, wheelAdjusts = true, blBar = true, stemRange = null, satBar = true }: ColorHexagonProps) {
   const flushSections = sectionVariant === 'flush';
   // Horizontal extent of the SVG coordinate space. Without the bar the hexagon
   // is the whole picture, so the 50px reserved to its right goes away - and the
   // extent becomes twice CENTER_X, which is what actually puts the hexagon in
   // the middle. At HEX_SIZE it sat 10px left of center.
   const EXTENT = blBar ? SIZE : CENTER_X * 2;
+  // A root <svg> clips at its viewBox, and clearing the circumscribed circle
+  // needs more canvas than the 88 spare units under the hexagon. So the box
+  // itself grows, and everything that turns a user-space y into a percentage
+  // divides by this rather than by HEX_SIZE.
+  const svgHeight = satBar ? SVG_HEIGHT_SAT : HEX_SIZE;
+  const stageHeight = satBar ? DISPLAY_HEIGHT_SAT : DISPLAY_HEIGHT;
   const [hexOpen, setHexOpen] = useState(true);
   // Clip while collapsed or mid-tween only; see the note on the animator below.
   // Derived, so the effect never sets state synchronously.
@@ -735,6 +785,43 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   const hexPointerDown = useRef(null);
   const startingBrightness = useRef(null); // brightness at drag start for rubber-band
   const blPointerDown = useRef(null);
+  const draggingSat = useRef(false);
+  const satPointerDown = useRef(null);
+  // Rendered state, not just the refs: the connectors are drawn output, so they
+  // need a re-render at the moment a drag begins and ends.
+  const [isBLDragging, setIsBLDragging] = useState(false);
+  const [isSatDragging, setIsSatDragging] = useState(false);
+  const startBLDrag = useCallback(() => { draggingBL.current = true; setIsBLDragging(true); }, []);
+  const startSatDrag = useCallback(() => { draggingSat.current = true; setIsSatDragging(true); }, []);
+
+  // Clicking a track or one of its markers tweens rather than drags, so there is
+  // no pointer to hold the highlight up. These hold it for exactly the tween's
+  // own duration - HSB_TWEEN_MS is the same constant the tween reads, so the
+  // two cannot drift.
+  const [blTweening, setBlTweening] = useState(false);
+  const [satTweening, setSatTweening] = useState(false);
+  const blTweenTimer = useRef<number | null>(null);
+  const satTweenTimer = useRef<number | null>(null);
+  const holdBLTween = useCallback(() => {
+    setBlTweening(true);
+    if (blTweenTimer.current) clearTimeout(blTweenTimer.current);
+    blTweenTimer.current = window.setTimeout(() => {
+      setBlTweening(false);
+      blTweenTimer.current = null;
+    }, HSB_TWEEN_MS);
+  }, []);
+  const holdSatTween = useCallback(() => {
+    setSatTweening(true);
+    if (satTweenTimer.current) clearTimeout(satTweenTimer.current);
+    satTweenTimer.current = window.setTimeout(() => {
+      setSatTweening(false);
+      satTweenTimer.current = null;
+    }, HSB_TWEEN_MS);
+  }, []);
+  useEffect(() => () => {
+    if (blTweenTimer.current) clearTimeout(blTweenTimer.current);
+    if (satTweenTimer.current) clearTimeout(satTweenTimer.current);
+  }, []);
   const [hoveredDot, setHoveredDot] = useState(null); // index of hovered dot
   // Separate from hoveredDot: a segment and the handle at its end are different
   // targets, and highlighting one should not light up the other.
@@ -765,9 +852,9 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   const getSvgCoords = useCallback((e: { clientX: number; clientY: number }) => {
     const rect = svgRef.current!.getBoundingClientRect();
     const sx = EXTENT / rect.width;
-    const sy = HEX_SIZE / rect.height;
+    const sy = svgHeight / rect.height;
     return { x: (e.clientX - rect.left) * sx, y: (e.clientY - rect.top) * sy };
-  }, [EXTENT]);
+  }, [EXTENT, svgHeight]);
 
   const getHsbFromPosition = useCallback((svgX: number, svgY: number, clampOnly = false) => {
     const dx = svgX - CENTER_X;
@@ -861,8 +948,8 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     const rad = (hue * PI) / 180;
     return {
       hueLabel: {
-        x: CENTER_X + (RADIUS + 28) * Math.cos(rad),
-        y: CENTER_Y - (RADIUS + 28) * Math.sin(rad),
+        x: CENTER_X + (RADIUS + HUE_LABEL_OFFSET) * Math.cos(rad),
+        y: CENTER_Y - (RADIUS + HUE_LABEL_OFFSET) * Math.sin(rad),
       },
     };
   }, [hue]);
@@ -880,7 +967,11 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     };
   }, [hoverMatchRgb]);
 
-  const showHueLine = saturation > 0;
+  // "This control is what's changing right now" - by pointer or by the tween a
+  // click on its track started. Everything the control highlights reads this.
+  const blActive = isBLDragging || blTweening;
+  const satActive = isSatDragging || satTweening;
+  const showHueLine = saturation > 0 || satActive;
 
   // Named color markers on hex
   const htmlColorMarkers = useMemo(() => {
@@ -1076,11 +1167,11 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   const getBLValueFromClientY = useCallback((clientY: number) => {
     if (!svgRef.current) return null;
     const svgRect = svgRef.current.getBoundingClientRect();
-    const sy = HEX_SIZE / svgRect.height;
+    const sy = svgHeight / svgRect.height;
     const svgY = (clientY - svgRect.top) * sy;
     const y = Math.max(0, Math.min(svgY - BL_BAR_TOP, BL_BAR_HEIGHT));
     return Math.round((1 - y / BL_BAR_HEIGHT) * 100);
-  }, []);
+  }, [svgHeight]);
 
   const applyBLValue = useCallback((value: number) => {
     if (blMode === 'brightness') {
@@ -1092,6 +1183,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
 
   const animateBLToValue = useCallback((targetValue: number) => {
     if (!onAnimateToHsb) return;
+    holdBLTween();
     if (blMode === 'brightness') {
       onAnimateToHsb({ h: hue, s: saturation, b: targetValue });
     } else {
@@ -1102,7 +1194,28 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       const targetHsb = rgbToHsb(targetRgb.r, targetRgb.g, targetRgb.b);
       onAnimateToHsb(targetHsb);
     }
-  }, [blMode, onAnimateToHsb, hue, saturation, brightness]);
+  }, [blMode, onAnimateToHsb, hue, saturation, brightness, holdBLTween]);
+
+  const getSatValueFromClientX = useCallback((clientX: number) => {
+    if (!svgRef.current) return null;
+    const svgRect = svgRef.current.getBoundingClientRect();
+    // The SVG's own scale, not the hexagon's: EXTENT differs from HEX_SIZE and
+    // the bar is measured in the same user units the viewBox is.
+    const sx = EXTENT / svgRect.width;
+    const svgX = (clientX - svgRect.left) * sx;
+    const x = Math.max(0, Math.min(svgX - SAT_BAR_LEFT, SAT_BAR_WIDTH));
+    return Math.round((x / SAT_BAR_WIDTH) * 100);
+  }, [EXTENT]);
+
+  const applySatValue = useCallback((value: number) => {
+    onHsbChange?.({ s: value });
+  }, [onHsbChange]);
+
+  const animateSatToValue = useCallback((targetValue: number) => {
+    if (!onAnimateToHsb) return;
+    holdSatTween();
+    onAnimateToHsb({ h: hue, s: targetValue, b: brightness });
+  }, [onAnimateToHsb, hue, brightness, holdSatTween]);
 
   const handleHexSurfaceDrag = useCallback((e: { clientX: number; clientY: number }) => {
     if (!hexPointerDown.current || !onHsbChange) return null;
@@ -1119,8 +1232,12 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       draggingDot.current = null;
       draggingFree.current = false;
       draggingBL.current = false;
+      draggingSat.current = false;
+      setIsBLDragging(false);
+      setIsSatDragging(false);
       hexPointerDown.current = null;
       blPointerDown.current = null;
+      satPointerDown.current = null;
       startingBrightness.current = null;
       setHoveredDot(null);
       setIsHexDragging(false);
@@ -1161,6 +1278,14 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           else updateTone({});
         }
       }
+      if (draggingSat.current) {
+        ensureToneStart();
+        const val = getSatValueFromClientX(e.clientX);
+        if (val !== null) {
+          applySatValue(val);
+          updateTone({ s: val });
+        }
+      }
       if (draggingFree.current) {
         ensureToneStart();
         const { x, y } = getSvgCoords(e);
@@ -1188,7 +1313,10 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
         if (!pd.isDragging) {
           const dx = e.clientX - pd.clientX;
           const dy = e.clientY - pd.clientY;
-          if (Math.sqrt(dx * dx + dy * dy) >= dragTriggerDistance) pd.isDragging = true;
+          if (Math.sqrt(dx * dx + dy * dy) >= dragTriggerDistance) {
+            pd.isDragging = true;
+            setIsBLDragging(true);
+          }
         }
         if (pd.isDragging) {
           ensureToneStart();
@@ -1197,6 +1325,25 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             applyBLValue(val);
             if (blMode === 'brightness') updateTone({ b: val });
             else updateTone({});
+          }
+        }
+      }
+      if (satPointerDown.current) {
+        const pd = satPointerDown.current;
+        if (!pd.isDragging) {
+          const dx = e.clientX - pd.clientX;
+          const dy = e.clientY - pd.clientY;
+          if (Math.sqrt(dx * dx + dy * dy) >= dragTriggerDistance) {
+            pd.isDragging = true;
+            setIsSatDragging(true);
+          }
+        }
+        if (pd.isDragging) {
+          ensureToneStart();
+          const val = getSatValueFromClientX(e.clientX);
+          if (val !== null) {
+            applySatValue(val);
+            updateTone({ s: val });
           }
         }
       }
@@ -1222,6 +1369,13 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           if (val !== null) animateBLToValue(val);
         }
       }
+      if (satPointerDown.current && !satPointerDown.current.isDragging) {
+        const elapsed = Date.now() - satPointerDown.current.time;
+        if (elapsed <= clickMaxDuration) {
+          const val = getSatValueFromClientX(e.clientX);
+          if (val !== null) animateSatToValue(val);
+        }
+      }
       clearAll();
     };
     const onPointerLeave = () => clearAll();
@@ -1233,7 +1387,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       window.removeEventListener('pointerup', onPointerUp);
       document.documentElement.removeEventListener('pointerleave', onPointerLeave);
     };
-  }, [hueFromMouse, handleDotDrag, handleHexSurfaceDrag, getBLValueFromClientY, applyBLValue, animateBLToValue, getSvgCoords, getHsbFromPosition, onAnimateToHsb, onHsbChange, addToRecent, blMode, cancelHoldTone]);
+  }, [hueFromMouse, handleDotDrag, handleHexSurfaceDrag, getBLValueFromClientY, applyBLValue, animateBLToValue, getSatValueFromClientX, applySatValue, animateSatToValue, getSvgCoords, getHsbFromPosition, onAnimateToHsb, onHsbChange, addToRecent, blMode, cancelHoldTone]);
 
   // Non-passive wheel listener to prevent page scroll. Not registered at all
   // when the host owns the wheel - a listener that conditionally declines to
@@ -1352,36 +1506,8 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     const limitScale = blMode === 'brightness'
       ? brightness / 100
       : 1 - Math.abs(2 * (hsl?.l ?? 50) / 100 - 1);
-    const limitRadius = RADIUS * Math.min(limitScale, 1);
-    const blValue = blMode === 'brightness' ? brightness : (hsl?.l ?? 50);
-    const arrowY = BL_BAR_TOP + (1 - blValue / 100) * BL_BAR_HEIGHT;
-    const arrowTipX = BL_BAR_X - BL_ARROW_SIZE - 2;
-    const dx = CENTER_X - arrowTipX;
-    const dy = CENTER_Y - arrowY;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    const angle = Math.atan2(-dy, dx);
-    const edgeDist = hexEdgeDist(angle, limitRadius);
-    // Where the horizontal slider's handle meets the bottom edge, and the point
-    // where the line from there to the center crosses the limit hexagon - so
-    // the connector points at the middle rather than dropping straight down.
-    const sliderX = (blHandleX ?? blValue / 100) * HEX_SIZE;
-    const sdx = CENTER_X - sliderX;
-    const sdy = CENTER_Y - HEX_SIZE;
-    const sdist = Math.sqrt(sdx * sdx + sdy * sdy) || 1;
-    const sEdge = hexEdgeDist(Math.atan2(-sdy, sdx), limitRadius);
-
-    return {
-      limitScale,
-      limitRadius,
-      perimX: CENTER_X - (dx / dist) * edgeDist,
-      perimY: CENTER_Y - (dy / dist) * edgeDist,
-      arrowTipX,
-      arrowY,
-      sliderX,
-      downX: CENTER_X - (sdx / sdist) * sEdge,
-      downY: CENTER_Y - (sdy / sdist) * sEdge,
-    };
-  }, [blMode, brightness, hsl?.l, blHandleX]);
+    return { limitScale, limitRadius: RADIUS * Math.min(limitScale, 1) };
+  }, [blMode, brightness, hsl?.l]);
 
   return (
     <div
@@ -1500,13 +1626,26 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           aspect-ratio, which a definite basis overrides. It would collapse to
           nothing and the wheel would overflow it. Growing from an auto basis
           keeps the aspect-derived height as the floor. */}
-      <div id="hex-stage" className="w-full relative m-4 grow" style={{ maxWidth: EXTENT, aspectRatio: `${EXTENT} / ${DISPLAY_HEIGHT}` }}>
-      <div className="absolute left-0 top-1/2 w-full -translate-y-1/2" style={{ aspectRatio: `${EXTENT} / ${HEX_SIZE}` }}>
-        <HexCanvas brightness={brightness} colorSpace={colorSpace} extent={EXTENT} />
+      {/* mb-1 rather than m-4's mb-4 while the saturation bar is on: the value
+          pill ends 2 units off the stage's bottom edge, so a full margin under
+          it reads as a gap between the control and Recent. The 12px freed goes
+          to `grow`, and with the box bottom-pinned that lands above the
+          hexagon, where there is slack to spare. */}
+      <div id="hex-stage" className={`w-full relative grow ${satBar ? 'mx-4 mt-4 mb-1' : 'm-4'}`} style={{ maxWidth: EXTENT, aspectRatio: `${EXTENT} / ${stageHeight}` }}>
+      {/* Centred while the content is symmetric about CENTER_Y. With the
+          saturation bar on it hangs well below, so the box is pinned to the
+          stage's bottom instead and the whole crop is taken off the top - the
+          same 40 units DISPLAY_HEIGHT has always taken, which is the amount the
+          hue badge is known to survive. */}
+      <div
+        className={`absolute left-0 w-full ${satBar ? 'bottom-0' : 'top-1/2 -translate-y-1/2'}`}
+        style={{ aspectRatio: `${EXTENT} / ${svgHeight}` }}
+      >
+        <HexCanvas brightness={brightness} colorSpace={colorSpace} extent={EXTENT} svgHeight={svgHeight} />
         <svg
           id="hex-svg"
           ref={svgRef}
-          viewBox={`0 0 ${EXTENT} ${HEX_SIZE}`}
+          viewBox={`0 0 ${EXTENT} ${svgHeight}`}
           preserveAspectRatio="xMidYMid meet"
           role="img"
           aria-label="Color hexagon with RGB vector visualization"
@@ -1516,31 +1655,44 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           <circle id="hex-circumscribe" cx={CENTER_X} cy={CENTER_Y} r={RADIUS} fill="none" stroke="var(--input)" strokeWidth={1.5} />
           <polygon id="hex-outline" points={hexPoints(CENTER_X, CENTER_Y, RADIUS)} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth={1} />
 
-          {/* Brightness limit hex + connector */}
+          {/*
+            Brightness limit hex - the cube's cross-section at this value.
+
+            Hidden at rest once it reaches full size, where it would just double
+            the hexagon's own outline. During a drag it stays drawn all the way
+            to 100%, so the shape you are sizing does not blink out at the top
+            of the range - at that point it lands on the outline and reads as
+            the outline lighting up.
+          */}
           {limitHex.limitScale < 1 && (
             <polygon
               id="hex-brightness-limit"
               points={hexPoints(CENTER_X, CENTER_Y, limitHex.limitRadius)}
-              fill="none" stroke="rgba(128,128,128,0.5)" strokeWidth={pxUnits(2)} strokeDasharray={`${pxUnits(1)} ${pxUnits(4)}`} strokeLinecap="round"
+              fill="none"
+              {...QUIET_LIMIT_HEX}
+              strokeWidth={pxUnits(2)}
+              strokeDasharray={`${pxUnits(1)} ${pxUnits(4)}`}
             />
           )}
-          {/* Ties the brightness control to the limit hexagon. With the bar it
-              runs to the bar's arrow; without it, down to the bottom edge at
-              the x the brightness value sits at, which is where the horizontal
-              slider's handle is. */}
-          {blBar ? (
-            <line
-              x1={limitHex.arrowTipX} y1={limitHex.arrowY} x2={limitHex.perimX} y2={limitHex.perimY}
-              stroke="rgba(128,128,128,0.5)" strokeWidth={pxUnits(2)} strokeDasharray={`${pxUnits(1)} ${pxUnits(4)}`} strokeLinecap="round"
-            />
-          ) : blConnector ? (
-            <line
-              id="hex-brightness-connector"
-              x1={limitHex.sliderX} y1={HEX_SIZE} x2={limitHex.downX} y2={limitHex.downY}
-              stroke="rgba(128,128,128,0.5)" strokeWidth={pxUnits(2)} strokeDasharray={`${pxUnits(1)} ${pxUnits(4)}`} strokeLinecap="round"
-            />
-          ) : null}
-
+          {/*
+            ...and the highlight is a second polygon crossfaded over it, rather
+            than the first one changing colour. Opacity is the only property
+            here that transitions cleanly - going from a dash array to `none`
+            mid-fade does not - and keeping it mounted at opacity 0 is what lets
+            it fade rather than blink when the tween finishes. Solid, because
+            dashed reads as an annotation you can look past and the
+            cross-section is the thing being set.
+          */}
+          <polygon
+            id="hex-brightness-limit-active"
+            points={hexPoints(CENTER_X, CENTER_Y, limitHex.limitRadius)}
+            fill="none"
+            {...CALLOUT_LINE}
+            strokeWidth={pxUnits(2.5)}
+            opacity={blActive ? 1 : 0}
+            className={blActive ? HIGHLIGHT_IN : HIGHLIGHT_OUT}
+            pointerEvents="none"
+          />
           {/* HTML named color markers */}
           {htmlColorMarkers.map((m) => (
             <circle
@@ -1569,10 +1721,40 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             />
           ))}
 
-          {/* Hue line */}
+          {/*
+            Hue line, and - while saturation is being dragged - the filled part
+            of it.
+
+            A horizontal track cannot match the handle's direction of travel at
+            every hue: the handle's horizontal component goes as cos(hue), so it
+            agrees at 0 degrees, opposes at 180, and vanishes entirely at 90 and
+            270 where the handle moves straight up. Rather than chase that, the
+            fill gives the eye a quantity that behaves the same way everywhere -
+            more saturation is a longer segment, whichever way the ray points.
+
+            The fill ends at the vector chain's tip, so it stops exactly where
+            the colour handle is. That also makes it honest about brightness:
+            the tip rides the limit hexagon, so a dim colour at S=100 fills a
+            shorter ray, which is what the shrunken limit hexagon beside it is
+            already saying.
+          */}
           {showHueLine && (
             <line id="hue-line" x1={CENTER_X} y1={CENTER_Y} x2={hueLabel.x} y2={hueLabel.y}
-              stroke="rgba(255,255,255,0.5)" strokeWidth={pxUnits(2)} strokeDasharray={`${pxUnits(4)} ${pxUnits(4)}`}
+              {...QUIET_HUE_LINE}
+              strokeWidth={pxUnits(2)}
+              strokeDasharray={`${pxUnits(4)} ${pxUnits(4)}`}
+            />
+          )}
+          {showHueLine && (
+            <line
+              id="hue-line-fill"
+              x1={CENTER_X} y1={CENTER_Y}
+              x2={points[points.length - 1].x} y2={points[points.length - 1].y}
+              {...CALLOUT_LINE}
+              strokeWidth={pxUnits(3)}
+              opacity={satActive ? 1 : 0}
+              className={satActive ? HIGHLIGHT_IN : HIGHLIGHT_OUT}
+              pointerEvents="none"
             />
           )}
 
@@ -1710,13 +1892,21 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           {blBar && (
             <BrightnessBar
               hue={hue} saturation={saturation} brightness={brightness} hsl={hsl}
-              blMode={blMode} blPointerDownRef={blPointerDown} draggingBLRef={draggingBL}
+              blMode={blMode} blPointerDownRef={blPointerDown} onArrowDragStart={startBLDrag}
               animateBLToValue={animateBLToValue} colorSpace={colorSpace}
+            />
+          )}
+
+          {satBar && (
+            <SaturationBar
+              hue={hue} saturation={saturation} brightness={brightness}
+              satPointerDownRef={satPointerDown} onArrowDragStart={startSatDrag}
+              animateSatToValue={animateSatToValue} colorSpace={colorSpace}
             />
           )}
         </svg>
 
-        <ColorLabels onColorClick={handleColorLabelClick} extent={EXTENT} />
+        <ColorLabels onColorClick={handleColorLabelClick} extent={EXTENT} svgHeight={svgHeight} />
 
         {/* HTML color marker tooltip */}
         {hoveredMarker && (() => {
@@ -1746,8 +1936,8 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             </div>
           );
         })()}
-        {showHueLine && <HueHandle hue={hue} hueLabel={hueLabel} extent={EXTENT} onMouseDown={handleHueDragStart} />}
-        {blBar && <BrightnessMarkers blMode={blMode} onPick={animateBLToValue} />}
+        {showHueLine && <HueHandle hue={hue} hueLabel={hueLabel} extent={EXTENT} svgHeight={svgHeight} onMouseDown={handleHueDragStart} />}
+        {blBar && <BrightnessMarkers blMode={blMode} svgHeight={svgHeight} onPick={animateBLToValue} />}
         {blBar && (
           <BrightnessHandle
             hue={hue}
@@ -1755,10 +1945,27 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             brightness={brightness}
             hsl={hsl}
             blMode={blMode}
+            svgHeight={svgHeight}
             onMouseDown={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              draggingBL.current = true;
+              startBLDrag();
+              scheduleHoldTone();
+            }}
+          />
+        )}
+        {satBar && <SaturationMarkers extent={EXTENT} svgHeight={svgHeight} onPick={animateSatToValue} />}
+        {satBar && (
+          <SaturationHandle
+            hue={hue}
+            saturation={saturation}
+            brightness={brightness}
+            extent={EXTENT}
+            svgHeight={svgHeight}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              startSatDrag();
               scheduleHoldTone();
             }}
           />

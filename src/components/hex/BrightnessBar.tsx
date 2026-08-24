@@ -28,12 +28,13 @@ interface BrightnessBarProps {
   hsl: HSL;
   blMode: 'brightness' | 'lightness';
   blPointerDownRef: MutableRefObject<{ clientX: number; clientY: number; time: number; isDragging: boolean } | null>;
-  draggingBLRef: MutableRefObject<boolean>;
+  /** Grabbing the arrow drags immediately, with no tap-vs-drag threshold. */
+  onArrowDragStart: () => void;
   animateBLToValue: (v: number) => void;
   colorSpace: ColorSpace;
 }
 
-export default function BrightnessBar({ hue, saturation, brightness, hsl, blMode, blPointerDownRef, draggingBLRef, animateBLToValue, colorSpace }: BrightnessBarProps) {
+export default function BrightnessBar({ hue, saturation, brightness, hsl, blMode, blPointerDownRef, onArrowDragStart, animateBLToValue, colorSpace }: BrightnessBarProps) {
   const blValue = blMode === 'brightness' ? brightness : (hsl?.l ?? 50);
   const arrowY = BL_BAR_TOP + (1 - blValue / 100) * BL_BAR_HEIGHT;
 
@@ -83,7 +84,7 @@ export default function BrightnessBar({ hue, saturation, brightness, hsl, blMode
         onMouseDown={(e) => {
           e.preventDefault();
           e.stopPropagation();
-          draggingBLRef.current = true;
+          onArrowDragStart();
         }}
       />
 

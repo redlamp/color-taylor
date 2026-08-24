@@ -67,6 +67,7 @@ export default defineConfig({
       // Both are runtime props, so the bundler cannot drop them on its own.
       { find: /^.*utils\/namedColors$/, replacement: path.resolve(__dirname, 'ui/lite/named-colors.ts') },
       { find: /^.*hex\/Brightness(Bar|Handle|Markers)$/, replacement: path.resolve(__dirname, 'ui/lite/no-brightness.tsx') },
+      { find: /^.*hex\/Saturation(Bar|Handle|Markers)$/, replacement: path.resolve(__dirname, 'ui/lite/no-saturation.tsx') },
 
       // Interface sounds are a layer on top of the picker, not part of it.
       // A Figma panel chiming on save is out of place, and the real hook pulls

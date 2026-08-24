@@ -560,7 +560,7 @@ function PluginApp() {
         onAlphaRestore={onAlphaRestore}
         wheelAdjusts={false}
         blBar={false}
-        blConnector={false}
+        satBar={false}
         stemRange={[2, 4]}
         muted
         headerLeft={

@@ -55,25 +55,43 @@ test.describe('Plugin banner', () => {
     await expect(banner(page)).toBeVisible();
   });
 
-  test('stacks on a phone and stays inside the viewport', async ({ page }) => {
+  test('on a phone it moves into the settings sheet instead', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 700 });
     await page.goto('/');
-    const box = await banner(page).boundingBox();
-    if (!box) throw new Error('banner not rendered');
 
-    // Its own right edge must stay on screen. The page as a whole still
-    // overflows at this width, but that is #hex-stage and the brightness-bar
-    // handle, and it is unchanged with this banner dismissed - not ours.
-    expect(box.x + box.width).toBeLessThanOrEqual(320);
+    // Not on the picker at all. It used to render here as a stacked two-row
+    // block; a phone's first screen is the picker, and an announcement strip
+    // was spending a scarce row on something nobody opened the app to read.
+    await expect(banner(page)).toBeHidden();
 
-    // Stacked: caption on one line, CTA on the next, so it is taller than the
-    // single-row pill. Side by side at 320 both labels wrapped mid-phrase.
-    expect(box.height).toBeGreaterThan(60);
+    await page.getByRole('button', { name: 'Open settings' }).click();
+    const news = page.getByRole('dialog').getByRole('region', { name: 'Color Taylor plugin' });
+    await expect(news).toBeVisible();
 
-    const link = banner(page).getByRole('link');
-    const linkBox = await link.boundingBox();
+    // Still the real link, not just a mention of it.
+    const link = news.getByRole('link');
+    await expect(link).toHaveAttribute(
+      'href',
+      'https://www.figma.com/community/plugin/1671457712575610716/color-taylor',
+    );
+    await expect(link).toHaveAttribute('target', '_blank');
+    await expect(link).toHaveAttribute('rel', /noopener/);
+
     // One line of button text, never "Get the / plugin".
+    const linkBox = await link.boundingBox();
     expect(linkBox!.height).toBeLessThan(40);
+  });
+
+  test('the settings news item is desktop-hidden, where the banner takes over', async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 800 });
+    await page.goto('/');
+    await expect(banner(page)).toBeVisible();
+
+    await page.getByRole('button', { name: 'Open settings' }).click();
+    // Both surfaces visible at once would be the same news twice on one screen.
+    await expect(
+      page.getByRole('dialog').getByRole('region', { name: 'Color Taylor plugin' }),
+    ).toBeHidden();
   });
 
   test('is a single-row pill on a wide viewport', async ({ page }) => {

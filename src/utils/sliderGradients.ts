@@ -7,7 +7,7 @@ function rgb(r: number, g: number, b: number): string {
 }
 
 /** Convert HSB to display RGB, applying linear→sRGB if in linear color space */
-function hsbToDisplay(h: number, s: number, b: number, colorSpace: ColorSpace) {
+export function hsbToDisplay(h: number, s: number, b: number, colorSpace: ColorSpace) {
   if (colorSpace === 'linear') {
     const sNorm = s / 100;
     const bNorm = b / 100;

@@ -1,6 +1,6 @@
 import type { MouseEventHandler } from 'react';
 import { hsbToRgb, rgbToHex, type HSL } from '../../utils/colorConversions';
-import { BL_BAR_X, BL_BAR_TOP, BL_BAR_WIDTH, BL_BAR_HEIGHT, SIZE, HEX_SIZE } from './hexConstants';
+import { BL_BAR_X, BL_BAR_TOP, BL_BAR_WIDTH, BL_BAR_HEIGHT, SIZE } from './hexConstants';
 
 interface BrightnessHandleProps {
   hue: number;
@@ -8,10 +8,13 @@ interface BrightnessHandleProps {
   brightness: number;
   hsl: HSL;
   blMode: 'brightness' | 'lightness';
+  /** The live viewBox height. Taller than HEX_SIZE while the saturation bar
+   *  is on, and this pill's `top` is a percentage of it. */
+  svgHeight: number;
   onMouseDown: MouseEventHandler<HTMLDivElement>;
 }
 
-export default function BrightnessHandle({ hue, saturation, brightness, hsl, blMode, onMouseDown }: BrightnessHandleProps) {
+export default function BrightnessHandle({ hue, saturation, brightness, hsl, blMode, svgHeight, onMouseDown }: BrightnessHandleProps) {
   const blValue = blMode === 'brightness' ? brightness : (hsl?.l ?? 50);
   const y = BL_BAR_TOP + (1 - blValue / 100) * BL_BAR_HEIGHT;
   const x = BL_BAR_X + BL_BAR_WIDTH;
@@ -24,7 +27,7 @@ export default function BrightnessHandle({ hue, saturation, brightness, hsl, blM
     <div
       id="bl-handle"
       className="absolute z-10 -translate-y-1/2 flex items-center cursor-pointer select-none touch-none"
-      style={{ left: `${(x / SIZE) * 100}%`, top: `${(y / HEX_SIZE) * 100}%` }}
+      style={{ left: `${(x / SIZE) * 100}%`, top: `${(y / svgHeight) * 100}%` }}
       onPointerDown={onMouseDown}
     >
       {/* Left-pointing arrow */}
