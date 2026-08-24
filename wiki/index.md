@@ -22,6 +22,7 @@ Top-level Map of Content. See `CLAUDE.md` in this folder for conventions.
 
 ## Research
 
+- [[research/hsl-degenerate-states]] — where each colour model gives out, what CSS Color 4 calls it, and the hexagon claim part-verified
 - [[research/figma-plugin-review-guidelines]] — Figma's published rules, and where Color Taylor stood on 2026-08-03
 - [[research/figma-plugin-platform-constraints]] — what the sandbox and the plugin iframe can't do
 
