@@ -790,15 +790,16 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
    * under HSB and by `1 - |2L-1|` under HSL, and those are not the same number
    * for anything less than fully saturated.
    *
-   * `h` rides along because grey has no hue to recover. At S=0 every model
-   * reports hue 0 - the colour genuinely is a point on the neutral axis - so a
-   * drag that passes through the centre, or a saturation drag that bottoms out,
-   * would come back up as red. Holding the hue the drag began with means the
-   * excursion is reversible.
+   * `h` and `sHsl` ride along because the neutral axis has neither to recover.
+   * Grey, black and white are all points on it: every model reports hue 0
+   * there, and at L=0 or L=100 the saturation goes with it. So a drag through
+   * the centre, a saturation drag that bottoms out, or a lightness drag that
+   * reaches either end would all come back as red or as grey. Holding what the
+   * drag began with is what makes those excursions reversible.
    *
    * Null when no drag is in flight.
    */
-  const dragOrigin = useRef<{ b: number; l: number; h: number } | null>(null);
+  const dragOrigin = useRef<{ b: number; l: number; h: number; sHsl: number } | null>(null);
   const blPointerDown = useRef<PointerDownState | null>(null);
   const draggingSat = useRef(false);
   const satPointerDown = useRef<PointerDownState | null>(null);
@@ -806,12 +807,16 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   // need a re-render at the moment a drag begins and ends.
   const [isBLDragging, setIsBLDragging] = useState(false);
   const [isSatDragging, setIsSatDragging] = useState(false);
-  const startBLDrag = useCallback(() => { draggingBL.current = true; setIsBLDragging(true); }, []);
+  const startBLDrag = useCallback(() => {
+    draggingBL.current = true;
+    setIsBLDragging(true);
+    dragOrigin.current = dragOrigin.current ?? { b: brightness, l: hsl?.l ?? 50, h: hue, sHsl: hsl?.s ?? 0 };
+  }, [brightness, hsl?.l, hsl?.s, hue]);
   const startSatDrag = useCallback(() => {
     draggingSat.current = true;
     setIsSatDragging(true);
-    dragOrigin.current = dragOrigin.current ?? { b: brightness, l: hsl?.l ?? 50, h: hue };
-  }, [brightness, hsl?.l, hue]);
+    dragOrigin.current = dragOrigin.current ?? { b: brightness, l: hsl?.l ?? 50, h: hue, sHsl: hsl?.s ?? 0 };
+  }, [brightness, hsl?.l, hsl?.s, hue]);
 
   // Clicking a track or one of its markers tweens rather than drags, so there is
   // no pointer to hold the highlight up. These hold it for exactly the tween's
@@ -901,7 +906,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
      * (s/100)*(b/100)*edge collapse to exactly `dist` on both branches, so the
      * handle tracks the pointer at every brightness.
      */
-    const origin = dragOrigin.current ?? { b: brightness, l: hsl?.l ?? 50, h: hue };
+    const origin = dragOrigin.current ?? { b: brightness, l: hsl?.l ?? 50, h: hue, sHsl: hsl?.s ?? 0 };
     const limit = blLimitScale(blMode, origin.b, origin.l);
     const r = dist / edgeDist;
     const pointerHue = Math.round(h);
@@ -947,7 +952,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     const asRgb = hslToRgb(hueOut, sL, lTarget);
     const asHsb = rgbToHsb(asRgb.r, asRgb.g, asRgb.b);
     return { h: hueOut, s: Math.round(asHsb.s), b: Math.round(asHsb.b) };
-  }, [brightness, hsl?.l, hue, blMode]);
+  }, [brightness, hsl?.l, hsl?.s, hue, blMode]);
 
   const hueFromMouse = useCallback((e: { clientX: number; clientY: number }) => {
     const { x, y } = getSvgCoords(e);
@@ -1187,7 +1192,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
 
         // Last dot (all 3 channels): set color from hex position
         if (isLast && onHsbChange) {
-          dragOrigin.current = dragOrigin.current ?? { b: brightness, l: hsl?.l ?? 50, h: hue };
+          dragOrigin.current = dragOrigin.current ?? { b: brightness, l: hsl?.l ?? 50, h: hue, sHsl: hsl?.s ?? 0 };
           const picked = getHsbFromPosition(x, y, true);
           if (picked) onHsbChange(picked);
           return;
@@ -1229,7 +1234,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       const picked = getHsbFromPosition(x, y, true);
       if (picked) onHsbChange(picked);
     }
-  }, [getSvgCoords, onRgbChange, onHsbChange, points, scale, getHsbFromPosition, order, rgb, brightness, hsl?.l, hue, solveChannels]);
+  }, [getSvgCoords, onRgbChange, onHsbChange, points, scale, getHsbFromPosition, order, rgb, brightness, hsl?.l, hsl?.s, hue, solveChannels]);
 
   const getBLValueFromClientY = useCallback((clientY: number) => {
     if (!svgRef.current) return null;
@@ -1242,25 +1247,44 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
 
   const applyBLValue = useCallback((value: number) => {
     if (blMode === 'brightness') {
+      // HSB holds its own h and s through b=0, so the merge is enough.
       onHsbChange({ b: value });
-    } else if (onHslChange) {
-      onHslChange('l', value);
+      return;
     }
-  }, [blMode, onHsbChange, onHslChange]);
+    /*
+     * HSL is rebuilt from the drag's own origin rather than from the current
+     * colour, because at L=0 and L=100 there is no colour left to read it off:
+     * black and white convert back with hue 0 and saturation 0. Going to either
+     * end and returning would land on black-to-grey instead of the colour it
+     * started from. Stating H and S outright makes the whole range reversible.
+     */
+    const h = dragOrigin.current?.h ?? hue;
+    const sHsl = dragOrigin.current?.sHsl ?? (hsl?.s ?? 0);
+    const targetRgb = hslToRgb(h, sHsl, value);
+    const next = rgbToHsb(targetRgb.r, targetRgb.g, targetRgb.b);
+    // h explicitly, so the hue survives in state at the ends too, where `next`
+    // reports 0.
+    onHsbChange({ h, s: next.s, b: next.b });
+  }, [blMode, hue, hsl?.s, onHsbChange]);
 
   const animateBLToValue = useCallback((targetValue: number) => {
     if (!onAnimateToHsb) return;
     holdBLTween();
     if (blMode === 'brightness') {
       onAnimateToHsb({ h: hue, s: saturation, b: targetValue });
-    } else {
-      // Convert target lightness to HSB via RGB for tweening
-      const currentRgb = hsbToRgb(hue, saturation, brightness);
-      const currentHsl = rgbToHsl(currentRgb.r, currentRgb.g, currentRgb.b);
-      const targetRgb = hslToRgb(currentHsl.h, currentHsl.s, targetValue);
-      const targetHsb = rgbToHsb(targetRgb.r, targetRgb.g, targetRgb.b);
-      onAnimateToHsb(targetHsb);
+      return;
     }
+    // Hue comes from state rather than from the current colour: reading it back
+    // off RGB gives 0 whenever that colour is black, white or grey, which sends
+    // a marker click from either end of the bar to red. `hue` survives those,
+    // because applyBLValue writes it through explicitly.
+    const h = dragOrigin.current?.h ?? hue;
+    const currentRgb = hsbToRgb(h, saturation, brightness);
+    const currentHsl = rgbToHsl(currentRgb.r, currentRgb.g, currentRgb.b);
+    const sHsl = dragOrigin.current?.sHsl ?? currentHsl.s;
+    const targetRgb = hslToRgb(h, sHsl, targetValue);
+    const next = rgbToHsb(targetRgb.r, targetRgb.g, targetRgb.b);
+    onAnimateToHsb({ h, s: next.s, b: next.b });
   }, [blMode, onAnimateToHsb, hue, saturation, brightness, holdBLTween]);
 
   const getSatValueFromClientX = useCallback((clientX: number) => {
@@ -1416,6 +1440,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           if (Math.sqrt(dx * dx + dy * dy) >= dragTriggerDistance) {
             pd.isDragging = true;
             setIsBLDragging(true);
+            dragOrigin.current = dragOrigin.current ?? { b: brightness, l: hsl?.l ?? 50, h: hue, sHsl: hsl?.s ?? 0 };
           }
         }
         if (pd.isDragging) {
@@ -1436,7 +1461,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           if (Math.sqrt(dx * dx + dy * dy) >= dragTriggerDistance) {
             pd.isDragging = true;
             setIsSatDragging(true);
-            dragOrigin.current = dragOrigin.current ?? { b: brightness, l: hsl?.l ?? 50, h: hue };
+            dragOrigin.current = dragOrigin.current ?? { b: brightness, l: hsl?.l ?? 50, h: hue, sHsl: hsl?.s ?? 0 };
           }
         }
         if (pd.isDragging) {
@@ -1488,7 +1513,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       window.removeEventListener('pointerup', onPointerUp);
       document.documentElement.removeEventListener('pointerleave', onPointerLeave);
     };
-  }, [hueFromMouse, handleDotDrag, handleHexSurfaceDrag, getBLValueFromClientY, applyBLValue, animateBLToValue, getSatValueFromClientX, applySatValue, animateSatToValue, getSvgCoords, getHsbFromPosition, onAnimateToHsb, onHsbChange, addToRecent, blMode, brightness, hsl?.l, hue, cancelHoldTone]);
+  }, [hueFromMouse, handleDotDrag, handleHexSurfaceDrag, getBLValueFromClientY, applyBLValue, animateBLToValue, getSatValueFromClientX, applySatValue, animateSatToValue, getSvgCoords, getHsbFromPosition, onAnimateToHsb, onHsbChange, addToRecent, blMode, brightness, hsl?.l, hsl?.s, hue, cancelHoldTone]);
 
   // Non-passive wheel listener to prevent page scroll. Not registered at all
   // when the host owns the wheel - a listener that conditionally declines to
@@ -1564,7 +1589,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     const angle = Math.atan2(-dy, dx);
     const edgeDist = hexEdgeDist(angle, RADIUS);
     if (dist > edgeDist) return;
-    dragOrigin.current = { b: brightness, l: hsl?.l ?? 50, h: hue };
+    dragOrigin.current = { b: brightness, l: hsl?.l ?? 50, h: hue, sHsl: hsl?.s ?? 0 };
     hexPointerDown.current = {
       clientX: e.clientX,
       clientY: e.clientY,
@@ -1572,7 +1597,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       isDragging: false,
     };
     scheduleHoldTone();
-  }, [getSvgCoords, brightness, hsl?.l, hue, scheduleHoldTone]);
+  }, [getSvgCoords, brightness, hsl?.l, hsl?.s, hue, scheduleHoldTone]);
 
   const handleColorLabelClick = useCallback((deg: number) => {
     if (!onAnimateToHsb) return;
