@@ -232,7 +232,22 @@ function PluginApp() {
   // ColorPicker ("HSB is canonical, RGB has an override ref" in CLAUDE.md).
   // eslint-disable-next-line react-hooks/refs
   const rgb = rgbOverride.current || rgbFromHsb;
-  const hsl = useMemo(() => rgbToHsl(rgb.r, rgb.g, rgb.b), [rgb.r, rgb.g, rgb.b]);
+  /**
+   * What the live HSL gesture asked for, shown in place of the derived value.
+   *
+   * The colour is 8-bit, so re-deriving HSL from it lands a point or two either
+   * side of what was set - and re-deriving every frame turns that into visible
+   * stutter in the two fields you are *not* dragging. Freezing the write is not
+   * enough on its own; the readout has to hold too, or the number jitters while
+   * the colour underneath it is perfectly steady.
+   *
+   * Only ever set while a gesture is in flight, and only by that gesture, so it
+   * cannot disagree with the colour. Cleared at both ends of a pointer press
+   * alongside the origin it belongs to.
+   */
+  const [hslIntent, setHslIntent] = useState<HSL | null>(null);
+  const derivedHsl = useMemo(() => rgbToHsl(rgb.r, rgb.g, rgb.b), [rgb.r, rgb.g, rgb.b]);
+  const hsl = hslIntent ?? derivedHsl;
   const hex = useMemo(() => rgbToHex(rgb.r, rgb.g, rgb.b), [rgb.r, rgb.g, rgb.b]);
 
   // Live-apply. No button: picking a color *is* the action - but only picking.
@@ -531,7 +546,7 @@ function PluginApp() {
    */
   const hslOrigin = useRef<HslOrigin | null>(null);
   useEffect(() => {
-    const clear = () => { hslOrigin.current = null; };
+    const clear = () => { hslOrigin.current = null; setHslIntent(null); };
     window.addEventListener('pointerdown', clear);
     window.addEventListener('pointerup', clear);
     return () => {
@@ -548,8 +563,9 @@ function PluginApp() {
       // HSB bucket and the stepper stops responding.
       const currentRgb = rgbOverride.current || hsbToRgb(prev.h, prev.s, prev.b);
       if (!hslOrigin.current) hslOrigin.current = hslOriginFrom(prev.h, currentRgb);
-      const { rgb, hsb } = writeHslChannel(currentRgb, channel, value, hslOrigin.current);
+      const { rgb, hsb, hsl: intent } = writeHslChannel(channel, value, hslOrigin.current);
       rgbOverride.current = rgb;
+      setHslIntent(intent);
       return hsb;
     });
   }, []);
