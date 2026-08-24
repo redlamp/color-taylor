@@ -398,17 +398,62 @@ export default function ColorPicker() {
     });
   }, [pulseTone, takeOverFromAnimation]);
 
+  /**
+   * The H and S an HSL slider gesture began from.
+   *
+   * HSL's channels are read back off the current colour, and the neutral axis
+   * has no H or S to read: black, white and grey all convert back as hue 0,
+   * saturation 0. So dragging L to either end and returning left the colour
+   * grey rather than where it started - #441745 came back as #2E2E2E.
+   *
+   * Same trick ColorHexagon's dragOrigin plays, and scoped the same way: taken
+   * on the first write of a gesture, dropped on pointerup. A fresh gesture that
+   * genuinely starts from black gets no memory, which is right - by then the
+   * colour really is black.
+   */
+  const hslOrigin = useRef<{ h: number; s: number } | null>(null);
+  useEffect(() => {
+    const clear = () => { hslOrigin.current = null; };
+    window.addEventListener('pointerup', clear);
+    document.documentElement.addEventListener('pointerleave', clear);
+    return () => {
+      window.removeEventListener('pointerup', clear);
+      document.documentElement.removeEventListener('pointerleave', clear);
+    };
+  }, []);
+
   const handleHslChange = useCallback((channel: 'h' | 's' | 'l', value: number) => {
     takeOverFromAnimation();
     rgbOverride.current = null;
+
+    // Captured out here rather than inside the updater: a setState callback can
+    // be invoked more than once, and this is a side effect.
+    if (!hslOrigin.current) {
+      const cur = hsbToRgb(hsbRef.current.h, hsbRef.current.s, hsbRef.current.b);
+      const curHsl = rgbToHsl(cur.r, cur.g, cur.b);
+      hslOrigin.current = { h: hsbRef.current.h, s: curHsl.s };
+    }
+    const origin = hslOrigin.current;
+
     setHsb((prev) => {
       const currentRgb = hsbToRgb(prev.h, prev.s, prev.b);
       const currentHsl = rgbToHsl(currentRgb.r, currentRgb.g, currentRgb.b);
-      const newHsl = { ...currentHsl, [channel]: value };
+
+      // At the ends of L there is no saturation left to read either, so that
+      // comes from the origin too. Mid-range S=0 is taken at face value - the
+      // user asked for grey, and resurrecting a saturation there would fight
+      // them.
+      const atEnd = currentHsl.l <= 0 || currentHsl.l >= 100;
+      const baseH = (atEnd || currentHsl.s <= 0) ? origin.h : currentHsl.h;
+      const baseS = atEnd ? origin.s : currentHsl.s;
+
+      const newHsl = { h: baseH, s: baseS, l: currentHsl.l, [channel]: value };
       const newRgb = hslToRgb(newHsl.h, newHsl.s, newHsl.l);
       const next = rgbToHsb(newRgb.r, newRgb.g, newRgb.b);
       pulseTone(next);
-      return next;
+      // Hue carried through explicitly: `next` reports 0 for anything on the
+      // neutral axis, and losing it in state is what made this irreversible.
+      return { h: newHsl.h, s: next.s, b: next.b };
     });
   }, [pulseTone, takeOverFromAnimation]);
 
