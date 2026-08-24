@@ -1,4 +1,4 @@
-import { BL_BAR_X, BL_BAR_TOP, BL_BAR_WIDTH, BL_BAR_HEIGHT, BL_ARROW_SIZE, SIZE, HEX_SIZE } from './hexConstants';
+import { BL_BAR_X, BL_BAR_TOP, BL_BAR_WIDTH, BL_BAR_HEIGHT, BL_ARROW_SIZE, SIZE } from './hexConstants';
 
 const MARKS = [
   { label: '100', value: 100, y: BL_BAR_TOP },
@@ -17,8 +17,9 @@ const GUTTER_LEFT = ((BL_BAR_X + BL_BAR_WIDTH + 8) / SIZE) * 100;
  * and scales with the panel.
  */
 const ARROW_TAIL_INSET = 100 - ((BL_BAR_X - BL_ARROW_SIZE - 2) / SIZE) * 100;
-/** The bar's top edge, which the vertical title's top is aligned to. */
-const BAR_TOP = (BL_BAR_TOP / HEX_SIZE) * 100;
+/** The bar's top edge, which the vertical title's top is aligned to. As a
+ *  percentage of the live viewBox height, which grows with the saturation bar. */
+const barTopPct = (svgHeight: number) => (BL_BAR_TOP / svgHeight) * 100;
 
 /**
  * The brightness bar's furniture: its axis title, and the 100/50/0 labels -
@@ -32,11 +33,14 @@ const BAR_TOP = (BL_BAR_TOP / HEX_SIZE) * 100;
  */
 export default function BrightnessMarkers({
   blMode,
+  svgHeight,
   onPick,
 }: {
   blMode: 'brightness' | 'lightness';
+  svgHeight: number;
   onPick: (value: number) => void;
 }) {
+  const BAR_TOP = barTopPct(svgHeight);
   return (
     <>
       {/*
@@ -91,7 +95,7 @@ export default function BrightnessMarkers({
           className="absolute z-[6] -translate-y-1/2 cursor-pointer select-none px-1 py-1 text-left text-sm leading-none tabular-nums text-muted-foreground hover:text-foreground"
           // px-1/py-1 turn a 5x10px target into a 13x18px one; the -4px pulls
           // the padding back off the left so the digits stay where they were.
-          style={{ left: `calc(${GUTTER_LEFT}% - 4px)`, top: `${(y / HEX_SIZE) * 100}%` }}
+          style={{ left: `calc(${GUTTER_LEFT}% - 4px)`, top: `${(y / svgHeight) * 100}%` }}
           aria-label={`Set ${blMode} to ${label}`}
           onClick={(e) => {
             e.stopPropagation();

@@ -41,10 +41,13 @@ function useDarkClass(): boolean {
 export default function ColorLabels({
   onColorClick,
   extent = SIZE,
+  svgHeight = HEX_SIZE,
 }: {
   onColorClick: (deg: number) => void;
   /** Horizontal extent of the coordinate space; narrows when the BL bar is off. */
   extent?: number;
+  /** Vertical extent of the same space; grows when the saturation bar is on. */
+  svgHeight?: number;
 }) {
   const { isDark: providerDark } = useTheme();
   const classDark = useDarkClass();
@@ -60,7 +63,7 @@ export default function ColorLabels({
       <div
         key={label}
         className="absolute -translate-x-1/2 -translate-y-1/2 z-[8]"
-        style={{ left: `${(x / extent) * 100}%`, top: `${(y / HEX_SIZE) * 100}%` }}
+        style={{ left: `${(x / extent) * 100}%`, top: `${(y / svgHeight) * 100}%` }}
       >
         {/* No tooltip: the letter is coloured as the thing it names, sits at
             that hue's vertex, and one of these is under the pointer most of the
