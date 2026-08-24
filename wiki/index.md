@@ -30,6 +30,7 @@ Top-level Map of Content. See `CLAUDE.md` in this folder for conventions.
 
 `wiki/daily/YYYY-MM-DD.md`. Dailies before 2026-08-01 were reconstructed from git history on 2026-08-03 and are marked as such.
 
+- [[2026-08-24]] — the colour model session: strict TS, radius is chroma, and the HSL edge cases
 - [[2026-08-19]] — shipped; the coordinate-space and zoom bugs behind west-edge resize; what Figma owns
 - [[2026-08-18]] — plugin approved, logo and favicons, settings sheet, the banner
 
