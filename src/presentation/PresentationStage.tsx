@@ -12,6 +12,12 @@ import EquationsPanel from '../components/EquationsPanel';
 import HsbCircle from './HsbCircle';
 import ColorPicker from '../components/ColorPicker';
 
+/** The panel shapes a slide can ask for. Named so the exit-mode ref can hold
+ *  one without restating the union. */
+type PanelMode =
+  | 'intro' | 'acronyms' | 'bw' | 'c16' | 'c256'
+  | 'thousands' | 'millions' | 'hsl-gradient' | 'swatch';
+
 const FULL_KEYFRAMES = [
   { r: 0,   g: 0,   b: 0   },
   { r: 255, g: 0,   b: 0   },
@@ -108,12 +114,11 @@ export default function PresentationStage({ slide, slideIndex }: { slide: Slide;
   }, [slideIndex, slide.props?.initialHsb, isStatic]);
 
   // ── Track previous panel mode for gradient transitions ─────────────
-  const panelMode = (isStatic ? slide.props?.mode || 'bw' : 'swatch') as
-    'intro' | 'acronyms' | 'bw' | 'c16' | 'c256' | 'thousands' | 'millions' | 'hsl-gradient' | 'swatch';
+  const panelMode = (isStatic ? slide.props?.mode || 'bw' : 'swatch') as PanelMode;
   const prevPanelMode = useRef(panelMode);
   const [leavingGradient, setLeavingGradient] = useState(false);
   const [introExiting, setIntroExiting] = useState(false);
-  const introExitMode = useRef(null); // which intro mode is exiting ('intro' or 'acronyms')
+  const introExitMode = useRef<PanelMode | null>(null); // which intro mode is exiting ('intro' or 'acronyms')
   useEffect(() => {
     if (prevPanelMode.current === 'hsl-gradient' && panelMode !== 'hsl-gradient') {
       setLeavingGradient(true);
@@ -147,8 +152,8 @@ export default function PresentationStage({ slide, slideIndex }: { slide: Slide;
   // When entering a new slide, finds the closest keyframe to the current
   // color and starts the animation from that point.
   const [rgbAnimActive, setRgbAnimActive] = useState(false);
-  const rgbAnimRaf = useRef(null);
-  const rgbAnimKeyframesRef = useRef(null); // track current keyframe set
+  const rgbAnimRaf = useRef<number | null>(null);
+  const rgbAnimKeyframesRef = useRef<typeof FULL_KEYFRAMES | null>(null); // track current keyframe set
   /**
    * Origin of the keyframe cycle, on the rAF clock, kept across slide changes.
    *
@@ -164,7 +169,7 @@ export default function PresentationStage({ slide, slideIndex }: { slide: Slide;
    */
   const cycleStart = useRef<number | null>(null);
 
-  const rgbAnimDelay = useRef(null);
+  const rgbAnimDelay = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevHadRgbAnim = useRef(false);
   useEffect(() => {
     if (rgbAnimDelay.current) clearTimeout(rgbAnimDelay.current);
@@ -331,7 +336,7 @@ export default function PresentationStage({ slide, slideIndex }: { slide: Slide;
 
   // ── Derived values (must be above early returns to keep hook order stable) ──
   const enterColor = useMemo(() => {
-    if (!slide.props?.initialHsb) return null;
+    if (!slide.props?.initialHsb) return undefined;
     const { h, s, b: bv } = slide.props.initialHsb;
     const result = hsbToRgb(h, s, bv);
     return rgbToHex(result.r, result.g, result.b);
@@ -390,7 +395,7 @@ export default function PresentationStage({ slide, slideIndex }: { slide: Slide;
   const showCircle = has('hsb-circle');
 
   // Must be declared above ALL early returns — rules-of-hooks
-  const appRef = useRef(null);
+  const appRef = useRef<HTMLDivElement | null>(null);
 
   // ── Color Taylor App reveal — scales up from presentation width ───
   if (has('color-taylor-app')) {
@@ -601,7 +606,7 @@ export default function PresentationStage({ slide, slideIndex }: { slide: Slide;
         {/* Intro / Acronyms — shared elements that tween between slides */}
         {(slide.props?.mode === 'intro' || slide.props?.mode === 'acronyms' || introExiting) && (
            
-          <IntroPanel mode={introExiting ? introExitMode.current : slide.props.mode} exiting={introExiting} />
+          <IntroPanel mode={introExiting ? (introExitMode.current ?? 'intro') : panelMode} exiting={introExiting} />
         )}
 
         {/* Hex value overlay inside swatch */}
@@ -777,7 +782,7 @@ const INTRO_Y = 111; // top of letters in intro (125 - 14 line-height compensati
 const LETTER_H = 67; // rendered cap-height
 const ACRO_Y_OFFSET = -14; // compensation for lineHeight:1 vs cap-height trim
 
-function IntroPanel({ mode, exiting = false }: { mode: string; exiting?: boolean }) {
+function IntroPanel({ mode, exiting = false }: { mode: PanelMode; exiting?: boolean }) {
   const exp = mode === 'acronyms';
 
   // When exiting, hold positions in place (BW cells will expand over them)

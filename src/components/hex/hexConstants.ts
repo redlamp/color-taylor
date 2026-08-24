@@ -78,6 +78,21 @@ export const SVG_HEIGHT_SAT = SAT_BAR_TOP + SAT_BAR_HEIGHT + SAT_LABEL_SPACE + 2
 export const STAGE_TOP_CROP = 40;
 export const DISPLAY_HEIGHT_SAT = SVG_HEIGHT_SAT - STAGE_TOP_CROP;
 
+/**
+ * A pointer resting on a track, before it is known to be a drag.
+ *
+ * Both bars and the hexagon itself need this: a press has to wait out
+ * `dragTriggerDistance` before it counts as a drag, so that a tap can still
+ * tween instead. Declared once here because the two bars took it as a prop and
+ * had spelled the shape out inline, separately.
+ */
+export interface PointerDownState {
+  clientX: number;
+  clientY: number;
+  time: number;
+  isDragging: boolean;
+}
+
 export type Channel = 'r' | 'g' | 'b';
 export type ChannelOrder = 'asc' | 'desc' | 'rgb';
 

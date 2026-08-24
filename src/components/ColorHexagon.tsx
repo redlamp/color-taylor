@@ -1,7 +1,7 @@
 import { useRef, useEffect, useCallback, useLayoutEffect, useState, useMemo, type ComponentType, type CSSProperties, type ReactNode, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { hsbToRgb, rgbToHsb, rgbToHex, hexToRgb, rgbToHsl, hslToRgb, lighter, type RGB, type HSB, type HSL } from '../utils/colorConversions';
 import { swatchBackground, type ColorSpace } from '../utils/sliderGradients';
-import type { Channel, ChannelOrder } from './hex/hexConstants';
+import type { Channel, ChannelOrder, PointerDownState } from './hex/hexConstants';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { ChevronRight, RefreshCw, Trash2 } from 'lucide-react';
@@ -778,15 +778,15 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     if (shouldPlaySound && movedCount > 0) playFlit();
   }, [savedSortMode, savedSlots, playFlit]);
   const draggingBL = useRef(false);
-  const svgRef = useRef(null);
+  const svgRef = useRef<SVGSVGElement | null>(null);
   const draggingHue = useRef(false);
   const draggingDot = useRef<{ index: number; channel: Channel; relative: boolean; startValue: number; startProjection: number; lockedRgb: RGB; lockedOrder: Channel[] } | null>(null);
   const draggingFree = useRef(false);
-  const hexPointerDown = useRef(null);
-  const startingBrightness = useRef(null); // brightness at drag start for rubber-band
-  const blPointerDown = useRef(null);
+  const hexPointerDown = useRef<PointerDownState | null>(null);
+  const startingBrightness = useRef<number | null>(null); // brightness at drag start for rubber-band
+  const blPointerDown = useRef<PointerDownState | null>(null);
   const draggingSat = useRef(false);
-  const satPointerDown = useRef(null);
+  const satPointerDown = useRef<PointerDownState | null>(null);
   // Rendered state, not just the refs: the connectors are drawn output, so they
   // need a re-render at the moment a drag begins and ends.
   const [isBLDragging, setIsBLDragging] = useState(false);
@@ -822,7 +822,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     if (blTweenTimer.current) clearTimeout(blTweenTimer.current);
     if (satTweenTimer.current) clearTimeout(satTweenTimer.current);
   }, []);
-  const [hoveredDot, setHoveredDot] = useState(null); // index of hovered dot
+  const [hoveredDot, setHoveredDot] = useState<number | null>(null); // index of hovered dot
   // Separate from hoveredDot: a segment and the handle at its end are different
   // targets, and highlighting one should not light up the other.
   const [hoveredLeg, setHoveredLeg] = useState<number | null>(null);
@@ -976,27 +976,27 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   // Named color markers on hex
   const htmlColorMarkers = useMemo(() => {
     if (!showHtmlOnHex) return [];
-    return NAMED_COLORS.map((c) => {
+    return NAMED_COLORS.flatMap((c) => {
       const hsb = rgbToHsb(c.r, c.g, c.b);
       // Only show colors within ±15 brightness of current
-      if (Math.abs(hsb.b - brightness) > 15) return null;
+      if (Math.abs(hsb.b - brightness) > 15) return [];
       const rad = (hsb.h * PI) / 180;
       // Position at where it would be at the color's own brightness level
       const colorLimitRadius = RADIUS * hsb.b / 100;
       const edgeDist = hexEdgeDist(rad, colorLimitRadius);
       const dist = (hsb.s / 100) * edgeDist;
-      return {
+      return [{
         x: CENTER_X + dist * Math.cos(rad),
         y: CENTER_Y - dist * Math.sin(rad),
         hex: rgbToHex(c.r, c.g, c.b),
         name: c.name,
-      };
-    }).filter(Boolean);
+      }];
+    });
   }, [showHtmlOnHex, brightness]);
 
   // Add to recent only after the color has settled (1000ms).
   const currentHex = rgbToHex(rgb.r, rgb.g, rgb.b);
-  const addRecentTimer = useRef(null);
+  const addRecentTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const recentColorsRef = useRef(recentColors);
   recentColorsRef.current = recentColors;
 
@@ -1818,7 +1818,9 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             // hexagon and its legs scale with the viewBox.
             const k = uiScale;
 
-            if (isOrigin) {
+            // `|| !ch` is the same test as isOrigin - ch is null exactly when
+            // i is 0 - written out so ch narrows to a Channel below.
+            if (isOrigin || !ch) {
               return (
                 <circle
                   key={i} id={`rgb-dot-${dotNames[i]}`} cx={p.x} cy={p.y}

@@ -4,6 +4,7 @@ import {
   SAT_BAR_LEFT, SAT_BAR_TOP, SAT_BAR_WIDTH, SAT_BAR_HEIGHT, SAT_ARROW_SIZE,
 } from './hexConstants';
 import type { MutableRefObject } from 'react';
+import type { PointerDownState } from './hexConstants';
 
 function displayHex(h: number, s: number, b: number, colorSpace: ColorSpace) {
   const c = hsbToDisplay(h, s, b, colorSpace);
@@ -14,7 +15,7 @@ interface SaturationBarProps {
   hue: number;
   saturation: number;
   brightness: number;
-  satPointerDownRef: MutableRefObject<{ clientX: number; clientY: number; time: number; isDragging: boolean } | null>;
+  satPointerDownRef: MutableRefObject<PointerDownState | null>;
   /** Grabbing the arrow drags immediately, with no tap-vs-drag threshold. */
   onArrowDragStart: () => void;
   animateSatToValue: (v: number) => void;

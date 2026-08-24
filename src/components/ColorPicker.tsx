@@ -209,6 +209,7 @@ export default function ColorPicker() {
           if (navigator.vibrate) navigator.vibrate(10);
           redoStack.current.push({ ...hsbRef.current });
           const prev = undoStack.current.pop();
+          if (!prev) return;
           lastPushed.current = `${prev.h},${prev.s},${prev.b}`;
           rgbOverride.current = null;
           isUndoRedoing.current = true;
@@ -247,6 +248,7 @@ export default function ColorPicker() {
           if (navigator.vibrate) navigator.vibrate(10);
           undoStack.current.push({ ...hsbRef.current });
           const next = redoStack.current.pop();
+          if (!next) return;
           lastPushed.current = `${next.h},${next.s},${next.b}`;
           rgbOverride.current = null;
           isUndoRedoing.current = true;

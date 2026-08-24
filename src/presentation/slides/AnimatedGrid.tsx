@@ -280,8 +280,8 @@ export default function AnimatedGrid({ mode, swatchColor, enterColor }: Animated
   const latestSwatch = useRef(swatchColor);
   useEffect(() => { latestSwatch.current = swatchColor; }, [swatchColor]);
   const isTransitioning = useRef(false); // true while a mode transition is in flight
-  const timers = useRef([]);
-  const rafs = useRef([]);
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const rafs = useRef<number[]>([]);
   const generation = useRef(0); // increments each transition; stale callbacks become no-ops
 
   useEffect(() => {
@@ -407,6 +407,10 @@ export default function AnimatedGrid({ mode, swatchColor, enterColor }: Animated
           setCells(prev => prev.map(cell => {
             if (matchedKeys.has(cell.id)) {
               const to = pairMap.get(cell.id);
+              // matchedKeys and pairMap are built from the same list, so this
+              // cannot miss - but leaving the cell untouched is the right answer
+              // if it ever does, and it beats a non-null assertion.
+              if (!to) return cell;
               return { ...cell, color: to.color, x: to.x, y: to.y, w: to.w, h: to.h, opacity: to.opacity ?? 1, transition: (enteringSwatch || fromEmpty) ? SWATCH_EXPAND_TRANS : staggeredMove(to.color) };
             }
             if (removedKeys.has(cell.id)) {
