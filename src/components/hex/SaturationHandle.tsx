@@ -6,7 +6,10 @@ import {
 
 interface SaturationHandleProps {
   hue: number;
+  /** The value shown on the pill - HSB's S or HSL's S, per the live model. */
   saturation: number;
+  /** HSB's S regardless of model, for painting the pill its own colour. */
+  swatchSaturation: number;
   brightness: number;
   extent: number;
   svgHeight: number;
@@ -20,13 +23,15 @@ interface SaturationHandleProps {
  * Positioned in percentages of the SVG's own box, not in px, so it tracks the
  * bar through every panel width while its type stays a fixed size.
  */
-export default function SaturationHandle({ hue, saturation, brightness, extent, svgHeight, onMouseDown }: SaturationHandleProps) {
+export default function SaturationHandle({ hue, saturation, swatchSaturation, brightness, extent, svgHeight, onMouseDown }: SaturationHandleProps) {
   const x = SAT_BAR_LEFT + (saturation / 100) * SAT_BAR_WIDTH;
   const y = SAT_BAR_TOP + SAT_BAR_HEIGHT;
 
-  const bgRgb = hsbToRgb(hue, saturation, brightness);
+  // The swatch is the colour itself, so it reads HSB whichever model the number
+  // beside it is quoting.
+  const bgRgb = hsbToRgb(hue, swatchSaturation, brightness);
   const bgColor = rgbToHex(bgRgb.r, bgRgb.g, bgRgb.b);
-  const textColor = (brightness > 60 && saturation < 50) || brightness > 70 ? '#000' : '#fff';
+  const textColor = (brightness > 60 && swatchSaturation < 50) || brightness > 70 ? '#000' : '#fff';
 
   return (
     <div

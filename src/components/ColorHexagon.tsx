@@ -17,7 +17,7 @@ import {
   BL_BAR_X, BL_BAR_TOP, BL_BAR_HEIGHT, BL_ARROW_SIZE,
   SAT_BAR_LEFT, SAT_BAR_WIDTH, DISPLAY_HEIGHT_SAT, SVG_HEIGHT_SAT,
   HUE_LABEL_OFFSET,
-  hexEdgeDist, hexPoints, colorAtPoint, getOrder,
+  hexEdgeDist, hexPoints, colorAtPoint, getOrder, blLimitScale,
 } from './hex/hexConstants';
 import HexCanvas from './hex/HexCanvas';
 import BrightnessBar from './hex/BrightnessBar';
@@ -783,7 +783,22 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   const draggingDot = useRef<{ index: number; channel: Channel; relative: boolean; startValue: number; startProjection: number; lockedRgb: RGB; lockedOrder: Channel[] } | null>(null);
   const draggingFree = useRef(false);
   const hexPointerDown = useRef<PointerDownState | null>(null);
-  const startingBrightness = useRef<number | null>(null); // brightness at drag start for rubber-band
+  /**
+   * The B and L a hex drag started from, for the rubber-band.
+   *
+   * Both B and L, not just brightness: the cross-section is bounded by `b/100`
+   * under HSB and by `1 - |2L-1|` under HSL, and those are not the same number
+   * for anything less than fully saturated.
+   *
+   * `h` rides along because grey has no hue to recover. At S=0 every model
+   * reports hue 0 - the colour genuinely is a point on the neutral axis - so a
+   * drag that passes through the centre, or a saturation drag that bottoms out,
+   * would come back up as red. Holding the hue the drag began with means the
+   * excursion is reversible.
+   *
+   * Null when no drag is in flight.
+   */
+  const dragOrigin = useRef<{ b: number; l: number; h: number } | null>(null);
   const blPointerDown = useRef<PointerDownState | null>(null);
   const draggingSat = useRef(false);
   const satPointerDown = useRef<PointerDownState | null>(null);
@@ -792,7 +807,11 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   const [isBLDragging, setIsBLDragging] = useState(false);
   const [isSatDragging, setIsSatDragging] = useState(false);
   const startBLDrag = useCallback(() => { draggingBL.current = true; setIsBLDragging(true); }, []);
-  const startSatDrag = useCallback(() => { draggingSat.current = true; setIsSatDragging(true); }, []);
+  const startSatDrag = useCallback(() => {
+    draggingSat.current = true;
+    setIsSatDragging(true);
+    dragOrigin.current = dragOrigin.current ?? { b: brightness, l: hsl?.l ?? 50, h: hue };
+  }, [brightness, hsl?.l, hue]);
 
   // Clicking a track or one of its markers tweens rather than drags, so there is
   // no pointer to hold the highlight up. These hold it for exactly the tween's
@@ -868,19 +887,67 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
 
     let h = (angle * 180) / PI;
     if (h < 0) h += 360;
-    const s = Math.round(Math.min((dist / edgeDist) * 100, 100));
 
-    // Rubber-band brightness: expand if outside limit, snap back if inside
-    const base = startingBrightness.current ?? brightness;
-    const limitEdgeDist = hexEdgeDist(angle, RADIUS * base / 100);
-    let b;
-    if (dist <= limitEdgeDist) {
-      b = base;
-    } else {
-      b = Math.min(100, Math.round((dist / edgeDist) * 100));
+    /*
+     * Radius is chroma, so the handle lands at (s/100)*(b/100)*edge.
+     *
+     * This used to read saturation off the *full* edge and then rubber-band
+     * brightness off the same radius, which set both to the same number and put
+     * the handle at r-squared instead of r. Starting at b=30 and dragging to
+     * half the radius left the handle at a quarter of it - visibly not under
+     * the cursor, and worse the darker the colour.
+     *
+     * Measuring saturation against the cross-section's own edge instead makes
+     * (s/100)*(b/100)*edge collapse to exactly `dist` on both branches, so the
+     * handle tracks the pointer at every brightness.
+     */
+    const origin = dragOrigin.current ?? { b: brightness, l: hsl?.l ?? 50, h: hue };
+    const limit = blLimitScale(blMode, origin.b, origin.l);
+    const r = dist / edgeDist;
+    const pointerHue = Math.round(h);
+
+    /*
+     * A rubber-band, not a ratchet: `origin` is frozen at drag start, so
+     * stretching past the cross-section and coming back returns to the bounds
+     * the drag began with. Whatever the pointer is over when it lifts is what
+     * sticks, which is how releasing outside sets the new value.
+     */
+    if (blMode === 'brightness') {
+      if (r <= limit) {
+        const sIn = limit > 0 ? Math.round(Math.min((r / limit) * 100, 100)) : 0;
+        // At the centre the angle is noise and the colour is grey either way,
+        // so keep the hue the drag started from rather than snapping to 0.
+        return { h: sIn === 0 ? origin.h : pointerHue, s: sIn, b: origin.b };
+      }
+      return { h: pointerHue, s: 100, b: Math.min(100, Math.round(r * 100)) };
     }
-    return { h: Math.round(h), s, b };
-  }, [brightness]);
+
+    /*
+     * HSL takes the same two branches against its own bound, then converts,
+     * because the drag writes HSB either way.
+     *
+     * Expanding moves L toward 50 rather than simply up: the cross-section is
+     * widest in the middle, so from the dark half the way out is to lighten and
+     * from the light half it is to darken. Solving 1 - |2L-1| = r on the branch
+     * L is already on gives 50r or 100 - 50r.
+     *
+     * r is clamped to 1 first, and that clamp is the whole point. A drag can
+     * run past the hexagon's own rim - `clampOnly` lets dist exceed edgeDist -
+     * and unclamped, 50r carries L straight through 50 and out the far side,
+     * where the cross-section starts shrinking again and the handle turns back
+     * on itself. L pins at 50, the widest the cross-section ever gets. HSB
+     * never showed this because its branch already clamps at b=100.
+     */
+    const rPinned = Math.min(1, r);
+    const sL = r <= limit ? (limit > 0 ? Math.min((r / limit) * 100, 100) : 0) : 100;
+    const lTarget = r <= limit
+      ? origin.l
+      : (origin.l <= 50 ? rPinned * 50 : 100 - rPinned * 50);
+    const hueOut = sL === 0 ? origin.h : pointerHue;
+    const asRgb = hslToRgb(hueOut, sL, lTarget);
+    const asHsb = rgbToHsb(asRgb.r, asRgb.g, asRgb.b);
+    return { h: hueOut, s: Math.round(asHsb.s), b: Math.round(asHsb.b) };
+  }, [brightness, hsl?.l, hue, blMode]);
 
   const hueFromMouse = useCallback((e: { clientX: number; clientY: number }) => {
     const { x, y } = getSvgCoords(e);
@@ -936,9 +1003,9 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
 
   /** The color the field shows at each joint - each handle's fill. */
   const dotColors = useMemo(() => points.map((p) => {
-    const c = colorAtPoint(p.x, p.y, brightness);
+    const c = colorAtPoint(p.x, p.y, brightness, hsl?.l ?? 50, blMode);
     return rgbToHex(c.r, c.g, c.b);
-  }), [points, brightness]);
+  }), [points, brightness, hsl?.l, blMode]);
 
   // hueLabel is the pill's center - HueHandle is translated -50%/-50% onto it -
   // so the hue line ending here points at the pill rather than stopping short
@@ -1120,7 +1187,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
 
         // Last dot (all 3 channels): set color from hex position
         if (isLast && onHsbChange) {
-          startingBrightness.current = startingBrightness.current ?? brightness;
+          dragOrigin.current = dragOrigin.current ?? { b: brightness, l: hsl?.l ?? 50, h: hue };
           const picked = getHsbFromPosition(x, y, true);
           if (picked) onHsbChange(picked);
           return;
@@ -1162,7 +1229,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       const picked = getHsbFromPosition(x, y, true);
       if (picked) onHsbChange(picked);
     }
-  }, [getSvgCoords, onRgbChange, onHsbChange, points, scale, getHsbFromPosition, order, rgb, brightness, solveChannels]);
+  }, [getSvgCoords, onRgbChange, onHsbChange, points, scale, getHsbFromPosition, order, rgb, brightness, hsl?.l, hue, solveChannels]);
 
   const getBLValueFromClientY = useCallback((clientY: number) => {
     if (!svgRef.current) return null;
@@ -1207,15 +1274,48 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     return Math.round((x / SAT_BAR_WIDTH) * 100);
   }, [EXTENT]);
 
+  /**
+   * The saturation the bar is showing and setting.
+   *
+   * HSB's S and HSL's S are different quantities, and writing one while the bar
+   * is labelled the other moves the axis next to it: holding HSB's b fixed and
+   * changing s changes L, because L = b(2-s)/2. Around #441745 that read as the
+   * lightness slider drifting whenever saturation moved. The brightness bar has
+   * always branched on blMode for the same reason; this one now does too.
+   */
+  const satValue = blMode === 'brightness' ? saturation : (hsl?.s ?? 0);
+
   const applySatValue = useCallback((value: number) => {
-    onHsbChange?.({ s: value });
-  }, [onHsbChange]);
+    // Explicit, not inferred: at S=0 the colour is grey and every conversion
+    // back out of it reports hue 0, so sliding away from zero would land on red
+    // instead of returning to where the drag began.
+    const h = dragOrigin.current?.h ?? hue;
+    if (blMode === 'brightness') {
+      onHsbChange?.({ h, s: value });
+      return;
+    }
+    const targetRgb = hslToRgb(h, value, hsl?.l ?? 50);
+    const next = rgbToHsb(targetRgb.r, targetRgb.g, targetRgb.b);
+    onHsbChange?.({ h, s: next.s, b: next.b });
+  }, [blMode, hue, hsl?.l, onHsbChange]);
 
   const animateSatToValue = useCallback((targetValue: number) => {
     if (!onAnimateToHsb) return;
     holdSatTween();
-    onAnimateToHsb({ h: hue, s: targetValue, b: brightness });
-  }, [onAnimateToHsb, hue, brightness, holdSatTween]);
+    const h = dragOrigin.current?.h ?? hue;
+    if (blMode === 'brightness') {
+      onAnimateToHsb({ h, s: targetValue, b: brightness });
+      return;
+    }
+    // Same round trip animateBLToValue makes: hold the other two HSL channels,
+    // convert, and let the tween run in HSB. Hue is carried explicitly for the
+    // grey case, where currentHsl.h would read 0.
+    const currentRgb = hsbToRgb(h, saturation, brightness);
+    const currentHsl = rgbToHsl(currentRgb.r, currentRgb.g, currentRgb.b);
+    const targetRgb = hslToRgb(h, targetValue, currentHsl.l);
+    const next = rgbToHsb(targetRgb.r, targetRgb.g, targetRgb.b);
+    onAnimateToHsb({ h, s: next.s, b: next.b });
+  }, [blMode, onAnimateToHsb, hue, saturation, brightness, holdSatTween]);
 
   const handleHexSurfaceDrag = useCallback((e: { clientX: number; clientY: number }) => {
     if (!hexPointerDown.current || !onHsbChange) return null;
@@ -1238,7 +1338,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       hexPointerDown.current = null;
       blPointerDown.current = null;
       satPointerDown.current = null;
-      startingBrightness.current = null;
+      dragOrigin.current = null;
       setHoveredDot(null);
       setIsHexDragging(false);
       cancelHoldTone();
@@ -1336,6 +1436,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           if (Math.sqrt(dx * dx + dy * dy) >= dragTriggerDistance) {
             pd.isDragging = true;
             setIsSatDragging(true);
+            dragOrigin.current = dragOrigin.current ?? { b: brightness, l: hsl?.l ?? 50, h: hue };
           }
         }
         if (pd.isDragging) {
@@ -1387,7 +1488,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       window.removeEventListener('pointerup', onPointerUp);
       document.documentElement.removeEventListener('pointerleave', onPointerLeave);
     };
-  }, [hueFromMouse, handleDotDrag, handleHexSurfaceDrag, getBLValueFromClientY, applyBLValue, animateBLToValue, getSatValueFromClientX, applySatValue, animateSatToValue, getSvgCoords, getHsbFromPosition, onAnimateToHsb, onHsbChange, addToRecent, blMode, cancelHoldTone]);
+  }, [hueFromMouse, handleDotDrag, handleHexSurfaceDrag, getBLValueFromClientY, applyBLValue, animateBLToValue, getSatValueFromClientX, applySatValue, animateSatToValue, getSvgCoords, getHsbFromPosition, onAnimateToHsb, onHsbChange, addToRecent, blMode, brightness, hsl?.l, hue, cancelHoldTone]);
 
   // Non-passive wheel listener to prevent page scroll. Not registered at all
   // when the host owns the wheel - a listener that conditionally declines to
@@ -1463,7 +1564,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     const angle = Math.atan2(-dy, dx);
     const edgeDist = hexEdgeDist(angle, RADIUS);
     if (dist > edgeDist) return;
-    startingBrightness.current = brightness;
+    dragOrigin.current = { b: brightness, l: hsl?.l ?? 50, h: hue };
     hexPointerDown.current = {
       clientX: e.clientX,
       clientY: e.clientY,
@@ -1471,7 +1572,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       isDragging: false,
     };
     scheduleHoldTone();
-  }, [getSvgCoords, brightness, scheduleHoldTone]);
+  }, [getSvgCoords, brightness, hsl?.l, hue, scheduleHoldTone]);
 
   const handleColorLabelClick = useCallback((deg: number) => {
     if (!onAnimateToHsb) return;
@@ -1503,9 +1604,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   const pxUnits = (n: number) => n * uiScale;
 
   const limitHex = useMemo(() => {
-    const limitScale = blMode === 'brightness'
-      ? brightness / 100
-      : 1 - Math.abs(2 * (hsl?.l ?? 50) / 100 - 1);
+    const limitScale = blLimitScale(blMode, brightness, hsl?.l ?? 50);
     return { limitScale, limitRadius: RADIUS * Math.min(limitScale, 1) };
   }, [blMode, brightness, hsl?.l]);
 
@@ -1641,7 +1740,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
         className={`absolute left-0 w-full ${satBar ? 'bottom-0' : 'top-1/2 -translate-y-1/2'}`}
         style={{ aspectRatio: `${EXTENT} / ${svgHeight}` }}
       >
-        <HexCanvas brightness={brightness} colorSpace={colorSpace} extent={EXTENT} svgHeight={svgHeight} />
+        <HexCanvas brightness={brightness} lightness={hsl?.l ?? 50} blMode={blMode} colorSpace={colorSpace} extent={EXTENT} svgHeight={svgHeight} />
         <svg
           id="hex-svg"
           ref={svgRef}
@@ -1901,7 +2000,8 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
 
           {satBar && (
             <SaturationBar
-              hue={hue} saturation={saturation} brightness={brightness}
+              hue={hue} saturation={satValue} brightness={brightness}
+              blMode={blMode} lightness={hsl?.l ?? 50}
               satPointerDownRef={satPointerDown} onArrowDragStart={startSatDrag}
               animateSatToValue={animateSatToValue} colorSpace={colorSpace}
             />
@@ -1960,7 +2060,8 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
         {satBar && (
           <SaturationHandle
             hue={hue}
-            saturation={saturation}
+            saturation={satValue}
+            swatchSaturation={saturation}
             brightness={brightness}
             extent={EXTENT}
             svgHeight={svgHeight}
