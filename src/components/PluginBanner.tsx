@@ -1,5 +1,9 @@
 /**
- * A dismissible strip along the bottom, announcing the plugin.
+ * A dismissible pill at the top of the picker, announcing the plugin.
+ *
+ * Wide viewports only. On a phone the same announcement is a news item at the
+ * foot of the settings sheet instead - see settings/IntegrationNews, which owns
+ * the reasoning for the split.
  *
  * Mounted from App.tsx rather than from ColorPicker, and that placement is
  * load-bearing rather than tidiness: PresentationStage renders a whole
@@ -17,6 +21,7 @@
 import { useEffect, useState } from 'react';
 import { ArrowUpRight, X } from 'lucide-react';
 import { primaryIntegration } from '@/data/integrations';
+import { GLYPHS } from '@/components/IntegrationGlyph';
 
 const DISMISS_KEY = 'color-taylor-plugin-banner';
 
@@ -28,23 +33,6 @@ function readDismissed(): boolean {
     return false;
   }
 }
-
-/** Figma's mark, inline - lucide dropped its brand glyphs, and this is five shapes. */
-function FigmaGlyph({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 38 57" className={className} role="img" aria-hidden="true" focusable="false">
-      <path d="M19 28.5a9.5 9.5 0 1 1 19 0 9.5 9.5 0 0 1-19 0z" fill="#1ABCFE" />
-      <path d="M0 47.5A9.5 9.5 0 0 1 9.5 38H19v9.5a9.5 9.5 0 1 1-19 0z" fill="#0ACF83" />
-      <path d="M19 0h9.5a9.5 9.5 0 1 1 0 19H19V0z" fill="#FF7262" />
-      <path d="M0 9.5A9.5 9.5 0 0 1 9.5 0H19v19H9.5A9.5 9.5 0 0 1 0 9.5z" fill="#F24E1E" />
-      <path d="M0 28.5A9.5 9.5 0 0 1 9.5 19H19v19H9.5A9.5 9.5 0 0 1 0 28.5z" fill="#A259FF" />
-    </svg>
-  );
-}
-
-const GLYPHS: Record<string, (props: { className?: string }) => React.JSX.Element> = {
-  figma: FigmaGlyph,
-};
 
 export default function PluginBanner() {
   const [dismissed, setDismissed] = useState(readDismissed);
@@ -84,47 +72,36 @@ export default function PluginBanner() {
     } catch { /* nothing to persist to; the session dismissal still holds */ }
   };
 
-  // A centred pill rather than a full-width bar: the app is a centred column,
-  // so a bar spanning the whole viewport underlines nothing and reads as
-  // chrome from a different product.
-  //
-  // At the top rather than the bottom (user call, 2026-08-18) - it is an
-  // announcement, and the bottom edge is where a page's least important
-  // furniture lives.
-  //
-  // In the flow, not `fixed`. Pinned, it covered the app's own title outright
-  // at phone widths: a top strip and the header want the same pixels, and the
-  // header is the one that has to win. In flow it displaces instead, so it
-  // cannot hide anything at any width, and the layout closes back up when it
-  // is dismissed.
   /*
-   * Two shapes, one DOM.
+   * A centred pill rather than a full-width bar: the app is a centred column,
+   * so a bar spanning the whole viewport underlines nothing and reads as
+   * chrome from a different product.
    *
-   * Inline as a pill from `sm` up. Below it the caption and the button stack,
-   * because side by side in a 320px viewport both of them wrapped - "Color
-   * Taylor now / runs inside Figma" beside "Get the / plugin" - and the pill
-   * still could not shrink enough, pushing 65px of horizontal scroll onto the
-   * whole page.
+   * At the top rather than the bottom (user call, 2026-08-18) - it is an
+   * announcement, and the bottom edge is where a page's least important
+   * furniture lives.
    *
-   * Stacked, the glyph sits to the left spanning both rows, with the caption
-   * and the button as a column beside it. That comes from `sm:contents` on the
-   * column wrapper: below the breakpoint it is a real flex column, and at `sm`
-   * it dissolves so its children become flex items of the pill itself and
-   * everything lands back on one line. Both layouts, one copy of the markup.
+   * In the flow, not `fixed`. Pinned, it covered the app's own title outright
+   * at phone widths: a top strip and the header want the same pixels, and the
+   * header is the one that has to win. In flow it displaces instead, and the
+   * layout closes back up when it is dismissed.
    *
-   * The dismiss button is absolutely placed while stacked and returns to the
-   * flow at `sm`, which keeps it out of the duplication too. The column's
-   * right padding is what stops the text running under it.
+   * From `sm` up only. It used to carry a second, stacked shape for narrow
+   * viewports - the glyph spanning two rows, the caption and button as a column
+   * beside it, the dismiss button absolutely placed - because side by side at
+   * 320px both labels wrapped mid-phrase. That shape is gone with it: on a
+   * phone the announcement moved into the settings sheet
+   * (settings/IntegrationNews), where it costs the picker no vertical room at
+   * all. One shape, one breakpoint, no `sm:contents` trick to maintain.
    */
   return (
-    <div className="flex justify-center p-3">
+    <div className="hidden justify-center p-3 sm:flex">
       <div
         role="region"
         aria-label="Color Taylor plugin"
         className={
-          'relative flex w-full max-w-sm items-center gap-2.5 rounded-2xl border border-border ' +
-          'bg-card/95 px-3.5 py-2.5 shadow-lg supports-backdrop-filter:backdrop-blur-sm ' +
-          'sm:w-auto sm:max-w-none sm:gap-2 sm:rounded-full sm:py-1.5 sm:pr-1.5 sm:pl-3.5'
+          'relative flex items-center gap-2 rounded-full border border-border ' +
+          'bg-card/95 py-1.5 pr-1.5 pl-3.5 shadow-lg supports-backdrop-filter:backdrop-blur-sm'
         }
       >
         {/*
@@ -138,44 +115,38 @@ export default function PluginBanner() {
           While the listing is private there is no link at all: an invitation
           pointing at a 404 is worse than saying it is not ready yet.
         */}
-        {/* Outside the column, so stacked it spans both rows. Larger there to
-            match the taller block it sits against. */}
-        {Glyph && <Glyph className="size-6 shrink-0 sm:size-4" />}
+        {Glyph && <Glyph className="size-4 shrink-0" />}
 
-        <div className="flex min-w-0 flex-1 flex-col items-start gap-2 pr-7 sm:contents sm:pr-0">
-          <span className="text-sm text-foreground">
-            {live
-              ? `Try Color Taylor in ${item.platform}`
-              : `Color Taylor is coming to ${item.platform}`}
-          </span>
+        <span className="text-sm text-foreground">
+          {live
+            ? `Try Color Taylor in ${item.platform}`
+            : `Color Taylor is coming to ${item.platform}`}
+        </span>
 
-          {live && (
-            <a
-              // nowrap: at 320px the label broke to "Get the / plugin" inside a
-              // pill sized for one line.
-              className="ctl-quiet h-7 shrink-0 rounded-full px-3 text-xs whitespace-nowrap no-underline"
-              href={item.href}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Get the plugin
-              <ArrowUpRight className="size-3.5" aria-hidden="true" />
-              <span className="sr-only">
-                on the {item.platform} Community (opens in a new tab)
-              </span>
-            </a>
-          )}
-        </div>
+        {live && (
+          <a
+            // nowrap: the label must never break to "Get the / plugin".
+            className="ctl-quiet h-7 shrink-0 rounded-full px-3 text-xs whitespace-nowrap no-underline"
+            href={item.href}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Get the plugin
+            <ArrowUpRight className="size-3.5" aria-hidden="true" />
+            <span className="sr-only">
+              on the {item.platform} Community (opens in a new tab)
+            </span>
+          </a>
+        )}
 
         <button
           type="button"
           onClick={dismiss}
           aria-label="Dismiss"
           className={
-            'absolute top-2 right-2 inline-flex size-7 shrink-0 cursor-pointer items-center ' +
+            'ml-0.5 inline-flex size-7 shrink-0 cursor-pointer items-center ' +
             'justify-center rounded-full text-muted-foreground select-none ' +
-            'hover:bg-muted hover:text-foreground ' +
-            'sm:static sm:ml-0.5'
+            'hover:bg-muted hover:text-foreground'
           }
         >
           <X className="size-4" />
