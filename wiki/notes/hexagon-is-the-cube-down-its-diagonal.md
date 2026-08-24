@@ -29,9 +29,26 @@ Interactive proof: `docs/prototypes/rgb-cube/index.html` — open it directly, n
 
 Prototype measures corner angles from the projection rather than asserting them: 0.0 / 60.0 / 120.0 / 180.0 / 240.0 / 300.0&deg;. Requested hue to actual hue is exact at 0, 60, 120, 180, 240, 300 and 210&deg;. Black and white converge to under 1.5px of each other at the diagonal.
 
-## Worth sourcing before it goes on camera
+## Sourcing, partly closed out
 
-HSV's original formulation appears to be the **single-hexcone** model, from Alvy Ray Smith's *Color Gamut Transform Pairs*, SIGGRAPH 1978, with HSL as the double hexcone. If that holds, the hexagon is in the model's own definition and the circular wheel is the later simplification — which makes the deck's move from wheel to hexagon a restoration rather than an interpretation. Recalled, not checked against the paper.
+Checked on 2026-08-24 - see [[hsl-degenerate-states]] for the sources.
+
+- **The projection is confirmed.** The RGB cube tilted onto its corner and
+  projected onto the plane perpendicular to the neutral axis takes the shape of
+  a hexagon, with red, yellow, green, cyan, blue and magenta at its corners. The
+  claim this whole note rests on holds.
+- **The attribution is confirmed.** HSV was formally described by Alvy Ray Smith
+  in *Computer Graphics*, August 1978 - "Color Gamut Transform Pairs", SIGGRAPH
+  78, pp 12-19.
+- **The "hexcone" wording is not.** That Smith himself called HSV a single
+  hexcone and HSL a double hexcone reads as a common later designation rather
+  than his own term. Do not attribute it to him on camera without reading the
+  paper.
+- **The paper is still unread.** The PDF would not convert to text in the
+  environment this was checked from, so the above rests on secondary sources.
+
+The "restoration rather than interpretation" framing survives the first two
+points, which are the load-bearing ones.
 
 ## Related
 

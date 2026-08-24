@@ -32,6 +32,7 @@ Every `notes/decision-*.md`, newest first. Each note records what was decided, w
 - [[decision-saved-grows-in-banks]] — Saved grows a row of 12 at a time to a ceiling of 36; size derived from content, not stored
 - [[decision-alpha-in-swatch-identity]] — a swatch is `{hex, alpha}`, not a color with a side map
 - [[decision-audio-as-optional-module]] — audio is a loadable module, separated on principle rather than for bytes
+- [[decision-hsl-gesture-origin]] — an HSL gesture holds what it started from; both hosts write through one `writeHslChannel`
 
 ## Build and CI
 

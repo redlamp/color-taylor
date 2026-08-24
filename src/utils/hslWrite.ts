@@ -25,28 +25,13 @@
  * Deriving the *next* edit from that exact RGB rather than from rounded HSB is
  * what keeps a run of edits from degrading.
  */
-import { hsbToRgb, rgbToHsb, rgbToHsl, hslToRgb, type HSB, type RGB } from './colorConversions';
+import { rgbToHsb, hslToRgb, type HSB, type HSL, type RGB } from './colorConversions';
 
-/** The hue and HSL saturation a gesture started from. */
+/** The whole HSL colour a gesture started from. */
 export interface HslOrigin {
   h: number;
   s: number;
-}
-
-/**
- * Capture at the start of a gesture, from state that is not yet degenerate.
- *
- * Hue comes from HSB rather than from the colour, because HSB holds it through
- * black where the colour cannot.
- */
-export function hslOriginFrom(hsbHue: number, rgb: RGB): HslOrigin {
-  const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
-  return { h: hsbHue, s: hsl.s };
-}
-
-/** Convenience for callers holding HSB rather than an exact RGB. */
-export function hslOriginFromHsb(hsb: HSB): HslOrigin {
-  return hslOriginFrom(hsb.h, hsbToRgb(hsb.h, hsb.s, hsb.b));
+  l: number;
 }
 
 export interface HslWrite {
@@ -54,30 +39,41 @@ export interface HslWrite {
   rgb: RGB;
   /** For state. `h` is carried through rather than converted. */
   hsb: HSB;
+  /** What was asked for. Show this while the gesture runs rather than
+   *  re-deriving from `rgb`, which lands a point either side and jitters. */
+  hsl: HSL;
 }
 
 /**
- * @param currentRgb the colour as it stands - pass `rgbOverride ?? hsbToRgb(state)`
- * @param origin     what the gesture began with, for the degenerate cases
+ * Everything the gesture is not touching is held at what it started as.
+ *
+ * The obvious implementation re-reads all three channels from the current
+ * colour each time and replaces one. That looks harmless and is not: the colour
+ * is 8-bit, so each write rounds, and re-deriving from the rounded result feeds
+ * that error into the next frame. Across one drag of L the saturation field
+ * wandered by up to 9 points and the hue by more - the stutter you see while
+ * dragging.
+ *
+ * Holding the other two makes the drift exactly zero rather than merely small,
+ * and it is also what "saturation only changes saturation" means. The colour
+ * can still land up to a point away from the frozen values when the gesture
+ * ends and the fields re-derive, but that is a single settle rather than
+ * continuous noise.
+ *
+ * @param origin what the gesture began with - the HSL that was on screen, with
+ *               hue taken from HSB if that colour was achromatic
  */
 export function writeHslChannel(
-  currentRgb: RGB,
   channel: 'h' | 's' | 'l',
   value: number,
   origin: HslOrigin,
 ): HslWrite {
-  const current = rgbToHsl(currentRgb.r, currentRgb.g, currentRgb.b);
-
-  // At the ends of L there is no saturation left to read either, so that comes
-  // from the origin too. A mid-range S=0 is taken at face value: there the user
-  // asked for grey, and resurrecting a saturation would fight them.
-  const atEnd = current.l <= 0 || current.l >= 100;
-  const baseH = (atEnd || current.s <= 0) ? origin.h : current.h;
-  const baseS = atEnd ? origin.s : current.s;
-
-  const next = { h: baseH, s: baseS, l: current.l, [channel]: value };
+  const next = { h: origin.h, s: origin.s, l: origin.l, [channel]: value };
   const rgb = hslToRgb(next.h, next.s, next.l);
   const asHsb = rgbToHsb(rgb.r, rgb.g, rgb.b);
 
-  return { rgb, hsb: { h: next.h, s: asHsb.s, b: asHsb.b } };
+  // `h` from the origin rather than the conversion: anything on the neutral
+  // axis converts back as hue 0, and losing it in state is what made a trip
+  // through black or grey irreversible.
+  return { rgb, hsb: { h: next.h, s: asHsb.s, b: asHsb.b }, hsl: next };
 }

@@ -22,6 +22,7 @@ Top-level Map of Content. See `CLAUDE.md` in this folder for conventions.
 
 ## Research
 
+- [[research/hsl-degenerate-states]] — where each colour model gives out, what CSS Color 4 calls it, and the hexagon claim part-verified
 - [[research/figma-plugin-review-guidelines]] — Figma's published rules, and where Color Taylor stood on 2026-08-03
 - [[research/figma-plugin-platform-constraints]] — what the sandbox and the plugin iframe can't do
 
@@ -29,6 +30,7 @@ Top-level Map of Content. See `CLAUDE.md` in this folder for conventions.
 
 `wiki/daily/YYYY-MM-DD.md`. Dailies before 2026-08-01 were reconstructed from git history on 2026-08-03 and are marked as such.
 
+- [[2026-08-24]] — the colour model session: strict TS, radius is chroma, and the HSL edge cases
 - [[2026-08-19]] — shipped; the coordinate-space and zoom bugs behind west-edge resize; what Figma owns
 - [[2026-08-18]] — plugin approved, logo and favicons, settings sheet, the banner
 

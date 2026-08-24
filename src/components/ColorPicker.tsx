@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
-import { hsbToRgb, rgbToHsb, rgbToHex, rgbToHsl, type HSB, type RGB } from '../utils/colorConversions';
+import { hsbToRgb, rgbToHsb, rgbToHex, rgbToHsl, hslToRgb, type HSB, type HSL, type RGB } from '../utils/colorConversions';
 import type { ColorSpace } from '../utils/sliderGradients';
-import { writeHslChannel, hslOriginFrom, type HslOrigin } from '../utils/hslWrite';
+import { writeHslChannel, type HslOrigin } from '../utils/hslWrite';
 import { HSB_TWEEN_MS, hsbAtProgress } from '../utils/colorTween';
 import {
   hueGradient,
@@ -355,7 +355,50 @@ export default function ColorPicker() {
   // eslint-disable-next-line react-hooks/refs
   const rgb = rgbOverride.current || rgbFromHsb;
   const hex = useMemo(() => rgbToHex(rgb.r, rgb.g, rgb.b), [rgb.r, rgb.g, rgb.b]);
-  const hsl = useMemo(() => rgbToHsl(rgb.r, rgb.g, rgb.b), [rgb.r, rgb.g, rgb.b]);
+  /**
+   * What the live HSL gesture asked for, shown in place of the derived value.
+   *
+   * The colour is 8-bit, so re-deriving HSL from it lands a point or two either
+   * side of what was set - and re-deriving every frame turns that into visible
+   * stutter in the two fields you are *not* dragging. Freezing the write is not
+   * enough on its own; the readout has to hold too, or the number jitters while
+   * the colour underneath it is perfectly steady.
+   *
+   * Only ever set while a gesture is in flight, and only by that gesture, so it
+   * cannot disagree with the colour. Cleared at both ends of a pointer press
+   * alongside the origin it belongs to.
+   */
+  const [hslIntent, setHslIntent] = useState<HSL | null>(null);
+  const derivedHsl = useMemo(() => rgbToHsl(rgb.r, rgb.g, rgb.b), [rgb.r, rgb.g, rgb.b]);
+  /**
+   * Kept for as long as it still describes the colour on screen.
+   *
+   * The check is the whole safety argument: an intent is only shown while
+   * converting it reproduces the current RGB exactly. Anything else that sets a
+   * colour - the hex field, an RGB slider, a swatch, a tween - moves the colour
+   * out from under it and it stops being used, with no invalidation to remember
+   * to write. Nothing can drift apart.
+   *
+   * Holding it past the gesture is what lets a saturation set at L=0 or L=100
+   * come back when lightness leaves the end. CSS Color 4 calls saturation there
+   * *powerless* rather than unavailable - the value still exists, it just stops
+   * affecting the colour - and this is what that looks like in a picker. The
+   * first version of this cleared on release and the field snapped to 0, which
+   * read as a control refusing to move.
+   *
+   * It also removes what looked like a rounding settle on release. Both triples
+   * convert to the same RGB, so neither is more correct than the other, and the
+   * one the user actually set is the better thing to show.
+   */
+  const hsl = useMemo(() => {
+    if (hslIntent) {
+      const c = hslToRgb(hslIntent.h, hslIntent.s, hslIntent.l);
+      if (c.r === rgb.r && c.g === rgb.g && c.b === rgb.b) return hslIntent;
+    }
+    return derivedHsl;
+  }, [hslIntent, derivedHsl, rgb.r, rgb.g, rgb.b]);
+  const hslRef = useRef(hsl);
+  useEffect(() => { hslRef.current = hsl; }, [hsl]);
 
   // Persist HSB to localStorage
   useEffect(() => {
@@ -421,12 +464,20 @@ export default function ColorPicker() {
   const handleHslChange = useCallback((channel: 'h' | 's' | 'l', value: number) => {
     takeOverFromAnimation();
     setHsb((prev) => {
-      // The exact colour, not the rounded HSB - same first move handleRgbChange
-      // makes, and what stops a run of HSL edits from degrading.
-      const currentRgb = rgbOverride.current || hsbToRgb(prev.h, prev.s, prev.b);
-      if (!hslOrigin.current) hslOrigin.current = hslOriginFrom(prev.h, currentRgb);
-      const { rgb, hsb } = writeHslChannel(currentRgb, channel, value, hslOrigin.current);
+      if (!hslOrigin.current) {
+        // Straight off what is on screen, so a remembered saturation carries
+        // into the new gesture. Hue falls back to HSB only when the displayed
+        // colour is achromatic and so has none of its own to give.
+        const shown = hslRef.current;
+        hslOrigin.current = {
+          h: shown.s <= 0 ? prev.h : shown.h,
+          s: shown.s,
+          l: shown.l,
+        };
+      }
+      const { rgb, hsb, hsl: intent } = writeHslChannel(channel, value, hslOrigin.current);
       rgbOverride.current = rgb;
+      setHslIntent(intent);
       pulseTone(hsb);
       return hsb;
     });
