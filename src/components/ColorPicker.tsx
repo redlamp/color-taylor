@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
-import { hsbToRgb, rgbToHsb, rgbToHex, rgbToHsl, hslToRgb, type HSB, type RGB } from '../utils/colorConversions';
+import { hsbToRgb, rgbToHsb, rgbToHex, rgbToHsl, type HSB, type RGB } from '../utils/colorConversions';
 import type { ColorSpace } from '../utils/sliderGradients';
+import { writeHslChannel, hslOriginFrom, type HslOrigin } from '../utils/hslWrite';
 import { HSB_TWEEN_MS, hsbAtProgress } from '../utils/colorTween';
 import {
   hueGradient,
@@ -399,24 +400,19 @@ export default function ColorPicker() {
   }, [pulseTone, takeOverFromAnimation]);
 
   /**
-   * The H and S an HSL slider gesture began from.
-   *
-   * HSL's channels are read back off the current colour, and the neutral axis
-   * has no H or S to read: black, white and grey all convert back as hue 0,
-   * saturation 0. So dragging L to either end and returning left the colour
-   * grey rather than where it started - #441745 came back as #2E2E2E.
-   *
-   * Same trick ColorHexagon's dragOrigin plays, and scoped the same way: taken
-   * on the first write of a gesture, dropped on pointerup. A fresh gesture that
-   * genuinely starts from black gets no memory, which is right - by then the
-   * colour really is black.
+   * The H and S an HSL slider gesture began from - see utils/hslWrite for why a
+   * write needs one. Taken on the first write of a gesture and dropped at both
+   * ends of a pointer press, so a gesture can never inherit a stale one from a
+   * wheel adjust, which has no pointerup of its own.
    */
-  const hslOrigin = useRef<{ h: number; s: number } | null>(null);
+  const hslOrigin = useRef<HslOrigin | null>(null);
   useEffect(() => {
     const clear = () => { hslOrigin.current = null; };
+    window.addEventListener('pointerdown', clear);
     window.addEventListener('pointerup', clear);
     document.documentElement.addEventListener('pointerleave', clear);
     return () => {
+      window.removeEventListener('pointerdown', clear);
       window.removeEventListener('pointerup', clear);
       document.documentElement.removeEventListener('pointerleave', clear);
     };
@@ -424,36 +420,15 @@ export default function ColorPicker() {
 
   const handleHslChange = useCallback((channel: 'h' | 's' | 'l', value: number) => {
     takeOverFromAnimation();
-    rgbOverride.current = null;
-
-    // Captured out here rather than inside the updater: a setState callback can
-    // be invoked more than once, and this is a side effect.
-    if (!hslOrigin.current) {
-      const cur = hsbToRgb(hsbRef.current.h, hsbRef.current.s, hsbRef.current.b);
-      const curHsl = rgbToHsl(cur.r, cur.g, cur.b);
-      hslOrigin.current = { h: hsbRef.current.h, s: curHsl.s };
-    }
-    const origin = hslOrigin.current;
-
     setHsb((prev) => {
-      const currentRgb = hsbToRgb(prev.h, prev.s, prev.b);
-      const currentHsl = rgbToHsl(currentRgb.r, currentRgb.g, currentRgb.b);
-
-      // At the ends of L there is no saturation left to read either, so that
-      // comes from the origin too. Mid-range S=0 is taken at face value - the
-      // user asked for grey, and resurrecting a saturation there would fight
-      // them.
-      const atEnd = currentHsl.l <= 0 || currentHsl.l >= 100;
-      const baseH = (atEnd || currentHsl.s <= 0) ? origin.h : currentHsl.h;
-      const baseS = atEnd ? origin.s : currentHsl.s;
-
-      const newHsl = { h: baseH, s: baseS, l: currentHsl.l, [channel]: value };
-      const newRgb = hslToRgb(newHsl.h, newHsl.s, newHsl.l);
-      const next = rgbToHsb(newRgb.r, newRgb.g, newRgb.b);
-      pulseTone(next);
-      // Hue carried through explicitly: `next` reports 0 for anything on the
-      // neutral axis, and losing it in state is what made this irreversible.
-      return { h: newHsl.h, s: next.s, b: next.b };
+      // The exact colour, not the rounded HSB - same first move handleRgbChange
+      // makes, and what stops a run of HSL edits from degrading.
+      const currentRgb = rgbOverride.current || hsbToRgb(prev.h, prev.s, prev.b);
+      if (!hslOrigin.current) hslOrigin.current = hslOriginFrom(prev.h, currentRgb);
+      const { rgb, hsb } = writeHslChannel(currentRgb, channel, value, hslOrigin.current);
+      rgbOverride.current = rgb;
+      pulseTone(hsb);
+      return hsb;
     });
   }, [pulseTone, takeOverFromAnimation]);
 

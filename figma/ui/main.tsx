@@ -49,6 +49,7 @@ import {
   type ColorSpace,
 } from '../../src/utils/sliderGradients';
 import { HSB_TWEEN_MS, easeInOutQuad, hsbAtProgress } from '../../src/utils/colorTween';
+import { writeHslChannel, hslOriginFrom, type HslOrigin } from '../../src/utils/hslWrite';
 import ColorSlider from '../../src/components/ColorSlider';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
@@ -523,15 +524,33 @@ function PluginApp() {
     if (animRef.current !== null) cancelAnimationFrame(animRef.current);
   }, []);
 
+  /**
+   * The H and S an HSL gesture began from. See utils/hslWrite - the panel needs
+   * this for exactly the reasons the app does, and used to carry its own copy
+   * of the conversion that lacked it.
+   */
+  const hslOrigin = useRef<HslOrigin | null>(null);
+  useEffect(() => {
+    const clear = () => { hslOrigin.current = null; };
+    window.addEventListener('pointerdown', clear);
+    window.addEventListener('pointerup', clear);
+    return () => {
+      window.removeEventListener('pointerdown', clear);
+      window.removeEventListener('pointerup', clear);
+    };
+  }, []);
+
   const onHslChange = useCallback((channel: 'h' | 's' | 'l', value: number) => {
     userEditRef.current = true;
-    rgbOverride.current = null;
     setHsb((prev) => {
-      const current = hsbToRgb(prev.h, prev.s, prev.b);
-      const currentHsl = rgbToHsl(current.r, current.g, current.b);
-      const nextHsl = { ...currentHsl, [channel]: value };
-      const nextRgb = hslToRgb(nextHsl.h, nextHsl.s, nextHsl.l);
-      return rgbToHsb(nextRgb.r, nextRgb.g, nextRgb.b);
+      // The exact colour rather than the rounded HSB, and kept in rgbOverride
+      // afterwards: without it two adjacent HSL saturations collapse into one
+      // HSB bucket and the stepper stops responding.
+      const currentRgb = rgbOverride.current || hsbToRgb(prev.h, prev.s, prev.b);
+      if (!hslOrigin.current) hslOrigin.current = hslOriginFrom(prev.h, currentRgb);
+      const { rgb, hsb } = writeHslChannel(currentRgb, channel, value, hslOrigin.current);
+      rgbOverride.current = rgb;
+      return hsb;
     });
   }, []);
 
