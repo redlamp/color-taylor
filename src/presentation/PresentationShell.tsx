@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { slides, type Slide } from './slides';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { Play, Pause } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
 import PresentationStage from './PresentationStage';
 
@@ -101,6 +102,18 @@ export default function PresentationShell({ navigate }: { navigate: (hash: strin
     return () => clearTimeout(tid);
   }, [chromeFading, navigate]);
 
+  /**
+   * Whether the colour cycle is paused, as an intent rather than a state.
+   *
+   * Held here rather than in PresentationStage, where the animation itself
+   * lives, because the Stage derives `rgbAnimActive` from the slide on every
+   * slide change - a pause stored down there would be undone by simply
+   * advancing. Someone who paused the cycle wants it to stay paused until they
+   * say otherwise, across slides.
+   */
+  const [animPaused, setAnimPaused] = useState(false);
+  const hasColorCycle = Boolean(slide.props?.showRgbAnimate);
+
   // Top bar and nav fade immediately on last slide, caption fades with chromeFading
   const topBarOpacity = isLastSlide ? 0 : 1;
   const captionOpacity = chromeFading ? 0 : 1;
@@ -122,12 +135,33 @@ export default function PresentationShell({ navigate }: { navigate: (hash: strin
         <span className="text-xs text-muted-foreground tabular-nums">
           {currentSlide + 1} / {total}
         </span>
-        <button
-          className="text-xs text-muted-foreground hover:text-foreground cursor-pointer"
-          onClick={() => navigate('#/')}
-        >
-          Exit
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Only on the slides that actually cycle. A dead control on the
+              others would be worse than no control - see the app's own play
+              button, which this mirrors down to the label and the tooltip. */}
+          {hasColorCycle && (
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <button
+                    className="ctl-quiet-icon"
+                    onClick={() => setAnimPaused((p) => !p)}
+                    aria-label={animPaused ? 'Play color animation' : 'Pause color animation'}
+                  >
+                    {animPaused ? <Play className="size-4" /> : <Pause className="size-4" />}
+                  </button>
+                }
+              />
+              <TooltipContent>Cycle Colors</TooltipContent>
+            </Tooltip>
+          )}
+          <button
+            className="text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+            onClick={() => navigate('#/')}
+          >
+            Exit
+          </button>
+        </div>
       </div>
 
       {/* Slide title — absolute so it doesn't shift the display area */}
@@ -137,7 +171,7 @@ export default function PresentationShell({ navigate }: { navigate: (hash: strin
 
       {/* Main content — fills space below top bar, centered */}
       <div className={`flex-1 flex items-center justify-center px-6 relative ${isLastSlide ? 'overflow-hidden' : 'overflow-auto'}`}>
-        <PresentationStage slide={slide} slideIndex={currentSlide} />
+        <PresentationStage slide={slide} slideIndex={currentSlide} animPaused={animPaused} />
       </div>
 
       {/* Caption — absolute overlay, doesn't affect content centering */}
