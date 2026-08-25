@@ -61,29 +61,46 @@ It drifted. The deck is the third surface and gets the same rule. The mechanism
 is already proven twice: `ColorHexagon` runs in a minimal configuration - `bare`,
 `blBar={false}`, `satBar={false}` - which is exactly how the plugin mounts it.
 
-## The open question: the morph
+## Settled: the morph, by teaching the component to be a circle
 
-`HsbCircle` earns its keep for one thing the real component cannot do - the
-clip-path morph from circle to hexagon, which is the deck's rhetorical move from
-`10-hsb-circle` to `12-hexagon`. [[plan-teaching-rgb-to-hsb]] wants that slide to
-read as *"a wheel is a guess at the shape - watch what the actual shape is"*, and
-a morph carries that better than a cut.
+**2026-08-25, same day.** The note left three options and leaned toward the
+cheap one. Option 3 won instead - `ColorHexagon` learned to be a circle - and
+`HsbCircle.tsx` is deleted.
 
-So the split is not obvious, and the options are:
+What made it cheap was noticing the shapes differ in exactly one number. The
+hexagon's edge distance varies with angle; a circle's does not. So:
 
-1. **Hand off mid-morph.** `HsbCircle` runs the morph; at the moment it is fully
-   hexagonal, swap to `ColorHexagon`. Invisible only if the two agree
-   geometrically at that instant - which means fixing the drift anyway, and then
-   maintaining it.
-2. **Cut instead of morph.** `10-hsb-circle` keeps `HsbCircle` as a circle only;
-   `12-hexagon` mounts the real component. Loses the transformation, gains one
-   implementation for every slide that argues the geometry is real.
-3. **Teach the real component to be a circle.** Most work, removes `HsbCircle`
-   entirely, and puts a presentation-only concern into the app - which
-   [[decision-single-source-picker]] warns against in its closing note.
+```ts
+export function shapeEdgeDist(angle: number, r: number, mix: number): number {
+  if (mix >= 1) return hexEdgeDist(angle, r);
+  return r + (hexEdgeDist(angle, r) - r) * mix;
+}
+```
 
-Undecided. Worth trying (2) first, because it is reversible and it answers
-whether the morph is worth a second renderer at all.
+`mix` of 0 is the circle, 1 the hexagon, and everything between is a real shape
+rather than a crossfade of two pictures. One `shapeMix` prop feeds the shader's
+edge, the outline polygon, the brightness cross-section, `colorAtPoint` for the
+handle fills and `getHsbFromPosition` for the pointer - so the picker is
+coherent at every frame, not only at the ends, and stays draggable mid-morph.
+
+The worry in option 3 was putting a presentation-only concern into the app. It
+turned out not to be one: the interpolated edge *is* the deck's argument, and it
+is the app's own geometry saying it. The prop defaults to 1, so the picker and
+the plugin are untouched.
+
+Two things fell out of it:
+
+- The wheel slide now renders `ColorHexagon`, so the drift catalogued above
+  cannot come back on either slide. There is no second renderer left in the deck.
+- The shader's edge was a hard `discard` with `antialias: false`, which a
+  straight hexagon edge hid and a slowly curving one did not. Feathered over a
+  device pixel, which quietly improves the app too.
+
+`tests/intro-shape-morph.spec.ts` holds it, by measuring the outline's
+longest-to-shortest vertex radius: 1 is a circle, `2/sqrt(3)` a hexagon, and a
+sample strictly between the two during the transition is the proof it
+interpolates rather than cuts. Measured under Playwright, since the preview pane
+never composites frames and every reading taken there is an intermediate value.
 
 ## Related
 

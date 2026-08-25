@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState } from 'react';
 import { hsbToRgb, hslToRgb, linearToSrgb } from '../../utils/colorConversions';
 import type { ColorSpace } from '../../utils/sliderGradients';
-import { HEX_SIZE, SIZE, CENTER_X, CENTER_Y, RADIUS, PI, hexEdgeDist, blLimitScale, type BLMode } from './hexConstants';
+import { HEX_SIZE, SIZE, CENTER_X, CENTER_Y, RADIUS, PI, shapeEdgeDist, blLimitScale, type BLMode } from './hexConstants';
 import { createHexGL, type HexGL } from './hexShader';
 
 /**
@@ -21,7 +21,7 @@ import { createHexGL, type HexGL } from './hexShader';
  * being dimmed. The trig runs per draw now - 540x540 with an atan2 and a sqrt
  * each - which is why this is the fallback and WebGL is the path taken.
  */
-function buildField(isLinear: boolean, brightness: number, lightness: number, mode: BLMode): Uint8ClampedArray {
+function buildField(isLinear: boolean, brightness: number, lightness: number, mode: BLMode, shapeMix: number): Uint8ClampedArray {
   const data = new Uint8ClampedArray(HEX_SIZE * HEX_SIZE * 4);
 
   for (let py = 0; py < HEX_SIZE; py++) {
@@ -32,7 +32,7 @@ function buildField(isLinear: boolean, brightness: number, lightness: number, mo
       if (dist > RADIUS) continue;
 
       const angle = Math.atan2(-dy, dx);
-      const edgeDist = hexEdgeDist(angle, RADIUS);
+      const edgeDist = shapeEdgeDist(angle, RADIUS, shapeMix);
       if (dist > edgeDist) continue;
 
       let h = (angle * 180) / PI;
@@ -99,7 +99,7 @@ function buildField(isLinear: boolean, brightness: number, lightness: number, mo
   return data;
 }
 
-export default function HexCanvas({ brightness, lightness = 50, blMode = 'brightness', colorSpace, extent = SIZE, svgHeight = HEX_SIZE }: { brightness: number; lightness?: number; blMode?: BLMode; colorSpace: ColorSpace; extent?: number; svgHeight?: number }) {
+export default function HexCanvas({ brightness, lightness = 50, blMode = 'brightness', colorSpace, extent = SIZE, svgHeight = HEX_SIZE, shapeMix = 1 }: { brightness: number; lightness?: number; blMode?: BLMode; colorSpace: ColorSpace; extent?: number; svgHeight?: number; shapeMix?: number }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const glRef = useRef<HexGL | null | undefined>(undefined);
   const [box, setBox] = useState({ w: HEX_SIZE, h: HEX_SIZE });
@@ -133,7 +133,7 @@ export default function HexCanvas({ brightness, lightness = 50, blMode = 'bright
 
       if (gl) {
         if (canvas.width !== box.w || canvas.height !== box.h) gl.resize(box.w, box.h);
-        gl.draw(brightness, lightness, blMode === 'lightness', colorSpace === 'linear');
+        gl.draw(brightness, lightness, blMode === 'lightness', colorSpace === 'linear', shapeMix);
         return;
       }
 
@@ -148,11 +148,11 @@ export default function HexCanvas({ brightness, lightness = 50, blMode = 'bright
       // Rebuilt per draw rather than scaled from a cached base - see buildField
       // for why the brightness-is-a-multiply shortcut no longer holds.
       const out = ctx.createImageData(HEX_SIZE, HEX_SIZE);
-      out.data.set(buildField(colorSpace === 'linear', brightness, lightness, blMode));
+      out.data.set(buildField(colorSpace === 'linear', brightness, lightness, blMode, shapeMix));
       ctx.putImageData(out, 0, 0);
     });
     return () => cancelAnimationFrame(rafId);
-  }, [brightness, lightness, blMode, colorSpace, box]);
+  }, [brightness, lightness, blMode, colorSpace, shapeMix, box]);
 
   useEffect(() => () => glRef.current?.dispose(), []);
 

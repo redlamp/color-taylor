@@ -108,6 +108,36 @@ export function hexEdgeDist(angle: number, r: number): number {
   return (r * SQRT3_2) / Math.cos(sectorAngle - PI / 6);
 }
 
+/**
+ * The edge distance of a shape between a circle and the hexagon.
+ *
+ * `mix` 0 is a circle of radius r, 1 is the hexagon inscribed in it, and
+ * anything between is the two lerped. That single line is the whole morph: the
+ * field, the outline, the brightness cross-section and the pointer mapping all
+ * ask the same question - how far is the edge at this angle - so interpolating
+ * the answer moves every one of them together and keeps them consistent at
+ * every frame, which a clip-path over the top could not.
+ */
+export function shapeEdgeDist(angle: number, r: number, mix: number): number {
+  if (mix >= 1) return hexEdgeDist(angle, r);
+  const hex = hexEdgeDist(angle, r);
+  return r + (hex - r) * mix;
+}
+
+/**
+ * The outline as a polygon, sampled finely enough that mix=0 reads as a circle.
+ *
+ * 72 points puts a vertex every 5 degrees; the hexagon's corners land exactly on
+ * multiples of 60, so the shape is still sharp at mix=1 rather than nearly so.
+ */
+export function shapePoints(cx: number, cy: number, r: number, mix: number, n = 72): string {
+  return Array.from({ length: n }, (_, i) => {
+    const a = (i / n) * 2 * PI;
+    const d = shapeEdgeDist(a, r, mix);
+    return `${cx + d * Math.cos(a)},${cy - d * Math.sin(a)}`;
+  }).join(' ');
+}
+
 export function hexPoints(cx: number, cy: number, r: number): string {
   return Array.from({ length: 6 }, (_, i) => {
     const a = i * (PI / 3);
@@ -139,12 +169,12 @@ export function blLimitScale(mode: BLMode, b: number, l: number): number {
   return mode === 'brightness' ? b / 100 : 1 - Math.abs(2 * (l / 100) - 1);
 }
 
-export function colorAtPoint(px: number, py: number, brightness: number, lightness = 50, mode: BLMode = 'brightness'): RGB {
+export function colorAtPoint(px: number, py: number, brightness: number, lightness = 50, mode: BLMode = 'brightness', shapeMix = 1): RGB {
   const dx = px - CENTER_X;
   const dy = py - CENTER_Y;
   const dist = Math.sqrt(dx * dx + dy * dy);
   const angle = Math.atan2(-dy, dx);
-  const edgeDist = hexEdgeDist(angle, RADIUS);
+  const edgeDist = shapeEdgeDist(angle, RADIUS, shapeMix);
   let h = (angle * 180) / PI;
   if (h < 0) h += 360;
 

@@ -17,7 +17,7 @@ import {
   BL_BAR_X, BL_BAR_TOP, BL_BAR_HEIGHT, BL_ARROW_SIZE,
   SAT_BAR_LEFT, SAT_BAR_WIDTH, DISPLAY_HEIGHT_SAT, SVG_HEIGHT_SAT,
   HUE_LABEL_OFFSET,
-  hexEdgeDist, hexPoints, colorAtPoint, getOrder, blLimitScale,
+  hexEdgeDist, shapeEdgeDist, shapePoints, colorAtPoint, getOrder, blLimitScale,
 } from './hex/hexConstants';
 import HexCanvas from './hex/HexCanvas';
 import BrightnessBar from './hex/BrightnessBar';
@@ -442,6 +442,18 @@ interface ColorHexagonProps {
    */
   hueIndicator?: boolean;
   /**
+   * The shape of the field: 1 the hexagon, 0 the circle it is inscribed in,
+   * between them the morph. Animate it to turn one into the other.
+   *
+   * Not decoration. The intro argues that the wheel every picker shows is a
+   * guess at a shape the cube actually has, and a cut between two pictures
+   * makes that a claim while a morph makes it a demonstration. One value
+   * carries the field, the outline, the brightness cross-section, the pointer
+   * mapping and the handle fills together, so the picker stays coherent at
+   * every frame rather than only at the ends.
+   */
+  shapeMix?: number;
+  /**
    * The horizontal saturation bar under the hexagon, and the dashed line tying
    * it to the vector chain's tip. Off in `bare` hosts, which put saturation on
    * an ordinary slider in their own editor - see figma/ui/lite/no-saturation.
@@ -456,7 +468,7 @@ interface HoveredMarker {
   name: string;
 }
 
-export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, onHoverHtmlColor, muted, bare, headerLeft, belowStage, collapsedSections, sectionVariant = 'card', alpha = 100, onAlphaRestore, wheelAdjusts = true, blBar = true, stemRange = null, satBar = true, swatchSections = true, blModeTabs = true, vertexLabels = true, blMarkers = true, hueIndicator = true }: ColorHexagonProps) {
+export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, onHoverHtmlColor, muted, bare, headerLeft, belowStage, collapsedSections, sectionVariant = 'card', alpha = 100, onAlphaRestore, wheelAdjusts = true, blBar = true, stemRange = null, satBar = true, swatchSections = true, blModeTabs = true, vertexLabels = true, blMarkers = true, hueIndicator = true, shapeMix = 1 }: ColorHexagonProps) {
   const flushSections = sectionVariant === 'flush';
   // Horizontal extent of the SVG coordinate space. Without the bar the hexagon
   // is the whole picture, so the 50px reserved to its right goes away - and the
@@ -930,7 +942,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     const dy = svgY - CENTER_Y;
     const dist = Math.sqrt(dx * dx + dy * dy);
     const angle = Math.atan2(-dy, dx);
-    const edgeDist = hexEdgeDist(angle, RADIUS);
+    const edgeDist = shapeEdgeDist(angle, RADIUS, shapeMix);
 
     // For initial clicks, reject if outside hex; for drags (clampOnly), clamp instead
     if (!clampOnly && dist > edgeDist) return null;
@@ -997,7 +1009,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     const asRgb = hslToRgb(hueOut, sL, lTarget);
     const asHsb = rgbToHsb(asRgb.r, asRgb.g, asRgb.b);
     return { h: hueOut, s: Math.round(asHsb.s), b: Math.round(asHsb.b) };
-  }, [brightness, hsl?.l, hsl?.s, hue, blMode]);
+  }, [brightness, hsl?.l, hsl?.s, hue, blMode, shapeMix]);
 
   const hueFromMouse = useCallback((e: { clientX: number; clientY: number }) => {
     const { x, y } = getSvgCoords(e);
@@ -1053,9 +1065,9 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
 
   /** The color the field shows at each joint - each handle's fill. */
   const dotColors = useMemo(() => points.map((p) => {
-    const c = colorAtPoint(p.x, p.y, brightness, hsl?.l ?? 50, blMode);
+    const c = colorAtPoint(p.x, p.y, brightness, hsl?.l ?? 50, blMode, shapeMix);
     return rgbToHex(c.r, c.g, c.b);
-  }), [points, brightness, hsl?.l, blMode]);
+  }), [points, brightness, hsl?.l, blMode, shapeMix]);
 
   // hueLabel is the pill's center - HueHandle is translated -50%/-50% onto it -
   // so the hue line ending here points at the pill rather than stopping short
@@ -1816,7 +1828,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
         className={`absolute left-0 w-full ${satBar ? 'bottom-0' : 'top-1/2 -translate-y-1/2'}`}
         style={{ aspectRatio: `${EXTENT} / ${svgHeight}` }}
       >
-        <HexCanvas brightness={brightness} lightness={hsl?.l ?? 50} blMode={blMode} colorSpace={colorSpace} extent={EXTENT} svgHeight={svgHeight} />
+        <HexCanvas brightness={brightness} lightness={hsl?.l ?? 50} blMode={blMode} colorSpace={colorSpace} extent={EXTENT} svgHeight={svgHeight} shapeMix={shapeMix} />
         <svg
           id="hex-svg"
           ref={svgRef}
@@ -1828,7 +1840,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           onPointerDown={handleHexMouseDown}
         >
           <circle id="hex-circumscribe" cx={CENTER_X} cy={CENTER_Y} r={RADIUS} fill="none" stroke="var(--input)" strokeWidth={1.5} />
-          <polygon id="hex-outline" points={hexPoints(CENTER_X, CENTER_Y, RADIUS)} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth={1} />
+          <polygon id="hex-outline" points={shapePoints(CENTER_X, CENTER_Y, RADIUS, shapeMix)} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth={1} />
 
           {/*
             Brightness limit hex - the cube's cross-section at this value.
@@ -1842,7 +1854,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           {limitHex.limitScale < 1 && (
             <polygon
               id="hex-brightness-limit"
-              points={hexPoints(CENTER_X, CENTER_Y, limitHex.limitRadius)}
+              points={shapePoints(CENTER_X, CENTER_Y, limitHex.limitRadius, shapeMix)}
               fill="none"
               {...QUIET_LIMIT_HEX}
               strokeWidth={pxUnits(2)}
@@ -1860,7 +1872,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           */}
           <polygon
             id="hex-brightness-limit-active"
-            points={hexPoints(CENTER_X, CENTER_Y, limitHex.limitRadius)}
+            points={shapePoints(CENTER_X, CENTER_Y, limitHex.limitRadius, shapeMix)}
             fill="none"
             {...CALLOUT_LINE}
             strokeWidth={pxUnits(2.5)}
