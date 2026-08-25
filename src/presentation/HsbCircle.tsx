@@ -280,18 +280,28 @@ export default function HsbCircle({ size = 280, hue, saturation, brightness, onH
         {channelMeta.map(({ ch, color }, i) => {
           const to = chainPoints[i + 1];
           if (!to) return null;
-          const isZero = rgb[ch] === 0;
+          /*
+           * Filled with the colour under it, always - the app's rule, stated in
+           * ColorHexagon as "border is the channel this handle belongs to; fill
+           * is the color the field shows underneath it", with no exception for a
+           * zero channel.
+           *
+           * This used to draw a zero channel hollow and at half size, which is
+           * where the empty ring floating over the red handle came from. A
+           * channel at zero puts its joint exactly on the previous one - the
+           * stem has no length - so the two coincide, and in the app that reads
+           * as one handle because both are filled the same. Hollow and shrunken,
+           * it read as a defect.
+           */
           return (
             <circle
               key={ch}
               cx={to.x} cy={to.y} r={7}
-              fill={isZero ? 'transparent' : chainColors[i + 1]}
+              fill={chainColors[i + 1]}
               stroke={color} strokeWidth={2.5}
               style={{
                 filter: 'drop-shadow(0 0 2px rgba(0,0,0,0.3))',
-                transform: isZero ? 'scale(0.5)' : 'scale(1)',
-                transformOrigin: `${to.x}px ${to.y}px`,
-                transition: 'transform 0.2s ease-out, fill 0.2s ease-out',
+                transition: 'fill 0.2s ease-out',
               }}
             />
           );
