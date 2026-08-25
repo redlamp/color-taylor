@@ -80,32 +80,39 @@ put in the picker bundle.
   choice; Opus is smaller but its container support has historically been the
   thing that breaks on one browser.
 
-## Talk first, write second
+## A script is fine. Typing it is the friction.
 
-**Reversing what the first draft of this note said.** It had script, then
-record, then ship the script as captions - on the reasoning that writing it last
-means writing it twice. That reasoning assumed writing was the cheap part. It is
-not here: Taylor's own account is that writing is a struggle and talking is the
-strength, with a conversational style that is worth *keeping* rather than
-flattening into read-aloud prose.
+The constraint is narrower than "do not write a script", which is where the
+first draft of this note landed and it was wrong. Working from a script is fine.
+Producing one by typing is the part that drags, against a delivery style that is
+conversational and better for being so.
 
-So the order inverts:
+So the script gets **drafted for** Taylor rather than by him. The raw material
+already exists - [[plan-teaching-rgb-to-hsb]] has the ladder, the six rungs and
+the proposed slide rewrites - and turning that into per-slide talking copy is
+work that does not need the person who is going to say it out loud.
 
-1. **Beats, not sentences.** [[plan-teaching-rgb-to-hsb]]'s ladder is already the
-   right shape - six rungs, each visible in the tool. Turn each slide into a
-   handful of things to hit, not lines to deliver.
-2. **Talk it through against the running deck**, in one pass, improvising.
-3. **Transcribe**, then tidy the transcript.
-4. **Ship the tidy transcript as WebVTT**, and reuse it as the video description.
+Two orders both work. Pick per slide if it helps:
 
-Captions still are not optional - narration with no transcript is a step
-backwards for anyone who cannot hear it, and this is a teaching tool. What
-changes is that transcription is now the cheap step and the script is a
-by-product of recording rather than a prerequisite for it.
+**Drafted first.** Script goes to Taylor, he delivers it in his own words rather
+than reading it flat.
 
-A read script would also cost the thing that makes this worth recording. The
-delivery is the point; a stiff take of better sentences is worse than a warm
-take of good enough ones.
+**Spoken first.** Rough pass against the deck, transcribe it, tidy the
+transcript into the script, re-record from that. Good for the slides where the
+right framing is not obvious yet - talking is how it gets found.
+
+## Captions come from the take, not from the script
+
+Whichever order produced the script. A conversational delivery drifts from any
+written line, and captions that disagree with the audio are worse than no
+captions - they read as a transcript of a different recording.
+
+So the last step is always: transcribe the final audio, tidy lightly for
+punctuation, ship as WebVTT. Transcription is the cheap step now; this is not
+the place to save it.
+
+Captions are not optional. Narration with no transcript is a step backwards for
+anyone who cannot hear it, and this is a teaching tool.
 
 ## Record continuously, split afterwards
 
@@ -116,6 +123,9 @@ Do both: talk through the whole deck in one pass, advancing as you go, then cut
 the recording at the slide boundaries. Flow and level stay consistent because it
 *was* one take, and the output is still one file per slide id. Retakes stay
 cheap - re-record a slide, cut it in, and nothing else moves.
+
+This holds whether the pass is improvised or delivered from a draft. The point
+is the pass, not the preparation.
 
 ## The video cut
 
