@@ -19,15 +19,15 @@ Package manager: **bun**. `bun.lock` is the source of truth; no `package-lock.js
 - `bun run deploy` — GitHub Pages build + publish via `gh-pages`. The script uses POSIX inline env var syntax (`GITHUB_PAGES=1 vite build`); bun's built-in shell handles this on Windows, so no PowerShell `$env:` workaround is needed when invoked via `bun run`.
 - `bun run test` — Playwright e2e against a Vite dev server it starts itself, **reusing an existing one on :5173** if you already have `bun dev` running. Specs live in `tests/`.
 
-  That reuse is a trap worth knowing: the suite runs against **whatever dev server is already up**, so a local `.env` override reaches it. In particular `VITE_INTRO_ENABLED=false` makes three specs fail — two in `presentation-tween`, one in `plugin-banner` — because `useHashRoute` then redirects `#/presentation` to `#/`. Nothing is broken; move the override aside before a real run.
+  That reuse is a trap worth knowing: the suite runs against **whatever dev server is already up**, so a local `.env` override reaches it and a failure can have nothing to do with your change. If a spec fails only on your machine, check `.env.development.local` before reading any further.
 
-  ```bash
-  mv .env.development.local .env.development.local.bak && bun run test
-  ```
+  The suite does pass with the intro flag either way — the presentation route no longer depends on it.
 
 The `GITHUB_PAGES` env var flips `vite.config.js`'s `base` between `./` (default, works for local file:// preview) and `/color-taylor/` (gh-pages subpath). Don't hardcode either.
 
-`VITE_INTRO_ENABLED` gates the presentation deck — both the button in `ColorPicker` and the route itself, so with it off `#/presentation` is unreachable rather than merely unlinked. `.env` ships `false`; `.env.development` turns it on for `bun dev`. To turn it off for yourself without touching a tracked file, put it in `.env.development.local`, which is gitignored via `*.local` and wins on Vite's precedence.
+`VITE_INTRO_ENABLED` gates **only the Intro button** on the picker. `.env` ships `false`; `.env.development` turns it on for `bun dev`. To flip it for yourself without touching a tracked file, use `.env.development.local` — gitignored via `*.local`, and it wins on Vite's precedence.
+
+The presentation *route* is always live, whatever the flag says. Those are two different questions and only the button is a question of readiness: gating both meant the deck could not be linked to at all while it was unadvertised. `public/intro/index.html` is the shareable front door — a real file, because GitHub Pages has no rewrite rules, redirecting relatively to `../#/presentation` so it works under all three `base` values.
 
 ## Stack
 

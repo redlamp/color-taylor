@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Color Taylor — Intro</title>
+<!--
+  A shareable front door for the intro deck, at /intro rather than #/presentation.
+
+  The app routes on the hash, which cannot be linked to from outside without the
+  `#`. GitHub Pages serves static files with no rewrite rules, so a real /intro
+  path has to exist as a file - Pages resolves the directory to this index.html
+  on its own.
+
+  The redirect is relative on purpose. `base` differs across the three builds -
+  `./` for local file:// preview, `/color-taylor/` for Pages, `/color-taylor/dev/`
+  for the dev channel - and `../` resolves correctly under all of them without
+  the build having to bake anything in.
+
+  Belt and braces: the meta refresh covers a browser that runs no script, and
+  location.replace keeps this page out of the back-button history so leaving the
+  deck does not bounce the reader straight back into it.
+-->
+<meta http-equiv="refresh" content="0; url=../#/presentation">
+<link rel="canonical" href="../#/presentation">
+<script>location.replace('../#/presentation' + location.search);</script>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    margin: 0;
+    min-height: 100svh;
+    display: grid;
+    place-items: center;
+    background: #2E424D;
+    color: #F2EFF5;
+    font: 400 16px/1.6 ui-sans-serif, system-ui, -apple-system, sans-serif;
+    text-align: center;
+    padding: 1.5rem;
+  }
+  a { color: inherit; text-underline-offset: 3px; }
+</style>
+</head>
+<body>
+  <!-- Only ever seen if both the refresh and the script are blocked. The
+       background matches the deck's own so the hand-off does not flash. -->
+  <p>Opening the Color Taylor intro… <a href="../#/presentation">Continue</a></p>
+</body>
+</html>
