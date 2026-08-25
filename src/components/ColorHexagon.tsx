@@ -17,7 +17,7 @@ import {
   BL_BAR_X, BL_BAR_TOP, BL_BAR_HEIGHT, BL_ARROW_SIZE,
   SAT_BAR_LEFT, SAT_BAR_WIDTH, DISPLAY_HEIGHT_SAT, SVG_HEIGHT_SAT,
   HUE_LABEL_OFFSET,
-  hexEdgeDist, shapeEdgeDist, shapePoints, colorAtPoint, getOrder, blLimitScale,
+  hexEdgeDist, shapeEdgeDist, shapePoints, colorAtPoint, getOrder, shapeLimitScale,
 } from './hex/hexConstants';
 import HexCanvas from './hex/HexCanvas';
 import BrightnessBar from './hex/BrightnessBar';
@@ -975,7 +975,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
      * handle tracks the pointer at every brightness.
      */
     const origin = dragOrigin.current ?? { b: brightness, l: hsl?.l ?? 50, h: hue, sHsl: hsl?.s ?? 0 };
-    const limit = blLimitScale(blMode, origin.b, origin.l);
+    const limit = shapeLimitScale(blMode, origin.b, origin.l, shapeMix);
     const r = dist / edgeDist;
     const pointerHue = Math.round(h);
 
@@ -1050,9 +1050,34 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       pts.push(current);
       names.push(ch === 'r' ? 'red' : ch === 'g' ? 'green' : 'blue');
     }
+    /*
+     * On a wheel the radius is saturation; on the hexagon it is chroma.
+     *
+     * The chain lands at chroma by construction - saturation times brightness -
+     * because that is the edge of the cube's cross-section, which is what the
+     * hexagon draws and what a drag has to agree with. A wheel draws no
+     * cross-section, so brightness has nowhere to show and the classic mapping
+     * is angle for hue, distance for saturation, nothing for brightness. Both
+     * are right about their own shape.
+     *
+     * Same ray either way - the chain ends in the hue direction - so lerping
+     * the tip in x/y slides it along that ray, and the last stem follows it
+     * rather than detaching. Untouched at shapeMix 1, so the picker and the
+     * plugin get the chain's own tip and not a recomputation of it.
+     */
+    if (shapeMix < 1) {
+      const rad = (hue * PI) / 180;
+      const d = (saturation / 100) * shapeEdgeDist(rad, RADIUS, shapeMix);
+      const wheel = { x: CENTER_X + d * Math.cos(rad), y: CENTER_Y - d * Math.sin(rad) };
+      const tip = pts[pts.length - 1];
+      pts[pts.length - 1] = {
+        x: wheel.x + (tip.x - wheel.x) * shapeMix,
+        y: wheel.y + (tip.y - wheel.y) * shapeMix,
+      };
+    }
     return { points: pts, dotNames: names };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- rgb accessed via dynamic key; r/g/b deps cover all reads
-  }, [order, rgb.r, rgb.g, rgb.b, scale]);
+  }, [order, rgb.r, rgb.g, rgb.b, scale, shapeMix, hue, saturation]);
 
   /**
    * Same hue, lifted - the hover state of any element is its own color,
@@ -1063,6 +1088,17 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
    * saturation out instead, which is what "lighter" means for a saturated
    * color.
    */
+  /** Straight RGB lerp between two hex colors. t of 1 returns `b` exactly. */
+  const mixHex = useCallback((a: string, b: string, t: number) => {
+    const ca = hexToRgb(a), cb = hexToRgb(b);
+    if (!ca || !cb) return b;
+    return rgbToHex(
+      Math.round(ca.r + (cb.r - ca.r) * t),
+      Math.round(ca.g + (cb.g - ca.g) * t),
+      Math.round(ca.b + (cb.b - ca.b) * t),
+    );
+  }, []);
+
   const lift = useCallback((hex: string, amount = 22) => {
     const c = hexToRgb(hex);
     if (!c) return hex;
@@ -1697,9 +1733,9 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   const pxUnits = (n: number) => n * uiScale;
 
   const limitHex = useMemo(() => {
-    const limitScale = blLimitScale(blMode, brightness, hsl?.l ?? 50);
+    const limitScale = shapeLimitScale(blMode, brightness, hsl?.l ?? 50, shapeMix);
     return { limitScale, limitRadius: RADIUS * Math.min(limitScale, 1) };
-  }, [blMode, brightness, hsl?.l]);
+  }, [blMode, brightness, hsl?.l, shapeMix]);
 
   return (
     <div
@@ -2044,7 +2080,13 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
 
             // Border is the channel this handle belongs to, at full strength;
             // fill is the color the field shows underneath it.
-            const baseRing = CHANNEL_COLOR[ch];
+            //
+            // Except at the tip with no chain drawn: the handle belongs to no
+            // channel then, and a blue ring on an orange color is a label for
+            // an explanation that is not on screen. White is what every picker
+            // marks a selection with, and it takes on the channel's color as
+            // the stems that justify it arrive.
+            const baseRing = isTip ? mixHex('#ffffff', CHANNEL_COLOR[ch], chainReveal) : CHANNEL_COLOR[ch];
             const hoverRing = lift(baseRing);
             // Thickens outward on hover, same 1.5x the stems use.
             const ringW = isHighlighted ? HANDLE.ring * HANDLE.hoverScale : HANDLE.ring;

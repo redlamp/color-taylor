@@ -840,6 +840,17 @@ export default function PresentationStage({ slide, slideIndex, animPaused = fals
           />
         </div>
         </div>
+        {/*
+          Above the shape, not beside it.
+
+          The hexagon's wrapper is deliberately wider than its column - the
+          component still reserves room either side for a hue badge the deck
+          turns off - and that empty padding is a transparent SVG that lands on
+          top of the bar. The bar was not merely hard to hit, it was dead across
+          its whole width. A stacking context puts the control back in front of
+          the padding that was covering it.
+        */}
+        <div style={{ position: 'relative', zIndex: 1, display: 'flex' }}>
         <DiscBrightnessBar
           hue={hsb.h}
           saturation={hsb.s}
@@ -847,6 +858,7 @@ export default function PresentationStage({ slide, slideIndex, animPaused = fals
           height={discSize}
           onChange={(b) => { signalUserInteraction(); setHsbClear(p => ({ ...p, b })); }}
         />
+        </div>
         </div>
       </div>
       </div>

@@ -169,6 +169,25 @@ export function blLimitScale(mode: BLMode, b: number, l: number): number {
   return mode === 'brightness' ? b / 100 : 1 - Math.abs(2 * (l / 100) - 1);
 }
 
+/**
+ * The cross-section bound, softened toward "no bound" as the shape leaves the
+ * hexagon.
+ *
+ * The cross-section is a fact about the cube: at brightness b the reachable
+ * colors are a hexagon of radius b/100, which is why chroma and not saturation
+ * is what the rim means. A circle is not that cross-section and cannot show it.
+ * On a wheel the reading is the plain one everybody already has - angle is hue,
+ * distance is saturation, brightness is elsewhere - so the bound opens out to
+ * the full edge and every point is reachable again.
+ *
+ * One helper because three things have to agree at every value: the field, the
+ * dashed limit it draws, and where a drag decides you clicked.
+ */
+export function shapeLimitScale(mode: BLMode, b: number, l: number, shapeMix: number): number {
+  const cross = blLimitScale(mode, b, l);
+  return 1 + (cross - 1) * shapeMix;
+}
+
 export function colorAtPoint(px: number, py: number, brightness: number, lightness = 50, mode: BLMode = 'brightness', shapeMix = 1): RGB {
   const dx = px - CENTER_X;
   const dy = py - CENTER_Y;
@@ -178,7 +197,7 @@ export function colorAtPoint(px: number, py: number, brightness: number, lightne
   let h = (angle * 180) / PI;
   if (h < 0) h += 360;
 
-  const limit = edgeDist * blLimitScale(mode, brightness, lightness);
+  const limit = edgeDist * shapeLimitScale(mode, brightness, lightness, shapeMix);
   const sIn = limit > 0 ? Math.min((dist / limit) * 100, 100) : 0;
   const r = dist / edgeDist;
 

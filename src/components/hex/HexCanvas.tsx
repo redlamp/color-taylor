@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState } from 'react';
 import { hsbToRgb, hslToRgb, linearToSrgb } from '../../utils/colorConversions';
 import type { ColorSpace } from '../../utils/sliderGradients';
-import { HEX_SIZE, SIZE, CENTER_X, CENTER_Y, RADIUS, PI, shapeEdgeDist, blLimitScale, type BLMode } from './hexConstants';
+import { HEX_SIZE, SIZE, CENTER_X, CENTER_Y, RADIUS, PI, shapeEdgeDist, shapeLimitScale, type BLMode } from './hexConstants';
 import { createHexGL, type HexGL } from './hexShader';
 
 /**
@@ -38,7 +38,7 @@ function buildField(isLinear: boolean, brightness: number, lightness: number, mo
       let h = (angle * 180) / PI;
       if (h < 0) h += 360;
 
-      const limit = edgeDist * blLimitScale(mode, brightness, lightness);
+      const limit = edgeDist * shapeLimitScale(mode, brightness, lightness, shapeMix);
       const rN = dist / edgeDist;
       const sIn = limit > 0 ? Math.min((dist / limit) * 100, 100) : 0;
       const inside = dist <= limit;

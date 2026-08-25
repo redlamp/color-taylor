@@ -123,6 +123,11 @@ void main() {
   float scale = uMode < 0.5
     ? uBrightness / 100.0
     : 1.0 - abs(2.0 * (uLightness / 100.0) - 1.0);
+  // Softened toward "no bound" as the shape leaves the hexagon. A circle is not
+  // the cube's cross-section and cannot show one, so on a wheel the bound opens
+  // out to the edge and the reading is the plain one: distance is saturation.
+  // Mirrors shapeLimitScale.
+  scale = mix(1.0, scale, uShape);
   float limit = edge * scale;
   float r = dist / edge;
 
