@@ -18,6 +18,7 @@ Top-level Map of Content. See `CLAUDE.md` in this folder for conventions.
 - [[plan-teaching-rgb-to-hsb]] — how to teach the tool and the subject; proposed intro-deck script changes, not yet applied
 - [[plan-narrated-intro]] — recording the intro as narration, for the app and for a video; #77, #78
 - [[plan-intro-two-paths]] — forking the intro, and dressing the history path in period hardware; #79, #80
+- [[decision-intro-renders-the-real-picker]] — the deck stems from the app; #81
 
 ## Concepts
 

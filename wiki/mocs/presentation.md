@@ -18,6 +18,12 @@ silent alias.
 - [[plan-teaching-rgb-to-hsb]] - the ladder, the proposed slide rewrites and the
   video running order. The source script; do not write a second one.
 
+## How it is built
+
+- [[decision-intro-renders-the-real-picker]] - the deck renders `ColorSlider`,
+  `EquationsPanel` and `ColorPicker` already. `HsbCircle` was the exception and
+  the one thing that drifted. #81.
+
 ## Structure
 
 - [[plan-intro-two-paths]] - a fork after the opening: the Macintosh history, or
