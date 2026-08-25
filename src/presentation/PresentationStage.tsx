@@ -10,6 +10,9 @@ import AnimatedGrid from './slides/AnimatedGrid';
 import ColorSlider from '../components/ColorSlider';
 import EquationsPanel from '../components/EquationsPanel';
 import HsbCircle from './HsbCircle';
+import ColorHexagon from '../components/ColorHexagon';
+import { writeHslChannel } from '../utils/hslWrite';
+import { HSB_TWEEN_MS, hsbAtProgress } from '../utils/colorTween';
 import ColorPicker from '../components/ColorPicker';
 
 /** The panel shapes a slide can ask for. Named so the exit-mode ref can hold
@@ -73,6 +76,46 @@ export default function PresentationStage({ slide, slideIndex, animPaused = fals
       const next = { ...cur, [channel]: value };
       rgbOverride.current = next;
       return rgbToHsb(next.r, next.g, next.b);
+    });
+  }, [signalUserInteraction]);
+
+  /**
+   * The handlers ColorHexagon expects, on top of the ones the deck already had.
+   *
+   * onAnimateToHsb is not optional in practice: handleColorLabelClick and the
+   * bar markers early-return without it, so the vertex letters would be dead
+   * controls. Same rAF tween the app and the plugin use, from utils/colorTween,
+   * so the deck's letters feel like the app's rather than snapping.
+   */
+  const hexAnimRaf = useRef<number | null>(null);
+  const onAnimateToHsb = useCallback((target: Partial<HSB>) => {
+    signalUserInteraction();
+    if (hexAnimRaf.current) cancelAnimationFrame(hexAnimRaf.current);
+    const from = { ...hsbRef.current };
+    const to = { ...from, ...target };
+    let start: number | null = null;
+    const tick = (ts: number) => {
+      if (start === null) start = ts;
+      const progress = Math.min((ts - start) / HSB_TWEEN_MS, 1);
+      rgbOverride.current = null;
+      setHsb(hsbAtProgress(from, to, progress));
+      if (progress < 1) hexAnimRaf.current = requestAnimationFrame(tick);
+      else hexAnimRaf.current = null;
+    };
+    hexAnimRaf.current = requestAnimationFrame(tick);
+  }, [signalUserInteraction]);
+  useEffect(() => () => { if (hexAnimRaf.current) cancelAnimationFrame(hexAnimRaf.current); }, []);
+
+  const onHslChange = useCallback((channel: 'h' | 's' | 'l', value: number) => {
+    signalUserInteraction();
+    setHsb((prev) => {
+      const currentRgb = rgbOverride.current || hsbToRgb(prev.h, prev.s, prev.b);
+      const cur = rgbToHsl(currentRgb.r, currentRgb.g, currentRgb.b);
+      const { rgb: nextRgb, hsb: nextHsb } = writeHslChannel(channel, value, {
+        h: prev.h, s: cur.s, l: cur.l,
+      });
+      rgbOverride.current = nextRgb;
+      return nextHsb;
     });
   }, [signalUserInteraction]);
 
@@ -636,14 +679,52 @@ export default function PresentationStage({ slide, slideIndex, animPaused = fals
         overflow: 'hidden',
         transition: 'width 0.5s ease-out, opacity 0.4s ease-out 0.1s',
       }}>
-        <HsbCircle
-          size={circleSize}
-          hue={hsb.h}
-          saturation={hsb.s}
-          brightness={hsb.b}
-          shape={slide.props?.hsbCircleShape || 'circle'}
-          onHsbChange={(newHsb) => { signalUserInteraction(); setHsbClear(p => ({ ...p, ...newHsb })); }}
-        />
+        {/*
+          The hexagon slides render the app's own picker, not a lookalike - see
+          decision-intro-renders-the-real-picker. HsbCircle stays for the circle,
+          which is the one thing ColorHexagon cannot be, and which the wheel
+          slide needs in order to be corrected by the hexagon that follows it.
+
+          Mounted the way the Figma plugin mounts it: bare, with its own bars
+          off, so what shows is the field, the stems and the handles and nothing
+          else. wheelAdjusts is off because the deck scrolls.
+        */}
+        {slide.props?.hsbCircleShape === 'hexagon' ? (
+          <div style={{ width: circleSize }}>
+            <ColorHexagon
+              rgb={rgb}
+              hue={hsb.h}
+              brightness={hsb.b}
+              saturation={hsb.s}
+              hsl={hsl}
+              onHueChange={(h) => setHsbClear(p => ({ ...p, h }))}
+              onRgbChange={handleRgbChange}
+              onHsbChange={(next) => setHsbClear(p => ({ ...p, ...next }))}
+              onHslChange={onHslChange}
+              onAnimateToHsb={onAnimateToHsb}
+              blMode="brightness"
+              onBlModeChange={() => {}}
+              colorSpace="srgb"
+              bare
+              collapsedSections
+              sectionVariant="flush"
+              blBar={false}
+              satBar={false}
+              wheelAdjusts={false}
+              stemRange={[2, 4]}
+              muted
+            />
+          </div>
+        ) : (
+          <HsbCircle
+            size={circleSize}
+            hue={hsb.h}
+            saturation={hsb.s}
+            brightness={hsb.b}
+            shape="circle"
+            onHsbChange={(newHsb) => { signalUserInteraction(); setHsbClear(p => ({ ...p, ...newHsb })); }}
+          />
+        )}
       </div>
       </div>
 
