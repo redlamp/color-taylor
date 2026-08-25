@@ -416,6 +416,13 @@ interface ColorHexagonProps {
    */
   swatchSections?: boolean;
   /**
+   * The HSB/HSL tabs. On by default, including in `bare` hosts - the plugin
+   * wants them, since a panel is a place you work. The intro deck does not: the
+   * hexagon is there to make a point about geometry, and a mode switch beside
+   * it is a control on a diagram.
+   */
+  blModeTabs?: boolean;
+  /**
    * The horizontal saturation bar under the hexagon, and the dashed line tying
    * it to the vector chain's tip. Off in `bare` hosts, which put saturation on
    * an ordinary slider in their own editor - see figma/ui/lite/no-saturation.
@@ -430,7 +437,7 @@ interface HoveredMarker {
   name: string;
 }
 
-export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, onHoverHtmlColor, muted, bare, headerLeft, belowStage, collapsedSections, sectionVariant = 'card', alpha = 100, onAlphaRestore, wheelAdjusts = true, blBar = true, stemRange = null, satBar = true, swatchSections = true }: ColorHexagonProps) {
+export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, onHoverHtmlColor, muted, bare, headerLeft, belowStage, collapsedSections, sectionVariant = 'card', alpha = 100, onAlphaRestore, wheelAdjusts = true, blBar = true, stemRange = null, satBar = true, swatchSections = true, blModeTabs = true }: ColorHexagonProps) {
   const flushSections = sectionVariant === 'flush';
   // Horizontal extent of the SVG coordinate space. Without the bar the hexagon
   // is the whole picture, so the 50px reserved to its right goes away - and the
@@ -1701,7 +1708,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           and yellow land on the same spot of the bar and differ 13x in actual
           luminance. The bar names the live axis itself now.
         */}
-        {hexOpen && (
+        {hexOpen && blModeTabs && (
           <div className="flex items-start gap-2" onClick={(e) => e.stopPropagation()}>
             <Tabs value={blMode} onValueChange={onBlModeChange}>
               <TabsList>
