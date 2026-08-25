@@ -11,6 +11,7 @@ import ColorSlider from '../components/ColorSlider';
 import EquationsPanel from '../components/EquationsPanel';
 import HsbCircle from './HsbCircle';
 import ColorHexagon from '../components/ColorHexagon';
+import { RADIUS as HEX_RADIUS, SIZE as HEX_EXTENT, CENTER_X as HEX_CENTER_X, DISPLAY_HEIGHT as HEX_STAGE_H } from '../components/hex/hexConstants';
 import { writeHslChannel } from '../utils/hslWrite';
 import { HSB_TWEEN_MS, hsbAtProgress } from '../utils/colorTween';
 import ColorPicker from '../components/ColorPicker';
@@ -482,8 +483,39 @@ export default function PresentationStage({ slide, slideIndex, animPaused = fals
    * middle of its half.
    */
   const isHexSlide = slide.props?.hsbCircleShape === 'hexagon';
-  const HEX_ASPECT = 520 / 460;
-  const hexSize = Math.min(halfW, Math.round(circleSize * HEX_ASPECT));
+
+  /*
+   * One disc, two shapes.
+   *
+   * The wheel and the hexagon are the same object at different slides, so their
+   * discs have to be the same size and land on the same centre - otherwise
+   * moving between them reads as two unrelated diagrams rather than one being
+   * corrected into the other. Both carry a brightness bar for the same reason.
+   *
+   * Derived from the app's own constants rather than numbers copied here, so
+   * the deck cannot drift from the component it renders.
+   */
+  const RING_RATIO = (2 * HEX_RADIUS) / HEX_EXTENT;        // ring width / component width
+  const HEX_STAGE_RATIO = HEX_STAGE_H / HEX_EXTENT;        // stage height / component width
+  const CIRCLE_CHROME = 48;                                // HsbCircle's bar, gap and arrow
+
+  /** Largest disc that fits both layouts inside the slot. */
+  const discSize = Math.floor(Math.min(
+    halfW * RING_RATIO,                            // hexagon plus its bar fits the width
+    halfW - CIRCLE_CHROME,                         // wheel plus its bar fits the width
+    circleSize,                                    // wheel fits the height
+    circleSize * (RING_RATIO / HEX_STAGE_RATIO),   // hexagon's stage fits the height
+  ));
+
+  const hexSize = Math.round(discSize / RING_RATIO);
+  /*
+   * Both components put their disc off-centre in their own box - the wheel by
+   * half its bar, the hexagon by however far CENTER_X sits from the middle of
+   * the viewBox. Centring the boxes would therefore leave the two discs on
+   * different centres, so each is nudged by its own offset instead.
+   */
+  const wheelShift = CIRCLE_CHROME / 2;
+  const hexShift = Math.round((0.5 - HEX_CENTER_X / HEX_EXTENT) * hexSize);
 
   return (
     <div className="flex flex-col items-center" style={{ width: PANEL_W }}>
@@ -715,7 +747,7 @@ export default function PresentationStage({ slide, slideIndex, animPaused = fals
           else. wheelAdjusts is off because the deck scrolls.
         */}
         {slide.props?.hsbCircleShape === 'hexagon' ? (
-          <div style={{ width: hexSize }}>
+          <div style={{ width: hexSize, transform: `translateX(${hexShift}px)` }}>
             <ColorHexagon
               rgb={rgb}
               hue={hsb.h}
@@ -733,24 +765,26 @@ export default function PresentationStage({ slide, slideIndex, animPaused = fals
               bare
               collapsedSections
               sectionVariant="flush"
-              blBar={false}
               satBar={false}
               wheelAdjusts={false}
               stemRange={[2, 4]}
               swatchSections={false}
               blModeTabs={false}
+              vertexLabels={false}
               muted
             />
           </div>
         ) : (
+          <div style={{ transform: `translateX(${wheelShift}px)` }}>
           <HsbCircle
-            size={circleSize}
+            size={discSize}
             hue={hsb.h}
             saturation={hsb.s}
             brightness={hsb.b}
             shape="circle"
             onHsbChange={(newHsb) => { signalUserInteraction(); setHsbClear(p => ({ ...p, ...newHsb })); }}
           />
+          </div>
         )}
       </div>
       </div>

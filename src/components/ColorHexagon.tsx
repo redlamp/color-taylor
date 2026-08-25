@@ -423,6 +423,12 @@ interface ColorHexagonProps {
    */
   blModeTabs?: boolean;
   /**
+   * The R/Y/G/C/B/M letters at the vertices. On by default; off where the
+   * hexagon is a diagram rather than a control, and the letters would be
+   * labelling an argument the narration is already making.
+   */
+  vertexLabels?: boolean;
+  /**
    * The horizontal saturation bar under the hexagon, and the dashed line tying
    * it to the vector chain's tip. Off in `bare` hosts, which put saturation on
    * an ordinary slider in their own editor - see figma/ui/lite/no-saturation.
@@ -437,7 +443,7 @@ interface HoveredMarker {
   name: string;
 }
 
-export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, onHoverHtmlColor, muted, bare, headerLeft, belowStage, collapsedSections, sectionVariant = 'card', alpha = 100, onAlphaRestore, wheelAdjusts = true, blBar = true, stemRange = null, satBar = true, swatchSections = true, blModeTabs = true }: ColorHexagonProps) {
+export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, onHoverHtmlColor, muted, bare, headerLeft, belowStage, collapsedSections, sectionVariant = 'card', alpha = 100, onAlphaRestore, wheelAdjusts = true, blBar = true, stemRange = null, satBar = true, swatchSections = true, blModeTabs = true, vertexLabels = true }: ColorHexagonProps) {
   const flushSections = sectionVariant === 'flush';
   // Horizontal extent of the SVG coordinate space. Without the bar the hexagon
   // is the whole picture, so the 50px reserved to its right goes away - and the
@@ -2054,7 +2060,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           )}
         </svg>
 
-        <ColorLabels onColorClick={handleColorLabelClick} extent={EXTENT} svgHeight={svgHeight} />
+        {vertexLabels && <ColorLabels onColorClick={handleColorLabelClick} extent={EXTENT} svgHeight={svgHeight} />}
 
         {/* HTML color marker tooltip */}
         {hoveredMarker && (() => {
