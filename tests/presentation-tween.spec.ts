@@ -60,7 +60,7 @@ test.describe('Intro deck keyframe animation', () => {
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(String(e).split('\n')[0]));
 
-    await page.goto('/#/presentation');
+    await page.goto('/#/intro');
     // The shell is lazy-loaded.
     await page.locator('[role="slider"]').first().waitFor({ timeout: 15000 });
 
@@ -98,7 +98,7 @@ test.describe('Intro deck keyframe animation', () => {
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(String(e).split('\n')[0]));
 
-    await page.goto('/#/presentation');
+    await page.goto('/#/intro');
     await page.locator('[role="slider"]').first().waitFor({ timeout: 15000 });
     await advanceTo(page, 7);
     await page.waitForTimeout(1200);

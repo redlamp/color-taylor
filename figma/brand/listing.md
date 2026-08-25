@@ -119,12 +119,15 @@ slider the app does not, and a reader would find it immediately. Name the
 specific controls instead.
 
 **Only claim what production actually has.** An earlier draft of this section
-advertised the presentation/walkthrough. It is not reachable on the deployed
-site: `useHashRoute`'s `gate()` redirects `#/presentation` to `#/` unless
-`VITE_INTRO_ENABLED` is set, and the CI deploy does not set it, so both the
-Intro button and the route are off. Checked against the live site on
+advertised the presentation/walkthrough. Checked against the live site on
 2026-08-19 - the equations panel, hex field, HTML color search and settings
-are all there; the deck is not.
+are all there; the deck was not.
+
+Updated 2026-08-25: the deck *is* reachable in production now, at
+`/color-taylor/intro`, but it is still deliberately unadvertised -
+`VITE_INTRO_ENABLED` is false in the CI deploy, so there is no Intro button on
+the picker. Treat it as a link you can hand someone, not as a feature to list,
+until #52 says otherwise.
 
 ## Data security questionnaire
 

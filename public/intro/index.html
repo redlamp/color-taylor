@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Color Taylor — Intro</title>
 <!--
-  A shareable front door for the intro deck, at /intro rather than #/presentation.
+  A shareable front door for the intro deck, at /intro rather than a bare hash link.
 
   The app routes on the hash, which cannot be linked to from outside without the
   `#`. GitHub Pages serves static files with no rewrite rules, so a real /intro
@@ -21,9 +21,9 @@
   location.replace keeps this page out of the back-button history so leaving the
   deck does not bounce the reader straight back into it.
 -->
-<meta http-equiv="refresh" content="0; url=../#/presentation">
-<link rel="canonical" href="../#/presentation">
-<script>location.replace('../#/presentation' + location.search);</script>
+<meta http-equiv="refresh" content="0; url=../#/intro">
+<link rel="canonical" href="../#/intro">
+<script>location.replace('../#/intro' + location.search);</script>
 <style>
   :root { color-scheme: light dark; }
   body {
@@ -43,6 +43,6 @@
 <body>
   <!-- Only ever seen if both the refresh and the script are blocked. The
        background matches the deck's own so the hand-off does not flash. -->
-  <p>Opening the Color Taylor intro… <a href="../#/presentation">Continue</a></p>
+  <p>Opening the Color Taylor intro… <a href="../#/intro">Continue</a></p>
 </body>
 </html>

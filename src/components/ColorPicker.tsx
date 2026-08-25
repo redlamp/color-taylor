@@ -618,7 +618,7 @@ export default function ColorPicker() {
           {import.meta.env.VITE_INTRO_ENABLED === 'true' && (
             <button
               className="ctl-quiet"
-              onClick={() => { window.location.hash = '#/presentation'; }}
+              onClick={() => { window.location.hash = '#/intro'; }}
             >
               Intro
             </button>
