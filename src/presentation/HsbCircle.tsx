@@ -249,40 +249,53 @@ export default function HsbCircle({ size = 280, hue, saturation, brightness, onH
         />
       </foreignObject>
 
-      {/* Linked RGB chain segments — visible in hexagon mode */}
+      {/*
+        Linked RGB chain segments - visible in hexagon mode.
+
+        Two passes, stems then handles, which is the order ColorHexagon uses and
+        the reason it uses it: drawn interleaved, each channel's stem paints over
+        the previous channel's handle, so blue crosses the green joint and green
+        crosses the red one. Grouping them means no stem is ever drawn over any
+        handle. Both passes stay inside the one opacity wrapper so the fade in
+        and out is still a single move.
+      */}
       <g style={{ opacity: isHex ? 0.9 : 0, transition: 'opacity 0.6s ease-out 0.3s' }}>
         {channelMeta.map(({ ch, color }, i) => {
           const from = chainPoints[i];
           const to = chainPoints[i + 1];
-          if (!from || !to) return null;
-          const value = rgb[ch];
-          const isZero = value === 0;
+          if (!from || !to || rgb[ch] === 0) return null;
           return (
-            <g key={ch}>
-              {/* Segment line */}
-              {!isZero && (
-                <line
-                  x1={from.x} y1={from.y} x2={to.x} y2={to.y}
-                  stroke={color} strokeWidth={3} strokeLinecap="round"
-                />
-              )}
-              {/* Ring at endpoint — shrinks to half when value is 0 */}
-              <circle
-                cx={to.x} cy={to.y} r={7}
-                fill={isZero ? 'transparent' : chainColors[i + 1]}
-                stroke={color} strokeWidth={2.5}
-                style={{
-                  filter: 'drop-shadow(0 0 2px rgba(0,0,0,0.3))',
-                  transform: isZero ? 'scale(0.5)' : 'scale(1)',
-                  transformOrigin: `${to.x}px ${to.y}px`,
-                  transition: 'transform 0.2s ease-out, fill 0.2s ease-out',
-                }}
-              />
-            </g>
+            <line
+              key={ch}
+              x1={from.x} y1={from.y} x2={to.x} y2={to.y}
+              stroke={color} strokeWidth={3} strokeLinecap="round"
+            />
           );
         })}
-        {/* Origin dot (small, white) */}
+
+        {/* Origin first, so the channel handles sit above it - same order the
+            app's handle pass runs in, where index 0 is the origin. */}
         <circle cx={chainPoints[0].x} cy={chainPoints[0].y} r={3} fill="white" opacity={0.7} />
+
+        {channelMeta.map(({ ch, color }, i) => {
+          const to = chainPoints[i + 1];
+          if (!to) return null;
+          const isZero = rgb[ch] === 0;
+          return (
+            <circle
+              key={ch}
+              cx={to.x} cy={to.y} r={7}
+              fill={isZero ? 'transparent' : chainColors[i + 1]}
+              stroke={color} strokeWidth={2.5}
+              style={{
+                filter: 'drop-shadow(0 0 2px rgba(0,0,0,0.3))',
+                transform: isZero ? 'scale(0.5)' : 'scale(1)',
+                transformOrigin: `${to.x}px ${to.y}px`,
+                transition: 'transform 0.2s ease-out, fill 0.2s ease-out',
+              }}
+            />
+          );
+        })}
       </g>
 
       {/* Selected color dot (white ring) — visible when segments are hidden */}
