@@ -712,6 +712,7 @@ export default function PresentationStage({ slide, slideIndex, animPaused = fals
               satBar={false}
               wheelAdjusts={false}
               stemRange={[2, 4]}
+              swatchSections={false}
               muted
             />
           </div>

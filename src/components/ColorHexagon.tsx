@@ -409,6 +409,13 @@ interface ColorHexagonProps {
    */
   stemRange?: [number, number] | null;
   /**
+   * Recent and Saved. On by default; hosts that only want the picker itself -
+   * the intro deck, which shows the hexagon to make a point about geometry and
+   * has no use for a swatch library - turn them off rather than collapsing
+   * them, which still leaves two headers under the shape.
+   */
+  swatchSections?: boolean;
+  /**
    * The horizontal saturation bar under the hexagon, and the dashed line tying
    * it to the vector chain's tip. Off in `bare` hosts, which put saturation on
    * an ordinary slider in their own editor - see figma/ui/lite/no-saturation.
@@ -423,7 +430,7 @@ interface HoveredMarker {
   name: string;
 }
 
-export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, onHoverHtmlColor, muted, bare, headerLeft, belowStage, collapsedSections, sectionVariant = 'card', alpha = 100, onAlphaRestore, wheelAdjusts = true, blBar = true, stemRange = null, satBar = true }: ColorHexagonProps) {
+export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, onHoverHtmlColor, muted, bare, headerLeft, belowStage, collapsedSections, sectionVariant = 'card', alpha = 100, onAlphaRestore, wheelAdjusts = true, blBar = true, stemRange = null, satBar = true, swatchSections = true }: ColorHexagonProps) {
   const flushSections = sectionVariant === 'flush';
   // Horizontal extent of the SVG coordinate space. Without the bar the hexagon
   // is the whole picture, so the 50px reserved to its right goes away - and the
@@ -2110,6 +2117,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
 
       {belowStage && <div className="w-full">{belowStage}</div>}
 
+      {swatchSections && (<>
       {/* Recent Colors + Named Color Match */}
       <div className={flushSections ? 'w-full section-flush' : 'w-full mt-2'}>
         <CollapsibleSection
@@ -2398,6 +2406,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           </div>
         </CollapsibleSection>
       </div>
+      </>)}
       </div>
       </div>
 
