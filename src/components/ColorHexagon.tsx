@@ -854,6 +854,18 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   // viewBox, but the handles should stay the same physical size, so their radii
   // and strokes are multiplied by this.
   const [uiScale, setUiScale] = useState(1);
+  /*
+   * Zero-value stems and handles used to be hidden while this was true, so a
+   * channel at 0 popped out of existence for the length of a drag and back
+   * afterwards. It made the chain change shape under the cursor, and it was the
+   * only place a handle behaved differently for its value - which is what made
+   * a zero channel feel like a special case rather than a joint that happens to
+   * coincide with the one before it.
+   *
+   * Kept because the flag itself is still set and cleared; nothing reads it
+   * now, but it is the hook for a drag-time treatment if one is ever wanted.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above
   const [isHexDragging, setIsHexDragging] = useState(false);
   const [hoveredMarker, setHoveredMarker] = useState<HoveredMarker | null>(null);
 
@@ -1886,9 +1898,6 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           {points.slice(1).map((p, i) => {
             const prev = points[i];
             const ch = order[i];
-            const chValue = rgb[ch];
-            // Hide zero-value segments during hex surface drag
-            if (isHexDragging && chValue === 0 && ch !== 'r') return null;
             const baseColor = CHANNEL_COLOR[ch];
             const hoverColor = lift(baseColor);
             // uiScale is user-units-per-rendered-px, so a target thickness in
@@ -1934,8 +1943,6 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           {points.map((p, i) => {
             const isDraggable = i > 0;
             const ch = i > 0 ? order[i - 1] : null;
-            // Hide zero-value dots during hex surface drag (except origin and red)
-            if (isHexDragging && ch && ch !== 'r' && rgb[ch] === 0) return null;
             const isHighlighted = isDraggable && hoveredDot === i;
             const isOrigin = i === 0;
             // uiScale keeps the handles a constant size on screen while the
