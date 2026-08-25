@@ -499,15 +499,39 @@ export default function PresentationStage({ slide, slideIndex, animPaused = fals
   const HEX_STAGE_RATIO = HEX_STAGE_H / HEX_EXTENT;        // stage height / component width
   const CIRCLE_CHROME = 48;                                // HsbCircle's bar, gap and arrow
 
-  /** Largest disc that fits both layouts inside the slot. */
+  /*
+   * The disc column is wider than half the panel, and the swatch narrower.
+   *
+   * An even split cannot hold a disc this size: ColorHexagon reserves room
+   * either side of the hexagon for the hue badge, so a ring of D needs a
+   * component about 1.4D wide. Splitting evenly and taking the largest disc that
+   * fit meant the hexagon set the size and the wheel shrank to meet it - the
+   * wheel got smaller to match something too small, which is backwards. The
+   * column grows instead, and the swatch gives up the width.
+   *
+   * Only where there is room. With the equations panel on, the disc shares the
+   * right-hand side with the swatch and the split has to stay even.
+   */
+  const discW = showEquations ? halfW : Math.round((PANEL_W - 16) * 0.575);
+  const swatchW = showEquations ? halfW : PANEL_W - 16 - discW;
+
+  /** Largest disc the column can hold, in either shape. */
   const discSize = Math.floor(Math.min(
-    halfW * RING_RATIO,                            // hexagon plus its bar fits the width
-    halfW - CIRCLE_CHROME,                         // wheel plus its bar fits the width
-    circleSize,                                    // wheel fits the height
-    circleSize * (RING_RATIO / HEX_STAGE_RATIO),   // hexagon's stage fits the height
+    circleSize,                    // wheel fits the height
+    discW * RING_RATIO,            // hexagon plus its bar fits the width
+    discW - CIRCLE_CHROME,         // wheel plus its bar fits the width
   ));
 
   const hexSize = Math.round(discSize / RING_RATIO);
+  /*
+   * The hexagon's stage is taller than its ring - the badge sits above and
+   * below - so the column has to be taller than the disc for the hexagon and
+   * not for the wheel. Anchored at the bottom, so the extra goes into the empty
+   * space above rather than pushing into the sliders.
+   */
+  const discColH = isHexSlide
+    ? Math.round(discSize * (HEX_STAGE_RATIO / RING_RATIO))
+    : circleSize;
   /*
    * Both components put their disc off-centre in their own box - the wheel by
    * half its bar, the hexagon by however far CENTER_X sits from the middle of
@@ -552,9 +576,9 @@ export default function PresentationStage({ slide, slideIndex, animPaused = fals
       <div
         style={{
           position: 'absolute',
-          left: showEquations ? halfW + 16 : (showCircle ? 0 : 0),
+          left: showEquations ? halfW + 16 : 0,
           bottom: 0,
-          width: showCircle ? halfW : PANEL_W,
+          width: showCircle ? swatchW : PANEL_W,
           height: swatchH,
           backgroundColor: '#1F2C33',
           borderRadius: 16,
@@ -715,8 +739,8 @@ export default function PresentationStage({ slide, slideIndex, animPaused = fals
         position: 'absolute',
         right: 0,
         bottom: showEquations ? swatchH + 8 : 0,
-        width: showCircle ? halfW : 0,
-        height: circleSize,
+        width: showCircle ? discW : 0,
+        height: discColH,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -771,6 +795,7 @@ export default function PresentationStage({ slide, slideIndex, animPaused = fals
               swatchSections={false}
               blModeTabs={false}
               vertexLabels={false}
+              blMarkers={false}
               muted
             />
           </div>

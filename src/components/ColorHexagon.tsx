@@ -429,6 +429,12 @@ interface ColorHexagonProps {
    */
   vertexLabels?: boolean;
   /**
+   * The brightness bar's furniture - its axis title and the 100/50/0 targets.
+   * On by default. Off leaves the track, the arrow and the value pill, which is
+   * the plain slider the intro deck's wheel already had.
+   */
+  blMarkers?: boolean;
+  /**
    * The horizontal saturation bar under the hexagon, and the dashed line tying
    * it to the vector chain's tip. Off in `bare` hosts, which put saturation on
    * an ordinary slider in their own editor - see figma/ui/lite/no-saturation.
@@ -443,7 +449,7 @@ interface HoveredMarker {
   name: string;
 }
 
-export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, onHoverHtmlColor, muted, bare, headerLeft, belowStage, collapsedSections, sectionVariant = 'card', alpha = 100, onAlphaRestore, wheelAdjusts = true, blBar = true, stemRange = null, satBar = true, swatchSections = true, blModeTabs = true, vertexLabels = true }: ColorHexagonProps) {
+export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, onHoverHtmlColor, muted, bare, headerLeft, belowStage, collapsedSections, sectionVariant = 'card', alpha = 100, onAlphaRestore, wheelAdjusts = true, blBar = true, stemRange = null, satBar = true, swatchSections = true, blModeTabs = true, vertexLabels = true, blMarkers = true }: ColorHexagonProps) {
   const flushSections = sectionVariant === 'flush';
   // Horizontal extent of the SVG coordinate space. Without the bar the hexagon
   // is the whole picture, so the 50px reserved to its right goes away - and the
@@ -2091,7 +2097,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           );
         })()}
         {showHueLine && <HueHandle hue={hue} hueLabel={hueLabel} extent={EXTENT} svgHeight={svgHeight} onMouseDown={handleHueDragStart} />}
-        {blBar && <BrightnessMarkers blMode={blMode} svgHeight={svgHeight} onPick={animateBLToValue} />}
+        {blBar && blMarkers && <BrightnessMarkers blMode={blMode} svgHeight={svgHeight} onPick={animateBLToValue} />}
         {blBar && (
           <BrightnessHandle
             hue={hue}
