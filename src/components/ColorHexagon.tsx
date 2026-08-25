@@ -442,6 +442,17 @@ interface ColorHexagonProps {
    */
   hueIndicator?: boolean;
   /**
+   * How much of the RGB chain to draw: 1 all of it, 0 only the handle at the
+   * end. Between them the stems, the joints and the origin fade.
+   *
+   * The handle never fades, because it is the selected color and every picker
+   * shows that. What fades is the *explanation* - the three segments saying
+   * which channel contributed what. A wheel cannot support that claim, having
+   * no geometry that corresponds to the channels, so the intro's wheel shows
+   * the handle alone and lets the stems arrive with the hexagon that earns them.
+   */
+  chainReveal?: number;
+  /**
    * The shape of the field: 1 the hexagon, 0 the circle it is inscribed in,
    * between them the morph. Animate it to turn one into the other.
    *
@@ -468,7 +479,7 @@ interface HoveredMarker {
   name: string;
 }
 
-export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, onHoverHtmlColor, muted, bare, headerLeft, belowStage, collapsedSections, sectionVariant = 'card', alpha = 100, onAlphaRestore, wheelAdjusts = true, blBar = true, stemRange = null, satBar = true, swatchSections = true, blModeTabs = true, vertexLabels = true, blMarkers = true, hueIndicator = true, shapeMix = 1 }: ColorHexagonProps) {
+export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, onHoverHtmlColor, muted, bare, headerLeft, belowStage, collapsedSections, sectionVariant = 'card', alpha = 100, onAlphaRestore, wheelAdjusts = true, blBar = true, stemRange = null, satBar = true, swatchSections = true, blModeTabs = true, vertexLabels = true, blMarkers = true, hueIndicator = true, shapeMix = 1, chainReveal = 1 }: ColorHexagonProps) {
   const flushSections = sectionVariant === 'flush';
   // Horizontal extent of the SVG coordinate space. Without the bar the hexagon
   // is the whole picture, so the 50px reserved to its right goes away - and the
@@ -1961,7 +1972,10 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             const isHighlighted = hoveredLeg === i;
             const dotIndex = i + 1;
             return (
-              <g key={i}>
+              // Faded stems are not draggable. An invisible hit target is worse
+              // than no target, and the intro's wheel would otherwise carry
+              // three of them across a field that shows no lines at all.
+              <g key={i} opacity={chainReveal} style={{ pointerEvents: chainReveal < 1 ? 'none' : undefined }}>
                 {/* Invisible wider hit area for easier clicking */}
                 <line
                   x1={prev.x} y1={prev.y} x2={p.x} y2={p.y}
@@ -1996,6 +2010,10 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             const ch = i > 0 ? order[i - 1] : null;
             const isHighlighted = isDraggable && hoveredDot === i;
             const isOrigin = i === 0;
+            // The handle at the end is the selected color, so it stays whatever
+            // the chain is doing. Everything before it is the explanation.
+            const isTip = i === points.length - 1;
+            const dotOpacity = isTip ? 1 : chainReveal;
             // uiScale keeps the handles a constant size on screen while the
             // hexagon and its legs scale with the viewBox.
             const k = uiScale;
@@ -2006,7 +2024,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
               return (
                 <circle
                   key={i} id={`rgb-dot-${dotNames[i]}`} cx={p.x} cy={p.y}
-                  r={3 * k} fill="#ff0000"
+                  r={3 * k} fill="#ff0000" opacity={dotOpacity}
                 />
               );
             }
@@ -2034,12 +2052,16 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             return (
               <g
                 key={i}
+                opacity={dotOpacity}
                 className={isDraggable ? 'cursor-pointer touch-none' : ''}
                 // Through pxUnits like every other stroke here: a CSS filter on
                 // an SVG element measures in user space, so the shadow scaled
                 // with the panel - about 1.3px of blur when narrow and 3.8px
                 // when wide, against the slider handles flat 2.5px.
-                style={{ filter: `drop-shadow(0 ${pxUnits(HANDLE.shadowY)}px ${pxUnits(HANDLE.shadowBlur)}px ${HANDLE.shadowColor})` }}
+                style={{
+                  filter: `drop-shadow(0 ${pxUnits(HANDLE.shadowY)}px ${pxUnits(HANDLE.shadowBlur)}px ${HANDLE.shadowColor})`,
+                  pointerEvents: dotOpacity < 1 ? 'none' : undefined,
+                }}
                 {...handlers}
               >
                 <circle

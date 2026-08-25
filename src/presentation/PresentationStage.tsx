@@ -826,6 +826,16 @@ export default function PresentationStage({ slide, slideIndex, animPaused = fals
             blMarkers={false}
             hueIndicator={false}
             shapeMix={shapeMix}
+            /*
+             * The chain rides the morph rather than having its own timing.
+             *
+             * They are the same claim. The wheel shows where your color is and
+             * cannot say why, having no geometry that maps to the channels; the
+             * hexagon does, and the three segments are what that buys. So the
+             * stems arrive exactly as the shape that explains them does, and the
+             * handle - the selected color - is the one thing that never leaves.
+             */
+            chainReveal={shapeMix}
             muted
           />
         </div>

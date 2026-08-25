@@ -30,6 +30,22 @@ async function radiusSpread(page: Page): Promise<number> {
   });
 }
 
+/** Opacity of the group holding an RGB stem. 0 on the wheel, 1 on the hexagon. */
+async function chainOpacity(page: Page): Promise<number> {
+  return page.evaluate(() => {
+    const stem = document.querySelector('#hex-svg line[stroke^="#"]')?.closest('g');
+    return stem ? Number(stem.getAttribute('opacity') ?? '1') : NaN;
+  });
+}
+
+/** Opacity of the handle at the end of the chain - the selected colour. */
+async function tipOpacity(page: Page): Promise<number> {
+  return page.evaluate(() => {
+    const g = document.querySelector('#rgb-dot-blue')?.closest('g');
+    return g ? Number(g.getAttribute('opacity') ?? '1') : NaN;
+  });
+}
+
 async function openAt(page: Page, hash: string) {
   await page.goto(`/${hash}`);
   await outline(page).waitFor({ timeout: 15000 });
@@ -61,6 +77,38 @@ test.describe('Wheel to hexagon morph', () => {
     expect(mid.length, `spread samples: ${seen.map((v) => v.toFixed(3)).join(' ')}`).toBeGreaterThan(0);
 
     await expect.poll(() => radiusSpread(page), { timeout: 5000 }).toBeCloseTo(2 / Math.sqrt(3), 2);
+  });
+
+  test('the wheel shows the handle alone, the hexagon the whole chain', async ({ page }) => {
+    // The wheel has no geometry that corresponds to the RGB channels, so the
+    // stems would be an explanation it cannot support. The handle is the
+    // selected colour and every picker shows that, so it never leaves.
+    await openAt(page, '#/intro/11');
+    await page.waitForTimeout(900);
+    await expect(page.locator('#rgb-dot-blue')).toBeVisible();
+    expect(await chainOpacity(page), 'the wheel draws no stems').toBeLessThan(0.02);
+
+    await openAt(page, '#/intro/12');
+    await page.waitForTimeout(900);
+    await expect.poll(() => chainOpacity(page), { timeout: 5000 }).toBeGreaterThan(0.98);
+  });
+
+  test('the stems fade in with the shape, and the handle never fades', async ({ page }) => {
+    await openAt(page, '#/intro/11');
+    await page.waitForTimeout(900);
+    await page.keyboard.press('ArrowRight');
+
+    const chain: number[] = [];
+    const tip: number[] = [];
+    for (let i = 0; i < 14; i++) {
+      chain.push(await chainOpacity(page));
+      tip.push(await tipOpacity(page));
+      await page.waitForTimeout(50);
+    }
+    expect(chain.filter((v) => v > 0.05 && v < 0.95).length, `chain: ${chain.join(' ')}`).toBeGreaterThan(0);
+    // The selected colour is not part of the argument the stems are making, so
+    // it has nothing to fade in from.
+    expect(Math.min(...tip), `tip: ${tip.join(' ')}`).toBeGreaterThan(0.99);
   });
 
   test('one picker draws both shapes', async ({ page }) => {
