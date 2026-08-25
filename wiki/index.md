@@ -9,12 +9,16 @@ Top-level Map of Content. See `CLAUDE.md` in this folder for conventions.
 - [[architecture]] — how the three surfaces share one picker
 - [[decisions]] — every decision note, and what hasn't been written up
 - [[figma-plugin]] — the plugin: status, decisions, platform knowledge
+- [[presentation]] — the intro deck: the argument, the script, the narration plan
 
 ## Active
 
 - [[plan-figma-plugin-release]] — **done: the plugin is approved and live** (2026-08-18). Hands on three follow-ups: deploy the app, widen `editorType` to FigJam/Slides, capture the carousel screenshots.
 - [[test-plan-2026-08-04-figma-plugin]] — the first deliberate real-Figma pass, 8 sections, still outstanding
 - [[plan-teaching-rgb-to-hsb]] — how to teach the tool and the subject; proposed intro-deck script changes, not yet applied
+- [[plan-narrated-intro]] — recording the intro as narration, for the app and for a video; #77, #78
+- [[plan-intro-two-paths]] — forking the intro, and dressing the history path in period hardware; #79, #80
+- [[decision-intro-renders-the-real-picker]] — the deck stems from the app; #81
 
 ## Concepts
 
@@ -30,6 +34,7 @@ Top-level Map of Content. See `CLAUDE.md` in this folder for conventions.
 
 `wiki/daily/YYYY-MM-DD.md`. Dailies before 2026-08-01 were reconstructed from git history on 2026-08-03 and are marked as such.
 
+- [[2026-08-25]] — a linkable `/intro`, the route renamed, and the narration plan
 - [[2026-08-24]] — the colour model session: strict TS, radius is chroma, and the HSL edge cases
 - [[2026-08-19]] — shipped; the coordinate-space and zoom bugs behind west-edge resize; what Figma owns
 - [[2026-08-18]] — plugin approved, logo and favicons, settings sheet, the banner

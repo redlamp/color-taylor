@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { slides, type Slide } from './slides';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { Play, Pause } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
 import PresentationStage from './PresentationStage';
 
@@ -31,8 +32,34 @@ function useAnimatedNumber(target: number, duration = 800) {
   return display;
 }
 
+/**
+ * Which slide a hash names, or null if it names none.
+ *
+ * Accepts an index - `#/intro/11`, which is what the deck writes - and also a
+ * slide id, `#/intro/12-hexagon`. The id form costs three lines and means links
+ * shared today keep working if the route moves to ids, which is what #79
+ * proposes and what the ids are already shaped for: they are stable and already
+ * gapped, so they were never positions.
+ *
+ * Out-of-range indices clamp rather than 404. Someone hand-editing a URL to a
+ * slide that no longer exists should land at the end of the deck, not on a
+ * blank screen.
+ */
+function slideFromHash(hash: string): number | null {
+  const seg = hash.replace(/^#\/intro\/?/, '').split('/')[0];
+  if (!seg) return null;
+  if (/^\d+$/.test(seg)) {
+    return Math.max(0, Math.min(slides.length - 1, Number(seg)));
+  }
+  const byId = slides.findIndex((s) => s.id === seg);
+  return byId === -1 ? null : byId;
+}
+
 export default function PresentationShell({ navigate }: { navigate: (hash: string) => void }) {
-  const [currentSlide, setCurrentSlide] = useState(0);
+  // Seeded from the URL, not from 0. The deck has always *written* the slide
+  // into the hash and never read it back, so every shared link silently rewound
+  // to the first slide - which matters now /intro is a link people are given.
+  const [currentSlide, setCurrentSlide] = useState(() => slideFromHash(window.location.hash) ?? 0);
   const slide = slides[currentSlide];
   const total = slides.length;
 
@@ -61,13 +88,27 @@ export default function PresentationShell({ navigate }: { navigate: (hash: strin
     return () => window.removeEventListener('keydown', onKey);
   }, [next, prev, navigate]);
 
-  // Sync hash with slide index
+  // Sync hash with slide index. replaceState rather than assignment, so the
+  // deck does not fill the back stack with one entry per slide - and, usefully
+  // here, so this does not fire the hashchange listener below.
   useEffect(() => {
     const hash = `#/intro/${currentSlide}`;
     if (window.location.hash !== hash) {
       window.history.replaceState(null, '', hash);
     }
   }, [currentSlide]);
+
+  // The other direction: someone pasting a new hash, or using back/forward.
+  // Only fires for changes this component did not make, since replaceState is
+  // silent.
+  useEffect(() => {
+    const onHashChange = () => {
+      const idx = slideFromHash(window.location.hash);
+      if (idx !== null) setCurrentSlide(idx);
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
 
   // ── Last slide: fade background + chrome, then transition to app ──
   const isLastSlide = currentSlide === total - 1;
@@ -101,6 +142,18 @@ export default function PresentationShell({ navigate }: { navigate: (hash: strin
     return () => clearTimeout(tid);
   }, [chromeFading, navigate]);
 
+  /**
+   * Whether the colour cycle is paused, as an intent rather than a state.
+   *
+   * Held here rather than in PresentationStage, where the animation itself
+   * lives, because the Stage derives `rgbAnimActive` from the slide on every
+   * slide change - a pause stored down there would be undone by simply
+   * advancing. Someone who paused the cycle wants it to stay paused until they
+   * say otherwise, across slides.
+   */
+  const [animPaused, setAnimPaused] = useState(false);
+  const hasColorCycle = Boolean(slide.props?.showRgbAnimate);
+
   // Top bar and nav fade immediately on last slide, caption fades with chromeFading
   const topBarOpacity = isLastSlide ? 0 : 1;
   const captionOpacity = chromeFading ? 0 : 1;
@@ -122,12 +175,33 @@ export default function PresentationShell({ navigate }: { navigate: (hash: strin
         <span className="text-xs text-muted-foreground tabular-nums">
           {currentSlide + 1} / {total}
         </span>
-        <button
-          className="text-xs text-muted-foreground hover:text-foreground cursor-pointer"
-          onClick={() => navigate('#/')}
-        >
-          Exit
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Only on the slides that actually cycle. A dead control on the
+              others would be worse than no control - see the app's own play
+              button, which this mirrors down to the label and the tooltip. */}
+          {hasColorCycle && (
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <button
+                    className="ctl-quiet-icon"
+                    onClick={() => setAnimPaused((p) => !p)}
+                    aria-label={animPaused ? 'Play color animation' : 'Pause color animation'}
+                  >
+                    {animPaused ? <Play className="size-4" /> : <Pause className="size-4" />}
+                  </button>
+                }
+              />
+              <TooltipContent>Cycle Colors</TooltipContent>
+            </Tooltip>
+          )}
+          <button
+            className="text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+            onClick={() => navigate('#/')}
+          >
+            Exit
+          </button>
+        </div>
       </div>
 
       {/* Slide title — absolute so it doesn't shift the display area */}
@@ -137,7 +211,7 @@ export default function PresentationShell({ navigate }: { navigate: (hash: strin
 
       {/* Main content — fills space below top bar, centered */}
       <div className={`flex-1 flex items-center justify-center px-6 relative ${isLastSlide ? 'overflow-hidden' : 'overflow-auto'}`}>
-        <PresentationStage slide={slide} slideIndex={currentSlide} />
+        <PresentationStage slide={slide} slideIndex={currentSlide} animPaused={animPaused} />
       </div>
 
       {/* Caption — absolute overlay, doesn't affect content centering */}

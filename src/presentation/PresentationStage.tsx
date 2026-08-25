@@ -33,7 +33,7 @@ const RED_KEYFRAMES = [
   { r: 255, g: 0,   b: 0   },
 ];
 
-export default function PresentationStage({ slide, slideIndex }: { slide: Slide; slideIndex: number }) {
+export default function PresentationStage({ slide, slideIndex, animPaused = false }: { slide: Slide; slideIndex: number; animPaused?: boolean }) {
   // ── Color state (persists across all slides) ──────────────────────
   const [hsb, setHsb] = useState<HSB>({ h: 0, s: 100, b: 100 });
   const hsbRef = useRef(hsb);
@@ -199,11 +199,13 @@ export default function PresentationStage({ slide, slideIndex }: { slide: Slide;
   }, [slideIndex, slide.props?.showRgbAnimate]);
 
   useEffect(() => {
-    if (!rgbAnimActive) {
+    if (!rgbAnimActive || animPaused) {
       if (rgbAnimRaf.current) cancelAnimationFrame(rgbAnimRaf.current);
       rgbAnimRaf.current = null;
       // Next activation should pick up from whatever colour is on screen then,
-      // so the cycle has to be re-established rather than resumed.
+      // so the cycle has to be re-established rather than resumed. That is also
+      // what makes the pause button read correctly: resuming continues from the
+      // colour you paused on instead of snapping back into the old phase.
       cycleStart.current = null;
       return;
     }
@@ -332,7 +334,7 @@ export default function PresentationStage({ slide, slideIndex }: { slide: Slide;
     return () => {
       if (rgbAnimRaf.current) cancelAnimationFrame(rgbAnimRaf.current);
     };
-  }, [rgbAnimActive, slideIndex, slide.props?.lockedChannels]);
+  }, [rgbAnimActive, animPaused, slideIndex, slide.props?.lockedChannels]);
 
   // ── Derived values (must be above early returns to keep hook order stable) ──
   const enterColor = useMemo(() => {
