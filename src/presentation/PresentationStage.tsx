@@ -471,6 +471,19 @@ export default function PresentationStage({ slide, slideIndex, animPaused = fals
   const halfW = (PANEL_W - 16) / 2;
   const swatchH = showEquations ? 64 : PANEL_H;
   const circleSize = showEquations ? PANEL_H - swatchH - 8 : PANEL_H - 24;
+  /*
+   * The hexagon is width-driven and squarer than the circle it replaced, so
+   * sizing it by circleSize alone left it small in a slot it could fill.
+   *
+   * ColorHexagon renders a 520-wide viewBox cropped to 460 tall when its bars
+   * are off, so height = width * 460/520. Take the largest width that still
+   * fits the slot's height, capped at the slot's width - which is what makes it
+   * read at the same weight as the swatch opposite rather than floating in the
+   * middle of its half.
+   */
+  const isHexSlide = slide.props?.hsbCircleShape === 'hexagon';
+  const HEX_ASPECT = 520 / 460;
+  const hexSize = Math.min(halfW, Math.round(circleSize * HEX_ASPECT));
 
   return (
     <div className="flex flex-col items-center" style={{ width: PANEL_W }}>
@@ -676,7 +689,19 @@ export default function PresentationStage({ slide, slideIndex, animPaused = fals
         alignItems: 'center',
         justifyContent: 'center',
         opacity: circleIn ? 1 : 0,
-        overflow: 'hidden',
+        /*
+         * The clip is here for the width transition, which animates from 0 -
+         * but ColorHexagon's hue badge legitimately sits above the stage near
+         * 90 degrees, and `overflow: hidden` took 7px off the top of it every
+         * time the cycle passed through green.
+         *
+         * clip-path does what overflow cannot: clip one axis. Flush at the left
+         * and right so the reveal still wipes, open top and bottom so the badge
+         * has its overhang. The circle slides keep plain overflow, having
+         * nothing that overhangs.
+         */
+        overflow: isHexSlide ? 'visible' : 'hidden',
+        clipPath: isHexSlide ? 'inset(-48px 0px)' : undefined,
         transition: 'width 0.5s ease-out, opacity 0.4s ease-out 0.1s',
       }}>
         {/*
@@ -690,7 +715,7 @@ export default function PresentationStage({ slide, slideIndex, animPaused = fals
           else. wheelAdjusts is off because the deck scrolls.
         */}
         {slide.props?.hsbCircleShape === 'hexagon' ? (
-          <div style={{ width: circleSize }}>
+          <div style={{ width: hexSize }}>
             <ColorHexagon
               rgb={rgb}
               hue={hsb.h}
