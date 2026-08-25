@@ -80,28 +80,42 @@ put in the picker bundle.
   choice; Opus is smaller but its container support has historically been the
   thing that breaks on one browser.
 
-## Captions are not optional
+## Talk first, write second
 
-Narration with no transcript is a step backwards for anyone who cannot hear it,
-and this is a teaching tool. The script exists as text before it exists as audio,
-so shipping it costs almost nothing if it is done in the right order:
+**Reversing what the first draft of this note said.** It had script, then
+record, then ship the script as captions - on the reasoning that writing it last
+means writing it twice. That reasoning assumed writing was the cheap part. It is
+not here: Taylor's own account is that writing is a struggle and talking is the
+strength, with a conversational style that is worth *keeping* rather than
+flattening into read-aloud prose.
 
-1. Script per slide, in text.
-2. Record from the script.
-3. Ship the script as WebVTT next to the audio.
+So the order inverts:
 
-The same text is the YouTube description and the video's captions. Writing it
-last means writing it twice.
+1. **Beats, not sentences.** [[plan-teaching-rgb-to-hsb]]'s ladder is already the
+   right shape - six rungs, each visible in the tool. Turn each slide into a
+   handful of things to hit, not lines to deliver.
+2. **Talk it through against the running deck**, in one pass, improvising.
+3. **Transcribe**, then tidy the transcript.
+4. **Ship the tidy transcript as WebVTT**, and reuse it as the video description.
 
-## Recording notes
+Captions still are not optional - narration with no transcript is a step
+backwards for anyone who cannot hear it, and this is a teaching tool. What
+changes is that transcription is now the cheap step and the script is a
+by-product of recording rather than a prerequisite for it.
 
-- One sitting, one take per slide, retake freely. Consistency of tone beats any
-  individual take.
-- Trim leading and trailing silence hard. Dead air on slide entry reads as broken
-  playback, not as a pause.
-- Normalise to about -16 LUFS, which is the speech norm and close enough to what
-  YouTube targets.
-- Name files by slide id, so the mapping needs no table.
+A read script would also cost the thing that makes this worth recording. The
+delivery is the point; a stiff take of better sentences is worse than a warm
+take of good enough ones.
+
+## Record continuously, split afterwards
+
+This resolves the obvious tension with per-slide clips. Improvising wants one
+continuous take; non-linear navigation wants per-slide files.
+
+Do both: talk through the whole deck in one pass, advancing as you go, then cut
+the recording at the slide boundaries. Flow and level stay consistent because it
+*was* one take, and the output is still one file per slide id. Retakes stay
+cheap - re-record a slide, cut it in, and nothing else moves.
 
 ## The video cut
 
@@ -112,6 +126,15 @@ implementation to keep in step.
 Check the stage's aspect before recording; the deck panel is 726x320, very wide
 and short, and a 16:9 capture will letterbox it unless the surrounding layout
 fills the frame.
+
+## The fork changes this
+
+[[plan-intro-two-paths]] adds a choice after the opening - the history path or
+straight to the colour models. Narration has to know which path it is on: the
+fork slide needs its own clip, and the rejoin at `06-spectrum` must not
+reference history the short path never heard. Worth settling the fork before
+recording, since a rejoin line is the kind of thing that is invisible until
+someone takes the other road.
 
 ## Open questions
 

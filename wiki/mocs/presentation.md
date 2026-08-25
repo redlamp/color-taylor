@@ -18,14 +18,22 @@ silent alias.
 - [[plan-teaching-rgb-to-hsb]] - the ladder, the proposed slide rewrites and the
   video running order. The source script; do not write a second one.
 
+## Structure
+
+- [[plan-intro-two-paths]] - a fork after the opening: the Macintosh history, or
+  straight to the colour models. Plus a period frame for the history path.
+  Issues #79 (fork) and #80 (frame).
+
 ## Delivery
 
 - [[plan-narrated-intro]] - recording Taylor giving it, and playing that back
-  alongside the deck. Issues #77 (playback) and #78 (script and recording).
+  alongside the deck. Issues #77 (playback) and #78 (recording).
+  Recorded first and transcribed, not scripted first and read.
 
 ## Open
 
 - #52 - polish, and flipping the button on. Narrowed since the route stopped
   being gated.
 - Deep links do not resume: `#/intro/7` opens on slide 1, because
-  `PresentationShell` writes the slide to the hash but never reads it.
+  `PresentationShell` writes the slide to the hash but never reads it. #79 fixes
+  this on the way past, by keying the route to the slide id instead.
