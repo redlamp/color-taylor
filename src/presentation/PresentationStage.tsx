@@ -9,7 +9,11 @@ import { PANEL_W, PANEL_H } from './panelConstants';
 import AnimatedGrid from './slides/AnimatedGrid';
 import ColorSlider from '../components/ColorSlider';
 import EquationsPanel from '../components/EquationsPanel';
-import HsbCircle from './HsbCircle';
+import ColorHexagon from '../components/ColorHexagon';
+import { RADIUS as HEX_RADIUS, CENTER_X as HEX_CENTER_X, DISPLAY_HEIGHT as HEX_STAGE_H } from '../components/hex/hexConstants';
+import DiscBrightnessBar, { BAR_CHROME } from './DiscBrightnessBar';
+import { writeHslChannel } from '../utils/hslWrite';
+import { HSB_TWEEN_MS, hsbAtProgress, easeInOutQuad } from '../utils/colorTween';
 import ColorPicker from '../components/ColorPicker';
 
 /** The panel shapes a slide can ask for. Named so the exit-mode ref can hold
@@ -28,6 +32,10 @@ const FULL_KEYFRAMES = [
   { r: 255, g: 0,   b: 255 },
   { r: 255, g: 255, b: 255 },
 ];
+/** Wheel to hexagon. Slower than the slide change, so the shape is still
+ *  moving once the reader's eye has arrived. */
+const SHAPE_MORPH_MS = 700;
+
 const RED_KEYFRAMES = [
   { r: 0,   g: 0,   b: 0   },
   { r: 255, g: 0,   b: 0   },
@@ -73,6 +81,46 @@ export default function PresentationStage({ slide, slideIndex, animPaused = fals
       const next = { ...cur, [channel]: value };
       rgbOverride.current = next;
       return rgbToHsb(next.r, next.g, next.b);
+    });
+  }, [signalUserInteraction]);
+
+  /**
+   * The handlers ColorHexagon expects, on top of the ones the deck already had.
+   *
+   * onAnimateToHsb is not optional in practice: handleColorLabelClick and the
+   * bar markers early-return without it, so the vertex letters would be dead
+   * controls. Same rAF tween the app and the plugin use, from utils/colorTween,
+   * so the deck's letters feel like the app's rather than snapping.
+   */
+  const hexAnimRaf = useRef<number | null>(null);
+  const onAnimateToHsb = useCallback((target: Partial<HSB>) => {
+    signalUserInteraction();
+    if (hexAnimRaf.current) cancelAnimationFrame(hexAnimRaf.current);
+    const from = { ...hsbRef.current };
+    const to = { ...from, ...target };
+    let start: number | null = null;
+    const tick = (ts: number) => {
+      if (start === null) start = ts;
+      const progress = Math.min((ts - start) / HSB_TWEEN_MS, 1);
+      rgbOverride.current = null;
+      setHsb(hsbAtProgress(from, to, progress));
+      if (progress < 1) hexAnimRaf.current = requestAnimationFrame(tick);
+      else hexAnimRaf.current = null;
+    };
+    hexAnimRaf.current = requestAnimationFrame(tick);
+  }, [signalUserInteraction]);
+  useEffect(() => () => { if (hexAnimRaf.current) cancelAnimationFrame(hexAnimRaf.current); }, []);
+
+  const onHslChange = useCallback((channel: 'h' | 's' | 'l', value: number) => {
+    signalUserInteraction();
+    setHsb((prev) => {
+      const currentRgb = rgbOverride.current || hsbToRgb(prev.h, prev.s, prev.b);
+      const cur = rgbToHsl(currentRgb.r, currentRgb.g, currentRgb.b);
+      const { rgb: nextRgb, hsb: nextHsb } = writeHslChannel(channel, value, {
+        h: prev.h, s: cur.s, l: cur.l,
+      });
+      rgbOverride.current = nextRgb;
+      return nextHsb;
     });
   }, [signalUserInteraction]);
 
@@ -396,6 +444,45 @@ export default function PresentationStage({ slide, slideIndex, animPaused = fals
 
   const showCircle = has('hsb-circle');
 
+  const isHexSlide = slide.props?.hsbCircleShape === 'hexagon';
+
+  /*
+   * The wheel and the hexagon are one picker, and this tweens between them.
+   *
+   * The deck's argument here is that the wheel every tool shows is a guess at a
+   * shape the cube actually has. Cutting between two pictures states that;
+   * turning one into the other shows it, which is the whole reason the pair of
+   * slides exists. ColorHexagon interpolates its own edge distance, so the
+   * field, the outline, the brightness cross-section, the pointer mapping and
+   * the handle fills all travel together and the picker stays coherent at every
+   * frame rather than only at the ends.
+   *
+   * Stepped on rAF rather than tweened in CSS because the target is a number a
+   * component reads, not a style, and the shader redraws each frame regardless.
+   * Above the early returns with the other hooks - rules-of-hooks.
+   */
+  const [shapeMix, setShapeMix] = useState(isHexSlide ? 1 : 0);
+  const shapeMixRef = useRef(shapeMix);
+  shapeMixRef.current = shapeMix;
+  const shapeRaf = useRef<number | null>(null);
+  useEffect(() => {
+    const target = isHexSlide ? 1 : 0;
+    // Read through the ref, not a setState updater: an interrupted morph has to
+    // resume from wherever it actually got to, and StrictMode runs updaters twice.
+    const from = shapeMixRef.current;
+    if (from === target) return;
+    if (shapeRaf.current) cancelAnimationFrame(shapeRaf.current);
+    let start: number | null = null;
+    const tick = (ts: number) => {
+      if (start === null) start = ts;
+      const t = Math.min((ts - start) / SHAPE_MORPH_MS, 1);
+      setShapeMix(from + (target - from) * easeInOutQuad(t));
+      shapeRaf.current = t < 1 ? requestAnimationFrame(tick) : null;
+    };
+    shapeRaf.current = requestAnimationFrame(tick);
+    return () => { if (shapeRaf.current) cancelAnimationFrame(shapeRaf.current); };
+  }, [isHexSlide]);
+
   // Must be declared above ALL early returns — rules-of-hooks
   const appRef = useRef<HTMLDivElement | null>(null);
 
@@ -427,7 +514,54 @@ export default function PresentationStage({ slide, slideIndex, animPaused = fals
   const showEquations = has('equations');
   const halfW = (PANEL_W - 16) / 2;
   const swatchH = showEquations ? 64 : PANEL_H;
-  const circleSize = showEquations ? PANEL_H - swatchH - 8 : PANEL_H - 24;
+  /*
+   * One disc, two shapes.
+   *
+   * The wheel and the hexagon are the same object at different slides, so their
+   * discs have to be the same size and land on the same centre - otherwise
+   * moving between them reads as two unrelated diagrams rather than one being
+   * corrected into the other. Both carry a brightness bar for the same reason.
+   *
+   * Derived from the app's own constants rather than numbers copied here, so
+   * the deck cannot drift from the component it renders.
+   */
+  /*
+   * Both shapes are just shapes, and share one brightness bar beside them.
+   *
+   * Each used to bring its own - the circle drew one, ColorHexagon has one built
+   * in - which made them different controls at different sizes on consecutive
+   * slides. ColorHexagon's also sits inside its own box, so it ate the width the
+   * hexagon needed and left the ring smaller than the wheel it is meant to be
+   * corrected into. With no bar in either, the disc is simply the column less
+   * the shared bar, and the ring matches the wheel by construction.
+   */
+  const HEX_NO_BAR_EXTENT = HEX_CENTER_X * 2;                  // ColorHexagon's width with blBar off
+  const RING_RATIO = (2 * HEX_RADIUS) / HEX_NO_BAR_EXTENT;     // ring / component width
+  const HEX_STAGE_RATIO = HEX_STAGE_H / HEX_NO_BAR_EXTENT;     // stage height / component width
+
+  const discW = halfW;
+  const swatchW = halfW;
+
+  /** The disc is the column, less the bar the two shapes share. */
+  const discSize = Math.floor(Math.min(PANEL_H, halfW - BAR_CHROME));
+
+  /*
+   * Wider than the disc on purpose: ColorHexagon still reserves room either side
+   * for the hue badge, which the deck turns off, so that padding is empty and
+   * cropped by the clip-path. flexShrink: 0 or the flex row shrinks it back and
+   * the ring never grows.
+   */
+  const hexSize = Math.round(discSize / RING_RATIO);
+  /*
+   * The same height for both shapes, not each shape's own.
+   *
+   * The column is bottom-anchored, so a taller column reaches higher and its
+   * centre sits higher with it - which put the hexagon's centre fifteen pixels
+   * above the wheel's on the slide before, for no reason a reader could see.
+   * The hexagon's stage is the taller of the two, so both take that.
+   */
+  const discColH = Math.round(discSize * (HEX_STAGE_RATIO / RING_RATIO));
+
 
   return (
     <div className="flex flex-col items-center" style={{ width: PANEL_W }}>
@@ -464,9 +598,9 @@ export default function PresentationStage({ slide, slideIndex, animPaused = fals
       <div
         style={{
           position: 'absolute',
-          left: showEquations ? halfW + 16 : (showCircle ? 0 : 0),
+          left: showEquations ? halfW + 16 : 0,
           bottom: 0,
-          width: showCircle ? halfW : PANEL_W,
+          width: showCircle ? swatchW : PANEL_W,
           height: swatchH,
           backgroundColor: '#1F2C33',
           borderRadius: 16,
@@ -627,23 +761,105 @@ export default function PresentationStage({ slide, slideIndex, animPaused = fals
         position: 'absolute',
         right: 0,
         bottom: showEquations ? swatchH + 8 : 0,
-        width: showCircle ? halfW : 0,
-        height: circleSize,
+        width: showCircle ? discW : 0,
+        height: discColH,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         opacity: circleIn ? 1 : 0,
-        overflow: 'hidden',
+        /*
+         * The clip is here for the width transition, which animates from 0 -
+         * but the picker's overhangs are legitimate, and `overflow: hidden`
+         * took 7px off the top of the hue badge every time the cycle passed
+         * through green.
+         *
+         * clip-path does what overflow cannot: clip one axis. Flush at the left
+         * and right so the reveal still wipes, open top and bottom so the
+         * overhang survives. Not conditional on the shape: it is one component
+         * on both slides, and mid-morph it is neither.
+         */
+        overflow: 'visible',
+        clipPath: 'inset(-48px -56px)',
         transition: 'width 0.5s ease-out, opacity 0.4s ease-out 0.1s',
       }}>
-        <HsbCircle
-          size={circleSize}
+        {/*
+          Both shape slides render the app's own picker, not a lookalike - see
+          decision-intro-renders-the-real-picker. The circle used to be a second
+          renderer because it was the one thing ColorHexagon could not be; now
+          the component interpolates its own edge, so there is one picker here
+          and the wheel-to-hexagon correction is a morph rather than a cut.
+
+          Mounted the way the Figma plugin mounts it: bare, with its own bars
+          off, so what shows is the field, the stems and the handles and nothing
+          else. wheelAdjusts is off because the deck scrolls.
+        */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+        <div style={{
+          width: discSize, height: discColH, flexShrink: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+        <div style={{ width: hexSize, flexShrink: 0 }}>
+          <ColorHexagon
+            rgb={rgb}
+            hue={hsb.h}
+            brightness={hsb.b}
+            saturation={hsb.s}
+            hsl={hsl}
+            onHueChange={(h) => setHsbClear(p => ({ ...p, h }))}
+            onRgbChange={handleRgbChange}
+            onHsbChange={(next) => setHsbClear(p => ({ ...p, ...next }))}
+            onHslChange={onHslChange}
+            onAnimateToHsb={onAnimateToHsb}
+            blMode="brightness"
+            onBlModeChange={() => {}}
+            colorSpace="srgb"
+            bare
+            collapsedSections
+            sectionVariant="flush"
+            blBar={false}
+            satBar={false}
+            wheelAdjusts={false}
+            stemRange={[2, 4]}
+            swatchSections={false}
+            blModeTabs={false}
+            vertexLabels={false}
+            blMarkers={false}
+            hueIndicator={false}
+            shapeMix={shapeMix}
+            /*
+             * The chain rides the morph rather than having its own timing.
+             *
+             * They are the same claim. The wheel shows where your color is and
+             * cannot say why, having no geometry that maps to the channels; the
+             * hexagon does, and the three segments are what that buys. So the
+             * stems arrive exactly as the shape that explains them does, and the
+             * handle - the selected color - is the one thing that never leaves.
+             */
+            chainReveal={shapeMix}
+            muted
+          />
+        </div>
+        </div>
+        {/*
+          Above the shape, not beside it.
+
+          The hexagon's wrapper is deliberately wider than its column - the
+          component still reserves room either side for a hue badge the deck
+          turns off - and that empty padding is a transparent SVG that lands on
+          top of the bar. The bar was not merely hard to hit, it was dead across
+          its whole width. A stacking context puts the control back in front of
+          the padding that was covering it.
+        */}
+        <div style={{ position: 'relative', zIndex: 1, display: 'flex' }}>
+        <DiscBrightnessBar
           hue={hsb.h}
           saturation={hsb.s}
           brightness={hsb.b}
-          shape={slide.props?.hsbCircleShape || 'circle'}
-          onHsbChange={(newHsb) => { signalUserInteraction(); setHsbClear(p => ({ ...p, ...newHsb })); }}
+          height={discSize}
+          onChange={(b) => { signalUserInteraction(); setHsbClear(p => ({ ...p, b })); }}
         />
+        </div>
+        </div>
       </div>
       </div>
 

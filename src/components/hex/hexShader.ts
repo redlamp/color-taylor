@@ -25,6 +25,8 @@ uniform float uBrightness;
 uniform float uLightness;
 /** 0 = the bar drives HSB brightness, 1 = it drives HSL lightness. */
 uniform float uMode;
+/** 0 draws a circle, 1 the hexagon, between them the morph. */
+uniform float uShape;
 uniform float uLinear;
 
 const float PI = 3.14159265359;
@@ -79,12 +81,25 @@ void main() {
   float dx = uv.x - ${CENTER_X.toFixed(1)};
   float dy = uv.y - ${CENTER_Y.toFixed(1)};
   float dist = length(vec2(dx, dy));
-  if (dist > ${RADIUS.toFixed(1)}) discard;
+  // A hair past the radius, not exactly on it: the vertices reach RADIUS, and
+  // an exact cut would take the outer half of their feather off again.
+  if (dist > ${(RADIUS + 2).toFixed(1)}) discard;
 
   float angle = atan(-dy, dx);
   if (angle < 0.0) angle += TAU;
-  float edge = hexEdgeDist(angle, ${RADIUS.toFixed(1)});
-  if (dist > edge) discard;
+  // The morph, in one line: a circle is just the hexagon with a constant edge
+  // distance, so lerping the edge moves the whole field between the two.
+  float edge = mix(${RADIUS.toFixed(1)}, hexEdgeDist(angle, ${RADIUS.toFixed(1)}), uShape);
+
+  // Feathered rather than a hard discard, because the context is created with
+  // antialias off and nothing else would smooth this boundary. It only became
+  // worth doing once the shape started moving: a straight hexagon edge hides
+  // its own stair-stepping, a slowly curving one part-way through the morph
+  // does not. One field unit either side, converted from device pixels so the
+  // feather stays a pixel wide at any size.
+  float px = ${HEX_SIZE.toFixed(1)} / uResolution.x;
+  float cov = 1.0 - smoothstep(edge - px, edge + px, dist);
+  if (cov <= 0.0) discard;
 
   float h = angle * 180.0 / PI;
 
@@ -108,6 +123,11 @@ void main() {
   float scale = uMode < 0.5
     ? uBrightness / 100.0
     : 1.0 - abs(2.0 * (uLightness / 100.0) - 1.0);
+  // Softened toward "no bound" as the shape leaves the hexagon. A circle is not
+  // the cube's cross-section and cannot show one, so on a wheel the bound opens
+  // out to the edge and the reading is the plain one: distance is saturation.
+  // Mirrors shapeLimitScale.
+  scale = mix(1.0, scale, uShape);
   float limit = edge * scale;
   float r = dist / edge;
 
@@ -133,12 +153,13 @@ void main() {
     // transfer do not commute, so the transfer has to come last.
     col = vec3(toSrgb(col.r), toSrgb(col.g), toSrgb(col.b));
   }
+  a *= cov;
   gl_FragColor = vec4(clamp(col, 0.0, 1.0) * a, a);
 }
 `;
 
 export interface HexGL {
-  draw(brightness: number, lightness: number, lightnessMode: boolean, linear: boolean): void;
+  draw(brightness: number, lightness: number, lightnessMode: boolean, linear: boolean, shape: number): void;
   resize(w: number, h: number): void;
   dispose(): void;
 }
@@ -184,6 +205,7 @@ export function createHexGL(canvas: HTMLCanvasElement): HexGL | null {
   const uBrightness = gl.getUniformLocation(prog, 'uBrightness');
   const uLightness = gl.getUniformLocation(prog, 'uLightness');
   const uMode = gl.getUniformLocation(prog, 'uMode');
+  const uShape = gl.getUniformLocation(prog, 'uShape');
   const uLinear = gl.getUniformLocation(prog, 'uLinear');
 
   gl.clearColor(0, 0, 0, 0);
@@ -195,10 +217,11 @@ export function createHexGL(canvas: HTMLCanvasElement): HexGL | null {
       gl.viewport(0, 0, w, h);
       gl.uniform2f(uResolution, w, h);
     },
-    draw(brightness, lightness, lightnessMode, linear) {
+    draw(brightness, lightness, lightnessMode, linear, shape) {
       gl.uniform1f(uBrightness, brightness);
       gl.uniform1f(uLightness, lightness);
       gl.uniform1f(uMode, lightnessMode ? 1 : 0);
+      gl.uniform1f(uShape, shape);
       gl.uniform1f(uLinear, linear ? 1 : 0);
       gl.clear(gl.COLOR_BUFFER_BIT);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
