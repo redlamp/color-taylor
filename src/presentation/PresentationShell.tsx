@@ -32,8 +32,34 @@ function useAnimatedNumber(target: number, duration = 800) {
   return display;
 }
 
+/**
+ * Which slide a hash names, or null if it names none.
+ *
+ * Accepts an index - `#/intro/11`, which is what the deck writes - and also a
+ * slide id, `#/intro/12-hexagon`. The id form costs three lines and means links
+ * shared today keep working if the route moves to ids, which is what #79
+ * proposes and what the ids are already shaped for: they are stable and already
+ * gapped, so they were never positions.
+ *
+ * Out-of-range indices clamp rather than 404. Someone hand-editing a URL to a
+ * slide that no longer exists should land at the end of the deck, not on a
+ * blank screen.
+ */
+function slideFromHash(hash: string): number | null {
+  const seg = hash.replace(/^#\/intro\/?/, '').split('/')[0];
+  if (!seg) return null;
+  if (/^\d+$/.test(seg)) {
+    return Math.max(0, Math.min(slides.length - 1, Number(seg)));
+  }
+  const byId = slides.findIndex((s) => s.id === seg);
+  return byId === -1 ? null : byId;
+}
+
 export default function PresentationShell({ navigate }: { navigate: (hash: string) => void }) {
-  const [currentSlide, setCurrentSlide] = useState(0);
+  // Seeded from the URL, not from 0. The deck has always *written* the slide
+  // into the hash and never read it back, so every shared link silently rewound
+  // to the first slide - which matters now /intro is a link people are given.
+  const [currentSlide, setCurrentSlide] = useState(() => slideFromHash(window.location.hash) ?? 0);
   const slide = slides[currentSlide];
   const total = slides.length;
 
@@ -62,13 +88,27 @@ export default function PresentationShell({ navigate }: { navigate: (hash: strin
     return () => window.removeEventListener('keydown', onKey);
   }, [next, prev, navigate]);
 
-  // Sync hash with slide index
+  // Sync hash with slide index. replaceState rather than assignment, so the
+  // deck does not fill the back stack with one entry per slide - and, usefully
+  // here, so this does not fire the hashchange listener below.
   useEffect(() => {
     const hash = `#/intro/${currentSlide}`;
     if (window.location.hash !== hash) {
       window.history.replaceState(null, '', hash);
     }
   }, [currentSlide]);
+
+  // The other direction: someone pasting a new hash, or using back/forward.
+  // Only fires for changes this component did not make, since replaceState is
+  // silent.
+  useEffect(() => {
+    const onHashChange = () => {
+      const idx = slideFromHash(window.location.hash);
+      if (idx !== null) setCurrentSlide(idx);
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
 
   // ── Last slide: fade background + chrome, then transition to app ──
   const isLastSlide = currentSlide === total - 1;
