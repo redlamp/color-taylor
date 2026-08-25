@@ -25,7 +25,7 @@ function App() {
 
 function AppInner() {
   const { route, navigate } = useHashRoute()
-  const isPresentation = route.startsWith('#/presentation')
+  const isPresentation = route.startsWith('#/intro')
   const { setDark, restore } = useTheme()
 
   // Force dark theme during presentation, restore on exit

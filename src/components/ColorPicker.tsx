@@ -612,10 +612,13 @@ export default function ColorPicker() {
           <span className="wordmark">Color Taylor</span> 🎨🧵
         </h1>
         <div className="flex items-center justify-end gap-2">
+          {/* The button only. The route itself is always live - see
+              useHashRoute - so /intro can be shared while the deck is still
+              too rough to advertise on the picker. */}
           {import.meta.env.VITE_INTRO_ENABLED === 'true' && (
             <button
               className="ctl-quiet"
-              onClick={() => { window.location.hash = '#/presentation'; }}
+              onClick={() => { window.location.hash = '#/intro'; }}
             >
               Intro
             </button>

@@ -4,8 +4,23 @@
     {
       "name": "color-taylor",
       "runtimeExecutable": "bun",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
       "port": 5173
+    },
+    {
+      "name": "color-taylor-dist",
+      "runtimeExecutable": "bunx",
+      "runtimeArgs": [
+        "vite",
+        "preview",
+        "--port",
+        "4173"
+      ],
+      "port": 4173,
+      "url": "http://localhost:4173"
     }
   ]
 }

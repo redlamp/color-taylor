@@ -106,7 +106,7 @@ test.describe('Plugin banner', () => {
     // and a transformed ancestor captures position:fixed. Mounting the banner
     // at app level rather than inside ColorPicker is what keeps it out; this
     // pins that placement.
-    await page.goto('/#/presentation');
+    await page.goto('/#/intro');
     await page.waitForTimeout(1200);
     await expect(banner(page)).toBeHidden();
   });

@@ -63,7 +63,7 @@ export default function PresentationShell({ navigate }: { navigate: (hash: strin
 
   // Sync hash with slide index
   useEffect(() => {
-    const hash = `#/presentation/${currentSlide}`;
+    const hash = `#/intro/${currentSlide}`;
     if (window.location.hash !== hash) {
       window.history.replaceState(null, '', hash);
     }
