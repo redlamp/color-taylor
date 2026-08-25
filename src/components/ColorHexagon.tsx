@@ -429,9 +429,10 @@ interface ColorHexagonProps {
    */
   vertexLabels?: boolean;
   /**
-   * The brightness bar's furniture - its axis title and the 100/50/0 targets.
-   * On by default. Off leaves the track, the arrow and the value pill, which is
-   * the plain slider the intro deck's wheel already had.
+   * The brightness bar's furniture - its axis title, the 100/50/0 targets and
+   * the value pill. On by default. Off leaves the track and its arrow, which is
+   * the plain slider the intro deck's wheel already had. The track and the
+   * arrow both stay draggable without the pill.
    */
   blMarkers?: boolean;
   /**
@@ -2104,7 +2105,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
         })()}
         {showHueLine && <HueHandle hue={hue} hueLabel={hueLabel} extent={EXTENT} svgHeight={svgHeight} onMouseDown={handleHueDragStart} />}
         {blBar && blMarkers && <BrightnessMarkers blMode={blMode} svgHeight={svgHeight} onPick={animateBLToValue} />}
-        {blBar && (
+        {blBar && blMarkers && (
           <BrightnessHandle
             hue={hue}
             saturation={saturation}
