@@ -65,14 +65,16 @@ interface HsbCircleProps {
   brightness: number;
   onHsbChange?: (partial: Partial<HSB>) => void;
   shape?: Shape;
+  /** The built-in brightness bar. Off where the host supplies a shared one. */
+  showBar?: boolean;
 }
 
-export default function HsbCircle({ size = 280, hue, saturation, brightness, onHsbChange, shape = 'circle' }: HsbCircleProps) {
+export default function HsbCircle({ size = 280, hue, saturation, brightness, onHsbChange, shape = 'circle', showBar = true }: HsbCircleProps) {
   const barWidth = 20;
   const barGap = 16;
   const arrowSize = 8;
   const radius = size / 2;
-  const totalW = size + barGap + barWidth + arrowSize + 4;
+  const totalW = showBar ? size + barGap + barWidth + arrowSize + 4 : size;
   const isHex = shape === 'hexagon';
 
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -320,6 +322,7 @@ export default function HsbCircle({ size = 280, hue, saturation, brightness, onH
         }}
       />
 
+      {showBar && (<>
       {/* Brightness bar */}
       <rect
         x={barX} y={0} width={barWidth} height={barH}
@@ -347,6 +350,7 @@ export default function HsbCircle({ size = 280, hue, saturation, brightness, onH
           stroke="rgba(255,255,255,0.4)" strokeWidth={1}
         />
       ))}
+      </>)}
     </svg>
   );
 }

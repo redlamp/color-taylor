@@ -1706,6 +1706,11 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
         The stage cannot simply clip instead: the hue badge legitimately sits
         outside it near 90 degrees.
       */}
+      {/* Skipped entirely when it would be empty. A bare host with no
+          headerLeft and no tabs still rendered the row and the gap under it,
+          which pushed the stage down and left the hexagon's centre a dozen
+          pixels below the wheel's on the slide before it. */}
+      {(!bare || headerLeft || (hexOpen && blModeTabs)) && (
       <div className="relative z-10 flex items-start gap-1.5 w-full">
         {/* In `bare` hosts the surrounding chrome is the container, so the
             title and its collapse affordance are redundant. The Bright/Light
@@ -1748,6 +1753,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           </div>
         )}
       </div>
+      )}
       {/*
         The same collapse animation CollapsibleSection uses, applied by hand
         because this panel is not one - it has its own hexOpen, so it was the one

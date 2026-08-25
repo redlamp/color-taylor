@@ -11,7 +11,8 @@ import ColorSlider from '../components/ColorSlider';
 import EquationsPanel from '../components/EquationsPanel';
 import HsbCircle from './HsbCircle';
 import ColorHexagon from '../components/ColorHexagon';
-import { RADIUS as HEX_RADIUS, SIZE as HEX_EXTENT, CENTER_X as HEX_CENTER_X, DISPLAY_HEIGHT as HEX_STAGE_H, BL_BAR_X, BL_BAR_WIDTH } from '../components/hex/hexConstants';
+import { RADIUS as HEX_RADIUS, CENTER_X as HEX_CENTER_X, DISPLAY_HEIGHT as HEX_STAGE_H } from '../components/hex/hexConstants';
+import DiscBrightnessBar, { BAR_CHROME } from './DiscBrightnessBar';
 import { writeHslChannel } from '../utils/hslWrite';
 import { HSB_TWEEN_MS, hsbAtProgress } from '../utils/colorTween';
 import ColorPicker from '../components/ColorPicker';
@@ -494,56 +495,43 @@ export default function PresentationStage({ slide, slideIndex, animPaused = fals
    * Derived from the app's own constants rather than numbers copied here, so
    * the deck cannot drift from the component it renders.
    */
-  const RING_RATIO = (2 * HEX_RADIUS) / HEX_EXTENT;        // ring width / component width
-  const HEX_STAGE_RATIO = HEX_STAGE_H / HEX_EXTENT;        // stage height / component width
-  const CIRCLE_CHROME = 48;                                // HsbCircle's bar, gap and arrow
-
   /*
-   * Sized off what the hexagon actually shows, not the box it reserves.
+   * Both shapes are just shapes, and share one brightness bar beside them.
    *
-   * ColorHexagon leaves room either side of the hexagon for the hue angle badge,
-   * so its box is about 1.4x its ring. Honouring that, an even split could only
-   * hold a ring of 253 - and closing the gap by widening the column took the
-   * width off the swatch, which is not a trade worth making.
-   *
-   * With the badge off, that padding is empty and can be cropped. What has to
-   * fit is only the span from the hexagon's left vertex to the far edge of the
-   * brightness bar, a much smaller multiple - so the ring reaches the wheel's
-   * size with the swatch left at its usual half.
+   * Each used to bring its own - HsbCircle drew one, ColorHexagon has one built
+   * in - which made them different controls at different sizes on consecutive
+   * slides. ColorHexagon's also sits inside its own box, so it ate the width the
+   * hexagon needed and left the ring smaller than the wheel it is meant to be
+   * corrected into. With no bar in either, the disc is simply the column less
+   * the shared bar, and the ring matches the wheel by construction.
    */
-  const HEX_VIS_LEFT = HEX_CENTER_X - HEX_RADIUS;                  // hexagon's left vertex
-  const HEX_VIS_RIGHT = BL_BAR_X + BL_BAR_WIDTH;                   // far edge of the bar
-  const RING_OF_VISIBLE = (2 * HEX_RADIUS) / (HEX_VIS_RIGHT - HEX_VIS_LEFT);
+  const HEX_NO_BAR_EXTENT = HEX_CENTER_X * 2;                  // ColorHexagon's width with blBar off
+  const RING_RATIO = (2 * HEX_RADIUS) / HEX_NO_BAR_EXTENT;     // ring / component width
+  const HEX_STAGE_RATIO = HEX_STAGE_H / HEX_NO_BAR_EXTENT;     // stage height / component width
 
   const discW = halfW;
   const swatchW = halfW;
 
-  /** Largest disc both shapes can show inside the column. */
-  const discSize = Math.floor(Math.min(
-    PANEL_H,                          // fits the panel's height
-    halfW * RING_OF_VISIBLE,          // hexagon's visible span fits the width
-    halfW - CIRCLE_CHROME,            // wheel plus its bar fits the width
-  ));
+  /** The disc is the column, less the bar the two shapes share. */
+  const discSize = Math.floor(Math.min(PANEL_H, halfW - BAR_CHROME));
 
   /*
-   * Wider than its column on purpose - the empty padding is cropped by the
-   * clip-path - so the wrapper needs flexShrink: 0, or the flex column shrinks
-   * it straight back to the column width and the ring never grows.
+   * Wider than the disc on purpose: ColorHexagon still reserves room either side
+   * for the hue badge, which the deck turns off, so that padding is empty and
+   * cropped by the clip-path. flexShrink: 0 or the flex row shrinks it back and
+   * the ring never grows.
    */
   const hexSize = Math.round(discSize / RING_RATIO);
-  const discColH = isHexSlide
-    ? Math.round(discSize * (HEX_STAGE_RATIO / RING_RATIO))
-    : discSize;
-
   /*
-   * Each shape puts its disc off-centre in its own box - the wheel by half its
-   * bar, the hexagon by however far CENTER_X sits from the middle of what is
-   * visible - so centring the boxes alone would leave the discs on different
-   * centres. Each is nudged by its own offset.
+   * The same height for both shapes, not each shape's own.
+   *
+   * The column is bottom-anchored, so a taller column reaches higher and its
+   * centre sits higher with it - which put the hexagon's centre fifteen pixels
+   * above the wheel's on the slide before, for no reason a reader could see.
+   * The hexagon's stage is the taller of the two, so both take that.
    */
-  const wheelShift = Math.round(CIRCLE_CHROME / 2);
-  const hexVisMid = (HEX_VIS_LEFT + HEX_VIS_RIGHT) / 2;
-  const hexShift = Math.round(((hexVisMid - HEX_CENTER_X) / HEX_EXTENT) * hexSize);
+  const discColH = Math.round(discSize * (HEX_STAGE_RATIO / RING_RATIO));
+
 
   return (
     <div className="flex flex-col items-center" style={{ width: PANEL_W }}>
@@ -774,8 +762,13 @@ export default function PresentationStage({ slide, slideIndex, animPaused = fals
           off, so what shows is the field, the stems and the handles and nothing
           else. wheelAdjusts is off because the deck scrolls.
         */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+        <div style={{
+          width: discSize, height: discColH, flexShrink: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
         {slide.props?.hsbCircleShape === 'hexagon' ? (
-          <div style={{ width: hexSize, flexShrink: 0, transform: `translateX(${hexShift}px)` }}>
+          <div style={{ width: hexSize, flexShrink: 0 }}>
             <ColorHexagon
               rgb={rgb}
               hue={hsb.h}
@@ -793,6 +786,7 @@ export default function PresentationStage({ slide, slideIndex, animPaused = fals
               bare
               collapsedSections
               sectionVariant="flush"
+              blBar={false}
               satBar={false}
               wheelAdjusts={false}
               stemRange={[2, 4]}
@@ -805,9 +799,10 @@ export default function PresentationStage({ slide, slideIndex, animPaused = fals
             />
           </div>
         ) : (
-          <div style={{ transform: `translateX(${wheelShift}px)` }}>
+          <div>
           <HsbCircle
             size={discSize}
+            showBar={false}
             hue={hsb.h}
             saturation={hsb.s}
             brightness={hsb.b}
@@ -816,6 +811,15 @@ export default function PresentationStage({ slide, slideIndex, animPaused = fals
           />
           </div>
         )}
+        </div>
+        <DiscBrightnessBar
+          hue={hsb.h}
+          saturation={hsb.s}
+          brightness={hsb.b}
+          height={discSize}
+          onChange={(b) => { signalUserInteraction(); setHsbClear(p => ({ ...p, b })); }}
+        />
+        </div>
       </div>
       </div>
 
