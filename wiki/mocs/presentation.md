@@ -22,7 +22,9 @@ silent alias.
 
 - [[decision-intro-renders-the-real-picker]] - the deck renders `ColorSlider`,
   `EquationsPanel` and `ColorPicker` already. `HsbCircle` was the exception and
-  the one thing that drifted. #81.
+  the one thing that drifted. Now deleted: `ColorHexagon` learned to be a circle,
+  so the wheel and the hexagon are one component and the move between them is a
+  morph rather than a cut. #81.
 
 ## Structure
 
