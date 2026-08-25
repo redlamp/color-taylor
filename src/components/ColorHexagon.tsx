@@ -435,6 +435,12 @@ interface ColorHexagonProps {
    */
   blMarkers?: boolean;
   /**
+   * The hue ray and its angle badge. On by default. The badge is what forces
+   * the component to reserve space either side of the hexagon; without it that
+   * padding is empty, and a host can crop to the shape itself.
+   */
+  hueIndicator?: boolean;
+  /**
    * The horizontal saturation bar under the hexagon, and the dashed line tying
    * it to the vector chain's tip. Off in `bare` hosts, which put saturation on
    * an ordinary slider in their own editor - see figma/ui/lite/no-saturation.
@@ -449,7 +455,7 @@ interface HoveredMarker {
   name: string;
 }
 
-export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, onHoverHtmlColor, muted, bare, headerLeft, belowStage, collapsedSections, sectionVariant = 'card', alpha = 100, onAlphaRestore, wheelAdjusts = true, blBar = true, stemRange = null, satBar = true, swatchSections = true, blModeTabs = true, vertexLabels = true, blMarkers = true }: ColorHexagonProps) {
+export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, onHoverHtmlColor, muted, bare, headerLeft, belowStage, collapsedSections, sectionVariant = 'card', alpha = 100, onAlphaRestore, wheelAdjusts = true, blBar = true, stemRange = null, satBar = true, swatchSections = true, blModeTabs = true, vertexLabels = true, blMarkers = true, hueIndicator = true }: ColorHexagonProps) {
   const flushSections = sectionVariant === 'flush';
   // Horizontal extent of the SVG coordinate space. Without the bar the hexagon
   // is the whole picture, so the 50px reserved to its right goes away - and the
@@ -1081,7 +1087,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   // click on its track started. Everything the control highlights reads this.
   const blActive = isBLDragging || blTweening;
   const satActive = isSatDragging || satTweening;
-  const showHueLine = saturation > 0 || satActive;
+  const showHueLine = hueIndicator && (saturation > 0 || satActive);
 
   // Named color markers on hex
   const htmlColorMarkers = useMemo(() => {
