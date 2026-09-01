@@ -1,8 +1,8 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
-import { hsbToRgb, rgbToHsb, rgbToHex, rgbToHsl, hslToRgb, type HSB, type HSL, type RGB } from '../utils/colorConversions';
+import { hsbToRgb, rgbToHsb, rgbToHex, type HSB, type HSL, type RGB } from '../utils/colorConversions';
 import type { ColorSpace } from '../utils/sliderGradients';
-import { writeHslChannel, type HslOrigin } from '../utils/hslWrite';
-import { HSB_TWEEN_MS, hsbAtProgress } from '../utils/colorTween';
+import type { HslOrigin } from '../utils/hslWrite';
+import { HSB_TWEEN_MS } from '../utils/colorTween';
 import {
   hueGradient,
   saturationGradient,
@@ -71,6 +71,7 @@ import { useSettings } from '@/hooks/useSettings';
 import { useTheme } from '@/hooks/useTheme';
 import useColorEffects from '@/hooks/useColorEffects';
 import { toneController } from '@/utils/toneControllerLazy';
+import { useColorState } from '@/hooks/useColorState';
 import { Play, Pause, Settings, Music, Slash } from 'lucide-react';
 
 type HslMode = 'hsb' | 'hsl' | 'both';
@@ -106,12 +107,26 @@ const ANIM_CYCLE_DUR = COLOR_KEYFRAMES.length * ANIM_STEP_DUR;
 const DEFAULT_HSB: HSB = { h: 216, s: 69, b: 100 };
 
 export default function ColorPicker() {
-  const [hsb, setHsb] = useState<HSB>(() => {
+  const [initialHsb] = useState<HSB>(() => {
     try {
       const saved = localStorage.getItem('color-taylor-hsb');
       if (saved) return JSON.parse(saved);
     } catch { /* localStorage unavailable */ }
     return DEFAULT_HSB;
+  });
+  // pulseTone is declared below, after the audio settings it reads; the hook
+  // reaches it through a ref so the state can be declared up here with the rest.
+  const pulseToneRef = useRef<(next: HSB) => void>(() => {});
+  const {
+    hsb, setHsb, rgb, hsl,
+    hsbRef, rgbOverride, animRef,
+    setHsbClear, clearOverride, setRgbChannel, setHslChannel, animateToHsb: tweenTo, cancelTween,
+  } = useColorState({
+    initial: initialHsb,
+    onEdit: (next) => pulseToneRef.current(next),
+    onTweenStart: (from) => toneController.start(from),
+    onTweenFrame: (next) => toneController.update(next),
+    onTweenEnd: () => toneController.release(),
   });
   const [hslMode, setHslMode] = useState<HslMode>('hsb');
   const [rgbGradientMode, setRgbGradientMode] = useState<RgbGradientMode>('channel');
@@ -156,6 +171,7 @@ export default function ColorPicker() {
   const pulseTone = useCallback((target: HSB) => {
     toneController.pulse(target, isPointerDownRef.current);
   }, []);
+  useEffect(() => { pulseToneRef.current = pulseTone; }, [pulseTone]);
 
   useEffect(() => {
     const onDown = () => { isPointerDownRef.current = true; };
@@ -172,11 +188,6 @@ export default function ColorPicker() {
       window.removeEventListener('pointercancel', onUp, { capture: true } as EventListenerOptions);
     };
   }, []);
-  const animRef = useRef<number | null>(null);
-  const hsbRef = useRef(hsb);
-  useEffect(() => { hsbRef.current = hsb; }, [hsb]);
-  const rgbOverride = useRef<RGB | null>(null);
-
   // Undo/redo history
   const undoStack = useRef<HSB[]>([]);
   const redoStack = useRef<HSB[]>([]);
@@ -285,7 +296,8 @@ export default function ColorPicker() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [animRef, hsbRef, rgbOverride, setHsb]);
+
 
   // Ref-based animation stopper — called from user interaction handlers only
   const colorAnimActiveRef = useRef<boolean | 'stop'>(false);
@@ -307,98 +319,16 @@ export default function ColorPicker() {
    */
   const takeOverFromAnimation = useCallback(() => {
     if (colorAnimActiveRef.current) colorAnimActiveRef.current = 'stop';
-    if (animRef.current) {
-      cancelAnimationFrame(animRef.current);
-      animRef.current = null;
-      isUndoRedoing.current = false;
-    }
-  }, []);
+    if (cancelTween()) isUndoRedoing.current = false;
+  }, [cancelTween]);
 
   const animateToHsb = useCallback((target: HSB) => {
-    rgbOverride.current = null;
-    if (animRef.current) {
-      cancelAnimationFrame(animRef.current);
-      isUndoRedoing.current = false;
-    }
-    const from = { ...hsbRef.current };
-    let start: number | null = null;
-
-    toneController.start(from);
-
-    const tick = (timestamp: number) => {
-      if (start === null) start = timestamp;
-      const elapsed = timestamp - start;
-      const progress = Math.min(elapsed / HSB_TWEEN_MS, 1);
-      // Duration, easing, hue wrap and rounding live in utils/colorTween so the
-      // Figma plugin animates identically.
-      const { h, s, b } = hsbAtProgress(from, target, progress);
-
-      rgbOverride.current = null;
-      setHsb({ h, s, b });
-      toneController.update({ h, s, b });
-
-      if (progress < 1) {
-        animRef.current = requestAnimationFrame(tick);
-      } else {
-        animRef.current = null;
-        toneController.release();
-      }
-    };
-
-    animRef.current = requestAnimationFrame(tick);
-  }, []);
-  const rgbFromHsb = useMemo(() => hsbToRgb(hsb.h, hsb.s, hsb.b), [hsb.h, hsb.s, hsb.b]);
-  // Read of rgbOverride.current during render is intentional — see CLAUDE.md
-  // "HSB is canonical, RGB has an override ref" pattern. Lifting to state would
-  // double-render every slider input. Refs are safe to read during render for
-  // values that don't drive re-renders themselves.
-  // eslint-disable-next-line react-hooks/refs
-  const rgb = rgbOverride.current || rgbFromHsb;
+    // A cancelled undo tween has to release the re-push guard, or the next few
+    // pushes are swallowed. The tween itself lives in useColorState.
+    if (animRef.current !== null) isUndoRedoing.current = false;
+    tweenTo(target);
+  }, [tweenTo, animRef]);
   const hex = useMemo(() => rgbToHex(rgb.r, rgb.g, rgb.b), [rgb.r, rgb.g, rgb.b]);
-  /**
-   * What the live HSL gesture asked for, shown in place of the derived value.
-   *
-   * The colour is 8-bit, so re-deriving HSL from it lands a point or two either
-   * side of what was set - and re-deriving every frame turns that into visible
-   * stutter in the two fields you are *not* dragging. Freezing the write is not
-   * enough on its own; the readout has to hold too, or the number jitters while
-   * the colour underneath it is perfectly steady.
-   *
-   * Only ever set while a gesture is in flight, and only by that gesture, so it
-   * cannot disagree with the colour. Cleared at both ends of a pointer press
-   * alongside the origin it belongs to.
-   */
-  const [hslIntent, setHslIntent] = useState<HSL | null>(null);
-  const derivedHsl = useMemo(() => rgbToHsl(rgb.r, rgb.g, rgb.b), [rgb.r, rgb.g, rgb.b]);
-  /**
-   * Kept for as long as it still describes the colour on screen.
-   *
-   * The check is the whole safety argument: an intent is only shown while
-   * converting it reproduces the current RGB exactly. Anything else that sets a
-   * colour - the hex field, an RGB slider, a swatch, a tween - moves the colour
-   * out from under it and it stops being used, with no invalidation to remember
-   * to write. Nothing can drift apart.
-   *
-   * Holding it past the gesture is what lets a saturation set at L=0 or L=100
-   * come back when lightness leaves the end. CSS Color 4 calls saturation there
-   * *powerless* rather than unavailable - the value still exists, it just stops
-   * affecting the colour - and this is what that looks like in a picker. The
-   * first version of this cleared on release and the field snapped to 0, which
-   * read as a control refusing to move.
-   *
-   * It also removes what looked like a rounding settle on release. Both triples
-   * convert to the same RGB, so neither is more correct than the other, and the
-   * one the user actually set is the better thing to show.
-   */
-  const hsl = useMemo(() => {
-    if (hslIntent) {
-      const c = hslToRgb(hslIntent.h, hslIntent.s, hslIntent.l);
-      if (c.r === rgb.r && c.g === rgb.g && c.b === rgb.b) return hslIntent;
-    }
-    return derivedHsl;
-  }, [hslIntent, derivedHsl, rgb.r, rgb.g, rgb.b]);
-  const hslRef = useRef(hsl);
-  useEffect(() => { hslRef.current = hsl; }, [hsl]);
 
   // Persist HSB to localStorage
   useEffect(() => {
@@ -432,56 +362,13 @@ export default function ColorPicker() {
 
   const handleRgbChange = useCallback((channel: 'r' | 'g' | 'b', value: number) => {
     takeOverFromAnimation();
-    setHsb((prev) => {
-      const currentRgb = rgbOverride.current || hsbToRgb(prev.h, prev.s, prev.b);
-      const newRgb = { ...currentRgb, [channel]: value };
-      rgbOverride.current = newRgb;
-      const next = rgbToHsb(newRgb.r, newRgb.g, newRgb.b);
-      pulseTone(next);
-      return next;
-    });
-  }, [pulseTone, takeOverFromAnimation]);
-
-  /**
-   * The H and S an HSL slider gesture began from - see utils/hslWrite for why a
-   * write needs one. Taken on the first write of a gesture and dropped at both
-   * ends of a pointer press, so a gesture can never inherit a stale one from a
-   * wheel adjust, which has no pointerup of its own.
-   */
-  const hslOrigin = useRef<HslOrigin | null>(null);
-  useEffect(() => {
-    const clear = () => { hslOrigin.current = null; };
-    window.addEventListener('pointerdown', clear);
-    window.addEventListener('pointerup', clear);
-    document.documentElement.addEventListener('pointerleave', clear);
-    return () => {
-      window.removeEventListener('pointerdown', clear);
-      window.removeEventListener('pointerup', clear);
-      document.documentElement.removeEventListener('pointerleave', clear);
-    };
-  }, []);
+    setRgbChannel(channel, value);
+  }, [setRgbChannel, takeOverFromAnimation]);
 
   const handleHslChange = useCallback((channel: 'h' | 's' | 'l', value: number) => {
     takeOverFromAnimation();
-    setHsb((prev) => {
-      if (!hslOrigin.current) {
-        // Straight off what is on screen, so a remembered saturation carries
-        // into the new gesture. Hue falls back to HSB only when the displayed
-        // colour is achromatic and so has none of its own to give.
-        const shown = hslRef.current;
-        hslOrigin.current = {
-          h: shown.s <= 0 ? prev.h : shown.h,
-          s: shown.s,
-          l: shown.l,
-        };
-      }
-      const { rgb, hsb, hsl: intent } = writeHslChannel(channel, value, hslOrigin.current);
-      rgbOverride.current = rgb;
-      setHslIntent(intent);
-      pulseTone(hsb);
-      return hsb;
-    });
-  }, [pulseTone, takeOverFromAnimation]);
+    setHslChannel(channel, value);
+  }, [setHslChannel, takeOverFromAnimation]);
 
   const showHsb = hslMode === 'hsb' || hslMode === 'both';
   const showHsl = hslMode === 'hsl' || hslMode === 'both';
@@ -492,18 +379,31 @@ export default function ColorPicker() {
   const handleGChange = useCallback((v: number) => handleRgbChange('g', v), [handleRgbChange]);
   const handleBChange = useCallback((v: number) => handleRgbChange('b', v), [handleRgbChange]);
 
-  const handleHsbHChange = useCallback((v: number) => {
-    rgbOverride.current = null;
-    setHsb((prev) => { const next = { ...prev, h: v }; pulseTone(next); return next; });
-  }, [pulseTone]);
-  const handleHsbSChange = useCallback((v: number) => {
-    rgbOverride.current = null;
-    setHsb((prev) => { const next = { ...prev, s: v }; pulseTone(next); return next; });
-  }, [pulseTone]);
-  const handleHsbBChange = useCallback((v: number) => {
-    rgbOverride.current = null;
-    setHsb((prev) => { const next = { ...prev, b: v }; pulseTone(next); return next; });
-  }, [pulseTone]);
+  const handleHsbHChange = useCallback((v: number) => setHsbClear((prev) => ({ ...prev, h: v })), [setHsbClear]);
+  const handleHsbSChange = useCallback((v: number) => setHsbClear((prev) => ({ ...prev, s: v })), [setHsbClear]);
+  const handleHsbBChange = useCallback((v: number) => setHsbClear((prev) => ({ ...prev, b: v })), [setHsbClear]);
+
+  // The hexagon's own writes: no synth pulse, as before - the hexagon's audio is
+  // its own concern and goes through `muted`.
+  const handleHexHueChange = useCallback((h: number) => {
+    takeOverFromAnimation();
+    clearOverride();
+    setHsb((prev) => ({ ...prev, h }));
+  }, [takeOverFromAnimation, clearOverride, setHsb]);
+  const handleHexHsbChange = useCallback((next: Partial<HSB>) => {
+    takeOverFromAnimation();
+    clearOverride();
+    setHsb((prev) => ({ ...prev, ...next }));
+  }, [takeOverFromAnimation, clearOverride, setHsb]);
+  const handleHexInput = useCallback((parsed: RGB) => {
+    takeOverFromAnimation();
+    clearOverride();
+    const next = rgbToHsb(parsed.r, parsed.g, parsed.b);
+    pulseTone(next);
+    setHsb(next);
+  }, [takeOverFromAnimation, clearOverride, setHsb, pulseTone]);
+  const handleSbBoxChange = useCallback((s: number, b: number) => setHsbClear((prev) => ({ ...prev, s, b })), [setHsbClear]);
+  const handleHSliderChange = useCallback((h: number) => setHsbClear((prev) => ({ ...prev, h })), [setHsbClear]);
 
   const handleHslHChange = useCallback((v: number) => handleHslChange('h', v), [handleHslChange]);
   const handleHslSChange = useCallback((v: number) => handleHslChange('s', v), [handleHslChange]);
@@ -520,7 +420,8 @@ export default function ColorPicker() {
     if (!wasOn && nowOn && colorAnimActiveStateRef.current && !toneController.isActive()) {
       toneController.start(hsbRef.current);
     }
-  }, [settings.synth.synthEnabled]);
+  }, [settings.synth.synthEnabled, hsbRef]);
+
   const colorAnimRaf = useRef<number | null>(null);
   useEffect(() => { colorAnimActiveRef.current = colorAnimActive; }, [colorAnimActive]);
 
@@ -587,7 +488,8 @@ export default function ColorPicker() {
       if (colorAnimRaf.current) cancelAnimationFrame(colorAnimRaf.current);
       toneController.release();
     };
-  }, [colorAnimActive]);
+  }, [colorAnimActive, hsbRef, rgbOverride, setHsb]);
+
 
   return (
     <div id="color-picker-root" className="mx-auto w-full px-0.5 py-1 sm:p-6" style={{ maxWidth: TOP_ROW_MAX_WIDTH }}>
@@ -724,9 +626,9 @@ export default function ColorPicker() {
             brightness={hsb.b}
             saturation={hsb.s}
             hsl={hsl}
-            onHueChange={(h) => { takeOverFromAnimation(); rgbOverride.current = null; setHsb((prev) => ({ ...prev, h })); }}
+            onHueChange={handleHexHueChange}
             onRgbChange={handleRgbChange}
-            onHsbChange={(newHsb) => { takeOverFromAnimation(); rgbOverride.current = null; setHsb((prev) => ({ ...prev, ...newHsb })); }}
+            onHsbChange={handleHexHsbChange}
             onHslChange={handleHslChange}
             onAnimateToHsb={(target) => { if (colorAnimActiveRef.current) colorAnimActiveRef.current = 'stop'; animateToHsb(target); }}
             blMode={blMode}
@@ -795,11 +697,11 @@ export default function ColorPicker() {
             hue={hsb.h}
             saturation={hsb.s}
             brightness={hsb.b}
-            onChange={(s, b) => { rgbOverride.current = null; setHsb((prev) => { const next = { ...prev, s, b }; pulseTone(next); return next; }); }}
+            onChange={handleSbBoxChange}
           />
           <HSlider
             hue={hsb.h}
-            onChange={(h) => { rgbOverride.current = null; setHsb((prev) => { const next = { ...prev, h }; pulseTone(next); return next; }); }}
+            onChange={handleHSliderChange}
           />
         </div>
 
@@ -937,7 +839,7 @@ export default function ColorPicker() {
               <div className="flex-1 min-w-0">
                 <HexInput
                   hex={hex}
-                  onChange={(parsed) => { takeOverFromAnimation(); rgbOverride.current = null; const next = rgbToHsb(parsed.r, parsed.g, parsed.b); pulseTone(next); setHsb(next); }}
+                  onChange={handleHexInput}
                 />
               </div>
             </div>

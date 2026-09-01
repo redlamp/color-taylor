@@ -71,7 +71,7 @@ const rgb = rgbOverride.current || hsbToRgb(hsb.h, hsb.s, hsb.b);
   derived HSB is recomputed every render - which is RGB-canonical with extra
   steps, and inherits its neutral-axis problem.
 
-## Where it lives - three copies
+## Where it lived - three copies, until 2026-09-01
 
 | Host | refs to `rgbOverride` | gesture origin |
 |---|---|---|
@@ -85,10 +85,21 @@ drag of L there drifts the other two. Nobody has noticed because the deck's
 HSL sliders are rarely dragged. That is what three copies buy you - two right,
 one quietly wrong, and no test that could tell.
 
-**Next:** one `useColorState` hook owning the state, the override, the HSL
-origin and intent, and the tween, consumed by all three hosts. The plugin's
-alpha tween and the app's audio hooks stay outside it, attached through
-callbacks. Tracked in the review's item 1; this note is item 2.
+**Done the same day:** `src/hooks/useColorState.ts` owns the state, the
+override, the HSL origin and intent, and the tween, and all three hosts consume
+it - 387 lines deleted across them, 133 added, net −254. The plugin's alpha
+tween, its `userEditRef` flag and its Figma commit, and the app's audio pulses
+and undo stack stay outside, attached through `onEdit` / `onTween*` callbacks.
+The deck's HSL drift is gone as a side effect: it now gets the gesture origin
+because there is no longer a version without one.
+
+Two things the refactor forced into the open. The hook exposes
+`clearOverride()` because the immutability lint refuses a host writing a
+hook-owned ref directly, which is the right instinct - the ref has one owner
+now. And the app's hex input still clears the override and sets rounded HSB
+rather than stashing the exact RGB, contradicting `hslWrite.ts`'s claim that
+"the RGB and hex inputs already use the escape hatch". Pre-existing, left as
+is here, worth a one-line fix: `handleHexInput` should call `setRgb(parsed)`.
 
 ## Related
 
