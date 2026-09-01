@@ -9,7 +9,14 @@
   ColorHexagon running, so the handle styling and the field's antialiasing are
   approximations of it.
 
-  See wiki/notes/rgb-stems-must-curve-in-circle-space.md.
+  The Oklch group is a third way in. Its chroma is absolute, so most (L, C, H)
+  triples are not sRGB colours; those are gamut-mapped by reducing chroma, the
+  way CSS Color 4 does, and the group says so when it happens. The values the
+  user set are held as intent while that group is driving, mirroring the
+  app's hslIntent, so the sliders do not fight the hand that moves them.
+
+  See wiki/notes/rgb-stems-must-curve-in-circle-space.md and
+  wiki/notes/srgb-gamut-is-not-star-shaped-in-oklab.md.
 
   autocomplete="off" on every control is load-bearing: without it a browser
   restores the slider positions on reload, so the page reopens in whatever
@@ -21,7 +28,7 @@
   :root {
     --ground: #0C1418; --panel: #16232A; --rule: #2C3F49;
     --ink: #E8EDEF; --ink-2: #B6C6CD; --muted: #8195A0;
-    --accent: #3FD8D8;
+    --accent: #3FD8D8; --warn: #F2B94B;
     --r: #FF4444; --g: #44DD44; --b: #6688FF;
   }
   * { box-sizing: border-box; }
@@ -55,7 +62,8 @@
   .field { display: flex; flex-direction: column; gap: 0.35rem; }
   .field-head { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
   .field-head span:first-child { font-size: 0.8125rem; color: var(--ink-2); }
-  .val { font-family: ui-monospace, Menlo, monospace; font-size: 0.8125rem; color: var(--accent); }
+  .val { font-family: ui-monospace, Menlo, monospace; font-size: 0.8125rem; color: var(--accent);
+         font-variant-numeric: tabular-nums; }
   input[type="range"] { width: 100%; accent-color: var(--accent); }
   input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   #cr { accent-color: var(--r); } #cg { accent-color: var(--g); } #cb { accent-color: var(--b); }
@@ -64,6 +72,9 @@
   .swatch { height: 2rem; border-radius: 3px; border: 1px solid var(--rule);
             display: flex; align-items: center; justify-content: center;
             font-family: ui-monospace, Menlo, monospace; font-size: 0.75rem; letter-spacing: 0.06em; }
+  .viewnote { font-size: 0.75rem; color: var(--muted); min-height: 1.2em; }
+  .viewnote.warn { color: var(--warn); }
+  .viewnote b { color: var(--ink-2); font-weight: 650; }
   .check { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8125rem;
            color: var(--ink-2); cursor: pointer; }
   .check input { accent-color: var(--accent); }
@@ -129,6 +140,23 @@
       </div>
 
       <div class="group">
+        <span class="eyebrow">Oklch</span>
+        <div class="field">
+          <div class="field-head"><span>Lightness</span><span class="val" id="olO">0.000</span></div>
+          <input type="range" autocomplete="off" id="ol" min="0" max="1" step="0.005" value="0.5">
+        </div>
+        <div class="field">
+          <div class="field-head"><span>Chroma</span><span class="val" id="ocO">0.000</span></div>
+          <input type="range" autocomplete="off" id="oc" min="0" max="0.37" step="0.002" value="0">
+        </div>
+        <div class="field">
+          <div class="field-head"><span>Hue</span><span class="val" id="ohO">0&deg;</span></div>
+          <input type="range" autocomplete="off" id="oh" min="0" max="359" step="1" value="0">
+        </div>
+        <div class="viewnote" id="okNote"></div>
+      </div>
+
+      <div class="group">
         <label class="check"><input type="checkbox" autocomplete="off" id="chord"> Overlay straight chords</label>
         <div class="legend">
           <span><i style="background:#ff0000"></i>red leg</span>
@@ -145,6 +173,8 @@
     <div><b>The first leg never bends</b>It runs from the centre along a channel axis, and all three axes point at vertices, where the stretch is exactly 1. So the chain starts honest and accumulates distortion. The chords are the cheap version: visually close, but the points along one do not correspond to intermediate channel values, so hovering or dragging a leg would lie.</div>
     <div><b>The RGB sliders drive the chain directly</b>Each leg <em>is</em> its channel's value, so dragging Red lengthens the red leg and nothing else moves &mdash; in the hexagon. In the circle the later joints shift anyway, because they sit at angles whose stretch changed.</div>
     <div><b>Why HSB stays canonical here</b>Same reason as <code>ColorPicker.tsx</code>: <code>hsbToRgb(rgbToHsb(rgb))</code> is lossy at low saturation and brightness, so typing an exact R and then dragging would lose it. The exact RGB is stashed in an override and the HSB sliders clear it.</div>
+    <div><b>Oklch is a different kind of axis</b>Its lightness is perceptual, so holding L and turning the hue keeps the colour <em>looking</em> equally bright &mdash; which HSB cannot do, because B means &ldquo;how far to this hue's ceiling&rdquo; and the ceilings differ. Its hue zero is not red: red sits at 29&deg;, blue at 264&deg;, so the two hue sliders never agree and never should.</div>
+    <div><b>Most Oklch triples are not sRGB colours</b>Chroma is absolute, and at any lightness the reachable chroma depends on hue &mdash; cyan tops out at 0.155, magenta at 0.322. Out-of-gamut values are mapped by reducing chroma at fixed L and H, the way CSS Color 4 does, and the group says so. The sliders hold what you set, not what survived; the field shows what survived.</div>
   </div>
 </div>
 
@@ -191,6 +221,57 @@
     if (h < 0) h += 360;
     return { h: Math.round(h), s: Math.round(mx === 0 ? 0 : (d / mx) * 100), b: Math.round(mx * 100) };
   }
+
+  // ── Oklab / Oklch ────────────────────────────────────────────────────
+  function lin(c) { return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }
+  function enc(c) { return c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055; }
+  function rgbToOklch(c) {
+    var r = lin(c.r / 255), g = lin(c.g / 255), b = lin(c.b / 255);
+    var l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
+    var m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
+    var s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+    var L = 0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s;
+    var A = 1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s;
+    var B = 0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s;
+    var H = Math.atan2(B, A) * 180 / PI; if (H < 0) H += 360;
+    return { L: L, C: Math.hypot(A, B), H: H };
+  }
+  function oklabToLinear(L, a, b) {
+    var l_ = L + 0.3963377774 * a + 0.2158037573 * b;
+    var m_ = L - 0.1055613458 * a - 0.0638541728 * b;
+    var s_ = L - 0.0894841775 * a - 1.2914855480 * b;
+    var l = l_ * l_ * l_, m = m_ * m_ * m_, s = s_ * s_ * s_;
+    return [ 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+            -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+            -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s];
+  }
+  function inGamut(v) {
+    for (var i = 0; i < 3; i++) if (v[i] < -1e-5 || v[i] > 1 + 1e-5) return false;
+    return true;
+  }
+  /*
+   * Oklch -> sRGB with gamut mapping by chroma reduction at fixed L and H,
+   * which is what CSS Color 4 does. The requested C is tried first, verbatim:
+   * the sRGB gamut is not star-shaped in Oklab, so a search from zero can stop
+   * short of a value that is itself perfectly in gamut (blue's own corner is
+   * the known case). Testing the exact request before searching handles that.
+   */
+  function oklchToRgb(L, C, H) {
+    var a_ = Math.cos(H * PI / 180), b_ = Math.sin(H * PI / 180);
+    var v = oklabToLinear(L, C * a_, C * b_), used = C, clamped = false;
+    if (!inGamut(v)) {
+      clamped = true;
+      var lo = 0, hi = C;
+      for (var k = 0; k < 26; k++) {
+        var mid = (lo + hi) / 2;
+        if (inGamut(oklabToLinear(L, mid * a_, mid * b_))) lo = mid; else hi = mid;
+      }
+      used = lo; v = oklabToLinear(L, used * a_, used * b_);
+    }
+    var px = function (x) { return Math.round(Math.max(0, Math.min(1, enc(Math.max(0, Math.min(1, x))))) * 255); };
+    return { rgb: { r: px(v[0]), g: px(v[1]), b: px(v[2]) }, C: used, clamped: clamped };
+  }
+
   function hex2(n) { return n.toString(16).padStart(2, "0").toUpperCase(); }
   function css(c) { return "rgb(" + c.r + "," + c.g + "," + c.b + ")"; }
 
@@ -199,16 +280,22 @@
    * ColorPicker.tsx documents. The round trip loses information at low
    * saturation and brightness, so an RGB the user typed has to be held
    * verbatim; any HSB-driven interaction clears it first or stale RGB leaks.
+   *
+   * oklchIntent is the same idea for the third panel: the (L, C, H) the user
+   * actually set, shown on its sliders even when gamut mapping had to reduce
+   * the chroma, so the slider does not snap away from the hand moving it.
+   * Cleared the moment another panel drives.
    */
   var hsb = { h: 205, s: 88, b: 92 };
   var rgbOverride = null;
+  var oklchIntent = null;
+  var lastOkHue = 0;
   function currentRgb() { return rgbOverride || hsbToRgb(hsb.h, hsb.s, hsb.b); }
 
   var el = {};
-  ["mix", "hue", "sat", "bri", "cr", "cg", "cb", "chord",
-   "mixO", "hueO", "satO", "briO", "crO", "cgO", "cbO", "sw"].forEach(function (id) {
-    el[id] = document.getElementById(id);
-  });
+  ["mix", "hue", "sat", "bri", "cr", "cg", "cb", "ol", "oc", "oh", "chord",
+   "mixO", "hueO", "satO", "briO", "crO", "cgO", "cbO", "olO", "ocO", "ohO", "okNote", "sw"]
+    .forEach(function (id) { el[id] = document.getElementById(id); });
 
   var cv = document.getElementById("view"), ctx = cv.getContext("2d"), N = cv.width;
 
@@ -244,7 +331,7 @@
     var showChord = el.chord.checked;
     var val = currentRgb();
 
-    // Every control reads from state, so the two panels cannot drift apart.
+    // Every control reads from state, so the panels cannot drift apart.
     el.mixO.textContent = mix === 0 ? "circle" : mix === 1 ? "hexagon" : mix.toFixed(2);
     el.hue.value = hsb.h; el.hueO.textContent = hsb.h + "°";
     el.sat.value = hsb.s; el.satO.textContent = hsb.s;
@@ -256,6 +343,22 @@
     el.sw.textContent = hexStr;
     el.sw.style.background = hexStr;
     el.sw.style.color = (val.r * 299 + val.g * 587 + val.b * 114) / 1000 > 130 ? "#0B1417" : "#E8EDEF";
+
+    // Oklch shows intent while it is driving, and the derived value otherwise.
+    // A grey has no hue, so the last one the slider held is kept rather than
+    // letting the readout snap to zero.
+    var ok = oklchIntent || rgbToOklch(val);
+    if (!oklchIntent && ok.C < 0.002) ok.H = lastOkHue; else lastOkHue = ok.H;
+    el.ol.value = ok.L; el.olO.textContent = ok.L.toFixed(3);
+    el.oc.value = ok.C; el.ocO.textContent = ok.C.toFixed(3);
+    el.oh.value = Math.round(ok.H); el.ohO.textContent = Math.round(ok.H) + "°";
+    if (oklchIntent) {
+      var m = oklchToRgb(ok.L, ok.C, ok.H);
+      if (m.clamped) {
+        el.okNote.className = "viewnote warn";
+        el.okNote.innerHTML = "Outside sRGB at this L and H &mdash; showing <b>C " + m.C.toFixed(3) + "</b>";
+      } else { el.okNote.className = "viewnote"; el.okNote.textContent = "In gamut."; }
+    } else { el.okNote.className = "viewnote"; el.okNote.textContent = ""; }
 
     // Built in hexagon space, where the projection is linear and the three
     // channel vectors genuinely add.
@@ -314,10 +417,10 @@
     });
   }
 
-  // HSB drives: clear the override first, or stale RGB leaks through.
+  // HSB drives: clear the overrides first, or stale values leak through.
   ["hue", "sat", "bri"].forEach(function (id) {
     el[id].addEventListener("input", function () {
-      rgbOverride = null;
+      rgbOverride = null; oklchIntent = null;
       hsb = { h: +el.hue.value, s: +el.sat.value, b: +el.bri.value };
       render();
     });
@@ -327,8 +430,20 @@
   // other way round, so the number the user set is the number that survives.
   ["cr", "cg", "cb"].forEach(function (id) {
     el[id].addEventListener("input", function () {
+      oklchIntent = null;
       rgbOverride = { r: +el.cr.value, g: +el.cg.value, b: +el.cb.value };
       hsb = rgbToHsb(rgbOverride.r, rgbOverride.g, rgbOverride.b);
+      render();
+    });
+  });
+
+  // Oklch drives: hold what was asked for, show what survived the gamut.
+  ["ol", "oc", "oh"].forEach(function (id) {
+    el[id].addEventListener("input", function () {
+      oklchIntent = { L: +el.ol.value, C: +el.oc.value, H: +el.oh.value };
+      var m = oklchToRgb(oklchIntent.L, oklchIntent.C, oklchIntent.H);
+      rgbOverride = m.rgb;
+      hsb = rgbToHsb(m.rgb.r, m.rgb.g, m.rgb.b);
       render();
     });
   });
