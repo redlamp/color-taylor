@@ -29,6 +29,21 @@ Interactive proof: `docs/prototypes/rgb-cube/index.html` — open it directly, n
 
 Prototype measures corner angles from the projection rather than asserting them: 0.0 / 60.0 / 120.0 / 180.0 / 240.0 / 300.0&deg;. Requested hue to actual hue is exact at 0, 60, 120, 180, 240, 300 and 210&deg;. Black and white converge to under 1.5px of each other at the diagonal.
 
+## What it looks like in a perceptual space
+
+**2026-08-25.** Every geometric constant here follows from the cube. None of it
+survives the move to Oklab, and the failure is measurable rather than vague: the
+six corners land at 29.2, 109.8, 142.5, 194.8, 264.1 and 328.4 degrees instead of
+at multiples of 60, and their distances from the centre range from 0.155 (cyan)
+to 0.322 (magenta) instead of being equal.
+
+So the regular hexagon makes two silent claims - *all six are equally colourful*
+and *the six are evenly spaced* - and perception refuses both. What survives is
+that the corners are still cube corners: same solid, different viewer.
+
+That redrawing is a proposed deck slide. See
+[[plan-perceptual-color-in-color-taylor]].
+
 ## Sourcing, partly closed out
 
 Checked on 2026-08-24 - see [[hsl-degenerate-states]] for the sources.
