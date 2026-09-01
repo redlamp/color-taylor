@@ -29,9 +29,19 @@ Interactive proof: `docs/prototypes/rgb-cube/index.html` — open it directly, n
 
 Prototype measures corner angles from the projection rather than asserting them: 0.0 / 60.0 / 120.0 / 180.0 / 240.0 / 300.0&deg;. Requested hue to actual hue is exact at 0, 60, 120, 180, 240, 300 and 210&deg;. Black and white converge to under 1.5px of each other at the diagonal.
 
+## Linearity is what the vector chain rests on
+
+**2026-09-01.** Worth stating outright, because everything downstream depends on
+it: the projection is **linear**, so vector addition in cube space becomes vector
+addition in the plane. That is the whole reason three straight legs along `DIRS`
+add up to the colour rather than merely illustrating it.
+
+Any non-linear reshaping of the field - the circle included - takes that away.
+See [[rgb-stems-must-curve-in-circle-space]].
+
 ## What it looks like in a perceptual space
 
-**2026-08-25.** Every geometric constant here follows from the cube. None of it
+**2026-09-01.** Every geometric constant here follows from the cube. None of it
 survives the move to Oklab, and the failure is measurable rather than vague: the
 six corners land at 29.2, 109.8, 142.5, 194.8, 264.1 and 328.4 degrees instead of
 at multiples of 60, and their distances from the centre range from 0.155 (cyan)

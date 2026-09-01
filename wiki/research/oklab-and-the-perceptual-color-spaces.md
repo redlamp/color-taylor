@@ -7,7 +7,7 @@ tags:
 
 # Oklab And The Perceptual Colour Spaces
 
-**2026-08-25.** The landscape around Oklab: what came before it, what the "Ok"
+**2026-09-01.** The landscape around Oklab: what came before it, what the "Ok"
 means, what people criticise, and what has been built since. Gathered while
 scoping whether Color Taylor should learn a perceptual model — see
 [[plan-perceptual-color-in-color-taylor]] for the recommendation that came out
@@ -84,7 +84,7 @@ fragment shader. That is the design brief: CAM16-UCS quality at CIELAB cost.
 | **ICtCp** | ITU-R BT.2100, Dolby. Excellent hue linearity, used in HDR broadcast | yes | yes |
 | **OkHSL / OkHSV** | Ottosson's picker parameterisations. In no standard | yes | yes |
 
-Versions checked on 2026-08-25: culori 4.0.2, colorjs.io 0.7.1.
+Versions checked on 2026-09-01: culori 4.0.2, colorjs.io 0.7.1.
 
 **That `Lr` revision is a tell.** The toe function it uses is the same
 `toe`/`toe_inv` pair inside OkHSL and OkHSV — the correction was needed badly

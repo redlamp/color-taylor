@@ -1,7 +1,7 @@
 # Colour Models
 
 The maths the picker is built on, what each model claims, and where each one
-stops being true. Split out on 2026-08-25, when the Oklab research made this the
+stops being true. Split out on 2026-09-01, when the Oklab research made this the
 largest cluster in the wiki.
 
 ## The geometry
@@ -36,6 +36,12 @@ largest cluster in the wiki.
   to a naive search
 - [[plan-perceptual-color-in-color-taylor]] — what to actually build, where the
   complexity cliff is, and the deck slide that does not exist yet
+
+## Bringing the circle into the app
+
+- [[rgb-stems-must-curve-in-circle-space]] — the hexagon is a linear projection
+  and the circle is not, so the vector chain's legs are forced to bow. Playable:
+  `docs/prototypes/rgb-stems-circle-space.html`
 
 ## Teaching it
 

@@ -7,7 +7,7 @@ tags:
 
 # Constant Lightness Needs The HSL Family, Not A Better Colour Space
 
-**2026-08-25.** The question was: *can we have HSB or HSL where rotating the hue
+**2026-09-01.** The question was: *can we have HSB or HSL where rotating the hue
 keeps the perceived brightness flat?* The answer is yes, and the fix is **not**
 sRGB→Oklab. It is **HSV-family → HSL-family**. That distinction is structural
 and it is the single most useful thing to come out of the Oklab research.

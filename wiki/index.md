@@ -27,6 +27,7 @@ Top-level Map of Content. See `CLAUDE.md` in this folder for conventions.
 - [[hexagon-is-the-cube-down-its-diagonal]] — the geometry the picker is built on, and the interactive proof in `docs/prototypes/rgb-cube/`
 - [[constant-lightness-needs-the-hsl-family]] — flat perceived brightness across a hue rotation is an HSV-vs-HSL question, not an sRGB-vs-Oklab one
 - [[srgb-gamut-is-not-star-shaped-in-oklab]] — the gamut can go in, out, and back in; invisible to a person, fatal to a naive search
+- [[rgb-stems-must-curve-in-circle-space]] — the vector chain's legs are forced to bow once the hexagon becomes a circle; prototype in `docs/prototypes/`
 
 ## Research
 
@@ -39,6 +40,7 @@ Top-level Map of Content. See `CLAUDE.md` in this folder for conventions.
 
 `wiki/daily/YYYY-MM-DD.md`. Dailies before 2026-08-01 were reconstructed from git history on 2026-08-03 and are marked as such.
 
+- [[2026-09-01]] — the Oklab research, and what a circle does to the RGB chain
 - [[2026-08-25]] — a linkable `/intro`, the route renamed, and the narration plan
 - [[2026-08-24]] — the colour model session: strict TS, radius is chroma, and the HSL edge cases
 - [[2026-08-19]] — shipped; the coordinate-space and zoom bugs behind west-edge resize; what Figma owns

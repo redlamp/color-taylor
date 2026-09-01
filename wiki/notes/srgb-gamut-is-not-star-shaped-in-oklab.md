@@ -7,7 +7,7 @@ tags:
 
 # The sRGB Gamut Is Not Star-Shaped In Oklab
 
-**2026-08-25.** Walking outward from the neutral axis at fixed lightness and
+**2026-09-01.** Walking outward from the neutral axis at fixed lightness and
 hue, the sRGB gamut can go **in, out, and back in again**. A binary search that
 assumes one contiguous interval stops at the first exit and returns the wrong
 answer. Found while trying to draw an Oklab view of the hexagon; it clipped blue.

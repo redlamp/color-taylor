@@ -9,7 +9,7 @@ tags:
 
 # Plan: Perceptual Colour In Color Taylor
 
-**2026-08-25.** How much of the Oklab world the app should learn, and where the
+**2026-09-01.** How much of the Oklab world the app should learn, and where the
 complexity cliff actually is. Draft — nothing here is built, and no issue is
 filed yet. Research behind it: [[oklab-and-the-perceptual-color-spaces]].
 

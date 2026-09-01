@@ -1,0 +1,240 @@
+<!--
+  What happens to the RGB vector chain when the hexagon becomes a circle.
+  Open it directly - no build step, no dev server, nothing vendored.
+
+  Faithful to the real geometry: DIRS at 0/120/240, the same hexEdgeDist, the
+  same chroma model and cross-section. It is not ColorHexagon running, so the
+  handle styling and the field's antialiasing are approximations of it.
+
+  See wiki/notes/plan-perceptual-color-in-color-taylor.md.
+-->
+<title>RGB Stems In Circle Space</title>
+<style>
+  :root {
+    --ground: #0C1418; --panel: #16232A; --rule: #2C3F49;
+    --ink: #E8EDEF; --ink-2: #B6C6CD; --muted: #8195A0;
+    --accent: #3FD8D8;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--ground); color: var(--ink);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 15px; line-height: 1.55; -webkit-font-smoothing: antialiased;
+    min-height: 100vh; padding: clamp(1rem, 3vw, 2rem);
+  }
+  .eyebrow { font-family: ui-monospace, Menlo, monospace; font-size: 0.6875rem;
+             text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); }
+  h1 { font-size: clamp(1.5rem, 3.5vw, 2rem); font-weight: 800; letter-spacing: -0.02em;
+       margin: 0.35rem 0 0.3rem; text-wrap: balance; }
+  p { margin: 0; }
+  .shell { max-width: 66rem; margin: 0 auto; display: flex; flex-direction: column; gap: 1.1rem; }
+  .lede { color: var(--ink-2); max-width: 46rem; }
+
+  .rig { display: grid; grid-template-columns: 1fr; gap: 0;
+         border: 1px solid var(--rule); border-radius: 5px; overflow: hidden; background: var(--panel); }
+  @media (min-width: 54rem) { .rig { grid-template-columns: 1fr 17rem; } }
+  #view { display: block; width: 100%; aspect-ratio: 1; }
+  .side { border-top: 1px solid var(--rule); padding: 1.15rem;
+          display: flex; flex-direction: column; gap: 1.15rem; }
+  @media (min-width: 54rem) { .side { border-top: 0; border-left: 1px solid var(--rule); } }
+
+  .field { display: flex; flex-direction: column; gap: 0.4rem; }
+  .field-head { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+  .field-head span:first-child { font-size: 0.8125rem; color: var(--ink-2); }
+  .val { font-family: ui-monospace, Menlo, monospace; font-size: 0.8125rem; color: var(--accent); }
+  input[type="range"] { width: 100%; accent-color: var(--accent); }
+  input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .check { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8125rem;
+           color: var(--ink-2); cursor: pointer; }
+  .check input { accent-color: var(--accent); }
+
+  .legend { display: flex; gap: 0.9rem; flex-wrap: wrap; font-size: 0.75rem; color: var(--muted);
+            border-top: 1px solid var(--rule); padding-top: 0.9rem; }
+  .legend i { display: inline-block; width: 0.55rem; height: 0.55rem; border-radius: 2px; margin-right: 0.3rem; }
+  .foot { display: grid; gap: 0.75rem; grid-template-columns: 1fr; max-width: 52rem; }
+  @media (min-width: 40rem) { .foot { grid-template-columns: 1fr 1fr; } }
+  .foot div { font-size: 0.8125rem; color: var(--ink-2); }
+  .foot b { color: var(--ink); display: block; font-weight: 650; }
+  code { font-family: ui-monospace, Menlo, monospace; font-size: 0.9em; color: var(--accent); }
+</style>
+
+<div class="shell">
+  <div>
+    <span class="eyebrow">Colour Taylor &middot; geometry</span>
+    <h1>The RGB stems in circle space</h1>
+    <p class="lede">The hexagon is a <em>linear</em> projection of the RGB cube, which is the only reason three straight legs at 120&deg; add up to the colour. The circle is not. Drag <b>Shape</b> to 0 and watch what a straight line has to become.</p>
+  </div>
+
+  <div class="rig">
+    <canvas id="view" width="640" height="640"></canvas>
+    <div class="side">
+      <div class="field">
+        <div class="field-head"><span>Shape</span><span class="val" id="mixO">circle</span></div>
+        <input type="range" id="mix" min="0" max="100" step="1" value="0">
+      </div>
+      <div class="field">
+        <div class="field-head"><span>Hue</span><span class="val" id="hueO">205&deg;</span></div>
+        <input type="range" id="hue" min="0" max="359" step="1" value="205">
+      </div>
+      <div class="field">
+        <div class="field-head"><span>Saturation</span><span class="val" id="satO">88</span></div>
+        <input type="range" id="sat" min="0" max="100" step="1" value="88">
+      </div>
+      <div class="field">
+        <div class="field-head"><span>Brightness</span><span class="val" id="briO">92</span></div>
+        <input type="range" id="bri" min="12" max="100" step="1" value="92">
+      </div>
+      <label class="check"><input type="checkbox" id="chord"> Overlay straight chords</label>
+      <div class="legend">
+        <span><i style="background:#ff0000"></i>red leg</span>
+        <span><i style="background:#00ff00"></i>green leg</span>
+        <span><i style="background:#0000ff"></i>blue leg</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <div><b>Why they bend</b>Hexagon to circle is a radial stretch of <code>R / hexEdge(&theta;)</code> &mdash; exactly 1 at the vertices, 1.155 at the edge midpoints. Angle-dependent, so not affine, so the sum of the warped vectors is not the warp of the sum. Warping the joints and letting the legs curve is the only option that keeps each leg meaning &ldquo;add this much of this channel&rdquo;.</div>
+    <div><b>The first leg never bends</b>It runs from the centre along a channel axis, and all three axes point at vertices, where the stretch is exactly 1. So the chain starts honest and accumulates distortion. The chords are the cheap version: visually close, but the points along one do not correspond to intermediate channel values, so hovering or dragging a leg would lie.</div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var PI = Math.PI, R = 220, CX = 320, CY = 320, SCALE = R / 255;
+  var DIRS = { r: 0, g: 120, b: 240 };
+  var CH = { r: "#ff0000", g: "#00ff00", b: "#0000ff" };
+  var ORDER = ["r", "g", "b"];
+
+  function hexEdge(a) {
+    var t = ((a % (PI / 3)) + PI / 3) % (PI / 3);
+    return R * Math.cos(PI / 6) / Math.cos(t - PI / 6);
+  }
+  function shapeEdge(a, mix) { return R + (hexEdge(a) - R) * mix; }
+
+  // A point carries a chroma fraction, d / hexEdge, that has to survive the
+  // reshaping - so the same fraction is re-measured against the new edge.
+  function warp(p, mix) {
+    var dx = p.x - CX, dy = CY - p.y, d = Math.hypot(dx, dy);
+    if (d < 1e-6) return { x: CX, y: CY };
+    var a = Math.atan2(dy, dx);
+    var f = shapeEdge(a, mix) / hexEdge(a);
+    return { x: CX + dx * f, y: CY - dy * f };
+  }
+
+  function hsv(h, s, v) {
+    s /= 100; v /= 100;
+    var c = v * s, x = c * (1 - Math.abs(((h / 60) % 2) - 1)), m = v - c;
+    var i = Math.floor(h / 60) % 6, r = 0, g = 0, b = 0;
+    if (i === 0) { r = c; g = x; } else if (i === 1) { r = x; g = c; }
+    else if (i === 2) { g = c; b = x; } else if (i === 3) { g = x; b = c; }
+    else if (i === 4) { r = x; b = c; } else { r = c; b = x; }
+    return [Math.round((r + m) * 255), Math.round((g + m) * 255), Math.round((b + m) * 255)];
+  }
+  function css(a) { return "rgb(" + a.join(",") + ")"; }
+
+  var cv = document.getElementById("view"), ctx = cv.getContext("2d"), N = cv.width;
+
+  function field(mix, bri) {
+    var img = ctx.createImageData(N, N), d = img.data;
+    for (var y = 0; y < N; y++) for (var x = 0; x < N; x++) {
+      var dx = x - CX, dy = CY - y, dist = Math.hypot(dx, dy), o = (y * N + x) * 4;
+      var a = Math.atan2(dy, dx), edge = shapeEdge(a, mix);
+      if (dist > edge) { d[o + 3] = 0; continue; }
+      var h = (a * 180 / PI + 360) % 360, limit = edge * (bri / 100), c, al;
+      if (dist <= limit) { c = hsv(h, limit > 0 ? (dist / limit) * 100 : 0, bri); al = 255; }
+      else { c = hsv(h, 100, (dist / edge) * 100); al = 82; }
+      d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; d[o + 3] = al;
+    }
+    ctx.putImageData(img, 0, 0);
+  }
+
+  function outline(mix, r, style, dash) {
+    ctx.setLineDash(dash || []);
+    ctx.beginPath();
+    for (var i = 0; i <= 144; i++) {
+      var a = i / 144 * 2 * PI, e = shapeEdge(a, mix) * (r / R);
+      var X = CX + e * Math.cos(a), Y = CY - e * Math.sin(a);
+      if (i === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
+    }
+    ctx.closePath(); ctx.strokeStyle = style; ctx.lineWidth = 2; ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  function render() {
+    var mix = +document.getElementById("mix").value / 100;
+    var hue = +document.getElementById("hue").value;
+    var sat = +document.getElementById("sat").value;
+    var bri = +document.getElementById("bri").value;
+    var showChord = document.getElementById("chord").checked;
+    document.getElementById("mixO").textContent =
+      mix === 0 ? "circle" : mix === 1 ? "hexagon" : mix.toFixed(2);
+    document.getElementById("hueO").textContent = hue + "°";
+    document.getElementById("satO").textContent = sat;
+    document.getElementById("briO").textContent = bri;
+
+    var rgb = hsv(hue, sat, bri), val = { r: rgb[0], g: rgb[1], b: rgb[2] };
+
+    // Built in hexagon space, where the projection is linear and the three
+    // channel vectors genuinely add.
+    var pts = [{ x: CX, y: CY }];
+    ORDER.forEach(function (ch) {
+      var a = DIRS[ch] * PI / 180, p = pts[pts.length - 1], L = val[ch] * SCALE;
+      pts.push({ x: p.x + L * Math.cos(a), y: p.y - L * Math.sin(a) });
+    });
+
+    ctx.clearRect(0, 0, N, N);
+    field(mix, bri);
+    outline(mix, R, "rgba(255,255,255,0.35)");
+    if (bri < 100) outline(mix, R * bri / 100, "rgba(255,255,255,0.5)", [5, 5]);
+
+    ORDER.forEach(function (ch, i) {
+      var A = pts[i], B = pts[i + 1];
+      ctx.beginPath();
+      for (var k = 0; k <= 48; k++) {
+        var t = k / 48;
+        var q = warp({ x: A.x + (B.x - A.x) * t, y: A.y + (B.y - A.y) * t }, mix);
+        if (k === 0) ctx.moveTo(q.x, q.y); else ctx.lineTo(q.x, q.y);
+      }
+      ctx.strokeStyle = CH[ch]; ctx.lineWidth = 5; ctx.lineCap = "round"; ctx.stroke();
+    });
+
+    if (showChord) {
+      ctx.setLineDash([7, 7]); ctx.lineWidth = 2.5;
+      ctx.strokeStyle = "rgba(255,255,255,0.95)";
+      ctx.beginPath();
+      pts.forEach(function (p, i) {
+        var q = warp(p, mix);
+        if (i === 0) ctx.moveTo(q.x, q.y); else ctx.lineTo(q.x, q.y);
+      });
+      ctx.stroke(); ctx.setLineDash([]);
+    }
+
+    // Ring is the channel the handle belongs to; fill is the field beneath it.
+    pts.forEach(function (p, i) {
+      var q = warp(p, mix);
+      if (i === 0) {
+        ctx.beginPath(); ctx.arc(q.x, q.y, 5, 0, 2 * PI);
+        ctx.fillStyle = "#ff0000"; ctx.fill(); return;
+      }
+      var dx = q.x - CX, dy = CY - q.y, dist = Math.hypot(dx, dy), a = Math.atan2(dy, dx);
+      var edge = shapeEdge(a, mix), limit = edge * (bri / 100);
+      var h = (a * 180 / PI + 360) % 360;
+      var under = dist <= limit
+        ? hsv(h, limit > 0 ? (dist / limit) * 100 : 0, bri)
+        : hsv(h, 100, (dist / edge) * 100);
+      ctx.save();
+      ctx.shadowColor = "rgba(0,0,0,0.45)"; ctx.shadowBlur = 6; ctx.shadowOffsetY = 2;
+      ctx.beginPath(); ctx.arc(q.x, q.y, 11, 0, 2 * PI);
+      ctx.fillStyle = css(under); ctx.fill();
+      ctx.lineWidth = 4; ctx.strokeStyle = CH[ORDER[i - 1]]; ctx.stroke();
+      ctx.restore();
+    });
+  }
+
+  ["mix", "hue", "sat", "bri", "chord"].forEach(function (id) {
+    document.getElementById(id).addEventListener("input", render);
+  });
+  render();
+})();
+</script>
