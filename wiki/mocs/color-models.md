@@ -19,6 +19,9 @@ largest cluster in the wiki.
 
 - [[research/hsl-degenerate-states]] — HSB loses resolution only toward black,
   HSL loses it at *both* ends; what CSS Color 4 calls the condition
+- [[decision-hsb-canonical-rgb-override]] — colour state is one HSB and the
+  exact RGB rides in a ref, because 86.4% of 8-bit colours change on the round
+  trip. Implemented once, in `src/hooks/useColorState.ts`
 - [[decision-hsl-gesture-origin]] — a gesture freezes the channels it is not
   touching, because HSB↔HSL round-trips lose information twice
 - [[decision-brightness-axis-not-luminance]] — the bar names its own axis, and
