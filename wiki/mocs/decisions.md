@@ -32,6 +32,7 @@ Every `notes/decision-*.md`, newest first. Each note records what was decided, w
 - [[decision-saved-grows-in-banks]] — Saved grows a row of 12 at a time to a ceiling of 36; size derived from content, not stored
 - [[decision-alpha-in-swatch-identity]] — a swatch is `{hex, alpha}`, not a color with a side map
 - [[decision-audio-as-optional-module]] — audio is a loadable module, separated on principle rather than for bytes
+- [[decision-hsb-canonical-rgb-override]] — colour state is one HSB; the exact RGB rides in a ref because 86.4% of 8-bit colours change on the round trip. Implemented three times; the deck's copy drifts
 - [[decision-hsl-gesture-origin]] — an HSL gesture holds what it started from; both hosts write through one `writeHslChannel`
 - [[decision-intro-renders-the-real-picker]] — the deck shows the app's components, not a lookalike; the same rule as the plugin, third surface
 - [[decision-keyboard-scheme]] — letters turn the wheel, arrows move the bars, Tab moves between cards; why the letters live on the hexagon's own listener. #84
@@ -44,7 +45,6 @@ Every `notes/decision-*.md`, newest first. Each note records what was decided, w
 
 Decisions from before the wiki existed (2026-03 to 2026-05) are visible in the daily notes but were never written up. Worth backfilling if any of them come back into question:
 
-- HSB is canonical, RGB carries an override ref (the pattern `main.tsx` has to mirror)
 - GitHub Issues over `TODO.md` (2026-05-18)
 - Saved slot ordering is a user arrangement rendered through a sort view, not a sorted store (2026-05-16)
 - Presentation cells tween by identity, not slot index (2026-04-02)

@@ -17,6 +17,7 @@ If a request conflicts with a `decision-*.md` note, surface the conflict before 
 Package manager: **bun**. `bun.lock` is the source of truth; no `package-lock.json`. Scripts are in `package.json`; only the two with non-obvious behaviour are worth stating:
 
 - `bun run deploy` — GitHub Pages build + publish via `gh-pages`. The script uses POSIX inline env var syntax (`GITHUB_PAGES=1 vite build`); bun's built-in shell handles this on Windows, so no PowerShell `$env:` workaround is needed when invoked via `bun run`.
+- `bun run test:unit` — `bun test src`: the pure colour maths, `src/**/*.test.ts`, on bun's own runner. No vitest, no jsdom; bun reads the `@/` alias from `tsconfig.json`. culori is the oracle, so conversions are checked against an independent implementation. Runs in CI before Playwright. Keep unit files as `*.test.ts` under `src/` — Playwright's `testDir` is `tests/` and bun would try to run a `*.spec.ts`, so the two runners stay apart by directory and suffix.
 - `bun run test` — Playwright e2e against a Vite dev server it starts itself, **reusing an existing one on :5173** if you already have `bun dev` running. Specs live in `tests/`.
 
   That reuse is a trap worth knowing: the suite runs against **whatever dev server is already up**, so a local `.env` override reaches it and a failure can have nothing to do with your change. If a spec fails only on your machine, check `.env.development.local` before reading any further.
