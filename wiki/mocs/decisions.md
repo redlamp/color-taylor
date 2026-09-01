@@ -34,6 +34,7 @@ Every `notes/decision-*.md`, newest first. Each note records what was decided, w
 - [[decision-audio-as-optional-module]] — audio is a loadable module, separated on principle rather than for bytes
 - [[decision-hsl-gesture-origin]] — an HSL gesture holds what it started from; both hosts write through one `writeHslChannel`
 - [[decision-intro-renders-the-real-picker]] — the deck shows the app's components, not a lookalike; the same rule as the plugin, third surface
+- [[decision-keyboard-scheme]] — letters turn the wheel, arrows move the bars, Tab moves between cards; why the letters live on the hexagon's own listener. #84
 
 ## Build and CI
 
