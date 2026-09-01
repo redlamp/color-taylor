@@ -1,6 +1,8 @@
 import { useRef, useEffect, useCallback, useLayoutEffect, useState, useMemo, type ComponentType, type CSSProperties, type ReactNode, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { hsbToRgb, rgbToHsb, rgbToHex, hexToRgb, rgbToHsl, hslToRgb, lighter, type RGB, type HSB, type HSL } from '../utils/colorConversions';
 import { swatchBackground, type ColorSpace } from '../utils/sliderGradients';
+import { buildChain } from './hex/chain';
+import { hsbFromField } from './hex/pointer';
 import type { Channel, ChannelOrder, PointerDownState } from './hex/hexConstants';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
@@ -17,7 +19,7 @@ import {
   BL_BAR_X, BL_BAR_TOP, BL_BAR_HEIGHT, BL_ARROW_SIZE,
   SAT_BAR_LEFT, SAT_BAR_WIDTH, DISPLAY_HEIGHT_SAT, SVG_HEIGHT_SAT,
   HUE_LABEL_OFFSET,
-  hexEdgeDist, shapeEdgeDist, shapePoints, colorAtPoint, getOrder, shapeLimitScale,
+  hexEdgeDist, shapePoints, colorAtPoint, getOrder, shapeLimitScale,
 } from './hex/hexConstants';
 import HexCanvas from './hex/HexCanvas';
 import BrightnessBar from './hex/BrightnessBar';
@@ -948,79 +950,14 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     return { x: (e.clientX - rect.left) * sx, y: (e.clientY - rect.top) * sy };
   }, [EXTENT, svgHeight]);
 
-  const getHsbFromPosition = useCallback((svgX: number, svgY: number, clampOnly = false) => {
-    const dx = svgX - CENTER_X;
-    const dy = svgY - CENTER_Y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    const angle = Math.atan2(-dy, dx);
-    const edgeDist = shapeEdgeDist(angle, RADIUS, shapeMix);
-
-    // For initial clicks, reject if outside hex; for drags (clampOnly), clamp instead
-    if (!clampOnly && dist > edgeDist) return null;
-
-    let h = (angle * 180) / PI;
-    if (h < 0) h += 360;
-
-    /*
-     * Radius is chroma, so the handle lands at (s/100)*(b/100)*edge.
-     *
-     * This used to read saturation off the *full* edge and then rubber-band
-     * brightness off the same radius, which set both to the same number and put
-     * the handle at r-squared instead of r. Starting at b=30 and dragging to
-     * half the radius left the handle at a quarter of it - visibly not under
-     * the cursor, and worse the darker the colour.
-     *
-     * Measuring saturation against the cross-section's own edge instead makes
-     * (s/100)*(b/100)*edge collapse to exactly `dist` on both branches, so the
-     * handle tracks the pointer at every brightness.
-     */
-    const origin = dragOrigin.current ?? { b: brightness, l: hsl?.l ?? 50, h: hue, sHsl: hsl?.s ?? 0 };
-    const limit = shapeLimitScale(blMode, origin.b, origin.l, shapeMix);
-    const r = dist / edgeDist;
-    const pointerHue = Math.round(h);
-
-    /*
-     * A rubber-band, not a ratchet: `origin` is frozen at drag start, so
-     * stretching past the cross-section and coming back returns to the bounds
-     * the drag began with. Whatever the pointer is over when it lifts is what
-     * sticks, which is how releasing outside sets the new value.
-     */
-    if (blMode === 'brightness') {
-      if (r <= limit) {
-        const sIn = limit > 0 ? Math.round(Math.min((r / limit) * 100, 100)) : 0;
-        // At the centre the angle is noise and the colour is grey either way,
-        // so keep the hue the drag started from rather than snapping to 0.
-        return { h: sIn === 0 ? origin.h : pointerHue, s: sIn, b: origin.b };
-      }
-      return { h: pointerHue, s: 100, b: Math.min(100, Math.round(r * 100)) };
-    }
-
-    /*
-     * HSL takes the same two branches against its own bound, then converts,
-     * because the drag writes HSB either way.
-     *
-     * Expanding moves L toward 50 rather than simply up: the cross-section is
-     * widest in the middle, so from the dark half the way out is to lighten and
-     * from the light half it is to darken. Solving 1 - |2L-1| = r on the branch
-     * L is already on gives 50r or 100 - 50r.
-     *
-     * r is clamped to 1 first, and that clamp is the whole point. A drag can
-     * run past the hexagon's own rim - `clampOnly` lets dist exceed edgeDist -
-     * and unclamped, 50r carries L straight through 50 and out the far side,
-     * where the cross-section starts shrinking again and the handle turns back
-     * on itself. L pins at 50, the widest the cross-section ever gets. HSB
-     * never showed this because its branch already clamps at b=100.
-     */
-    const rPinned = Math.min(1, r);
-    const sL = r <= limit ? (limit > 0 ? Math.min((r / limit) * 100, 100) : 0) : 100;
-    const lTarget = r <= limit
-      ? origin.l
-      : (origin.l <= 50 ? rPinned * 50 : 100 - rPinned * 50);
-    const hueOut = sL === 0 ? origin.h : pointerHue;
-    const asRgb = hslToRgb(hueOut, sL, lTarget);
-    const asHsb = rgbToHsb(asRgb.r, asRgb.g, asRgb.b);
-    return { h: hueOut, s: Math.round(asHsb.s), b: Math.round(asHsb.b) };
-  }, [brightness, hsl?.l, hsl?.s, hue, blMode, shapeMix]);
+  // The mapping lives in hex/pointer.ts, pure and unit-tested. The gesture
+  // origin is read through the ref so a drag keeps the bounds it began with.
+  const getHsbFromPosition = useCallback((svgX: number, svgY: number, clampOnly = false) =>
+    hsbFromField(svgX, svgY, {
+      brightness, lightness: hsl?.l ?? 50, hue, blMode, shapeMix,
+      origin: dragOrigin.current, clampOnly,
+    }),
+  [brightness, hsl?.l, hue, blMode, shapeMix]);
 
   const hueFromMouse = useCallback((e: { clientX: number; clientY: number }) => {
     const { x, y } = getSvgCoords(e);
@@ -1035,49 +972,13 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   // eslint-disable-next-line react-hooks/exhaustive-deps -- rgb accessed via dynamic key; r/g/b deps cover all reads
   const order = useMemo(() => getOrder(vectorMode, rgb), [vectorMode, rgb.r, rgb.g, rgb.b]);
   const scale = RADIUS / 255;
-  const { points, dotNames } = useMemo(() => {
-    const p0 = { x: CENTER_X, y: CENTER_Y };
-    const pts = [p0];
-    const names = ['origin'];
-    let current = p0;
-    for (const ch of order) {
-      const dir = DIRS[ch];
-      const value = rgb[ch];
-      current = {
-        x: current.x + value * scale * dir.x,
-        y: current.y + value * scale * dir.y,
-      };
-      pts.push(current);
-      names.push(ch === 'r' ? 'red' : ch === 'g' ? 'green' : 'blue');
-    }
-    /*
-     * On a wheel the radius is saturation; on the hexagon it is chroma.
-     *
-     * The chain lands at chroma by construction - saturation times brightness -
-     * because that is the edge of the cube's cross-section, which is what the
-     * hexagon draws and what a drag has to agree with. A wheel draws no
-     * cross-section, so brightness has nowhere to show and the classic mapping
-     * is angle for hue, distance for saturation, nothing for brightness. Both
-     * are right about their own shape.
-     *
-     * Same ray either way - the chain ends in the hue direction - so lerping
-     * the tip in x/y slides it along that ray, and the last stem follows it
-     * rather than detaching. Untouched at shapeMix 1, so the picker and the
-     * plugin get the chain's own tip and not a recomputation of it.
-     */
-    if (shapeMix < 1) {
-      const rad = (hue * PI) / 180;
-      const d = (saturation / 100) * shapeEdgeDist(rad, RADIUS, shapeMix);
-      const wheel = { x: CENTER_X + d * Math.cos(rad), y: CENTER_Y - d * Math.sin(rad) };
-      const tip = pts[pts.length - 1];
-      pts[pts.length - 1] = {
-        x: wheel.x + (tip.x - wheel.x) * shapeMix,
-        y: wheel.y + (tip.y - wheel.y) * shapeMix,
-      };
-    }
-    return { points: pts, dotNames: names };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- rgb accessed via dynamic key; r/g/b deps cover all reads
-  }, [order, rgb.r, rgb.g, rgb.b, scale, shapeMix, hue, saturation]);
+  // The chain itself lives in hex/chain.ts, pure and unit-tested; this memo
+  // only ties it to the props.
+  const { points, dotNames } = useMemo(
+    () => buildChain(rgb, order, { hue, saturation, shapeMix }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- rgb is read by channel; r/g/b cover it
+    [order, rgb.r, rgb.g, rgb.b, shapeMix, hue, saturation],
+  );
 
   /**
    * Same hue, lifted - the hover state of any element is its own color,
