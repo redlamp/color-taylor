@@ -1,12 +1,14 @@
 import { useEffect, useRef } from 'react';
+import { useSettings } from '@/hooks/useSettings';
 
 /**
- * A frame-rate meter, on when the URL carries `?fps` - `localhost:5173/?fps#/`.
+ * A frame-rate meter, on from the Frame Rate Meter switch in Settings or when
+ * the URL carries `?fps` - `localhost:5173/?fps#/`.
  *
- * Deliberately not a setting: a localStorage key would need a reset-all owner
- * (see CLAUDE.md) for something only ever switched on to diagnose a drag that
- * feels slow. The query string survives the hash router and works on the
- * deployed site too.
+ * The switch lives inside the settings object rather than in its own
+ * localStorage key, so "Reset all settings" clears it without a new owner
+ * (see the key table in CLAUDE.md). The query string is the no-state route:
+ * it survives the hash router and works on the deployed site.
  *
  * It must not be the thing it measures. Frame timing is kept in a ring buffer
  * and written straight into the DOM four times a second through a ref, so the
@@ -27,9 +29,11 @@ export function fpsEnabled(): boolean {
 
 export default function FpsMeter() {
   const el = useRef<HTMLDivElement | null>(null);
+  const { settings } = useSettings();
+  const enabled = settings.fpsMeter || fpsEnabled();
 
   useEffect(() => {
-    if (!fpsEnabled()) return;
+    if (!enabled) return;
     const dts = new Float64Array(WINDOW);
     let head = 0, filled = 0, last = performance.now(), lastPaint = last, raf = 0;
 
@@ -55,11 +59,12 @@ export default function FpsMeter() {
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, []);
+  }, [enabled]);
 
-  if (!fpsEnabled()) return null;
+  if (!enabled) return null;
   return (
     <div
+      id="fps-meter"
       ref={el}
       aria-hidden
       style={{

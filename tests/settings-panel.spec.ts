@@ -98,4 +98,17 @@ test.describe('Settings sheet', () => {
     // with no accessible name at all.
     await expect(sheet(page).getByRole('switch', { name: 'Toggle color synth' })).toBeVisible();
   });
+
+  test('the frame rate meter switch shows the meter, and reset-all clears it', async ({ page }) => {
+    await expect(page.locator('#fps-meter')).toHaveCount(0);
+
+    await gear(page).click();
+    await sheet(page).getByRole('switch', { name: 'Toggle frame rate meter' }).click();
+    await expect(page.locator('#fps-meter')).toBeVisible();
+
+    // Lives inside the settings object, so the existing reset owns it. A new
+    // localStorage key without a reset listener would survive this.
+    await sheet(page).getByRole('button', { name: /reset all settings/i }).click();
+    await expect(page.locator('#fps-meter')).toHaveCount(0);
+  });
 });

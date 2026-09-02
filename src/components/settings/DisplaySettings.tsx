@@ -1,6 +1,7 @@
 import { Sun, Moon } from 'lucide-react';
 import { SwitchRow } from '@/components/settings/SettingsSwitch';
 import { useTheme } from '@/hooks/useTheme';
+import { useSettings } from '@/hooks/useSettings';
 
 interface Props {
   colorFx: boolean;
@@ -11,6 +12,7 @@ interface Props {
 
 export function DisplaySettings({ colorFx, onToggleColorFx, audioEnabled, onToggleAudio }: Props) {
   const { isDark, toggle } = useTheme();
+  const { settings, setFpsMeter } = useSettings();
   return (
     <div className="flex flex-col gap-3 px-1">
       <SwitchRow
@@ -37,6 +39,13 @@ export function DisplaySettings({ colorFx, onToggleColorFx, audioEnabled, onTogg
         checked={audioEnabled}
         onToggle={onToggleAudio}
         ariaLabel="Toggle audio features"
+      />
+      {/* Diagnostic. Same meter `?fps` in the URL shows; this one persists. */}
+      <SwitchRow
+        label="Frame Rate Meter"
+        checked={settings.fpsMeter}
+        onToggle={() => setFpsMeter(!settings.fpsMeter)}
+        ariaLabel="Toggle frame rate meter"
       />
     </div>
   );
