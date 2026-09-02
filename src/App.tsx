@@ -2,6 +2,7 @@ import { useEffect, Suspense, lazy } from 'react'
 import ErrorBoundary from './components/ErrorBoundary'
 import ColorPicker from './components/ColorPicker'
 import PluginBanner from './components/PluginBanner'
+import FpsMeter from './components/FpsMeter'
 import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ThemeProvider, useTheme } from './hooks/useTheme'
@@ -39,6 +40,9 @@ function AppInner() {
 
   return (
     <>
+      {/* Diagnostic only, on with ?fps in the URL. Above the route switch so it
+          reads the deck as well as the picker. */}
+      <FpsMeter />
       {/* Background layer that tweens between app and presentation colors */}
       <div
         className="fixed inset-0"
