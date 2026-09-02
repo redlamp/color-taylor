@@ -10,6 +10,10 @@ largest cluster in the wiki.
   silhouette of the RGB cube viewed along black→white. Every geometric constant
   in `ColorHexagon` follows from it. Interactive proof in
   `docs/prototypes/rgb-cube/`
+- [[research/colour-solid-visualisations]] — the three reference pictures for
+  how the cube becomes a cylinder: the HSL/HSV cutaway cylinders, the
+  cube→hexcone→cylinder derivation, and the 1987 Tektronix bicone. Where the
+  intro's cube sequence would come from. Try ideas in `lab/cube.html`
 - **Radius is chroma, not saturation.** At brightness `b` the reachable colours
   are the cube's cross-section, a hexagon of radius `b/100`, so the handle sits
   at `(s/100) × (b/100) × edge`. Not yet its own note; documented in the root
