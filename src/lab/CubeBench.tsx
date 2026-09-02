@@ -144,17 +144,20 @@ export default function CubeBench() {
 
   useEffect(() => { rendererRef.current?.render(params); }, [params]);
 
-  // Orbit: a slow sweep round the lightness axis while the tilt drifts in and
-  // out, so the cube is seen from the side as well as from above. The tilt
-  // eases toward its target, so starting from straight down there is no jump.
+  // Orbit: a slow sweep round the lightness axis, looking down 30 degrees at
+  // the centre of the shape. The tilt and the centre ease in from wherever
+  // the camera is, so starting from straight down there is no jump.
   useEffect(() => {
     if (!spin) return;
     let raf = 0;
-    const t0 = performance.now();
-    const tick = (now: number) => {
-      const t = (now - t0) / 1000;
-      const target = 0.95 + 0.4 * Math.sin(t * 0.45);
-      setP((prev) => ({ ...prev, theta: prev.theta + 0.006, phi: prev.phi + (target - prev.phi) * 0.03 }));
+    const target = Math.PI / 6;
+    const tick = () => {
+      setP((prev) => ({
+        ...prev,
+        theta: prev.theta + 0.006,
+        phi: prev.phi + (target - prev.phi) * 0.03,
+        focus: [0, 1, 2].map((i) => prev.focus[i] + (0.5 - prev.focus[i]) * 0.03) as [number, number, number],
+      }));
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
