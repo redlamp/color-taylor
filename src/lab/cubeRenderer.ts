@@ -52,10 +52,8 @@ export const DEFAULT_PARAMS: CubeParams = {
   ground: [0.055, 0.071, 0.086],
 };
 
-export const VIEWS: Record<'hex' | 'corner' | 'front', [number, number]> = {
+export const VIEWS: Record<'hex', [number, number]> = {
   hex: [Math.PI / 2, Math.PI / 2],
-  corner: [Math.PI / 2 + 0.62, 0.5],
-  front: [Math.PI / 2, 0.08],
 };
 
 const VERT = `#version 300 es

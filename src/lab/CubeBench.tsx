@@ -74,9 +74,9 @@ function Notched({ trackId, ticks, max, children }: { trackId: string; ticks?: n
     <div ref={ref} className="relative">
       {children}
       {ticks && box && (
-        <div className="pointer-events-none absolute" style={{ left: box.left, top: box.top, width: box.width, height: box.height }} aria-hidden="true">
+        <div className="pointer-events-none absolute" style={{ left: box.left, top: box.top + box.height + 1, width: box.width, height: 4 }} aria-hidden="true">
           {ticks.map((t) => (
-            <div key={t} className="absolute top-0 h-full w-px -translate-x-1/2" style={{ left: `${(t / max) * 100}%`, background: 'rgba(0,0,0,0.45)', boxShadow: '1px 0 0 rgba(255,255,255,0.35)' }} />
+            <div key={t} className="absolute top-0 h-full w-px -translate-x-1/2 bg-white/90" style={{ left: `${(t / max) * 100}%` }} />
           ))}
         </div>
       )}
@@ -256,8 +256,6 @@ export default function CubeBench() {
         </div>
         <div className="absolute bottom-4 left-4 flex gap-2">
           <Button size="sm" variant="outline" onClick={() => setP((prev) => ({ ...prev, theta: VIEWS.hex[0], phi: VIEWS.hex[1] }))}>Hexagon</Button>
-          <Button size="sm" variant="outline" onClick={() => setP((prev) => ({ ...prev, theta: VIEWS.corner[0], phi: VIEWS.corner[1] }))}>Corner</Button>
-          <Button size="sm" variant="outline" onClick={() => setP((prev) => ({ ...prev, theta: VIEWS.front[0], phi: VIEWS.front[1] }))}>Front</Button>
           <Button size="sm" variant={spin ? 'default' : 'outline'} aria-pressed={spin} onClick={() => setSpin((s) => !s)}>Spin</Button>
         </div>
       </div>
@@ -272,7 +270,7 @@ export default function CubeBench() {
                 <HSlider hue={hsb.h} onChange={handleH} />
               </div>
               <HexInput hex={_hex} onChange={handleHex} />
-              <CollapsibleSection id="lab-rgb" title="RGB" headerRight={
+              <CollapsibleSection id="lab-rgb" title="RGB" variant="flush" headerRight={
                 <Tabs value={rgbMode} onValueChange={(v) => setRgbMode(v as 'channel' | 'mixed')}>
                   <TabsList>
                     <TabsTrigger value="channel" className="w-16">Channel</TabsTrigger>
@@ -292,7 +290,7 @@ export default function CubeBench() {
                   </Notched>
                 </div>
               </CollapsibleSection>
-              <CollapsibleSection id="lab-hsb-hsl" title="HSB / HSL" headerRight={
+              <CollapsibleSection id="lab-hsb-hsl" title="HSB / HSL" variant="flush" headerRight={
                 <Tabs value={hslMode} onValueChange={(v) => setHslMode(v as 'hsb' | 'hsl' | 'both')}>
                   <TabsList>
                     <TabsTrigger value="hsb" className="w-12">HSB</TabsTrigger>
