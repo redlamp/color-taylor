@@ -276,7 +276,7 @@ export default function CubeBench() {
           />
         )}
         <div className="pointer-events-none absolute left-4 top-4 flex flex-col gap-0.5 text-xs text-muted-foreground">
-          <div className="text-sm font-semibold text-foreground">{perSide} cubes per axis</div>
+          <div className="text-sm font-semibold text-foreground">{perSide} steps per axis</div>
           <div>#00 to #FF in {STEP_NAMES[p.cubeStep]} steps · {{ cube: 'RGB cube', hsb: 'HSB cone', hsl: 'HSL bicone' }[shape]} · {{ neutral: 'lightness', r: 'red', g: 'green', b: 'blue' }[p.up]} up</div>
           <div>Drag to orbit · wheel to zoom · double-click to reset</div>
         </div>
@@ -353,7 +353,7 @@ export default function CubeBench() {
         <div className="panel-frame flex flex-col rounded-lg border border-border p-2.5">
           <CollapsibleSection id="lab-cube" title="Cube" level="h2">
             <div className="flex flex-col gap-3">
-              <Label className="text-sm text-muted-foreground">Cubes per axis</Label>
+              <Label className="text-sm text-muted-foreground">Steps per axis</Label>
               {seg(String(p.cubeStep), '51:6|17:16|1:256', (x) => set('cubeStep', +x as CubeStep))}
               <Label className="text-sm text-muted-foreground">Shape</Label>
               {seg(shape, 'cube:Cube|hsb:HSB cone|hsl:HSL bicone', (x) => goShape(x as Shape))}
