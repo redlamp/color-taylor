@@ -49,7 +49,7 @@ export interface CubeParams {
   phi: number;
   zoom: number;
   focus: [number, number, number];
-  /** Clear colour, 0..1 - the page ground, so the canvas reads as part of it. */
+  /** Clear colour, 0..1. */
   ground: [number, number, number];
 }
 
@@ -58,7 +58,7 @@ export const DEFAULT_PARAMS: CubeParams = {
   cubes: true, cubeStep: 17, gap: 0.02, edge: 0.04, edgeDark: 0.1, outline: true, outlineW: 2,
   up: 'neutral', axes: true, shapeW: [1, 0, 0],
   theta: Math.PI / 2, phi: Math.PI / 2, zoom: 0.75, focus: [0.5, 0.5, 0.5],
-  ground: [0.055, 0.071, 0.086],
+  ground: [0x20 / 255, 0x20 / 255, 0x20 / 255],   // #202020
 };
 
 const VERT = `#version 300 es

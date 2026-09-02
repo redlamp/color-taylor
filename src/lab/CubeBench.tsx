@@ -125,21 +125,9 @@ export default function CubeBench() {
     try { r = createCubeRenderer(canvas); } catch (e) { console.error(e); }
     if (!r) { setUnsupported(true); return; }
     rendererRef.current = r;
-    // the page ground, so the canvas reads as part of it
-    const sync = () => {
-      const bg = getComputedStyle(document.documentElement).getPropertyValue('--background').trim();
-      const probe = document.createElement('div');
-      probe.style.color = bg; document.body.appendChild(probe);
-      const m = getComputedStyle(probe).color.match(/[\d.]+/g);
-      probe.remove();
-      if (m && m.length >= 3) setP((prev) => ({ ...prev, ground: [+m[0] / 255, +m[1] / 255, +m[2] / 255] }));
-    };
-    sync();
-    const mo = new MutationObserver(sync);
-    mo.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
     const ro = new ResizeObserver(() => r.render(paramsRef.current));
     ro.observe(canvas);
-    return () => { mo.disconnect(); ro.disconnect(); r.destroy(); rendererRef.current = null; };
+    return () => { ro.disconnect(); r.destroy(); rendererRef.current = null; };
   }, []);
 
   useEffect(() => { rendererRef.current?.render(params); }, [params]);
@@ -263,7 +251,7 @@ export default function CubeBench() {
 
   return (
     <div className="grid h-screen grid-cols-1 md:grid-cols-[1fr_420px] bg-background text-foreground">
-      <div className="relative min-h-[60vh] md:min-h-0">
+      <div className="relative min-h-[60vh] md:min-h-0" style={{ background: '#202020' }}>
         {unsupported ? (
           <p className="p-8 text-muted-foreground">WebGL2 is not available here.</p>
         ) : (
