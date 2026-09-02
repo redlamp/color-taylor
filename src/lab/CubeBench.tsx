@@ -154,7 +154,7 @@ export default function CubeBench() {
     const tick = () => {
       setP((prev) => ({
         ...prev,
-        theta: prev.theta + 0.006,
+        theta: prev.theta + 0.003,
         phi: prev.phi + (target - prev.phi) * 0.03,
         focus: [0, 1, 2].map((i) => prev.focus[i] + (0.5 - prev.focus[i]) * 0.03) as [number, number, number],
       }));
