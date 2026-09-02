@@ -30,6 +30,13 @@ export function DisplaySettings({ colorFx, onToggleColorFx, audioEnabled, onTogg
         onToggle={onToggleColorFx}
         ariaLabel="Toggle border color effects"
       />
+      {/* Diagnostic. Same meter `?fps` in the URL shows; this one persists. */}
+      <SwitchRow
+        label="Frame Rate Meter"
+        checked={settings.fpsMeter}
+        onToggle={() => setFpsMeter(!settings.fpsMeter)}
+        ariaLabel="Toggle frame rate meter"
+      />
       {/* The switch that brings the whole audio feature into existence: the synth
           and volume controls in the header, the Audio settings section, and the
           interface sounds. It lives here rather than under Audio because Audio
@@ -39,13 +46,6 @@ export function DisplaySettings({ colorFx, onToggleColorFx, audioEnabled, onTogg
         checked={audioEnabled}
         onToggle={onToggleAudio}
         ariaLabel="Toggle audio features"
-      />
-      {/* Diagnostic. Same meter `?fps` in the URL shows; this one persists. */}
-      <SwitchRow
-        label="Frame Rate Meter"
-        checked={settings.fpsMeter}
-        onToggle={() => setFpsMeter(!settings.fpsMeter)}
-        ariaLabel="Toggle frame rate meter"
       />
     </div>
   );
