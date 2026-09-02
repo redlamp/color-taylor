@@ -10,12 +10,19 @@
  * colour is its place, and light would read as a fourth thing.
  *
  * Over that, the three axes, each in its channel's colour.
+ *
+ * The same cubes can be re-measured as HSB or HSL: keep each cube's offset
+ * from the black-to-white diagonal (its hue and chroma, and so the hexagon),
+ * and replace its height along the diagonal with max(r,g,b) for HSB - the
+ * hexcone - or (max+min)/2 for HSL - the double hexcone. Three positions,
+ * mixed by weights in the vertex shader, so the morph animates for free.
  */
 
 /** The size of one little cube, in 8-bit units: #33 (6 a side), #11 (16 a side) or #01 (256 a side). */
 export type CubeStep = 51 | 17 | 1;
 /** Which way is up: the black-to-white diagonal (lightness), or one of the channels. */
 export type UpAxis = 'neutral' | 'r' | 'g' | 'b';
+export type Shape = 'cube' | 'hsb' | 'hsl';
 
 export interface CubeParams {
   /** 0..1 each */
@@ -35,6 +42,8 @@ export interface CubeParams {
   up: UpAxis;
   /** The three axes, each in its channel's colour. */
   axes: boolean;
+  /** Weights on the cube, HSB cone and HSL bicone positions; sum to 1. */
+  shapeW: [number, number, number];
   /** Orbit: azimuth and elevation in radians, a zoom factor, and the point orbited. */
   theta: number;
   phi: number;
@@ -47,7 +56,7 @@ export interface CubeParams {
 export const DEFAULT_PARAMS: CubeParams = {
   rgb: [1, 0, 1],
   cubes: true, cubeStep: 17, gap: 0.02, edge: 0.04, edgeDark: 0.1, outline: true, outlineW: 2,
-  up: 'neutral', axes: true,
+  up: 'neutral', axes: true, shapeW: [1, 0, 0],
   theta: Math.PI / 2, phi: Math.PI / 2, zoom: 0.75, focus: [0.5, 0.5, 0.5],
   ground: [0.055, 0.071, 0.086],
 };
@@ -58,15 +67,35 @@ layout(location=1) in vec3 aNrm;
 layout(location=2) in vec3 aOff;   // per-instance, zero for plain draws
 uniform mat4 uProj, uView, uModel;
 uniform float uQuant;       // cubes a side; 0 for plain draws
+uniform float uCellSz;      // 1 / uQuant
+uniform vec3  uShapeW;      // weights: cube, HSB cone, HSL bicone
 out vec3 vPos; out vec3 vNrm; flat out vec3 vCol;
 void main() {
-  vec4 w = uModel * vec4(aPos, 1.0) + vec4(aOff, 0.0);
-  vPos = w.xyz;
+  vec4 local = uModel * vec4(aPos, 1.0);
+  vec3 w;
+  if (uQuant > 0.0) {
+    // The cube's value, from its own offset - never from a face position,
+    // which sits on a cell boundary and rounds either way.
+    vCol = round(aOff * uQuant) / (uQuant - 1.0);
+    // Where this cube sits in each model. The offset from the diagonal is
+    // kept - hue and chroma, the hexagon - and only the height changes:
+    // max for HSB (the hexcone), (max+min)/2 for HSL (the double hexcone).
+    vec3 n = normalize(vec3(1.0));
+    vec3 v = vCol;
+    vec3 q = v - dot(v, n) * n;
+    float hi = max(v.r, max(v.g, v.b)), lo = min(v.r, min(v.g, v.b));
+    vec3 cCube = aOff + uCellSz * 0.5;
+    vec3 cHsb = q + hi * sqrt(3.0) * n;
+    vec3 cHsl = q + (hi + lo) * 0.5 * sqrt(3.0) * n;
+    vec3 centre = uShapeW.x * cCube + uShapeW.y * cHsb + uShapeW.z * cHsl;
+    w = centre + (local.xyz - uCellSz * 0.5);
+  } else {
+    vCol = vec3(0.0);
+    w = local.xyz + aOff;
+  }
+  vPos = w;
   vNrm = normalize(mat3(uModel) * aNrm);
-  // The cube's value, from its own offset - never from a face position, which
-  // sits on a cell boundary and rounds either way.
-  vCol = uQuant > 0.0 ? round(aOff * uQuant) / (uQuant - 1.0) : vec3(0.0);
-  gl_Position = uProj * uView * w;
+  gl_Position = uProj * uView * vec4(w, 1.0);
 }`;
 
 export const FRAG = `#version 300 es
@@ -141,7 +170,7 @@ export function createCubeRenderer(canvas: HTMLCanvasElement): CubeRenderer | nu
   if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog) ?? 'link');
   gl.useProgram(prog);
   const U: Record<string, WebGLUniformLocation | null> = {};
-  for (const n of ['uProj', 'uView', 'uModel', 'uKind', 'uFlat', 'uQuant', 'uCell', 'uInset', 'uEdge', 'uEdgeDark']) U[n] = gl.getUniformLocation(prog, n);
+  for (const n of ['uProj', 'uView', 'uModel', 'uKind', 'uFlat', 'uQuant', 'uCellSz', 'uShapeW', 'uCell', 'uInset', 'uEdge', 'uEdgeDark']) U[n] = gl.getUniformLocation(prog, n);
 
   function mesh(pos: number[], nrm: number[], idx: number[]): Mesh {
     const vao = gl!.createVertexArray()!; gl!.bindVertexArray(vao);
@@ -264,7 +293,7 @@ export function createCubeRenderer(canvas: HTMLCanvasElement): CubeRenderer | nu
       const fs = sz * (1 - g), fo = sz * g / 2;
       gl!.enable(gl!.CULL_FACE); gl!.cullFace(gl!.BACK);
       gl!.uniform1i(U.uKind, 0);
-      gl!.uniform1f(U.uQuant, N);
+      gl!.uniform1f(U.uQuant, N); gl!.uniform1f(U.uCellSz, sz); gl!.uniform3fv(U.uShapeW, p.shapeW);
       gl!.uniform1f(U.uCell, sz); gl!.uniform1f(U.uInset, g / 2);
       gl!.uniform1f(U.uEdge, edge); gl!.uniform1f(U.uEdgeDark, p.edgeDark);
       gl!.uniformMatrix4fv(U.uModel, false, M.scaleTrans([fs, fs, fs], [fo, fo, fo]));
@@ -274,15 +303,19 @@ export function createCubeRenderer(canvas: HTMLCanvasElement): CubeRenderer | nu
       if (p.outline && p.outlineW > 0) {
         // inverted hull: the selected cube again, a few pixels bigger, back
         // faces only, flat - an outline that sits behind the cube
+        // Through the same instance path as the cubes, with the selected cube's
+        // offset as the generic attribute, so it morphs with its cube.
         const ow = p.outlineW * wpp;
-        const o = idx.map((i) => i * sz + fo - ow) as V3;
         const lum = 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
         const ink: V3 = lum > 0.45 ? [0.04, 0.05, 0.06] : [0.97, 0.98, 1.0];
+        gl!.vertexAttrib3f(2, idx[0] * sz, idx[1] * sz, idx[2] * sz);
         gl!.cullFace(gl!.FRONT);
-        draw(CUBE, M.scaleTrans([fs + 2 * ow, fs + 2 * ow, fs + 2 * ow], o), 1, ink);
+        draw(CUBE, M.scaleTrans([fs + 2 * ow, fs + 2 * ow, fs + 2 * ow], [fo - ow, fo - ow, fo - ow]), 1, ink);
         gl!.cullFace(gl!.BACK);
+        gl!.vertexAttrib3f(2, 0, 0, 0);
       }
       gl!.disable(gl!.CULL_FACE);
+      gl!.uniform1f(U.uQuant, 0);
     }
 
     // ── axes, each in its channel's colour ────────────────────────────

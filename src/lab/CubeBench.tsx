@@ -31,7 +31,7 @@ import HexInput from '../components/HexInput';
 import CollapsibleSection from '../components/CollapsibleSection';
 import {
   createCubeRenderer, DEFAULT_PARAMS,
-  type CubeParams, type CubeRenderer, type CubeStep, type UpAxis,
+  type CubeParams, type CubeRenderer, type CubeStep, type UpAxis, type Shape,
 } from './cubeRenderer';
 
 /**
@@ -177,6 +177,25 @@ export default function CubeBench() {
   };
   const onPointerUp = () => { drag.current = null; };
 
+  // Shape: tween the three position weights so the grid morphs.
+  const [shape, setShape] = useState<Shape>('cube');
+  const shapeRaf = useRef(0);
+  const goShape = useCallback((next: Shape) => {
+    setShape(next);
+    cancelAnimationFrame(shapeRaf.current);
+    const from = paramsRef.current.shapeW;
+    const to: [number, number, number] = next === 'cube' ? [1, 0, 0] : next === 'hsb' ? [0, 1, 0] : [0, 0, 1];
+    const start = performance.now(), ms = 700;
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / ms);
+      const e = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;   // ease in-out cubic
+      setP((prev) => ({ ...prev, shapeW: [0, 1, 2].map((i) => from[i] + (to[i] - from[i]) * e) as [number, number, number] }));
+      if (t < 1) shapeRaf.current = requestAnimationFrame(tick);
+    };
+    shapeRaf.current = requestAnimationFrame(tick);
+  }, []);
+  useEffect(() => () => cancelAnimationFrame(shapeRaf.current), []);
+
   // Double-click the canvas: tween back to the home view, lightness up.
   const homeRaf = useRef(0);
   const goHome = useCallback(() => {
@@ -251,7 +270,7 @@ export default function CubeBench() {
         )}
         <div className="pointer-events-none absolute left-4 top-4 flex flex-col gap-0.5 text-xs text-muted-foreground">
           <div className="text-sm font-semibold text-foreground">{perSide} cubes per axis</div>
-          <div>#00 to #FF in {STEP_NAMES[p.cubeStep]} steps · {{ neutral: 'lightness', r: 'red', g: 'green', b: 'blue' }[p.up]} up</div>
+          <div>#00 to #FF in {STEP_NAMES[p.cubeStep]} steps · {{ cube: 'RGB cube', hsb: 'HSB cone', hsl: 'HSL bicone' }[shape]} · {{ neutral: 'lightness', r: 'red', g: 'green', b: 'blue' }[p.up]} up</div>
           <div>Drag to orbit · wheel to zoom · double-click to reset</div>
         </div>
         <div className="absolute bottom-4 left-4 flex gap-2">
@@ -327,6 +346,8 @@ export default function CubeBench() {
             <div className="flex flex-col gap-3">
               <Label className="text-sm text-muted-foreground">Cubes per axis</Label>
               {seg(String(p.cubeStep), '51:6|17:16|1:256', (x) => set('cubeStep', +x as CubeStep))}
+              <Label className="text-sm text-muted-foreground">Shape</Label>
+              {seg(shape, 'cube:Cube|hsb:HSB cone|hsl:HSL bicone', (x) => goShape(x as Shape))}
               <Label className="text-sm text-muted-foreground">Up axis</Label>
               {seg(p.up, 'neutral:Lightness|r:Red|g:Green|b:Blue', (x) => setP((prev) => ({
                 ...prev, up: x as UpAxis,
