@@ -215,7 +215,8 @@ export default function CubeBench() {
     homeRaf.current = requestAnimationFrame(tick);
   }, []);
   useEffect(() => () => cancelAnimationFrame(homeRaf.current), []);
-  const goHome = useCallback(() => goView(Math.PI / 2, Math.PI / 2), [goView]);
+  const [view, setView] = useState<'top' | 'three'>('top');
+  const goHome = useCallback(() => { setView('top'); goView(Math.PI / 2, Math.PI / 2); }, [goView]);
   const goThreeQuarter = useCallback(() => goView(Math.PI / 6), [goView]);
   useEffect(() => {
     const c = canvasRef.current; if (!c) return;
@@ -269,8 +270,12 @@ export default function CubeBench() {
           <div>Drag to orbit · wheel to zoom · double-click to reset</div>
         </div>
         <div className="absolute bottom-4 left-4 flex gap-2">
-          <Button size="sm" variant="outline" onClick={goHome}>Top down</Button>
-          <Button size="sm" variant="outline" onClick={goThreeQuarter}>Three-quarter</Button>
+          <Tabs value={view} onValueChange={(v) => { setView(v as 'top' | 'three'); (v === 'top' ? goHome : goThreeQuarter)(); }}>
+            <TabsList>
+              <TabsTrigger value="top">Top down</TabsTrigger>
+              <TabsTrigger value="three">Three-quarter</TabsTrigger>
+            </TabsList>
+          </Tabs>
           <div className="mx-1 w-px self-stretch bg-border" aria-hidden="true" />
           <Button size="sm" variant={spin ? 'default' : 'outline'} aria-pressed={spin} onClick={() => setSpin((s) => !s)}>Orbit</Button>
         </div>
@@ -345,6 +350,11 @@ export default function CubeBench() {
               {seg(String(p.cubeStep), '51:6|17:16|1:256', (x) => set('cubeStep', +x as CubeStep))}
               <Label className="text-sm text-muted-foreground">Shape</Label>
               {seg(shape, 'cube:Cube|hsb:HSB cone|hsl:HSL bicone', (x) => goShape(x as Shape))}
+              <div className="flex items-center justify-between gap-3">
+                <Label htmlFor="lab-pointscale" className="text-sm text-muted-foreground">Point size</Label>
+                <span className="text-sm tabular-nums text-foreground">{p.pointScale.toFixed(2)}</span>
+              </div>
+              <input id="lab-pointscale" type="range" min={0.25} max={2} step={0.05} value={p.pointScale} onChange={(e) => set('pointScale', +e.target.value)} className="h-1.5 w-full cursor-pointer accent-foreground" />
               <Label className="text-sm text-muted-foreground">Up axis</Label>
               {seg(p.up, 'neutral:Lightness|r:Red|g:Green|b:Blue', (x) => setP((prev) => ({
                 ...prev, up: x as UpAxis,

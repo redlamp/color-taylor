@@ -37,6 +37,8 @@ export interface CubeParams {
   /** Outline round the cube the colour stands in: black on a light colour, white on a dark one. Width in px. */
   outline: boolean;
   outlineW: number;
+  /** Point sprite size, as a multiple of the step. */
+  pointScale: number;
 
   /** Orthographic only: the hexagon is a property of a parallel projection. */
   up: UpAxis;
@@ -55,7 +57,7 @@ export interface CubeParams {
 
 export const DEFAULT_PARAMS: CubeParams = {
   rgb: [1, 0, 1],
-  cubes: true, cubeStep: 17, gap: 0.02, edge: 0.04, edgeDark: 0.1, outline: true, outlineW: 2,
+  cubes: true, cubeStep: 17, gap: 0.02, edge: 0.04, edgeDark: 0.1, outline: true, outlineW: 2, pointScale: 1,
   up: 'neutral', axes: true, shapeW: [1, 0, 0],
   theta: Math.PI / 2, phi: Math.PI / 2, zoom: 0.75, focus: [0.5, 0.5, 0.5],
   ground: [0x20 / 255, 0x20 / 255, 0x20 / 255],   // #202020
@@ -132,6 +134,54 @@ void main() {
   frag = vec4(col, 1.0);
 }`;
 
+/**
+ * At 256 steps per axis the grid is 16.7M cells, so each step is a point
+ * sprite instead: one vertex, no geometry, and no buffer either - the vertex
+ * decodes its own grid index from gl_VertexID. The interior is thinned to
+ * every fourth step; the surface of the filled box is always kept.
+ */
+const PVERT = `#version 300 es
+uniform mat4 uProj, uView;
+uniform float uN;           // steps per axis
+uniform vec3  uIdx;         // the selected step's index: cubes above it in any channel are hidden
+uniform vec3  uShapeW;      // weights: cube, HSB cone, HSL bicone
+uniform float uPx;          // point size in pixels
+uniform float uThin;        // keep interior steps whose index is a multiple of this
+flat out vec3 vCol;
+void main() {
+  float id = float(gl_VertexID), n = uN;
+  vec3 g = vec3(mod(id, n), mod(floor(id / n), n), floor(id / (n * n)));
+  bool hidden = any(greaterThan(g, uIdx + 0.5));
+  bool surface = any(lessThan(g, vec3(0.5))) || any(greaterThan(g, uIdx - 0.5));
+  bool thinned = !surface && any(greaterThan(mod(g, uThin), vec3(0.5)));
+  if (hidden || thinned) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); gl_PointSize = 0.0; vCol = vec3(0.0); return; }
+  vec3 v = g / (n - 1.0);
+  vCol = v;
+  vec3 nn = normalize(vec3(1.0));
+  vec3 q = v - dot(v, nn) * nn;
+  float hi = max(v.r, max(v.g, v.b)), lo = min(v.r, min(v.g, v.b));
+  vec3 cCube = (g + 0.5) / n;
+  vec3 cHsb = q + hi * sqrt(3.0) * nn;
+  vec3 cHsl = q + (hi + lo) * 0.5 * sqrt(3.0) * nn;
+  vec3 c = uShapeW.x * cCube + uShapeW.y * cHsb + uShapeW.z * cHsl;
+  gl_Position = uProj * uView * vec4(c, 1.0);
+  gl_PointSize = uPx;
+}`;
+
+const PFRAG = `#version 300 es
+precision highp float;
+flat in vec3 vCol;
+uniform float uPx, uEdgeDark;
+out vec4 frag;
+void main() {
+  // round once there is room for it, with the same silhouette darkening the spheres get
+  vec2 d = gl_PointCoord - 0.5;
+  float r2 = dot(d, d);
+  if (uPx > 2.5 && r2 > 0.25) discard;
+  float k = uPx > 4.0 ? smoothstep(0.14, 0.25, r2) : 0.0;
+  frag = vec4(mix(vCol, vCol * (1.0 - uEdgeDark), k), 1.0);
+}`;
+
 type V3 = [number, number, number];
 const v3 = {
   add: (a: V3, b: V3): V3 => [a[0] + b[0], a[1] + b[1], a[2] + b[2]],
@@ -179,6 +229,14 @@ export function createCubeRenderer(canvas: HTMLCanvasElement): CubeRenderer | nu
   gl.useProgram(prog);
   const U: Record<string, WebGLUniformLocation | null> = {};
   for (const n of ['uProj', 'uView', 'uModel', 'uKind', 'uFlat', 'uQuant', 'uCellSz', 'uShapeW', 'uViewDir', 'uCell', 'uInset', 'uEdge', 'uEdgeDark']) U[n] = gl.getUniformLocation(prog, n);
+  const pprog = gl.createProgram()!;
+  gl.attachShader(pprog, compile(gl.VERTEX_SHADER, PVERT));
+  gl.attachShader(pprog, compile(gl.FRAGMENT_SHADER, PFRAG));
+  gl.linkProgram(pprog);
+  if (!gl.getProgramParameter(pprog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(pprog) ?? 'link');
+  const PU: Record<string, WebGLUniformLocation | null> = {};
+  for (const n of ['uProj', 'uView', 'uN', 'uIdx', 'uShapeW', 'uPx', 'uThin', 'uEdgeDark']) PU[n] = gl.getUniformLocation(pprog, n);
+  const emptyVao = gl.createVertexArray()!;
 
   function mesh(pos: number[], nrm: number[], idx: number[]): Mesh {
     const vao = gl!.createVertexArray()!; gl!.bindVertexArray(vao);
@@ -240,7 +298,6 @@ export function createCubeRenderer(canvas: HTMLCanvasElement): CubeRenderer | nu
     gl!.bindVertexArray(null);
     return vao;
   };
-  const SPHERE_VAO = instanced(SPHERE);
   const INST = (() => {
     const vao = gl!.createVertexArray()!; gl!.bindVertexArray(vao);
     gl!.bindBuffer(gl!.ARRAY_BUFFER, CUBE.pb); gl!.enableVertexAttribArray(0); gl!.vertexAttribPointer(0, 3, gl!.FLOAT, false, 0, 0);
@@ -335,34 +392,38 @@ export function createCubeRenderer(canvas: HTMLCanvasElement): CubeRenderer | nu
       const idx = c.map((x) => Math.floor(Math.round(x * 255) / p.cubeStep));
       // only the filled part: a cube shows when every channel is at or below the colour
       const hidden = (a: number, b: number, d: number) => a > idx[0] || b > idx[1] || d > idx[2];
-      const key = `${p.cubeStep}|${idx.join()}`;
-      if (key !== INST.key) {
-        const offs: number[] = [];
-        const add = (a: number, b: number, d: number) => { if (!hidden(a, b, d)) offs.push(a * sz, b * sz, d * sz); };
-        if (N <= 16) {
+      const fs = sz * (1 - g), fo = sz * g / 2;
+      const wc = p.shapeW[0];
+      // Points carry the cones at every size and everything at 256; cubes carry
+      // the cube shape at 6 and 16. The tween crossfades the two.
+      const pointW = N > 16 ? 1 : 1 - wc;
+      const pointPx = sz * pxPerUnit * p.pointScale * pointW;
+      gl!.enable(gl!.CULL_FACE); gl!.cullFace(gl!.BACK);
+      if (pointW > 0.01) {
+        // Point sprites, one per step, decoded from the vertex number.
+        gl!.useProgram(pprog);
+        gl!.uniformMatrix4fv(PU.uProj, false, proj); gl!.uniformMatrix4fv(PU.uView, false, view);
+        gl!.uniform1f(PU.uN, N); gl!.uniform3fv(PU.uIdx, idx); gl!.uniform3fv(PU.uShapeW, p.shapeW);
+        gl!.uniform1f(PU.uPx, Math.max(1.5, pointPx)); gl!.uniform1f(PU.uThin, N > 16 ? 4 : 1); gl!.uniform1f(PU.uEdgeDark, p.edgeDark);
+        gl!.bindVertexArray(emptyVao);
+        gl!.drawArrays(gl!.POINTS, 0, N * N * N);
+        gl!.useProgram(prog);
+      }
+      if (N <= 16 && wc > 0.01) {
+        const key = `${p.cubeStep}|${idx.join()}`;
+        if (key !== INST.key) {
           // Every cell. In the cube the interior is never seen, but in the
           // cones the greys along the axis are interior cells of the box.
-          for (let a = 0; a < N; a++) for (let b = 0; b < N; b++) for (let d = 0; d < N; d++) add(a, b, d);
-        } else {
-          // At 256 a side the grid is 16.7M cells, so only the six faces of
-          // the filled box - the cube's visible surface.
-          for (let u = 0; u < N; u++) for (let v = 0; v < N; v++) {
-            add(0, u, v); add(u, 0, v); add(u, v, 0);
-            add(idx[0], u, v); add(u, idx[1], v); add(u, v, idx[2]);
+          const offs: number[] = [];
+          for (let a = 0; a < N; a++) for (let b = 0; b < N; b++) for (let d = 0; d < N; d++) {
+            if (!hidden(a, b, d)) offs.push(a * sz, b * sz, d * sz);
           }
+          gl!.bindBuffer(gl!.ARRAY_BUFFER, INST.ob);
+          gl!.bufferData(gl!.ARRAY_BUFFER, new Float32Array(offs), gl!.DYNAMIC_DRAW);
+          INST.n = offs.length / 3; INST.key = key;
         }
-        gl!.bindBuffer(gl!.ARRAY_BUFFER, INST.ob);
-        gl!.bufferData(gl!.ARRAY_BUFFER, new Float32Array(offs), gl!.DYNAMIC_DRAW);
-        INST.n = offs.length / 3; INST.key = key;
-      }
-      const fs = sz * (1 - g), fo = sz * g / 2;
-      gl!.enable(gl!.CULL_FACE); gl!.cullFace(gl!.BACK);
-      gl!.uniform1f(U.uQuant, N); gl!.uniform1f(U.uCellSz, sz); gl!.uniform3fv(U.uShapeW, p.shapeW);
-      gl!.uniform1f(U.uEdgeDark, p.edgeDark);
-      // Cubes in the cube, spheres in the cones; the tween crossfades them,
-      // cubes shrinking as spheres grow, on the same instance offsets.
-      const wc = p.shapeW[0];
-      if (wc > 0.01) {
+        gl!.uniform1f(U.uQuant, N); gl!.uniform1f(U.uCellSz, sz); gl!.uniform3fv(U.uShapeW, p.shapeW);
+        gl!.uniform1f(U.uEdgeDark, p.edgeDark);
         const cs = fs * wc, co = fo + (fs - cs) / 2;
         gl!.uniform1i(U.uKind, 0);
         gl!.uniform1f(U.uCell, sz); gl!.uniform1f(U.uInset, (sz - cs) / 2 / sz);
@@ -371,14 +432,9 @@ export function createCubeRenderer(canvas: HTMLCanvasElement): CubeRenderer | nu
         gl!.bindVertexArray(INST.vao);
         gl!.drawElementsInstanced(gl!.TRIANGLES, CUBE.n, gl!.UNSIGNED_SHORT, 0, INST.n);
       }
-      if (wc < 0.99) {
-        // unit-radius mesh: scale to the cell's half size, centred in the cell
-        const r = (fs / 2) * (1 - wc), h2 = sz / 2;
-        gl!.uniform1i(U.uKind, 2);
-        gl!.uniformMatrix4fv(U.uModel, false, M.scaleTrans([r, r, r], [h2, h2, h2]));
-        gl!.bindVertexArray(SPHERE_VAO);
-        gl!.drawElementsInstanced(gl!.TRIANGLES, SPHERE.n, gl!.UNSIGNED_SHORT, 0, INST.n);
-      }
+      // the outline path below needs these on the main program whichever drew the grid
+      gl!.uniform1f(U.uQuant, N); gl!.uniform1f(U.uCellSz, sz); gl!.uniform3fv(U.uShapeW, p.shapeW);
+      gl!.uniform1f(U.uEdgeDark, p.edgeDark);
 
       if (p.outline && p.outlineW > 0) {
         // inverted hull: the selected cube again, a few pixels bigger, back
@@ -393,16 +449,17 @@ export function createCubeRenderer(canvas: HTMLCanvasElement): CubeRenderer | nu
         // solid still shows, outlined.
         gl!.vertexAttrib3f(2, idx[0] * sz, idx[1] * sz, idx[2] * sz);
         gl!.disable(gl!.DEPTH_TEST);
-        const cs = fs * wc, co = fo + (fs - cs) / 2;
-        const r = (fs / 2) * (1 - wc), h2 = sz / 2;
-        if (wc > 0.01) draw(CUBE, M.scaleTrans([cs + 2 * ow, cs + 2 * ow, cs + 2 * ow], [co - ow, co - ow, co - ow]), 1, ink);
-        if (wc < 0.99) draw(SPHERE, M.scaleTrans([r + ow, r + ow, r + ow], [h2, h2, h2]), 1, ink);
-        if (wc > 0.01) {
+        const cubeW = N > 16 ? 0 : wc;
+        const cs = fs * cubeW, co = fo + (fs - cs) / 2;
+        const r = Math.max(0.75 * wpp, (sz * p.pointScale * pointW) / 2), h2 = sz / 2;
+        if (cubeW > 0.01) draw(CUBE, M.scaleTrans([cs + 2 * ow, cs + 2 * ow, cs + 2 * ow], [co - ow, co - ow, co - ow]), 1, ink);
+        if (pointW > 0.01) draw(SPHERE, M.scaleTrans([r + ow, r + ow, r + ow], [h2, h2, h2]), 1, ink);
+        if (cubeW > 0.01) {
           gl!.uniform1i(U.uKind, 0);
           gl!.uniform1f(U.uCell, sz); gl!.uniform1f(U.uInset, (sz - cs) / 2 / sz); gl!.uniform1f(U.uEdge, edge);
           draw(CUBE, M.scaleTrans([cs, cs, cs], [co, co, co]), 0);
         }
-        if (wc < 0.99) draw(SPHERE, M.scaleTrans([r, r, r], [h2, h2, h2]), 2);
+        if (pointW > 0.01) draw(SPHERE, M.scaleTrans([r, r, r], [h2, h2, h2]), 2);
         gl!.enable(gl!.DEPTH_TEST);
         gl!.vertexAttrib3f(2, 0, 0, 0);
       }
