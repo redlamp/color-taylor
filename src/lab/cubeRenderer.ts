@@ -48,7 +48,7 @@ export const DEFAULT_PARAMS: CubeParams = {
   rgb: [1, 0, 1],
   cubes: true, cubeStep: 17, gap: 0.02, edge: 0.04, edgeDark: 0.1, outline: true, outlineW: 2,
   up: 'neutral', axes: true,
-  theta: Math.PI / 2, phi: Math.PI / 2, zoom: 1, focus: [0.5, 0.5, 0.5],
+  theta: Math.PI / 2, phi: Math.PI / 2, zoom: 0.75, focus: [0.5, 0.5, 0.5],
   ground: [0.055, 0.071, 0.086],
 };
 

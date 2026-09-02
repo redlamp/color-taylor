@@ -14,7 +14,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { rgbToHsb, rgbToHex, type RGB } from '../utils/colorConversions';
 import {
   hueGradient, saturationGradient, brightnessGradient,
+  hslHueGradient, hslSaturationGradient, lightnessGradient,
   redGradient, greenGradient, blueGradient,
+  redChannelGradient, greenChannelGradient, blueChannelGradient,
 } from '../utils/sliderGradients';
 import { useColorState } from '../hooks/useColorState';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -26,7 +28,7 @@ import PreviewSwatch from '../components/PreviewSwatch';
 import HexInput from '../components/HexInput';
 import CollapsibleSection from '../components/CollapsibleSection';
 import {
-  createCubeRenderer, DEFAULT_PARAMS, VIEWS, FRAG,
+  createCubeRenderer, DEFAULT_PARAMS, VIEWS,
   type CubeParams, type CubeRenderer, type CubeStep, type UpAxis,
 } from './cubeRenderer';
 
@@ -49,6 +51,39 @@ function Field({ label, id, value, min, max, step, onChange, fmt }: {
   );
 }
 
+/**
+ * Notches over a ColorSlider's track, at the cube grid. Drawn from out here
+ * rather than by the slider: this lab does not change the app's components.
+ * The track is found by the slider's own id and measured against the wrapper.
+ */
+function Notched({ trackId, ticks, max, children }: { trackId: string; ticks?: number[]; max: number; children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const [box, setBox] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
+  useEffect(() => {
+    const wrap = ref.current; if (!wrap) return;
+    const track = wrap.querySelector<HTMLElement>('#' + trackId); if (!track) return;
+    const measure = () => {
+      const a = wrap.getBoundingClientRect(), b = track.getBoundingClientRect();
+      setBox({ left: b.left - a.left, top: b.top - a.top, width: b.width, height: b.height });
+    };
+    measure();
+    const ro = new ResizeObserver(measure); ro.observe(wrap); ro.observe(track);
+    return () => ro.disconnect();
+  }, [trackId]);
+  return (
+    <div ref={ref} className="relative">
+      {children}
+      {ticks && box && (
+        <div className="pointer-events-none absolute" style={{ left: box.left, top: box.top, width: box.width, height: box.height }} aria-hidden="true">
+          {ticks.map((t) => (
+            <div key={t} className="absolute top-0 h-full w-px -translate-x-1/2" style={{ left: `${(t / max) * 100}%`, background: 'rgba(0,0,0,0.45)', boxShadow: '1px 0 0 rgba(255,255,255,0.35)' }} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
     <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
@@ -62,8 +97,10 @@ const STEP_NAMES: Record<CubeStep, string> = { 51: '#33', 17: '#11', 1: '#01' };
 
 export default function CubeBench() {
   const {
-    hsb, rgb, hex: _hex, setHsb, setHsbClear, setRgb, setRgbChannel, clearOverride,
+    hsb, rgb, hsl, hex: _hex, setHsb, setHsbClear, setRgb, setRgbChannel, setHslChannel, clearOverride,
   } = useColorStateWithHex();
+  const [rgbMode, setRgbMode] = useState<'channel' | 'mixed'>('mixed');
+  const [hslMode, setHslMode] = useState<'hsb' | 'hsl' | 'both'>('hsb');
 
   const [p, setP] = useState<CubeParams>(DEFAULT_PARAMS);
   const set = useCallback(<K extends keyof CubeParams>(k: K, v: CubeParams[K]) => setP((prev) => ({ ...prev, [k]: v })), []);
@@ -158,7 +195,7 @@ export default function CubeBench() {
         ...prev, up: 'neutral',
         theta: from.theta + dTheta * e,
         phi: from.phi + (Math.PI / 2 - from.phi) * e,
-        zoom: from.zoom + (1 - from.zoom) * e,
+        zoom: from.zoom + (DEFAULT_PARAMS.zoom - from.zoom) * e,
         focus: [0, 1, 2].map((i) => from.focus[i] + (0.5 - from.focus[i]) * e) as [number, number, number],
       }));
       if (t < 1) homeRaf.current = requestAnimationFrame(tick);
@@ -184,18 +221,10 @@ export default function CubeBench() {
   const handleS = useCallback((v: number) => setHsbClear((prev) => ({ ...prev, s: v })), [setHsbClear]);
   const handleBr = useCallback((v: number) => setHsbClear((prev) => ({ ...prev, b: v })), [setHsbClear]);
   const handleSb = useCallback((s: number, b: number) => setHsbClear((prev) => ({ ...prev, s, b })), [setHsbClear]);
+  const handleHslH = useCallback((v: number) => setHslChannel('h', v), [setHslChannel]);
+  const handleHslS = useCallback((v: number) => setHslChannel('s', v), [setHslChannel]);
+  const handleHslL = useCallback((v: number) => setHslChannel('l', v), [setHslChannel]);
   const handleHex = useCallback((parsed: RGB) => { clearOverride(); setHsb(rgbToHsb(parsed.r, parsed.g, parsed.b)); }, [clearOverride, setHsb]);
-
-  const recipe = useMemo(() => JSON.stringify({
-    colour: _hex,
-    cubes: p.cubes ? { step: STEP_NAMES[p.cubeStep], gap: p.gap, edge: p.edge, edgeDark: p.edgeDark, outline: p.outline ? p.outlineW : false } : false,
-    camera: { up: p.up, guides: p.axes, theta: +p.theta.toFixed(3), phi: +p.phi.toFixed(3), zoom: +p.zoom.toFixed(2) },
-  }, null, 2), [p, _hex]);
-  const [copied, setCopied] = useState('');
-  const copy = (text: string, what: string) => {
-    navigator.clipboard?.writeText(text).then(() => setCopied(`${what} copied`), () => setCopied('clipboard blocked'));
-    setTimeout(() => setCopied(''), 1800);
-  };
 
   const seg = (v: string, on: string, cb: (x: string) => void) => (
     <Tabs value={v} onValueChange={(x) => cb(x as string)}><TabsList className="w-full">{on.split('|').map((o) => {
@@ -203,6 +232,8 @@ export default function CubeBench() {
     })}</TabsList></Tabs>
   );
   const perSide = 255 / p.cubeStep + 1;
+  // notches on the RGB sliders at the cube grid; none at 256
+  const ticks = useMemo(() => (p.cubeStep === 1 ? undefined : Array.from({ length: perSide }, (_, i) => i * p.cubeStep)), [p.cubeStep, perSide]);
 
   return (
     <div className="grid h-screen grid-cols-1 md:grid-cols-[1fr_420px] bg-background text-foreground">
@@ -240,22 +271,54 @@ export default function CubeBench() {
                 <SBBox hue={hsb.h} saturation={hsb.s} brightness={hsb.b} onChange={handleSb} />
                 <HSlider hue={hsb.h} onChange={handleH} />
               </div>
-              <CollapsibleSection id="lab-rgb" title="RGB">
+              <HexInput hex={_hex} onChange={handleHex} />
+              <CollapsibleSection id="lab-rgb" title="RGB" headerRight={
+                <Tabs value={rgbMode} onValueChange={(v) => setRgbMode(v as 'channel' | 'mixed')}>
+                  <TabsList>
+                    <TabsTrigger value="channel" className="w-16">Channel</TabsTrigger>
+                    <TabsTrigger value="mixed" className="w-16">Mixed</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              }>
                 <div className="flex flex-col gap-2">
-                  <ColorSlider label="R" group="rgb" value={rgb.r} max={255} gradient={redGradient(rgb.g, rgb.b)} onChange={handleR} />
-                  <ColorSlider label="G" group="rgb" value={rgb.g} max={255} gradient={greenGradient(rgb.r, rgb.b)} onChange={handleG} />
-                  <ColorSlider label="B" group="rgb" value={rgb.b} max={255} gradient={blueGradient(rgb.r, rgb.g)} onChange={handleB} />
+                  <Notched trackId="slider-rgb-r-track" ticks={ticks} max={255}>
+                    <ColorSlider label="R" group="rgb" value={rgb.r} max={255} gradient={rgbMode === 'mixed' ? redGradient(rgb.g, rgb.b) : redChannelGradient} onChange={handleR} />
+                  </Notched>
+                  <Notched trackId="slider-rgb-g-track" ticks={ticks} max={255}>
+                    <ColorSlider label="G" group="rgb" value={rgb.g} max={255} gradient={rgbMode === 'mixed' ? greenGradient(rgb.r, rgb.b) : greenChannelGradient} onChange={handleG} />
+                  </Notched>
+                  <Notched trackId="slider-rgb-b-track" ticks={ticks} max={255}>
+                    <ColorSlider label="B" group="rgb" value={rgb.b} max={255} gradient={rgbMode === 'mixed' ? blueGradient(rgb.r, rgb.g) : blueChannelGradient} onChange={handleB} />
+                  </Notched>
                 </div>
               </CollapsibleSection>
-              <CollapsibleSection id="lab-hsb" title="HSB">
-                <div className="flex flex-col gap-2">
-                  <ColorSlider label="H" group="hsb" value={hsb.h} max={360} wrap gradient={hueGradient(hsb.s, hsb.b, 'srgb')} onChange={handleH} />
-                  <ColorSlider label="S" group="hsb" value={hsb.s} max={100} gradient={saturationGradient(hsb.h, hsb.b, 'srgb')} onChange={handleS} />
-                  <ColorSlider label="B" group="hsb" value={hsb.b} max={100} gradient={brightnessGradient(hsb.h, hsb.s, 'srgb')} onChange={handleBr} />
+              <CollapsibleSection id="lab-hsb-hsl" title="HSB / HSL" headerRight={
+                <Tabs value={hslMode} onValueChange={(v) => setHslMode(v as 'hsb' | 'hsl' | 'both')}>
+                  <TabsList>
+                    <TabsTrigger value="hsb" className="w-12">HSB</TabsTrigger>
+                    <TabsTrigger value="hsl" className="w-12">HSL</TabsTrigger>
+                    <TabsTrigger value="both" className="w-12">Both</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              }>
+                <div className="flex flex-col gap-3">
+                  {hslMode !== 'hsl' && (
+                    <div className="flex flex-col gap-2" role="group" aria-label="HSB">
+                      {hslMode === 'both' && <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">HSB</span>}
+                      <ColorSlider label="H" group="hsb" value={hsb.h} max={360} wrap gradient={hueGradient(hsb.s, hsb.b, 'srgb')} onChange={handleH} />
+                      <ColorSlider label="S" group="hsb" value={hsb.s} max={100} gradient={saturationGradient(hsb.h, hsb.b, 'srgb')} onChange={handleS} />
+                      <ColorSlider label="B" group="hsb" value={hsb.b} max={100} gradient={brightnessGradient(hsb.h, hsb.s, 'srgb')} onChange={handleBr} />
+                    </div>
+                  )}
+                  {hslMode !== 'hsb' && (
+                    <div className="flex flex-col gap-2" role="group" aria-label="HSL">
+                      {hslMode === 'both' && <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">HSL</span>}
+                      <ColorSlider label="H" group="hsl" value={hsl.h} max={360} wrap gradient={hslHueGradient(hsl.s, hsl.l, 'srgb')} onChange={handleHslH} />
+                      <ColorSlider label="S" group="hsl" value={hsl.s} max={100} gradient={hslSaturationGradient(hsl.h, hsl.l, 'srgb')} onChange={handleHslS} />
+                      <ColorSlider label="L" group="hsl" value={hsl.l} max={100} gradient={lightnessGradient(hsl.h, hsl.s, 'srgb')} onChange={handleHslL} />
+                    </div>
+                  )}
                 </div>
-              </CollapsibleSection>
-              <CollapsibleSection id="lab-hex" title="Hex">
-                <HexInput hex={_hex} onChange={handleHex} />
               </CollapsibleSection>
             </div>
           </CollapsibleSection>
@@ -264,40 +327,16 @@ export default function CubeBench() {
         <div className="panel-frame flex flex-col rounded-lg border border-border p-2.5">
           <CollapsibleSection id="lab-cube" title="Cube" level="h2">
             <div className="flex flex-col gap-3">
-              <CollapsibleSection id="lab-cubes" title="Cubes" headerRight={
-                <Toggle label="" checked={p.cubes} onChange={(v) => set('cubes', v)} />
-              }>
-                <div className="flex flex-col gap-2">
-                  <div className="text-xs text-muted-foreground">Cubes per axis</div>
-                  {seg(String(p.cubeStep), '51:6|17:16|1:256', (x) => set('cubeStep', +x as CubeStep))}
-                  <Toggle label="Outline the selected cube (black on light colours, white on dark)" checked={p.outline} onChange={(v) => set('outline', v)} />
-                </div>
-              </CollapsibleSection>
-
-              <CollapsibleSection id="lab-camera" title="Camera" defaultOpen={false}>
-                <div className="flex flex-col gap-2">
-                  <div className="text-xs text-muted-foreground">Up axis</div>
-                  {seg(p.up, 'neutral:Lightness|r:Red|g:Green|b:Blue', (x) => setP((prev) => ({
-                    ...prev, up: x as UpAxis,
-                    // lightness: from the white corner looking down to black, the hexagon;
-                    // a channel: side-on, so that channel runs straight up the screen
-                    theta: Math.PI / 2, phi: x === 'neutral' ? Math.PI / 2 : 0,
-                  })))}
-                  <div className="text-[11px] text-muted-foreground">Orthographic only. The hexagon is a property of a parallel projection; under perspective the near corner swells.</div>
-                  <Toggle label="Guides: the three axes, in their colours" checked={p.axes} onChange={(v) => set('axes', v)} />
-                </div>
-              </CollapsibleSection>
-
-              <CollapsibleSection id="lab-recipe" title="Recipe" defaultOpen={false}>
-                <div className="flex flex-col gap-2">
-                  <pre className="max-h-72 overflow-auto rounded-md border border-border bg-muted p-2 font-mono text-[11px] leading-snug text-muted-foreground">{recipe}</pre>
-                  <div className="flex items-center gap-2">
-                    <Button size="sm" variant="outline" onClick={() => copy(recipe, 'recipe')}>Copy recipe</Button>
-                    <Button size="sm" variant="outline" onClick={() => copy(FRAG, 'shader')}>Copy fragment shader</Button>
-                    <span className="font-mono text-[11px] text-muted-foreground">{copied}</span>
-                  </div>
-                </div>
-              </CollapsibleSection>
+              <div className="text-xs text-muted-foreground">Cubes per axis</div>
+              {seg(String(p.cubeStep), '51:6|17:16|1:256', (x) => set('cubeStep', +x as CubeStep))}
+              <div className="text-xs text-muted-foreground">Up axis</div>
+              {seg(p.up, 'neutral:Lightness|r:Red|g:Green|b:Blue', (x) => setP((prev) => ({
+                ...prev, up: x as UpAxis,
+                // lightness: from the white corner looking down to black, the hexagon;
+                // a channel: side-on, so that channel runs straight up the screen
+                theta: Math.PI / 2, phi: x === 'neutral' ? Math.PI / 2 : 0,
+              })))}
+              <Toggle label="Guides: the three axes, in their colours" checked={p.axes} onChange={(v) => set('axes', v)} />
             </div>
           </CollapsibleSection>
         </div>
