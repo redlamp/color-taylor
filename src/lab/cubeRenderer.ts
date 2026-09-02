@@ -388,17 +388,22 @@ export function createCubeRenderer(canvas: HTMLCanvasElement): CubeRenderer | nu
         const ow = p.outlineW * wpp;
         const lum = 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
         const ink: V3 = lum > 0.45 ? [0.04, 0.05, 0.06] : [0.97, 0.98, 1.0];
+        // On top of everything: the hull as a filled silhouette with the depth
+        // test off, then the cell itself over it, so a colour deep inside the
+        // solid still shows, outlined.
         gl!.vertexAttrib3f(2, idx[0] * sz, idx[1] * sz, idx[2] * sz);
-        gl!.cullFace(gl!.FRONT);
+        gl!.disable(gl!.DEPTH_TEST);
+        const cs = fs * wc, co = fo + (fs - cs) / 2;
+        const r = (fs / 2) * (1 - wc), h2 = sz / 2;
+        if (wc > 0.01) draw(CUBE, M.scaleTrans([cs + 2 * ow, cs + 2 * ow, cs + 2 * ow], [co - ow, co - ow, co - ow]), 1, ink);
+        if (wc < 0.99) draw(SPHERE, M.scaleTrans([r + ow, r + ow, r + ow], [h2, h2, h2]), 1, ink);
         if (wc > 0.01) {
-          const cs = fs * wc, co = fo + (fs - cs) / 2;
-          draw(CUBE, M.scaleTrans([cs + 2 * ow, cs + 2 * ow, cs + 2 * ow], [co - ow, co - ow, co - ow]), 1, ink);
+          gl!.uniform1i(U.uKind, 0);
+          gl!.uniform1f(U.uCell, sz); gl!.uniform1f(U.uInset, (sz - cs) / 2 / sz); gl!.uniform1f(U.uEdge, edge);
+          draw(CUBE, M.scaleTrans([cs, cs, cs], [co, co, co]), 0);
         }
-        if (wc < 0.99) {
-          const r = (fs / 2) * (1 - wc) + ow, h2 = sz / 2;
-          draw(SPHERE, M.scaleTrans([r, r, r], [h2, h2, h2]), 1, ink);
-        }
-        gl!.cullFace(gl!.BACK);
+        if (wc < 0.99) draw(SPHERE, M.scaleTrans([r, r, r], [h2, h2, h2]), 2);
+        gl!.enable(gl!.DEPTH_TEST);
         gl!.vertexAttrib3f(2, 0, 0, 0);
       }
       gl!.disable(gl!.CULL_FACE);

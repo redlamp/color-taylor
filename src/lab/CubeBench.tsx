@@ -199,15 +199,17 @@ export default function CubeBench() {
   }, []);
   useEffect(() => () => cancelAnimationFrame(shapeRaf.current), []);
 
-  // Double-click the canvas: tween back to the home view, lightness up.
+  // Tween to a view: top down (the hexagon, also on double-click) or the
+  // three-quarter view, 30 degrees down at the centre. Either ends an orbit.
   const homeRaf = useRef(0);
-  const goHome = useCallback(() => {
+  const goView = useCallback((phiTarget: number, thetaTarget?: number) => {
     setSpin(false);
     cancelAnimationFrame(homeRaf.current);
     const from = paramsRef.current;
     const two = Math.PI * 2;
-    // shortest way round for the azimuth
-    let dTheta = ((Math.PI / 2 - from.theta) % two + two * 1.5) % two - Math.PI;
+    // shortest way round for the azimuth; a three-quarter view keeps it
+    const th = thetaTarget ?? from.theta;
+    let dTheta = ((th - from.theta) % two + two * 1.5) % two - Math.PI;
     if (Math.abs(dTheta) < 1e-6) dTheta = 0;
     const start = performance.now(), ms = 550;
     const tick = (now: number) => {
@@ -216,7 +218,7 @@ export default function CubeBench() {
       setP((prev) => ({
         ...prev, up: 'neutral',
         theta: from.theta + dTheta * e,
-        phi: from.phi + (Math.PI / 2 - from.phi) * e,
+        phi: from.phi + (phiTarget - from.phi) * e,
         zoom: from.zoom + (DEFAULT_PARAMS.zoom - from.zoom) * e,
         focus: [0, 1, 2].map((i) => from.focus[i] + (0.5 - from.focus[i]) * e) as [number, number, number],
       }));
@@ -225,6 +227,8 @@ export default function CubeBench() {
     homeRaf.current = requestAnimationFrame(tick);
   }, []);
   useEffect(() => () => cancelAnimationFrame(homeRaf.current), []);
+  const goHome = useCallback(() => goView(Math.PI / 2, Math.PI / 2), [goView]);
+  const goThreeQuarter = useCallback(() => goView(Math.PI / 6), [goView]);
   useEffect(() => {
     const c = canvasRef.current; if (!c) return;
     const onWheel = (e: WheelEvent) => {
@@ -277,7 +281,9 @@ export default function CubeBench() {
           <div>Drag to orbit · wheel to zoom · double-click to reset</div>
         </div>
         <div className="absolute bottom-4 left-4 flex gap-2">
-          <Button size="sm" variant="outline" onClick={goHome}>Hexagon</Button>
+          <Button size="sm" variant="outline" onClick={goHome}>Top down</Button>
+          <Button size="sm" variant="outline" onClick={goThreeQuarter}>Three-quarter</Button>
+          <div className="mx-1 w-px self-stretch bg-border" aria-hidden="true" />
           <Button size="sm" variant={spin ? 'default' : 'outline'} aria-pressed={spin} onClick={() => setSpin((s) => !s)}>Orbit</Button>
         </div>
       </div>
