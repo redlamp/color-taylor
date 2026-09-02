@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cube Bench</title>
+    <!-- Same theme bootstrap as index.html, so the first paint is already the right theme. -->
+    <script>
+      (function () {
+        try {
+          var saved = localStorage.getItem('color-taylor-theme');
+          var dark = saved !== null ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+          if (dark) document.documentElement.classList.add('dark');
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/lab/cube-main.tsx"></script>
+  </body>
+</html>
