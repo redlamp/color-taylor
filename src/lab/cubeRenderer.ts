@@ -52,10 +52,6 @@ export const DEFAULT_PARAMS: CubeParams = {
   ground: [0.055, 0.071, 0.086],
 };
 
-export const VIEWS: Record<'hex', [number, number]> = {
-  hex: [Math.PI / 2, Math.PI / 2],
-};
-
 const VERT = `#version 300 es
 layout(location=0) in vec3 aPos;
 layout(location=1) in vec3 aNrm;

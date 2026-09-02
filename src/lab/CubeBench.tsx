@@ -21,6 +21,8 @@ import {
 import { useColorState } from '../hooks/useColorState';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { SwitchRow } from '@/components/settings/SettingsSwitch';
 import ColorSlider from '../components/ColorSlider';
 import SBBox from '../components/SBBox';
 import HSlider from '../components/HSlider';
@@ -28,28 +30,9 @@ import PreviewSwatch from '../components/PreviewSwatch';
 import HexInput from '../components/HexInput';
 import CollapsibleSection from '../components/CollapsibleSection';
 import {
-  createCubeRenderer, DEFAULT_PARAMS, VIEWS,
+  createCubeRenderer, DEFAULT_PARAMS,
   type CubeParams, type CubeRenderer, type CubeStep, type UpAxis,
 } from './cubeRenderer';
-
-type Num = { [K in keyof CubeParams]: CubeParams[K] extends number ? K : never }[keyof CubeParams];
-
-function Field({ label, id, value, min, max, step, onChange, fmt }: {
-  label: string; id: string; value: number; min: number; max: number; step: number;
-  onChange: (v: number) => void; fmt?: (v: number) => string;
-}) {
-  return (
-    <div className="grid grid-cols-[5.2rem_1fr_3.4rem] items-center gap-2">
-      <label htmlFor={id} className="text-xs font-medium text-muted-foreground">{label}</label>
-      <input
-        id={id} type="range" min={min} max={max} step={step} value={value}
-        onChange={(e) => onChange(+e.target.value)}
-        className="h-1.5 w-full cursor-pointer accent-foreground"
-      />
-      <span className="text-right font-mono text-[11px] tabular-nums text-muted-foreground">{(fmt ?? ((v) => v.toFixed(2)))(value)}</span>
-    </div>
-  );
-}
 
 /**
  * Notches over a ColorSlider's track, at the cube grid. Drawn from out here
@@ -84,15 +67,6 @@ function Notched({ trackId, ticks, max, children }: { trackId: string; ticks?: n
   );
 }
 
-function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="accent-foreground" />
-      {label}
-    </label>
-  );
-}
-
 const STEP_NAMES: Record<CubeStep, string> = { 51: '#33', 17: '#11', 1: '#01' };
 
 export default function CubeBench() {
@@ -104,7 +78,6 @@ export default function CubeBench() {
 
   const [p, setP] = useState<CubeParams>(DEFAULT_PARAMS);
   const set = useCallback(<K extends keyof CubeParams>(k: K, v: CubeParams[K]) => setP((prev) => ({ ...prev, [k]: v })), []);
-  const num = useCallback((k: Num) => (v: number) => set(k, v), [set]);
   const [spin, setSpin] = useState(false);
 
   const params = useMemo<CubeParams>(() => ({ ...p, rgb: [rgb.r / 255, rgb.g / 255, rgb.b / 255] }), [p, rgb]);
@@ -154,10 +127,19 @@ export default function CubeBench() {
 
   useEffect(() => { rendererRef.current?.render(params); }, [params]);
 
+  // Orbit: a slow sweep round the lightness axis while the tilt drifts in and
+  // out, so the cube is seen from the side as well as from above. The tilt
+  // eases toward its target, so starting from straight down there is no jump.
   useEffect(() => {
     if (!spin) return;
     let raf = 0;
-    const tick = () => { setP((prev) => ({ ...prev, theta: prev.theta + 0.006 })); raf = requestAnimationFrame(tick); };
+    const t0 = performance.now();
+    const tick = (now: number) => {
+      const t = (now - t0) / 1000;
+      const target = 0.95 + 0.4 * Math.sin(t * 0.45);
+      setP((prev) => ({ ...prev, theta: prev.theta + 0.006, phi: prev.phi + (target - prev.phi) * 0.03 }));
+      raf = requestAnimationFrame(tick);
+    };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, [spin]);
@@ -181,6 +163,7 @@ export default function CubeBench() {
   // Double-click the canvas: tween back to the home view, lightness up.
   const homeRaf = useRef(0);
   const goHome = useCallback(() => {
+    setSpin(false);
     cancelAnimationFrame(homeRaf.current);
     const from = paramsRef.current;
     const two = Math.PI * 2;
@@ -249,14 +232,14 @@ export default function CubeBench() {
             onDoubleClick={goHome}
           />
         )}
-        <div className="pointer-events-none absolute left-4 top-4 font-mono text-[11px] leading-snug text-muted-foreground">
-          <div className="text-foreground/80">orthographic · {{ neutral: 'lightness', r: 'red', g: 'green', b: 'blue' }[p.up]} up</div>
-          <div>{p.cubes ? `${perSide} cubes a side, #00 to #FF in ${STEP_NAMES[p.cubeStep]} steps` : 'no cubes'}</div>
-          <div>drag to orbit · wheel to zoom · double-click for lightness up</div>
+        <div className="pointer-events-none absolute left-4 top-4 flex flex-col gap-0.5 text-xs text-muted-foreground">
+          <div className="text-sm font-semibold text-foreground">{perSide} cubes per axis</div>
+          <div>#00 to #FF in {STEP_NAMES[p.cubeStep]} steps · {{ neutral: 'lightness', r: 'red', g: 'green', b: 'blue' }[p.up]} up</div>
+          <div>Drag to orbit · wheel to zoom · double-click to reset</div>
         </div>
         <div className="absolute bottom-4 left-4 flex gap-2">
-          <Button size="sm" variant="outline" onClick={() => setP((prev) => ({ ...prev, theta: VIEWS.hex[0], phi: VIEWS.hex[1] }))}>Hexagon</Button>
-          <Button size="sm" variant={spin ? 'default' : 'outline'} aria-pressed={spin} onClick={() => setSpin((s) => !s)}>Spin</Button>
+          <Button size="sm" variant="outline" onClick={goHome}>Hexagon</Button>
+          <Button size="sm" variant={spin ? 'default' : 'outline'} aria-pressed={spin} onClick={() => setSpin((s) => !s)}>Orbit</Button>
         </div>
       </div>
 
@@ -325,16 +308,16 @@ export default function CubeBench() {
         <div className="panel-frame flex flex-col rounded-lg border border-border p-2.5">
           <CollapsibleSection id="lab-cube" title="Cube" level="h2">
             <div className="flex flex-col gap-3">
-              <div className="text-xs text-muted-foreground">Cubes per axis</div>
+              <Label className="text-sm text-muted-foreground">Cubes per axis</Label>
               {seg(String(p.cubeStep), '51:6|17:16|1:256', (x) => set('cubeStep', +x as CubeStep))}
-              <div className="text-xs text-muted-foreground">Up axis</div>
+              <Label className="text-sm text-muted-foreground">Up axis</Label>
               {seg(p.up, 'neutral:Lightness|r:Red|g:Green|b:Blue', (x) => setP((prev) => ({
                 ...prev, up: x as UpAxis,
                 // lightness: from the white corner looking down to black, the hexagon;
                 // a channel: side-on, so that channel runs straight up the screen
                 theta: Math.PI / 2, phi: x === 'neutral' ? Math.PI / 2 : 0,
               })))}
-              <Toggle label="Guides: the three axes, in their colours" checked={p.axes} onChange={(v) => set('axes', v)} />
+              <SwitchRow label="Guides" checked={p.axes} onToggle={() => set('axes', !p.axes)} ariaLabel="Toggle the axis guides" />
             </div>
           </CollapsibleSection>
         </div>
