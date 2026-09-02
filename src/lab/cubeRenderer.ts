@@ -463,9 +463,18 @@ export function createCubeRenderer(canvas: HTMLCanvasElement): CubeRenderer | nu
 
     if (p.cubes) {
       const tw = p.stepTween;
-      // during a tween: the coarser grid leaving, then the finer one arriving
-      if (tw) drawGrid(tw.coarse, 1 - tw.unpack, null);
-      const G = tw ? drawGrid(tw.fine, 1, { step: tw.coarse, unpack: tw.unpack }) : drawGrid(p.cubeStep, 1, null);
+      // During a tween the grid being arrived at draws last, so it sits over
+      // the one leaving: fine over coarse going finer, coarse over fine going
+      // coarser - the small dots return underneath the big ones.
+      let G;
+      if (!tw) G = drawGrid(p.cubeStep, 1, null);
+      else if (p.cubeStep === tw.fine) {
+        drawGrid(tw.coarse, 1 - tw.unpack, null);
+        G = drawGrid(tw.fine, 1, { step: tw.coarse, unpack: tw.unpack });
+      } else {
+        drawGrid(tw.fine, 1, { step: tw.coarse, unpack: tw.unpack });
+        G = drawGrid(tw.coarse, 1 - tw.unpack, null);
+      }
       const { N, sz, idx, fs, fo, wc, pointW, edge } = G;
       // the outline path below needs these on the main program whichever drew the grid
       gl!.uniform1f(U.uQuant, N); gl!.uniform1f(U.uCellSz, sz); gl!.uniform3fv(U.uShapeW, p.shapeW);
