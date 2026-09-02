@@ -273,6 +273,25 @@ export function createCubeRenderer(canvas: HTMLCanvasElement): CubeRenderer | nu
     gl!.bindVertexArray(m.vao);
     gl!.drawElements(gl!.TRIANGLES, m.n, gl!.UNSIGNED_SHORT, 0);
   }
+  /** Full-saturation, full-value colour at a hue, degrees. */
+  function hsvToRgb(h: number): V3 {
+    const k = (n: number) => (n + h / 60) % 6;
+    const f = (n: number) => 1 - Math.max(0, Math.min(k(n), 4 - k(n), 1));
+    return [f(5), f(3), f(1)];
+  }
+  /** A rod from a to b, thickness t, flat colour: a cube stretched along the segment. */
+  function rod(a: V3, b: V3, t: number, colour: V3) {
+    const d = v3.sub(b, a);
+    const len = Math.hypot(...d);
+    if (len < 1e-6) return;
+    const dir = v3.mul(d, 1 / len);
+    let u: V3 = Math.abs(dir[0]) < 0.9 ? [1, 0, 0] : [0, 1, 0];
+    u = v3.norm(v3.sub(u, v3.mul(dir, v3.dot(u, dir))));
+    const v = v3.cross(dir, u);
+    const o = v3.sub(v3.sub(a, v3.mul(u, t / 2)), v3.mul(v, t / 2));
+    draw(CUBE, M.basisAt(v3.mul(dir, len), v3.mul(u, t), v3.mul(v, t), o), 1, colour);
+  }
+
   function render(p: CubeParams) {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const w = Math.round(canvas.clientWidth * dpr), h = Math.round(canvas.clientHeight * dpr);
@@ -318,13 +337,19 @@ export function createCubeRenderer(canvas: HTMLCanvasElement): CubeRenderer | nu
       const hidden = (a: number, b: number, d: number) => a > idx[0] || b > idx[1] || d > idx[2];
       const key = `${p.cubeStep}|${idx.join()}`;
       if (key !== INST.key) {
-        // Only cells that can be seen: the six faces of the filled box.
-        // Interior cells are never visible, and at 256 a side there are 16.7M.
         const offs: number[] = [];
         const add = (a: number, b: number, d: number) => { if (!hidden(a, b, d)) offs.push(a * sz, b * sz, d * sz); };
-        for (let u = 0; u < N; u++) for (let v = 0; v < N; v++) {
-          add(0, u, v); add(u, 0, v); add(u, v, 0);
-          add(idx[0], u, v); add(u, idx[1], v); add(u, v, idx[2]);
+        if (N <= 16) {
+          // Every cell. In the cube the interior is never seen, but in the
+          // cones the greys along the axis are interior cells of the box.
+          for (let a = 0; a < N; a++) for (let b = 0; b < N; b++) for (let d = 0; d < N; d++) add(a, b, d);
+        } else {
+          // At 256 a side the grid is 16.7M cells, so only the six faces of
+          // the filled box - the cube's visible surface.
+          for (let u = 0; u < N; u++) for (let v = 0; v < N; v++) {
+            add(0, u, v); add(u, 0, v); add(u, v, 0);
+            add(idx[0], u, v); add(u, idx[1], v); add(u, v, idx[2]);
+          }
         }
         gl!.bindBuffer(gl!.ARRAY_BUFFER, INST.ob);
         gl!.bufferData(gl!.ARRAY_BUFFER, new Float32Array(offs), gl!.DYNAMIC_DRAW);
@@ -382,12 +407,39 @@ export function createCubeRenderer(canvas: HTMLCanvasElement): CubeRenderer | nu
 
     // ── axes, each in its channel's colour ────────────────────────────
     // Rods four pixels thick (WebGL lines are one pixel), depth-tested so they
-    // sit below the cubes rather than over them.
+    // sit below the cubes rather than over them. The RGB axes belong to the
+    // cube and fade out with it; the cones get a hue ring through the six
+    // pure hues and a brightness / lightness axis up the middle.
     if (p.axes) {
-      const t = 4 * wpp, h2 = t / 2;
-      draw(CUBE, M.scaleTrans([1, t, t], [0, -h2, -h2]), 1, [0.9, 0.2, 0.2]);
-      draw(CUBE, M.scaleTrans([t, 1, t], [-h2, 0, -h2]), 1, [0.2, 0.8, 0.2]);
-      draw(CUBE, M.scaleTrans([t, t, 1], [-h2, -h2, 0]), 1, [0.35, 0.45, 1]);
+      const wc = p.shapeW[0];
+      if (wc > 0.01) {
+        const t = 4 * wpp * wc, h2 = t / 2;
+        draw(CUBE, M.scaleTrans([1, t, t], [0, -h2, -h2]), 1, [0.9, 0.2, 0.2]);
+        draw(CUBE, M.scaleTrans([t, 1, t], [-h2, 0, -h2]), 1, [0.2, 0.8, 0.2]);
+        draw(CUBE, M.scaleTrans([t, t, 1], [-h2, -h2, 0]), 1, [0.35, 0.45, 1]);
+      }
+      if (wc < 0.99) {
+        const t = 4 * wpp * (1 - wc);
+        const n = v3.norm([1, 1, 1]);
+        // the ring's height: white's plane for HSB, the equator for HSL
+        const hRing = (p.shapeW[1] * 1 + p.shapeW[2] * 0.5) / (p.shapeW[1] + p.shapeW[2] || 1) * Math.sqrt(3);
+        const at = (hue: number): V3 => {
+          const c = hsvToRgb(hue);
+          const q = v3.sub(c, v3.mul(n, v3.dot(c, n)));
+          return v3.add(q, v3.mul(n, hRing));
+        };
+        const SEG = 36;
+        for (let i = 0; i < SEG; i++) {
+          const a0 = (i / SEG) * 360, a1 = ((i + 1) / SEG) * 360;
+          rod(at(a0), at(a1), t, hsvToRgb((a0 + a1) / 2));
+        }
+        // black to white through the middle, in grey steps
+        const STEPS = 16;
+        for (let i = 0; i < STEPS; i++) {
+          const g0 = i / STEPS, g1 = (i + 1) / STEPS, g = (g0 + g1) / 2;
+          rod([g0, g0, g0], [g1, g1, g1], t, [g, g, g]);
+        }
+      }
     }
   }
 
