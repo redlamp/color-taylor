@@ -67,6 +67,23 @@ function Notched({ trackId, ticks, max, children }: { trackId: string; ticks?: n
   );
 }
 
+/**
+ * A section title row without the card: the app's h3 title style, the switch
+ * on the right, the content below. The app's CollapsibleSection has a flush
+ * variant, but its title is a different size and weight from the card one.
+ */
+function FlatSection({ title, headerRight, children }: { title: string; headerRight?: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <section className="flex flex-col gap-2">
+      <div className="flex h-8 items-center justify-between gap-2">
+        <h3 className="text-sm font-medium tracking-normal text-foreground/80">{title}</h3>
+        {headerRight}
+      </div>
+      {children}
+    </section>
+  );
+}
+
 const STEP_NAMES: Record<CubeStep, string> = { 51: '#33', 17: '#11', 1: '#01' };
 
 export default function CubeBench() {
@@ -253,7 +270,7 @@ export default function CubeBench() {
                 <HSlider hue={hsb.h} onChange={handleH} />
               </div>
               <HexInput hex={_hex} onChange={handleHex} />
-              <CollapsibleSection id="lab-rgb" title="RGB" variant="flush" headerRight={
+              <FlatSection title="RGB" headerRight={
                 <Tabs value={rgbMode} onValueChange={(v) => setRgbMode(v as 'channel' | 'mixed')}>
                   <TabsList>
                     <TabsTrigger value="channel" className="w-16">Channel</TabsTrigger>
@@ -272,8 +289,8 @@ export default function CubeBench() {
                     <ColorSlider label="B" group="rgb" value={rgb.b} max={255} gradient={rgbMode === 'mixed' ? blueGradient(rgb.r, rgb.g) : blueChannelGradient} onChange={handleB} />
                   </Notched>
                 </div>
-              </CollapsibleSection>
-              <CollapsibleSection id="lab-hsb-hsl" title="HSB / HSL" variant="flush" headerRight={
+              </FlatSection>
+              <FlatSection title="HSB / HSL" headerRight={
                 <Tabs value={hslMode} onValueChange={(v) => setHslMode(v as 'hsb' | 'hsl' | 'both')}>
                   <TabsList>
                     <TabsTrigger value="hsb" className="w-12">HSB</TabsTrigger>
@@ -300,7 +317,7 @@ export default function CubeBench() {
                     </div>
                   )}
                 </div>
-              </CollapsibleSection>
+              </FlatSection>
             </div>
           </CollapsibleSection>
         </div>
