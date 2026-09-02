@@ -102,15 +102,23 @@ export const FRAG = `#version 300 es
 precision highp float;
 in vec3 vPos; in vec3 vNrm; flat in vec3 vCol;
 out vec4 frag;
-uniform int   uKind;        // 0 little cube, 1 flat colour
+uniform int   uKind;        // 0 little cube, 1 flat colour, 2 little sphere
+uniform vec3  uViewDir;     // toward the eye; orthographic, so one direction for the whole frame
 uniform vec3  uFlat;
 uniform float uCell;        // cell size, for the rim pattern
 uniform float uInset;       // how far the cube is shrunk into its cell, as a fraction of the cell
 uniform float uEdge, uEdgeDark;
 void main() {
   if (uKind == 1) { frag = vec4(uFlat, 1.0); return; }
-  vec3 p = vPos;
   vec3 col = clamp(vCol, 0.0, 1.0);
+  if (uKind == 2) {
+    // a sphere in its value, darkened only at the silhouette - the cube rim's
+    // counterpart, view-dependent but not lit
+    float k = smoothstep(0.55, 1.0, 1.0 - abs(dot(normalize(vNrm), uViewDir)));
+    frag = vec4(mix(col, col * (1.0 - uEdgeDark), k), 1.0);
+    return;
+  }
+  vec3 p = vPos;
   if (uEdge > 0.0) {
     vec3 N = abs(normalize(vNrm));
     vec3 q = fract(p / uCell);
@@ -170,7 +178,7 @@ export function createCubeRenderer(canvas: HTMLCanvasElement): CubeRenderer | nu
   if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog) ?? 'link');
   gl.useProgram(prog);
   const U: Record<string, WebGLUniformLocation | null> = {};
-  for (const n of ['uProj', 'uView', 'uModel', 'uKind', 'uFlat', 'uQuant', 'uCellSz', 'uShapeW', 'uCell', 'uInset', 'uEdge', 'uEdgeDark']) U[n] = gl.getUniformLocation(prog, n);
+  for (const n of ['uProj', 'uView', 'uModel', 'uKind', 'uFlat', 'uQuant', 'uCellSz', 'uShapeW', 'uViewDir', 'uCell', 'uInset', 'uEdge', 'uEdgeDark']) U[n] = gl.getUniformLocation(prog, n);
 
   function mesh(pos: number[], nrm: number[], idx: number[]): Mesh {
     const vao = gl!.createVertexArray()!; gl!.bindVertexArray(vao);
@@ -199,18 +207,49 @@ export function createCubeRenderer(canvas: HTMLCanvasElement): CubeRenderer | nu
     }
     return mesh(pos, nrm, idx);
   })();
-  // The cube again with a per-instance offset: the whole grid in one draw.
+  // A small sphere, unit radius, for the cone modes. Low poly on purpose: it
+  // is instanced hundreds of thousands of times at 256 a side.
+  const SPHERE = ((rings: number, segs: number) => {
+    const pos: number[] = [], nrm: number[] = [], idx: number[] = [];
+    for (let i = 0; i <= rings; i++) {
+      const th = Math.PI * i / rings;
+      for (let j = 0; j <= segs; j++) {
+        const ph = 2 * Math.PI * j / segs;
+        const x = Math.sin(th) * Math.cos(ph), y = Math.cos(th), z = Math.sin(th) * Math.sin(ph);
+        pos.push(x, y, z); nrm.push(x, y, z);
+      }
+    }
+    for (let i = 0; i < rings; i++) for (let j = 0; j < segs; j++) {
+      const a = i * (segs + 1) + j, b = a + segs + 1;
+      idx.push(a, a + 1, b, b, a + 1, b + 1);
+    }
+    return mesh(pos, nrm, idx);
+  })(7, 12);
+
+  // The cube and the sphere again with a per-instance offset: the whole grid
+  // in one draw. Both VAOs read the same offset buffer.
   gl.vertexAttrib3f(2, 0, 0, 0);
+  const offsetBuf = gl.createBuffer()!;
+  const instanced = (m: Mesh) => {
+    const vao = gl!.createVertexArray()!; gl!.bindVertexArray(vao);
+    gl!.bindBuffer(gl!.ARRAY_BUFFER, m.pb); gl!.enableVertexAttribArray(0); gl!.vertexAttribPointer(0, 3, gl!.FLOAT, false, 0, 0);
+    gl!.bindBuffer(gl!.ARRAY_BUFFER, m.nb); gl!.enableVertexAttribArray(1); gl!.vertexAttribPointer(1, 3, gl!.FLOAT, false, 0, 0);
+    gl!.bindBuffer(gl!.ARRAY_BUFFER, offsetBuf); gl!.enableVertexAttribArray(2); gl!.vertexAttribPointer(2, 3, gl!.FLOAT, false, 0, 0);
+    gl!.vertexAttribDivisor(2, 1);
+    gl!.bindBuffer(gl!.ELEMENT_ARRAY_BUFFER, m.ib);
+    gl!.bindVertexArray(null);
+    return vao;
+  };
+  const SPHERE_VAO = instanced(SPHERE);
   const INST = (() => {
     const vao = gl!.createVertexArray()!; gl!.bindVertexArray(vao);
     gl!.bindBuffer(gl!.ARRAY_BUFFER, CUBE.pb); gl!.enableVertexAttribArray(0); gl!.vertexAttribPointer(0, 3, gl!.FLOAT, false, 0, 0);
     gl!.bindBuffer(gl!.ARRAY_BUFFER, CUBE.nb); gl!.enableVertexAttribArray(1); gl!.vertexAttribPointer(1, 3, gl!.FLOAT, false, 0, 0);
-    const ob = gl!.createBuffer()!;
-    gl!.bindBuffer(gl!.ARRAY_BUFFER, ob); gl!.enableVertexAttribArray(2); gl!.vertexAttribPointer(2, 3, gl!.FLOAT, false, 0, 0);
+    gl!.bindBuffer(gl!.ARRAY_BUFFER, offsetBuf); gl!.enableVertexAttribArray(2); gl!.vertexAttribPointer(2, 3, gl!.FLOAT, false, 0, 0);
     gl!.vertexAttribDivisor(2, 1);
     gl!.bindBuffer(gl!.ELEMENT_ARRAY_BUFFER, CUBE.ib);
     gl!.bindVertexArray(null);
-    return { vao, ob, n: 0, key: '' };
+    return { vao, ob: offsetBuf, n: 0, key: '' };
   })();
   function frame(p: CubeParams) {
     const up = UPS[p.up];
@@ -261,6 +300,7 @@ export function createCubeRenderer(canvas: HTMLCanvasElement): CubeRenderer | nu
     gl!.clear(gl!.COLOR_BUFFER_BIT | gl!.DEPTH_BUFFER_BIT);
     gl!.uniformMatrix4fv(U.uProj, false, proj);
     gl!.uniformMatrix4fv(U.uView, false, view);
+    gl!.uniform3fv(U.uViewDir, dir);
 
     const c = p.rgb;
 
@@ -292,13 +332,28 @@ export function createCubeRenderer(canvas: HTMLCanvasElement): CubeRenderer | nu
       }
       const fs = sz * (1 - g), fo = sz * g / 2;
       gl!.enable(gl!.CULL_FACE); gl!.cullFace(gl!.BACK);
-      gl!.uniform1i(U.uKind, 0);
       gl!.uniform1f(U.uQuant, N); gl!.uniform1f(U.uCellSz, sz); gl!.uniform3fv(U.uShapeW, p.shapeW);
-      gl!.uniform1f(U.uCell, sz); gl!.uniform1f(U.uInset, g / 2);
-      gl!.uniform1f(U.uEdge, edge); gl!.uniform1f(U.uEdgeDark, p.edgeDark);
-      gl!.uniformMatrix4fv(U.uModel, false, M.scaleTrans([fs, fs, fs], [fo, fo, fo]));
-      gl!.bindVertexArray(INST.vao);
-      gl!.drawElementsInstanced(gl!.TRIANGLES, CUBE.n, gl!.UNSIGNED_SHORT, 0, INST.n);
+      gl!.uniform1f(U.uEdgeDark, p.edgeDark);
+      // Cubes in the cube, spheres in the cones; the tween crossfades them,
+      // cubes shrinking as spheres grow, on the same instance offsets.
+      const wc = p.shapeW[0];
+      if (wc > 0.01) {
+        const cs = fs * wc, co = fo + (fs - cs) / 2;
+        gl!.uniform1i(U.uKind, 0);
+        gl!.uniform1f(U.uCell, sz); gl!.uniform1f(U.uInset, (sz - cs) / 2 / sz);
+        gl!.uniform1f(U.uEdge, edge);
+        gl!.uniformMatrix4fv(U.uModel, false, M.scaleTrans([cs, cs, cs], [co, co, co]));
+        gl!.bindVertexArray(INST.vao);
+        gl!.drawElementsInstanced(gl!.TRIANGLES, CUBE.n, gl!.UNSIGNED_SHORT, 0, INST.n);
+      }
+      if (wc < 0.99) {
+        // unit-radius mesh: scale to the cell's half size, centred in the cell
+        const r = (fs / 2) * (1 - wc), h2 = sz / 2;
+        gl!.uniform1i(U.uKind, 2);
+        gl!.uniformMatrix4fv(U.uModel, false, M.scaleTrans([r, r, r], [h2, h2, h2]));
+        gl!.bindVertexArray(SPHERE_VAO);
+        gl!.drawElementsInstanced(gl!.TRIANGLES, SPHERE.n, gl!.UNSIGNED_SHORT, 0, INST.n);
+      }
 
       if (p.outline && p.outlineW > 0) {
         // inverted hull: the selected cube again, a few pixels bigger, back
@@ -310,7 +365,14 @@ export function createCubeRenderer(canvas: HTMLCanvasElement): CubeRenderer | nu
         const ink: V3 = lum > 0.45 ? [0.04, 0.05, 0.06] : [0.97, 0.98, 1.0];
         gl!.vertexAttrib3f(2, idx[0] * sz, idx[1] * sz, idx[2] * sz);
         gl!.cullFace(gl!.FRONT);
-        draw(CUBE, M.scaleTrans([fs + 2 * ow, fs + 2 * ow, fs + 2 * ow], [fo - ow, fo - ow, fo - ow]), 1, ink);
+        if (wc > 0.01) {
+          const cs = fs * wc, co = fo + (fs - cs) / 2;
+          draw(CUBE, M.scaleTrans([cs + 2 * ow, cs + 2 * ow, cs + 2 * ow], [co - ow, co - ow, co - ow]), 1, ink);
+        }
+        if (wc < 0.99) {
+          const r = (fs / 2) * (1 - wc) + ow, h2 = sz / 2;
+          draw(SPHERE, M.scaleTrans([r, r, r], [h2, h2, h2]), 1, ink);
+        }
         gl!.cullFace(gl!.BACK);
         gl!.vertexAttrib3f(2, 0, 0, 0);
       }
