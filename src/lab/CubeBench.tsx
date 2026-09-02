@@ -168,6 +168,26 @@ export default function CubeBench() {
   };
   const onPointerUp = () => { drag.current = null; };
 
+  // Steps per axis: the finer grid unpacks from the coarser one, 200 ms.
+  const stepRaf = useRef(0);
+  const goStep = useCallback((next: CubeStep) => {
+    const prevStep = paramsRef.current.cubeStep;
+    if (next === prevStep) return;
+    cancelAnimationFrame(stepRaf.current);
+    const fine: CubeStep = Math.min(next, prevStep) as CubeStep, coarse: CubeStep = Math.max(next, prevStep) as CubeStep;
+    const finer = next === fine;   // unpack 0 -> 1 going finer, 1 -> 0 going coarser
+    const start = performance.now(), ms = 200;
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / ms);
+      const e = 1 - (1 - t) * (1 - t) * (1 - t);
+      const unpack = finer ? e : 1 - e;
+      setP((prev) => ({ ...prev, cubeStep: next, stepTween: t < 1 ? { fine, coarse, unpack } : null }));
+      if (t < 1) stepRaf.current = requestAnimationFrame(tick);
+    };
+    stepRaf.current = requestAnimationFrame(tick);
+  }, []);
+  useEffect(() => () => cancelAnimationFrame(stepRaf.current), []);
+
   // Shape: tween the three position weights so the grid morphs.
   const [shape, setShape] = useState<Shape>('cube');
   const shapeRaf = useRef(0);
@@ -347,7 +367,11 @@ export default function CubeBench() {
           <CollapsibleSection id="lab-cube" title="Cube" level="h2">
             <div className="flex flex-col gap-3">
               <Label className="text-sm text-muted-foreground">Steps per axis</Label>
-              {seg(String(p.cubeStep), '51:6|17:16|1:256', (x) => set('cubeStep', +x as CubeStep))}
+              {seg(String(p.cubeStep), '51:6|17:16|1:256', (x) => goStep(+x as CubeStep))}
+              {shape === 'cube' && (<>
+                <Label className="text-sm text-muted-foreground">Cube style</Label>
+                {seg(p.cubeStyle, 'cubes:Cubes|dots:Dots', (x) => set('cubeStyle', x as 'cubes' | 'dots'))}
+              </>)}
               <Label className="text-sm text-muted-foreground">Shape</Label>
               {seg(shape, 'cube:Cube|hsb:HSB cone|hsl:HSL bicone', (x) => goShape(x as Shape))}
               <div className="flex items-center justify-between gap-3">

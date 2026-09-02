@@ -28,7 +28,15 @@ export interface CubeParams {
   /** 0..1 each */
   rgb: [number, number, number];
   cubes: boolean;
+  /** In the cube shape: little cubes, or dots like the cones. */
+  cubeStyle: 'cubes' | 'dots';
   cubeStep: CubeStep;
+  /**
+   * A step-size tween in progress: the finer grid unpacks from the centres of
+   * its parent cubes in the coarser grid while the coarser grid shrinks away.
+   * `unpack` is 0 with the fine steps packed at their parents, 1 settled.
+   */
+  stepTween: { fine: CubeStep; coarse: CubeStep; unpack: number } | null;
   /** Gap between little cubes, as a fraction of a cube. */
   gap: number;
   /** Dark rim on each face, as a fraction of the cube, and how dark. */
@@ -57,7 +65,7 @@ export interface CubeParams {
 
 export const DEFAULT_PARAMS: CubeParams = {
   rgb: [1, 0, 1],
-  cubes: true, cubeStep: 17, gap: 0.02, edge: 0.04, edgeDark: 0.1, outline: true, outlineW: 2, pointScale: 1,
+  cubes: true, cubeStyle: 'cubes', cubeStep: 17, stepTween: null, gap: 0.02, edge: 0.04, edgeDark: 0.1, outline: true, outlineW: 2, pointScale: 1,
   up: 'neutral', axes: true, shapeW: [1, 0, 0],
   theta: Math.PI / 2, phi: Math.PI / 2, zoom: 0.75, focus: [0.5, 0.5, 0.5],
   ground: [0x20 / 255, 0x20 / 255, 0x20 / 255],   // #202020
@@ -71,7 +79,22 @@ uniform mat4 uProj, uView, uModel;
 uniform float uQuant;       // cubes a side; 0 for plain draws
 uniform float uCellSz;      // 1 / uQuant
 uniform vec3  uShapeW;      // weights: cube, HSB cone, HSL bicone
+uniform float uUnpack;      // 1 settled; below that, mixed toward the parent cube in the coarser grid
+uniform float uCoarseStep;  // the coarser grid's step, 8-bit units
+uniform float uCoarseN;     // the coarser grid's cubes a side
 out vec3 vPos; out vec3 vNrm; flat out vec3 vCol;
+// Where a value sits in each model, mixed by the shape weights. The offset
+// from the diagonal is kept - hue and chroma, the hexagon - and only the
+// height changes: max for HSB (the hexcone), (max+min)/2 for HSL (the double
+// hexcone).
+vec3 place(vec3 v, vec3 cube) {
+  vec3 n = normalize(vec3(1.0));
+  vec3 q = v - dot(v, n) * n;
+  float hi = max(v.r, max(v.g, v.b)), lo = min(v.r, min(v.g, v.b));
+  vec3 cHsb = q + hi * sqrt(3.0) * n;
+  vec3 cHsl = q + (hi + lo) * 0.5 * sqrt(3.0) * n;
+  return uShapeW.x * cube + uShapeW.y * cHsb + uShapeW.z * cHsl;
+}
 void main() {
   vec4 local = uModel * vec4(aPos, 1.0);
   vec3 w;
@@ -79,17 +102,13 @@ void main() {
     // The cube's value, from its own offset - never from a face position,
     // which sits on a cell boundary and rounds either way.
     vCol = round(aOff * uQuant) / (uQuant - 1.0);
-    // Where this cube sits in each model. The offset from the diagonal is
-    // kept - hue and chroma, the hexagon - and only the height changes:
-    // max for HSB (the hexcone), (max+min)/2 for HSL (the double hexcone).
-    vec3 n = normalize(vec3(1.0));
-    vec3 v = vCol;
-    vec3 q = v - dot(v, n) * n;
-    float hi = max(v.r, max(v.g, v.b)), lo = min(v.r, min(v.g, v.b));
-    vec3 cCube = aOff + uCellSz * 0.5;
-    vec3 cHsb = q + hi * sqrt(3.0) * n;
-    vec3 cHsl = q + (hi + lo) * 0.5 * sqrt(3.0) * n;
-    vec3 centre = uShapeW.x * cCube + uShapeW.y * cHsb + uShapeW.z * cHsl;
+    vec3 centre = place(vCol, aOff + uCellSz * 0.5);
+    if (uUnpack < 1.0) {
+      // the parent cube in the coarser grid: the value floored to its step
+      vec3 pi = floor((vCol * 255.0 + 0.5) / uCoarseStep);
+      vec3 parent = place(pi * uCoarseStep / 255.0, (pi + 0.5) / uCoarseN);
+      centre = mix(parent, centre, uUnpack);
+    }
     w = centre + (local.xyz - uCellSz * 0.5);
   } else {
     vCol = vec3(0.0);
@@ -147,7 +166,14 @@ uniform vec3  uIdx;         // the selected step's index: cubes above it in any 
 uniform vec3  uShapeW;      // weights: cube, HSB cone, HSL bicone
 uniform float uPx;          // point size in pixels
 uniform float uThin;        // keep interior steps whose index is a multiple of this
+uniform float uUnpack, uCoarseStep, uCoarseN;   // as in the cube shader
 flat out vec3 vCol;
+vec3 place(vec3 v, vec3 cube) {
+  vec3 n = normalize(vec3(1.0));
+  vec3 q = v - dot(v, n) * n;
+  float hi = max(v.r, max(v.g, v.b)), lo = min(v.r, min(v.g, v.b));
+  return uShapeW.x * cube + uShapeW.y * (q + hi * sqrt(3.0) * n) + uShapeW.z * (q + (hi + lo) * 0.5 * sqrt(3.0) * n);
+}
 void main() {
   float id = float(gl_VertexID), n = uN;
   vec3 g = vec3(mod(id, n), mod(floor(id / n), n), floor(id / (n * n)));
@@ -157,13 +183,11 @@ void main() {
   if (hidden || thinned) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); gl_PointSize = 0.0; vCol = vec3(0.0); return; }
   vec3 v = g / (n - 1.0);
   vCol = v;
-  vec3 nn = normalize(vec3(1.0));
-  vec3 q = v - dot(v, nn) * nn;
-  float hi = max(v.r, max(v.g, v.b)), lo = min(v.r, min(v.g, v.b));
-  vec3 cCube = (g + 0.5) / n;
-  vec3 cHsb = q + hi * sqrt(3.0) * nn;
-  vec3 cHsl = q + (hi + lo) * 0.5 * sqrt(3.0) * nn;
-  vec3 c = uShapeW.x * cCube + uShapeW.y * cHsb + uShapeW.z * cHsl;
+  vec3 c = place(v, (g + 0.5) / n);
+  if (uUnpack < 1.0) {
+    vec3 pi = floor((v * 255.0 + 0.5) / uCoarseStep);
+    c = mix(place(pi * uCoarseStep / 255.0, (pi + 0.5) / uCoarseN), c, uUnpack);
+  }
   gl_Position = uProj * uView * vec4(c, 1.0);
   gl_PointSize = uPx;
 }`;
@@ -228,14 +252,14 @@ export function createCubeRenderer(canvas: HTMLCanvasElement): CubeRenderer | nu
   if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog) ?? 'link');
   gl.useProgram(prog);
   const U: Record<string, WebGLUniformLocation | null> = {};
-  for (const n of ['uProj', 'uView', 'uModel', 'uKind', 'uFlat', 'uQuant', 'uCellSz', 'uShapeW', 'uViewDir', 'uCell', 'uInset', 'uEdge', 'uEdgeDark']) U[n] = gl.getUniformLocation(prog, n);
+  for (const n of ['uProj', 'uView', 'uModel', 'uKind', 'uFlat', 'uQuant', 'uCellSz', 'uShapeW', 'uViewDir', 'uCell', 'uInset', 'uEdge', 'uEdgeDark', 'uUnpack', 'uCoarseStep', 'uCoarseN']) U[n] = gl.getUniformLocation(prog, n);
   const pprog = gl.createProgram()!;
   gl.attachShader(pprog, compile(gl.VERTEX_SHADER, PVERT));
   gl.attachShader(pprog, compile(gl.FRAGMENT_SHADER, PFRAG));
   gl.linkProgram(pprog);
   if (!gl.getProgramParameter(pprog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(pprog) ?? 'link');
   const PU: Record<string, WebGLUniformLocation | null> = {};
-  for (const n of ['uProj', 'uView', 'uN', 'uIdx', 'uShapeW', 'uPx', 'uThin', 'uEdgeDark']) PU[n] = gl.getUniformLocation(pprog, n);
+  for (const n of ['uProj', 'uView', 'uN', 'uIdx', 'uShapeW', 'uPx', 'uThin', 'uEdgeDark', 'uUnpack', 'uCoarseStep', 'uCoarseN']) PU[n] = gl.getUniformLocation(pprog, n);
   const emptyVao = gl.createVertexArray()!;
 
   function mesh(pos: number[], nrm: number[], idx: number[]): Mesh {
@@ -381,36 +405,37 @@ export function createCubeRenderer(canvas: HTMLCanvasElement): CubeRenderer | nu
     const c = p.rgb;
 
     // ── the little cubes ──────────────────────────────────────────────
-    if (p.cubes) {
-      const N = 255 / p.cubeStep + 1, sz = 1 / N;
-      // Gap and edge are fractions of a cube, each with a floor of a pixel so
-      // they read the same at 6 and 16 per axis; both switch off once a cube
-      // is only a few pixels, as at 256, where they would be all there is.
-      const cubePx = sz * pxPerUnit;
-      const g = cubePx < 6 || p.gap <= 0 ? 0 : Math.max(p.gap, wpp / sz);
-      const edge = cubePx < 6 || p.edge <= 0 ? 0 : Math.max(p.edge * sz, wpp);
-      const idx = c.map((x) => Math.floor(Math.round(x * 255) / p.cubeStep));
-      // only the filled part: a cube shows when every channel is at or below the colour
+    /**
+     * One grid. `shrink` scales its cells down (the coarser grid leaving during
+     * a step tween); `parent` packs its cells toward the coarser grid by
+     * `unpack` (the finer grid arriving).
+     */
+    const drawGrid = (step: CubeStep, shrink: number, parent: { step: CubeStep; unpack: number } | null) => {
+      const N = 255 / step + 1, sz = 1 / N;
+      const g = sz * pxPerUnit < 6 || p.gap <= 0 ? 0 : Math.max(p.gap, wpp / sz);
+      const edge = sz * pxPerUnit < 3 || p.edge <= 0 ? 0 : Math.max(p.edge * sz, wpp);
+      const idx = c.map((x) => Math.floor(Math.round(x * 255) / step));
       const hidden = (a: number, b: number, d: number) => a > idx[0] || b > idx[1] || d > idx[2];
       const fs = sz * (1 - g), fo = sz * g / 2;
       const wc = p.shapeW[0];
-      // Points carry the cones at every size and everything at 256; cubes carry
-      // the cube shape at 6 and 16. The tween crossfades the two.
-      const pointW = N > 16 ? 1 : 1 - wc;
-      const pointPx = sz * pxPerUnit * p.pointScale * pointW;
+      const pointW = N > 16 || p.cubeStyle === 'dots' ? 1 : 1 - wc;
+      const pointPx = sz * pxPerUnit * p.pointScale * pointW * shrink;
+      const unpack = parent ? parent.unpack : 1;
+      const coarseStep = parent ? parent.step : step, coarseN = 255 / coarseStep + 1;
       gl!.enable(gl!.CULL_FACE); gl!.cullFace(gl!.BACK);
-      if (pointW > 0.01) {
+      if (pointW > 0.01 && pointPx > 0.3) {
         // Point sprites, one per step, decoded from the vertex number.
         gl!.useProgram(pprog);
         gl!.uniformMatrix4fv(PU.uProj, false, proj); gl!.uniformMatrix4fv(PU.uView, false, view);
         gl!.uniform1f(PU.uN, N); gl!.uniform3fv(PU.uIdx, idx); gl!.uniform3fv(PU.uShapeW, p.shapeW);
         gl!.uniform1f(PU.uPx, Math.max(1.5, pointPx)); gl!.uniform1f(PU.uThin, N > 16 ? 4 : 1); gl!.uniform1f(PU.uEdgeDark, p.edgeDark);
+        gl!.uniform1f(PU.uUnpack, unpack); gl!.uniform1f(PU.uCoarseStep, coarseStep); gl!.uniform1f(PU.uCoarseN, coarseN);
         gl!.bindVertexArray(emptyVao);
         gl!.drawArrays(gl!.POINTS, 0, N * N * N);
         gl!.useProgram(prog);
       }
-      if (N <= 16 && wc > 0.01) {
-        const key = `${p.cubeStep}|${idx.join()}`;
+      if (N <= 16 && p.cubeStyle === 'cubes' && wc > 0.01 && shrink > 0.01) {
+        const key = `${step}|${idx.join()}`;
         if (key !== INST.key) {
           // Every cell. In the cube the interior is never seen, but in the
           // cones the greys along the axis are interior cells of the box.
@@ -424,7 +449,8 @@ export function createCubeRenderer(canvas: HTMLCanvasElement): CubeRenderer | nu
         }
         gl!.uniform1f(U.uQuant, N); gl!.uniform1f(U.uCellSz, sz); gl!.uniform3fv(U.uShapeW, p.shapeW);
         gl!.uniform1f(U.uEdgeDark, p.edgeDark);
-        const cs = fs * wc, co = fo + (fs - cs) / 2;
+        gl!.uniform1f(U.uUnpack, unpack); gl!.uniform1f(U.uCoarseStep, coarseStep); gl!.uniform1f(U.uCoarseN, coarseN);
+        const cs = fs * wc * shrink, co = fo + (fs - cs) / 2;
         gl!.uniform1i(U.uKind, 0);
         gl!.uniform1f(U.uCell, sz); gl!.uniform1f(U.uInset, (sz - cs) / 2 / sz);
         gl!.uniform1f(U.uEdge, edge);
@@ -432,9 +458,18 @@ export function createCubeRenderer(canvas: HTMLCanvasElement): CubeRenderer | nu
         gl!.bindVertexArray(INST.vao);
         gl!.drawElementsInstanced(gl!.TRIANGLES, CUBE.n, gl!.UNSIGNED_SHORT, 0, INST.n);
       }
+      return { N, sz, idx, fs, fo, wc, pointW, edge };
+    };
+
+    if (p.cubes) {
+      const tw = p.stepTween;
+      // during a tween: the coarser grid leaving, then the finer one arriving
+      if (tw) drawGrid(tw.coarse, 1 - tw.unpack, null);
+      const G = tw ? drawGrid(tw.fine, 1, { step: tw.coarse, unpack: tw.unpack }) : drawGrid(p.cubeStep, 1, null);
+      const { N, sz, idx, fs, fo, wc, pointW, edge } = G;
       // the outline path below needs these on the main program whichever drew the grid
       gl!.uniform1f(U.uQuant, N); gl!.uniform1f(U.uCellSz, sz); gl!.uniform3fv(U.uShapeW, p.shapeW);
-      gl!.uniform1f(U.uEdgeDark, p.edgeDark);
+      gl!.uniform1f(U.uEdgeDark, p.edgeDark); gl!.uniform1f(U.uUnpack, 1);
 
       if (p.outline && p.outlineW > 0) {
         // inverted hull: the selected cube again, a few pixels bigger, back
@@ -449,7 +484,7 @@ export function createCubeRenderer(canvas: HTMLCanvasElement): CubeRenderer | nu
         // solid still shows, outlined.
         gl!.vertexAttrib3f(2, idx[0] * sz, idx[1] * sz, idx[2] * sz);
         gl!.disable(gl!.DEPTH_TEST);
-        const cubeW = N > 16 ? 0 : wc;
+        const cubeW = N > 16 || p.cubeStyle === 'dots' ? 0 : wc;
         const cs = fs * cubeW, co = fo + (fs - cs) / 2;
         const r = Math.max(0.75 * wpp, (sz * p.pointScale * pointW) / 2), h2 = sz / 2;
         if (cubeW > 0.01) draw(CUBE, M.scaleTrans([cs + 2 * ow, cs + 2 * ow, cs + 2 * ow], [co - ow, co - ow, co - ow]), 1, ink);
