@@ -18,7 +18,7 @@ The picker's argument is [[hexagon-is-the-cube-down-its-diagonal]]. The demo doe
 - **One flat slider bank** under the SB box, no sub-cards. The plugin's controls: a multi-select `[RGB][HSB][HSL]` toggle group (default RGB + HSB) and the blend droplet (default on, applies to every block). A rule between blocks, drawn by the block below.
 - **Impact highlights.** While the pointer holds a control, everything else that moved lights and stays lit until release: the app's white keyline over a tight dark shadow, 150 ms in, 500 ms out, an opacity crossfade of an element that is always mounted (`src/utils/highlight.ts`). The diff is `useImpact` in `src/hooks/useImpact.ts`, against a snapshot taken at the press, keyed by `data-hold` tags. Who lights what:
   - a slider, when its own value moved and it is not the held one;
-  - the hexagon by channel, stem and joint as one unit: every channel that moved plus every channel the held stem or joint drives (`hex:r`, `hex:rg`, `hex:rgb`), the held one included, so a grabbed joint lights its chain before anything moves;
+  - the hexagon by channel, stem and joint as one unit, for every channel that moved - except while a stem or joint is itself held (`hex:*` keys), where the chain moving is feedback enough;
   - the hue badge, its own border turning white, when hue moves from somewhere else;
   - the hue line's white fill while a saturation slider is held;
   - never the swatch, the SB box or the hex value.

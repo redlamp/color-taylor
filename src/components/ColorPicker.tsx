@@ -428,15 +428,15 @@ export default function ColorPicker() {
   /** A slider lights when its value moved and it is not the one being held. */
   const sliderLit = (key: string) => lit.has(key) && held !== `sl:${key}`;
   /*
-   * The hexagon lights by channel: a stem and its joint as one unit, for every
-   * channel that moved plus every channel the held stem or joint drives. The
-   * drives come from the hold key - `hex:rg` is the green joint - so grabbing
-   * a joint lights its whole chain before anything has moved.
+   * The hexagon lights by channel, a stem and its joint as one unit, for every
+   * channel that moved - but not while the pointer is on a stem or joint.
+   * The chain moving under the hand is its own feedback there; the halos are
+   * for showing what a slider does to it.
    */
   const impactChannels = useMemo(() => {
     const set = new Set<Channel>();
+    if (held?.startsWith('hex:')) return set;
     (['r', 'g', 'b'] as Channel[]).forEach((c) => { if (lit.has(`rgb-${c}`)) set.add(c); });
-    if (held?.startsWith('hex:')) (held.slice(4).split('') as Channel[]).forEach((c) => set.add(c));
     return set;
   }, [lit, held]);
   const hueBadgeLit = lit.has('hsb-h') && held !== 'hue';
