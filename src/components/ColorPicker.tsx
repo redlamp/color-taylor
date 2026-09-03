@@ -99,6 +99,8 @@ const GROUP_TIP: Record<SliderGroup, string> = {
 };
 /** The toolbar's tooltips read at a glance: a step up from the default size, and bold. */
 const TOOLBAR_TIP_CLASS = 'text-sm font-semibold';
+/** How often the colour cycle re-snapshots its readouts; see playHold. */
+const PLAY_SNAP_MS = 600;
 /** Tailwind for the rule a block draws above itself when it is not first. */
 const BLOCK_CLASS = 'flex flex-col gap-2 [&:not(:first-child)]:mt-3 [&:not(:first-child)]:border-t [&:not(:first-child)]:border-input [&:not(:first-child)]:pt-3';
 
@@ -166,6 +168,18 @@ export default function ColorPicker() {
    */
   const [hold, setHold] = useState<Hold | null>(null);
   const shownRef = useRef<Record<string, number>>({});
+  /*
+   * The colour cycle counts as a hold too, so the sliders it moves light the
+   * way they would under a drag. Its snapshot is re-taken every PLAY_SNAP_MS
+   * rather than once at the start: a cycle visits every colour, so against a
+   * fixed start everything would be lit within a second. Against a rolling
+   * one, a slider is lit while its value is actually moving. The dip at each
+   * re-snapshot is one frame, well inside the fade. Only the interval writes
+   * this; when the cycle stops the value goes stale and is simply not read.
+   */
+  const [playHold, setPlayHold] = useState<Hold | null>(null);
+  // Declared up here because the hold above reads it; the cycle itself is below.
+  const [colorAnimActive, setColorAnimActive] = useState(false);
   const [blMode, setBlMode] = useState<BlMode>('brightness');
   const [colorSpace, setColorSpace] = useState<ColorSpace>('srgb');
   const [hoverMatchRgb, setHoverMatchRgb] = useState<RGB | null>(null);
@@ -423,8 +437,16 @@ export default function ColorPicker() {
     'hsl-h': Math.round(hsl.h), 'hsl-s': Math.round(hsl.s), 'hsl-l': Math.round(hsl.l),
   }), [rgb.r, rgb.g, rgb.b, hsb.h, hsb.s, hsb.b, hsl.h, hsl.s, hsl.l]);
   useEffect(() => { shownRef.current = shown; }, [shown]);
-  const lit = useImpact(shown, hold);
-  const held = hold?.key ?? null;
+  useEffect(() => {
+    if (!colorAnimActive) return;
+    const snap = () => setPlayHold({ key: 'play', base: shownRef.current });
+    const first = setTimeout(snap, 0);
+    const id = setInterval(snap, PLAY_SNAP_MS);
+    return () => { clearTimeout(first); clearInterval(id); };
+  }, [colorAnimActive]);
+  const effectiveHold = hold ?? (colorAnimActive ? playHold : null);
+  const lit = useImpact(shown, effectiveHold);
+  const held = effectiveHold?.key ?? null;
   /** A slider lights when its value moved and it is not the one being held. */
   const sliderLit = (key: string) => lit.has(key) && held !== `sl:${key}`;
   /*
@@ -435,7 +457,8 @@ export default function ColorPicker() {
    */
   const impactChannels = useMemo(() => {
     const set = new Set<Channel>();
-    if (held?.startsWith('hex:')) return set;
+    // Nor during the colour cycle: the chain sweeping the field is the show.
+    if (held?.startsWith('hex:') || held === 'play') return set;
     (['r', 'g', 'b'] as Channel[]).forEach((c) => { if (lit.has(`rgb-${c}`)) set.add(c); });
     return set;
   }, [lit, held]);
@@ -484,7 +507,6 @@ export default function ColorPicker() {
   const handleHslLChange = useCallback((v: number) => handleHslChange('l', v), [handleHslChange]);
 
   // ── Color cycle animation (same as presentation intro) ────────────
-  const [colorAnimActive, setColorAnimActive] = useState(false);
   const colorAnimActiveStateRef = useRef(colorAnimActive);
   useEffect(() => { colorAnimActiveStateRef.current = colorAnimActive; }, [colorAnimActive]);
   useEffect(() => {

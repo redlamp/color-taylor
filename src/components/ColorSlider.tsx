@@ -234,6 +234,7 @@ function ColorSlider({ label, group, value, max, gradient, suffix, wrap, onChang
             read as a dark ring between track and line. Always mounted so the
             fade out has something to fade. */}
         <div
+          id={`${sliderId}-keyline`}
           aria-hidden="true"
           className={`pointer-events-none absolute inset-0 h-4 ${round ? 'rounded-full' : 'rounded'} ${lit ? HIGHLIGHT_IN : HIGHLIGHT_OUT}`}
           style={{ boxShadow: CALLOUT_BOX_SHADOW, opacity: lit ? 1 : 0 }}

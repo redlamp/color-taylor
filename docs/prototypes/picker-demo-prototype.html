@@ -1,0 +1,627 @@
+<title>Color Taylor Onboarding Lab</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --bg: #f6f6f6; --panel: #ffffff; --panel2: #f2f2f2; --line: rgba(0,0,0,.11);
+    --text: #0a0a0a; --muted: #737373; --accent: #3b7bff; --accent-ink: #ffffff;
+    --tut: #d98a00; --tut-bg: #fff4dc; --tut-ink: #4a3000;
+    --impact: #1c1f26; --impact-glow: rgba(28,31,38,.35); --joint: #8a8a8a;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #1e1e1e; --panel: #2a2a2a; --panel2: #3a3a3a; --line: rgba(255,255,255,.13);
+      --text: #fafafa; --muted: #a3a3a3; --accent: #4b8bff; --accent-ink: #0b1220;
+      --tut: #f5b342; --tut-bg: #2d2415; --tut-ink: #ffe8b8;
+      --impact: #ffffff; --impact-glow: rgba(255,255,255,.45); --joint: #a3a3a3;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #1e1e1e; --panel: #2a2a2a; --panel2: #3a3a3a; --line: rgba(255,255,255,.13);
+    --text: #fafafa; --muted: #a3a3a3; --accent: #4b8bff; --accent-ink: #0b1220;
+    --tut: #f5b342; --tut-bg: #2d2415; --tut-ink: #ffe8b8;
+    --impact: #ffffff; --impact-glow: rgba(255,255,255,.45); --joint: #a3a3a3;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 Barlow, "Segoe UI", system-ui, sans-serif; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  .mono { font-family: "JetBrains Mono", Consolas, monospace; font-variant-numeric: tabular-nums; }
+
+  /* Mock app */
+  .app { max-width: 1040px; margin: 0 auto; padding: 18px 16px 90px; }
+  .app-head { display: flex; align-items: center; gap: 10px; margin: 6px 0 14px; }
+  .app-head h1 { font-size: 20px; font-weight: 500; margin: 0; }
+  .app-head .tools { margin-left: auto; display: flex; gap: 6px; }
+  .icon-btn { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); display: grid; place-items: center; color: var(--muted); }
+  .icon-btn:hover { color: var(--text); }
+  .cols { display: grid; grid-template-columns: 1.1fr .9fr; gap: 14px; }
+  @media (max-width: 760px) { .cols { grid-template-columns: 1fr; } }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+  .card-h { display: flex; align-items: center; gap: 8px; padding: 10px 14px; font-weight: 500; }
+  .card-h .chev { color: var(--muted); font-size: 11px; }
+  .pill { margin-left: auto; display: flex; background: var(--panel2); border-radius: 6px; padding: 2px; font-size: 12px; }
+  .pill button { padding: 2px 8px; border-radius: 4px; color: var(--muted); background: none; border: 0; }
+  .pill button[aria-pressed="true"] { background: var(--panel); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.15); }
+  .stage { padding: 0 10px 8px; }
+  svg.hex { width: 100%; height: auto; display: block; touch-action: none; user-select: none; }
+  svg.hex .stem { stroke-width: 3; stroke-linecap: round; cursor: grab; }
+  /* A white halo under each stem, crossfaded like the app's brightness-limit polygon: 150ms in, 500ms out. */
+  svg.hex .halo { stroke: #fff; stroke-width: 6; stroke-linecap: round; opacity: 0; transition: opacity .5s ease-out; pointer-events: none; filter: drop-shadow(0 0 2px rgba(0,0,0,.9)); }
+  svg.hex .halo.impact { opacity: 1; transition-duration: .15s; }
+  svg.hex .stem-hit { stroke: transparent; stroke-width: 22; cursor: grab; }
+  svg.hex .handle { stroke-width: 2.5; cursor: grab; filter: drop-shadow(0 1px 2.5px rgba(0,0,0,.2)); }
+  svg.hex .jhalo { stroke: #fff; stroke-width: 2.5; opacity: 0; transition: opacity .5s ease-out; pointer-events: none; filter: drop-shadow(0 0 2px rgba(0,0,0,.9)); }
+  svg.hex .jhalo.impact { opacity: 1; transition-duration: .15s; }
+  svg.hex .handle-hit { fill: transparent; cursor: grab; }
+  svg.hex .label { font: 600 12px Barlow, sans-serif; }
+  svg.hex .glow { filter: drop-shadow(0 0 6px var(--tut)); }
+  /* Hue ray: dashed at rest; the fill is the app's CALLOUT_LINE, lit while saturation is held. */
+  svg.hex .hue-ray { stroke: rgba(255,255,255,.5); stroke-width: 2; stroke-linecap: round; stroke-dasharray: 4 4; pointer-events: none; }
+  svg.hex .hue-fill { stroke: #fff; stroke-width: 3; stroke-linecap: round; opacity: 0; transition: opacity .5s ease-out; pointer-events: none; filter: drop-shadow(0 0 2px rgba(0,0,0,.9)); }
+  svg.hex .hue-fill.lit { opacity: 1; transition-duration: .15s; }
+  .stage .wrap { position: relative; }
+  /* The app's HueHandle: a 48x28 pill in the pure hue on the circumscribed circle, degrees inside. */
+  .hue-badge { position: absolute; z-index: 5; width: 48px; height: 28px; border-radius: 999px; transform: translate(-50%, -50%); display: grid; place-items: center; border: 2px solid var(--bg); box-shadow: 0 4px 6px -1px rgba(0,0,0,.2), 0 2px 4px -2px rgba(0,0,0,.2); cursor: pointer; touch-action: none; user-select: none; font: 14px "JetBrains Mono", Consolas, monospace; transition: border-color .5s ease-out, box-shadow .5s ease-out; }
+  /* Lit, the badge's own border goes white - no second ring outside it. */
+  .hue-badge.impact { border-color: #fff; box-shadow: 0 1px 3px 1px rgba(0,0,0,.4); transition-duration: .15s; }
+  .sub { border-top: 1px solid var(--line); }
+  .sub .card-h { font-size: 13px; padding: 8px 14px; }
+  .sub .count { margin-left: auto; color: var(--muted); font-size: 12px; }
+  .editor { padding: 12px 14px; display: grid; gap: 12px; }
+  .swatch-row { display: flex; gap: 12px; align-items: center; }
+  .swatch { width: 48px; height: 48px; border-radius: 10px; border: 1px solid var(--line); }
+  .swatch-row .hex { font-size: 18px; }
+  .swatch-row .name { color: var(--muted); font-size: 12px; }
+  .sb { position: relative; height: 150px; border-radius: 8px; border: 1px solid var(--line); touch-action: none; cursor: crosshair; }
+  .sb .mk { position: absolute; width: 14px; height: 14px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.5); transform: translate(-50%, -50%); pointer-events: none; }
+  .sliders { display: grid; gap: 10px; }
+  .toolbar { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  /* The plugin's ToggleGroup: a muted well, pressed items lift to the panel colour. Multi-select. */
+  .tg { display: inline-flex; align-items: center; height: 28px; padding: 3px; gap: 2px; background: var(--panel2); border-radius: 8px; }
+  .tg button { height: 100%; padding: 0 10px; border: 1px solid transparent; border-radius: 6px; background: none; color: var(--muted); font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; }
+  .tg button:hover { color: var(--text); }
+  .tg button[aria-pressed="true"] { background: var(--panel); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.15); }
+  .tg button#blendBtn { padding: 0 7px; }
+  .blocks { display: flex; flex-direction: column; }
+  /* A rule between blocks, drawn by the block below - the first visible one has none. */
+  .block { display: flex; flex-direction: column; gap: 2px; }
+  .block:not([hidden]) ~ .block:not([hidden]) { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 10px; }
+  /* ColorSlider, as the app draws it: 12px label, 16px track with an inset
+     hairline, a triangle under the track pointing at the value, and a 92px
+     -/value/+ stepper at the app's one control height of 32px. */
+  .sl { display: flex; gap: 8px; align-items: flex-start; }
+  .sl .lab { width: 12px; flex: none; text-align: right; font-size: 12px; font-weight: 600; color: var(--muted); padding-top: 2px; }
+  .sl .body { flex: 1; min-width: 0; padding-bottom: 12px; }
+  .sl .body > div { position: relative; }
+  .track { height: 16px; width: 100%; border-radius: 4px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.1); touch-action: none; cursor: pointer; user-select: none; }
+  /* The app's CALLOUT_LINE on a track: a white keyline hugging the track's
+     edge over a tight dark shadow, so it holds on a near-white ramp too.
+     Crossfaded on opacity like the brightness-limit hexagon. */
+  .track::after { content: ""; position: absolute; inset: 0; border-radius: 4px; box-shadow: inset 0 0 0 1px #fff, 0 0 0 1px #fff, 0 1px 3px 1px rgba(0,0,0,.4); opacity: 0; transition: opacity .5s ease-out; pointer-events: none; }
+  .track.impact::after { opacity: 1; transition-duration: .15s; }
+  .arrow { position: absolute; top: 16px; transform: translateX(-50%); padding: 2px 4px; pointer-events: none; }
+  .arrow i { display: block; width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 6px solid var(--text); }
+  .stepper { display: flex; align-items: center; height: 32px; flex: none; }
+  .stepper .box { display: flex; align-items: center; width: 92px; height: 32px; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .stepper button { width: 24px; height: 32px; border: 0; background: none; color: var(--text); display: grid; place-items: center; }
+  .stepper button:hover { background: var(--panel2); }
+  .stepper button svg { width: 12px; height: 12px; }
+  .stepper input { width: 100%; height: 32px; min-width: 0; border: 0; background: none; color: var(--text); text-align: right; font: 14px "JetBrains Mono", Consolas, monospace; font-variant-numeric: tabular-nums; padding: 0 4px; cursor: ew-resize; outline: none; }
+  .stepper .suffix { width: 12px; margin-left: 4px; font-size: 12px; color: var(--muted); }
+
+  /* Channel tooltip */
+  .tip { position: fixed; z-index: 47; display: flex; gap: 4px; padding: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 6px 18px rgba(0,0,0,.25); pointer-events: none; transform: translate(-50%, -50%) rotate(var(--tilt, 0deg)); font-size: 11px; font-weight: 600; letter-spacing: .06em; }
+  .tip span { padding: 2px 7px; border-radius: 5px; color: #fff; }
+  .tip[hidden] { display: none; }
+
+  /* Demo */
+  .ghost { position: fixed; z-index: 46; width: 32px; height: 32px; pointer-events: none; transition: opacity .2s; }
+  .ghost.mouse { --hx: 4px; --hy: 3px; }
+  .ghost.touch { --hx: 18px; --hy: 18px; width: 36px; height: 36px; }
+  .ghost { margin-left: calc(-1 * var(--hx)); margin-top: calc(-1 * var(--hy)); }
+  .ghost svg { width: 100%; height: 100%; filter: drop-shadow(0 2px 3px rgba(0,0,0,.5)); }
+  .ghost.press svg { transform: scale(.85); transform-origin: var(--hx) var(--hy); }
+  .bubble { position: fixed; z-index: 45; width: 240px; background: var(--tut-bg); color: var(--tut-ink); border: 1px solid var(--tut); border-radius: 10px; padding: 10px 12px; box-shadow: 0 8px 24px rgba(0,0,0,.25); font-size: 13.5px; transition: opacity .25s; }
+  .bubble::after { content: ""; position: absolute; width: 12px; height: 12px; background: var(--tut-bg); border-left: 1px solid var(--tut); border-top: 1px solid var(--tut); }
+  .bubble.right::after { left: -7px; top: var(--ay, 20px); transform: rotate(-45deg); }
+  .bubble.left::after { right: -7px; top: var(--ay, 20px); transform: rotate(135deg); }
+  .bubble.below::after { top: -7px; left: var(--ax, 24px); transform: rotate(45deg); }
+  .bubble.above::after { bottom: -7px; left: var(--ax, 24px); transform: rotate(225deg); }
+  @media (max-width: 600px) { .bubble { width: min(250px, calc(100vw - 24px)); } }
+  .demo-bar { position: fixed; z-index: 45; left: 50%; bottom: 16px; transform: translateX(-50%); width: min(420px, calc(100vw - 24px)); background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px 10px 14px; box-shadow: 0 8px 24px rgba(0,0,0,.3); display: flex; gap: 12px; align-items: center; font-size: 13px; }
+  .demo-bar .k { color: var(--muted); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
+  .demo-bar .prog { display: flex; gap: 4px; }
+  .demo-bar .prog i { width: 16px; height: 4px; border-radius: 2px; background: var(--line); }
+  .demo-bar .prog i.on { background: var(--tut); }
+  .demo-bar button { margin-left: auto; background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; white-space: nowrap; }
+  .demo-bar button.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; font-weight: 500; }
+  @media (max-width: 600px) { .demo-bar { bottom: max(10px, env(safe-area-inset-bottom)); } }
+  @media (prefers-reduced-motion: reduce) { .halo, .track::after, .bubble, .ghost { transition: none; } }
+
+  .notes { max-width: 1040px; margin: 0 auto; padding: 0 16px 60px; color: var(--muted); }
+  .notes h2 { font-size: 15px; font-weight: 500; color: var(--text); margin: 8px 0 6px; }
+  .notes p, .notes li { max-width: 64ch; margin: 0 0 6px; }
+</style>
+
+<!-- ============================================================
+     DEMO CURSOR ARTWORK. Edit these two symbols freely.
+     Each is drawn in a 32x32 box. The "hotspot" is the point that sits on the
+     handle: (4,3) for the mouse arrow, (18,18) for the fingertip. If you move
+     the hotspot, update --hx/--hy on .ghost.mouse / .ghost.touch in the CSS.
+     ============================================================ -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="cursor-mouse" viewBox="0 0 32 32">
+    <path d="M6 3l18 13-8 1.5 4.5 8.5-3.4 1.7L12.6 19 6.5 24z" fill="#fff" stroke="#111" stroke-width="1.6" stroke-linejoin="round"/>
+  </symbol>
+  <symbol id="cursor-touch" viewBox="0 0 36 36">
+    <circle cx="18" cy="18" r="12" fill="#fff" fill-opacity=".35" stroke="#fff" stroke-width="2"/>
+    <circle cx="18" cy="18" r="4" fill="#fff" stroke="#111" stroke-width="1.2"/>
+  </symbol>
+</svg>
+
+<div class="app" id="app">
+  <div class="app-head">
+    <h1>Color Taylor</h1>
+    <div class="tools">
+      <button class="icon-btn" aria-label="Play">▷</button>
+      <button class="icon-btn" aria-label="Theme">☼</button>
+      <button class="icon-btn" id="help" title="Show me how this works" aria-label="Help">?</button>
+      <button class="icon-btn" aria-label="Settings">⚙</button>
+    </div>
+  </div>
+
+  <div class="cols">
+    <div class="card">
+      <div class="card-h"><span class="chev">▼</span> Hexagon <span class="pill"><button aria-pressed="true">HSB</button><button aria-pressed="false">HSL</button></span></div>
+      <div class="stage">
+        <div class="wrap">
+        <svg class="hex" id="hex" viewBox="0 0 400 360" aria-label="RGB hexagon"></svg>
+        <div class="hue-badge" id="hueBadge" role="slider" aria-label="Hue" aria-valuemin="0" aria-valuemax="360"><span id="hueBadgeText"></span></div>
+        </div>
+      </div>
+      <div class="sub"><div class="card-h"><span class="chev">▶</span> Recent <span class="count">9</span></div></div>
+      <div class="sub"><div class="card-h"><span class="chev">▶</span> Saved <span class="count">12</span></div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><span class="chev">▼</span> Color Editor</div>
+      <div class="editor">
+        <div class="swatch-row">
+          <div class="swatch" id="swatch"></div>
+          <div><div class="hex mono" id="hexVal"></div><div class="name" id="nameVal"></div></div>
+        </div>
+        <div class="sb" id="sb"><div class="mk" id="sbMk"></div></div>
+        <div class="sliders">
+          <div class="toolbar">
+            <div class="tg" id="groupsTg" role="group" aria-label="Slider groups">
+              <button data-g="RGB" aria-pressed="true">RGB</button><button data-g="HSB" aria-pressed="true">HSB</button><button data-g="HSL" aria-pressed="false">HSL</button>
+            </div>
+            <div class="tg"><button id="blendBtn" aria-pressed="true" aria-label="Show flat channel ramps" title="Blend tracks"><svg viewBox="11 10 10 11" width="13" height="13" fill="currentColor" aria-hidden="true"><path id="blendPath" fill-rule="evenodd" clip-rule="evenodd" d=""/></svg></button></div>
+          </div>
+          <div class="blocks">
+            <div class="block" id="blkRGB" role="group" aria-label="RGB">
+              <div class="sl" data-sl="r" data-label="R" data-max="255" data-suffix="" data-name="Red"></div>
+              <div class="sl" data-sl="g" data-label="G" data-max="255" data-suffix="" data-name="Green"></div>
+              <div class="sl" data-sl="b" data-label="B" data-max="255" data-suffix="" data-name="Blue"></div>
+            </div>
+            <div class="block" id="blkHSB" role="group" aria-label="HSB">
+              <div class="sl" data-sl="h" data-label="H" data-max="360" data-suffix="°" data-name="Hue"></div>
+              <div class="sl" data-sl="s" data-label="S" data-max="100" data-suffix="%" data-name="Saturation"></div>
+              <div class="sl" data-sl="v" data-label="B" data-max="100" data-suffix="%" data-name="Brightness"></div>
+            </div>
+            <div class="block" id="blkHSL" role="group" aria-label="HSL" hidden>
+              <div class="sl" data-sl="hl" data-label="H" data-max="360" data-suffix="°" data-name="Hue"></div>
+              <div class="sl" data-sl="sl" data-label="S" data-max="100" data-suffix="%" data-name="Saturation"></div>
+              <div class="sl" data-sl="l" data-label="L" data-max="100" data-suffix="%" data-name="Lightness"></div>
+            </div>
+          </div>
+        </div>
+        </div>
+      </div>
+      <div class="sub"><div class="card-h"><span class="chev">▶</span> Hex and HTML Colors</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="notes">
+  <h2>What is being prototyped</h2>
+  <p>Hover or drag any handle or leg on the hexagon and a tooltip appears beside every leg it drives: red below, green north-east, blue north-west. Dragging lights each leg and joint it drives, itself included. While a control is held, every slider and leg whose own value changed lights up and stays lit until you let go, then fades, the same crossfade the app uses for its brightness-limit hexagon. The ? button plays the demo.</p>
+</div>
+
+<div class="tip" id="tip0" hidden></div><div class="tip" id="tip1" hidden></div><div class="tip" id="tip2" hidden></div>
+<div id="overlay"></div>
+
+<script>
+(() => {
+  // ---------- geometry (mirrors hexConstants: hexagon = RGB cube down its diagonal) ----------
+  const CX = 200, CY = 175, R = 140, SCALE = R / 255;
+  const DIRS = { r: {x: 1, y: 0}, g: {x: -0.5, y: -Math.sqrt(3)/2}, b: {x: -0.5, y: Math.sqrt(3)/2} };
+  const ORDER = ['r', 'g', 'b'];
+  const COLOR = { r: '#ff3b30', g: '#34c759', b: '#3b7bff' };
+  const CH_NAME = { r: 'RED', g: 'GREEN', b: 'BLUE' };
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+  const rgb = { r: 79, g: 149, b: 255 };
+  const start = { ...rgb };
+  let lastHue = 216;
+  let blend = true; // the plugin's default: tracks show the colour a drag would produce
+
+  function hsvToRgb(h, s, v) {
+    const c = v * s, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = v - c;
+    let r = 0, g = 0, b = 0;
+    if (h < 60) [r, g, b] = [c, x, 0]; else if (h < 120) [r, g, b] = [x, c, 0]; else if (h < 180) [r, g, b] = [0, c, x];
+    else if (h < 240) [r, g, b] = [0, x, c]; else if (h < 300) [r, g, b] = [x, 0, c]; else [r, g, b] = [c, 0, x];
+    return { r: Math.round((r + m) * 255), g: Math.round((g + m) * 255), b: Math.round((b + m) * 255) };
+  }
+  function rgbToHsv({ r, g, b }) {
+    r /= 255; g /= 255; b /= 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+    let h = lastHue;
+    if (d) { if (max === r) h = 60 * (((g - b) / d) % 6); else if (max === g) h = 60 * ((b - r) / d + 2); else h = 60 * ((r - g) / d + 4); if (h < 0) h += 360; lastHue = h; }
+    return { h, s: max ? d / max : 0, v: max };
+  }
+  function hslToRgb(h, s, l) { const v = l + s * Math.min(l, 1 - l); return hsvToRgb(h, v ? 2 * (1 - l / v) : 0, v); }
+  function rgbToHsl(c) { const { h, s, v } = rgbToHsv(c); const l = v * (1 - s / 2); return { h, s: l === 0 || l === 1 ? 0 : (v - l) / Math.min(l, 1 - l), l }; }
+  const groups = new Set(['RGB', 'HSB']);
+  const hex = c => '#' + [c.r, c.g, c.b].map(n => n.toString(16).padStart(2, '0')).join('').toUpperCase();
+  const hueHex = h => hex(hsvToRgb(h, 1, 1));
+  function chain() {
+    const pts = [{ x: CX, y: CY }];
+    let cur = pts[0];
+    for (const ch of ORDER) { cur = { x: cur.x + rgb[ch] * SCALE * DIRS[ch].x, y: cur.y + rgb[ch] * SCALE * DIRS[ch].y }; pts.push(cur); }
+    return pts;
+  }
+  function edgeDist(t) { const a = ((t % (Math.PI / 3)) + Math.PI / 3) % (Math.PI / 3); return R * Math.cos(Math.PI / 6) / Math.cos(a - Math.PI / 6); }
+
+  // ---------- hexagon ----------
+  const svg = document.getElementById('hex');
+  const NS = 'http://www.w3.org/2000/svg';
+  const el = (n, a = {}) => { const e = document.createElementNS(NS, n); for (const k in a) e.setAttribute(k, a[k]); return e; };
+  function hexPath() { const p = []; for (let i = 0; i < 6; i++) { const t = i * Math.PI / 3; p.push(`${CX + R * Math.cos(t)},${CY - R * Math.sin(t)}`); } return 'M' + p.join('L') + 'Z'; }
+  const defs = el('defs');
+  defs.innerHTML = `<clipPath id="clipHex"><path d="${hexPath()}"/></clipPath><radialGradient id="wash"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>`;
+  svg.appendChild(defs);
+  const fo = el('foreignObject', { x: CX - R, y: CY - R, width: R * 2, height: R * 2, 'clip-path': 'url(#clipHex)' });
+  fo.innerHTML = `<div xmlns="http://www.w3.org/1999/xhtml" style="width:100%;height:100%;background:conic-gradient(from 90deg, #f00, #f0f, #00f, #0ff, #0f0, #ff0, #f00)"></div>`;
+  svg.appendChild(fo);
+  svg.appendChild(el('circle', { cx: CX, cy: CY, r: R, fill: 'url(#wash)', 'clip-path': 'url(#clipHex)' }));
+  svg.appendChild(el('path', { d: hexPath(), fill: 'none', stroke: 'var(--line)', 'stroke-width': 1 }));
+  svg.appendChild(el('circle', { cx: CX, cy: CY, r: R, fill: 'none', stroke: 'var(--line)', 'stroke-width': 1.5 }));
+  const hueRay = el('line', { class: 'hue-ray' }), hueFill = el('line', { class: 'hue-fill' });
+  svg.appendChild(hueRay); svg.appendChild(hueFill);
+  [['R', 0], ['Y', 60], ['G', 120], ['C', 180], ['B', 240], ['M', 300]].forEach(([n, deg]) => { const t = deg * Math.PI / 180; const l = el('text', { x: CX + (R + 16) * Math.cos(t), y: CY - (R + 16) * Math.sin(t) + 4, 'text-anchor': 'middle', class: 'label', fill: ['#ff3b30', '#e6c400', '#34c759', '#19b8c9', '#3b7bff', '#d24dd6'][deg / 60] }); l.textContent = n; svg.appendChild(l); });
+  const stems = [], stemHits = [], handles = [], handleHits = [], halos = [];
+  ORDER.forEach((ch, i) => { const h = el('line', { class: 'halo' }); halos.push(h); svg.appendChild(h); });
+  ORDER.forEach((ch, i) => {
+    const s = el('line', { class: 'stem', stroke: COLOR[ch], 'data-stem': i }); stems.push(s); svg.appendChild(s);
+    const sh = el('line', { class: 'stem-hit', 'data-stem': i }); stemHits.push(sh); svg.appendChild(sh);
+  });
+  svg.appendChild(el('circle', { cx: CX, cy: CY, r: 3.5, fill: 'var(--text)' }));
+  // Joints wear the ring of the leg that ends there, and their core is the
+  // field under them: the colour at that point of the cube's cross-section at
+  // the current brightness. The tip is a step larger with a white ring.
+  const jointHalos = [];
+  ORDER.forEach((ch, i) => {
+    // White keyline hugging the outside of the ring, lit while this joint is being moved by something else.
+    const r = i === 2 ? 9 : 6.5;
+    const jh = el('circle', { class: 'jhalo', r: r + 1.25 + 1.25, fill: 'none' }); jointHalos.push(jh); svg.appendChild(jh);
+    const h = el('circle', { class: 'handle', r, fill: '#000', stroke: i === 2 ? '#fff' : COLOR[ch], 'data-handle': i + 1 }); handles.push(h); svg.appendChild(h);
+    const hh = el('circle', { class: 'handle-hit', r: 18, 'data-handle': i + 1 }); handleHits.push(hh); svg.appendChild(hh);
+  });
+
+  // ---------- slider rows (the app's ColorSlider, triangle handle + full stepper) ----------
+  const TRACK_ID = { r: 'tR', g: 'tG', b: 'tB', h: 'tH', s: 'tS', v: 'tV', hl: 'tHl', sl: 'tSl', l: 'tL' };
+  document.querySelectorAll('.sl').forEach(row => {
+    const k = row.dataset.sl, id = TRACK_ID[k], name = row.dataset.name;
+    row.innerHTML = `<span class="lab">${row.dataset.label}</span>
+      <div class="body"><div><div class="track" id="${id}" data-sl="${k}" role="slider" aria-label="${name} channel" aria-valuemin="0" aria-valuemax="${row.dataset.max}"></div><div class="arrow" id="${id}-arrow"><i></i></div></div></div>
+      <div class="stepper"><div class="box"><button data-step="-1" aria-label="Decrease ${name}" tabindex="-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14"/></svg></button><input type="text" inputmode="numeric" aria-label="${name}" id="${id}-in"><button data-step="1" aria-label="Increase ${name}" tabindex="-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M12 5v14"/></svg></button></div><span class="suffix">${row.dataset.suffix}</span></div>`;
+  });
+
+  // ---------- impact broadcast: whatever moved that you are not holding gets an outline ----------
+  const $ = id => document.getElementById(id);
+  // Same model as the app's brightness-limit highlight: an element that changed
+  // while a control is held lights up and stays lit until that control is let
+  // go, then fades over 500ms. Nothing retriggers per frame, so nothing flashes.
+  const lit = new Set();
+  let source = null; // key of the control being held; never highlights itself
+  function impact(elm, key) { if (!elm || !source || key === source) return; elm.classList.add('impact'); lit.add(elm); }
+  function release() { source = null; lit.forEach(e => e.classList.remove('impact')); lit.clear(); }
+  let shown = null;
+  function broadcast(now) {
+    if (!shown) { shown = now; return; }
+    const ch = ORDER.filter(k => now[k] !== shown[k]);
+    if (ch.length) {
+      // A stem lights exactly when its RGB slider does: its own value changed.
+      // A stem that only slid along because an earlier one changed stays dark.
+      ch.forEach(k => impact($('t' + k.toUpperCase()), 'sl:' + k));
+    }
+    {
+      // On the hexagon a stem and its joint light as one unit per channel: every
+      // channel whose value changed, plus every channel the held element drives
+      // (a stem its own, a handle all channels up to it). The held element is
+      // included - dragging the green handle lights R and G stems and joints.
+      const held = source && source.startsWith('stem:') ? [ORDER[+source.slice(5)]] : source && source.startsWith('handle:') ? ORDER.slice(0, +source.slice(7)) : [];
+      const lit = new Set([...ch, ...held]);
+      lit.forEach(k => { const i = ORDER.indexOf(k); impact(halos[i], null); impact(jointHalos[i], null); });
+    }
+    if (now.h !== shown.h) { impact($('tH'), 'sl:h'); impact($('hueBadge'), 'ray'); }
+    if (now.s !== shown.s) impact($('tS'), 'sl:s');
+    if (now.v !== shown.v) impact($('tV'), 'sl:v');
+    if (now.h !== shown.h) impact($('tHl'), 'sl:hl');
+    if (now.sl !== shown.sl) impact($('tSl'), 'sl:sl');
+    if (now.l !== shown.l) impact($('tL'), 'sl:l');
+    shown = now;
+  }
+
+  // ---------- render ----------
+  function render() {
+    const pts = chain();
+    ORDER.forEach((ch, i) => {
+      for (const s of [stems[i], stemHits[i], halos[i]]) { s.setAttribute('x1', pts[i].x); s.setAttribute('y1', pts[i].y); s.setAttribute('x2', pts[i + 1].x); s.setAttribute('y2', pts[i + 1].y); }
+      for (const h of [handles[i], handleHits[i], jointHalos[i]]) { h.setAttribute('cx', pts[i + 1].x); h.setAttribute('cy', pts[i + 1].y); }
+    });
+    const { h, s, v } = rgbToHsv(rgb);
+    // Field colour under a point: angle is hue, distance to the edge is chroma, at the current brightness.
+    const under = p => { const dx = p.x - CX, dy = -(p.y - CY), t = Math.atan2(dy, dx); const c = clamp(Math.hypot(dx, dy) / edgeDist(t), 0, 1); return hex(hsvToRgb(((t * 180 / Math.PI) + 360) % 360, v ? Math.min(1, c / v) : 0, v)); };
+    handles.forEach((h, i) => h.setAttribute('fill', i === 2 ? hex(rgb) : under(pts[i + 1])));
+    {
+      const t = h * Math.PI / 180, ex = CX + R * Math.cos(t), ey = CY - R * Math.sin(t), tip = pts[3];
+      const on = s > 0 || source === 'sl:s' || source === 'sl:sl';
+      for (const l of [hueRay, hueFill]) { l.setAttribute('x1', CX); l.setAttribute('y1', CY); l.style.display = on ? '' : 'none'; }
+      hueRay.setAttribute('x2', ex); hueRay.setAttribute('y2', ey);
+      hueFill.setAttribute('x2', tip.x); hueFill.setAttribute('y2', tip.y);
+      hueFill.classList.toggle('lit', source === 'sl:s' || source === 'sl:sl');
+      const b = $('hueBadge'); b.style.left = (ex / 400 * 100) + '%'; b.style.top = (ey / 360 * 100) + '%';
+      b.style.background = hueHex(h); b.style.color = h > 30 && h < 200 ? '#000' : '#fff'; b.style.display = on ? '' : 'none';
+      b.setAttribute('aria-valuenow', Math.round(h)); $('hueBadgeText').textContent = Math.round(h) + '°';
+    }
+    $('swatch').style.background = hex(rgb); $('hexVal').textContent = hex(rgb);
+    $('nameVal').textContent = `hue ${Math.round(h)}° · saturation ${Math.round(s * 100)}% · brightness ${Math.round(v * 100)}%`;
+    const sb = $('sb'); sb.style.background = `linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, ${hueHex(h)})`;
+    $('sbMk').style.left = (s * 100) + '%'; $('sbMk').style.top = ((1 - v) * 100) + '%'; $('sbMk').style.background = hex(rgb);
+    const set = (t, _v, frac, text, tint) => { $(t + '-arrow').style.left = (frac * 100) + '%'; $(t).style.background = tint; $(t).setAttribute('aria-valuenow', parseInt(text)); const i = $(t + '-in'); if (document.activeElement !== i) i.value = parseInt(text); };
+    const g = (a, b) => `linear-gradient(90deg, ${a}, ${b})`;
+    set('tR', 'vR', rgb.r / 255, rgb.r, blend ? g(`rgb(0,${rgb.g},${rgb.b})`, `rgb(255,${rgb.g},${rgb.b})`) : g('#000', '#f00'));
+    set('tG', 'vG', rgb.g / 255, rgb.g, blend ? g(`rgb(${rgb.r},0,${rgb.b})`, `rgb(${rgb.r},255,${rgb.b})`) : g('#000', '#0f0'));
+    set('tB', 'vB', rgb.b / 255, rgb.b, blend ? g(`rgb(${rgb.r},${rgb.g},0)`, `rgb(${rgb.r},${rgb.g},255)`) : g('#000', '#00f'));
+    const hueRamp = (S, V) => 'linear-gradient(90deg,' + [0, 60, 120, 180, 240, 300, 360].map(d => hex(hsvToRgb(d % 360, S, V))).join(',') + ')';
+    set('tH', 'vH', h / 360, Math.round(h) + '°', blend ? hueRamp(s, v) : hueRamp(1, 1));
+    set('tS', 'vS', s, Math.round(s * 100) + '%', blend ? g(hex(hsvToRgb(h, 0, v)), hex(hsvToRgb(h, 1, v))) : g('#fff', hueHex(h)));
+    set('tV', 'vV', v, Math.round(v * 100) + '%', blend ? g('#000', hex(hsvToRgb(h, s, 1))) : g('#000', '#fff'));
+    const L = rgbToHsl(rgb);
+    set('tHl', 'vHl', L.h / 360, Math.round(L.h) + '°', blend ? 'linear-gradient(90deg,' + [0, 60, 120, 180, 240, 300, 360].map(d => hex(hslToRgb(d % 360, L.s, L.l))).join(',') + ')' : hueRamp(1, 1));
+    set('tSl', 'vSl', L.s, Math.round(L.s * 100) + '%', blend ? g(hex(hslToRgb(L.h, 0, L.l)), hex(hslToRgb(L.h, 1, L.l))) : g('#808080', hueHex(L.h)));
+    set('tL', 'vL', L.l, Math.round(L.l * 100) + '%', blend ? `linear-gradient(90deg, #000, ${hex(hslToRgb(L.h, L.s, .5))}, #fff)` : 'linear-gradient(90deg, #000, #fff)');
+    broadcast({ ...rgb, h: Math.round(h), s: Math.round(s * 100), v: Math.round(v * 100), sl: Math.round(L.s * 100), l: Math.round(L.l * 100) });
+  }
+
+  // ---------- channel tooltip ----------
+  const channelsFor = t => t.dataset.handle ? ORDER.slice(0, +t.dataset.handle) : t.dataset.stem ? [ORDER[+t.dataset.stem]] : null;
+  const TIP_TILT = false;  // rotate the tooltip to lie along its stem
+  const TIP_GAP = 28;      // svg units from the stem's midpoint to the tooltip's centre
+  // Each stem's tooltip sits a fixed way off its midpoint, perpendicular to
+  // the stem: red below, green to the north-east, blue to the north-west.
+  // Fixed rather than computed, so a tooltip never jumps sides as the chain
+  // moves. It may leave the hexagon.
+  const TIP_SIDE = { r: { x: 0, y: 1 }, g: { x: Math.sqrt(3) / 2, y: -0.5 }, b: { x: -Math.sqrt(3) / 2, y: -0.5 } };
+  function tipAt(i) {
+    const c = chain(), n = TIP_SIDE[ORDER[i]];
+    const x = (c[i].x + c[i + 1].x) / 2, y = (c[i].y + c[i + 1].y) / 2;
+    const dir = DIRS[ORDER[i]];
+    let tilt = Math.atan2(dir.y, dir.x) * 180 / Math.PI; if (tilt > 90) tilt -= 180; if (tilt < -90) tilt += 180;
+    return { ...screenOf(x + n.x * TIP_GAP, y + n.y * TIP_GAP), tilt: TIP_TILT ? tilt : 0 };
+  }
+  // A handle has no tooltip of its own: it lights the tooltip of every stem it
+  // drives, each sitting at that stem. Stems light only their own.
+  function showTip(chs) {
+    ORDER.forEach((ch, i) => {
+      const t = $('tip' + i);
+      if (!chs.includes(ch)) { t.hidden = true; return; }
+      if (t.hidden) t.innerHTML = `<span style="background:${COLOR[ch]}">${CH_NAME[ch]}</span>`;
+      const p = tipAt(i);
+      t.hidden = false; t.style.left = p.x + 'px'; t.style.top = p.y + 'px'; t.style.setProperty('--tilt', p.tilt + 'deg');
+    });
+  }
+  const hideTip = () => ORDER.forEach((_, i) => { $('tip' + i).hidden = true; });
+
+  // ---------- dragging ----------
+  const pt = svg.createSVGPoint();
+  function toSvg(e) { pt.x = e.clientX; pt.y = e.clientY; return pt.matrixTransform(svg.getScreenCTM().inverse()); }
+  function screenOf(x, y) { const m = svg.getScreenCTM(); return { x: m.a * x + m.c * y + m.e, y: m.b * x + m.d * y + m.f }; }
+  const handleScreen = k => { const p = chain()[k]; return screenOf(p.x, p.y); };
+  const tipScreen = () => handleScreen(3);
+  const stemScreen = i => { const c = chain(); return screenOf((c[i].x + c[i + 1].x) / 2, (c[i].y + c[i + 1].y) / 2); };
+  let drag = null;
+  svg.addEventListener('pointerdown', e => {
+    const t = e.target, chs = channelsFor(t); if (!chs) return;
+    if (t.dataset.handle) drag = { kind: 'handle', k: +t.dataset.handle, key: 'handle:' + t.dataset.handle };
+    else drag = { kind: 'stem', i: +t.dataset.stem, p0: toSvg(e), v0: rgb[ORDER[+t.dataset.stem]], key: 'stem:' + t.dataset.stem };
+    drag.chs = chs; drag.target = t; source = drag.key; render(); // light the held element's channels at once, before any movement
+    svg.setPointerCapture(e.pointerId); e.preventDefault();
+  });
+  svg.addEventListener('pointermove', e => {
+    if (!drag) {
+      const chs = channelsFor(e.target);
+      if (chs && e.pointerType !== 'touch') showTip(chs); else hideTip();
+      return;
+    }
+    const p = toSvg(e);
+    if (drag.kind === 'stem') {
+      const d = DIRS[ORDER[drag.i]];
+      rgb[ORDER[drag.i]] = Math.round(clamp(drag.v0 + ((p.x - drag.p0.x) * d.x + (p.y - drag.p0.y) * d.y) / SCALE, 0, 255));
+    } else if (drag.k === 1) {
+      rgb.r = Math.round(clamp(((p.x - CX) * DIRS.r.x + (p.y - CY) * DIRS.r.y) / SCALE, 0, 255));
+    } else if (drag.k === 2) {
+      const dx = p.x - CX, dy = p.y - CY, A = DIRS.r, B = DIRS.g, det = A.x * B.y - A.y * B.x;
+      rgb.r = Math.round(clamp((dx * B.y - dy * B.x) / det / SCALE, 0, 255));
+      rgb.g = Math.round(clamp((A.x * dy - A.y * dx) / det / SCALE, 0, 255));
+    } else {
+      const dx = p.x - CX, dy = -(p.y - CY), t = Math.atan2(dy, dx);
+      const hue = ((t * 180 / Math.PI) + 360) % 360;
+      const chroma = clamp(Math.hypot(dx, dy) / edgeDist(t), 0, 1);
+      let v = rgbToHsv(rgb).v; if (chroma > v) v = chroma;
+      Object.assign(rgb, hsvToRgb(hue, v ? chroma / v : 0, v));
+    }
+    render();
+    showTip(drag.chs);
+  });
+  svg.addEventListener('pointerleave', () => { if (!drag) hideTip(); });
+  const endDrag = () => { drag = null; release(); hideTip(); };
+  svg.addEventListener('pointerup', endDrag); svg.addEventListener('pointercancel', endDrag);
+
+  // editor: SB box and sliders. HSV drags hold a copy so a grey colour keeps its hue.
+  let hold = null;
+  const setHsv = (h, s, v) => { lastHue = h; Object.assign(rgb, hsvToRgb(h, s, v)); };
+  const setHsl = (h, s, l) => { lastHue = h; Object.assign(rgb, hslToRgb(h, s, l)); };
+  let holdL = null;
+  function bindDrag(elm, key, onMove) {
+    elm.addEventListener('pointerdown', e => { elm.setPointerCapture(e.pointerId); source = key; hold = rgbToHsv(rgb); holdL = rgbToHsl(rgb); onMove(e); e.preventDefault(); });
+    elm.addEventListener('pointermove', e => { if (source === key && e.buttons) onMove(e); });
+    const end = () => { if (source === key) release(); };
+    elm.addEventListener('pointerup', end); elm.addEventListener('pointercancel', end);
+  }
+  const frac = (elm, e) => { const r = elm.getBoundingClientRect(); return clamp((e.clientX - r.left) / r.width, 0, 1); };
+  bindDrag($('hueBadge'), 'ray', e => { const p = toSvg(e); const a = ((Math.atan2(-(p.y - CY), p.x - CX) * 180 / Math.PI) + 360) % 360; setHsv(a, hold.s, hold.v); render(); });
+  bindDrag($('sb'), 'sb', e => { const r = $('sb').getBoundingClientRect(); setHsv(hold.h, clamp((e.clientX - r.left) / r.width, 0, 1), 1 - clamp((e.clientY - r.top) / r.height, 0, 1)); render(); });
+  document.querySelectorAll('.track').forEach(t => {
+    const k = t.dataset.sl;
+    bindDrag(t, 'sl:' + k, e => {
+      const f = frac(t, e);
+      if (ORDER.includes(k)) rgb[k] = Math.round(f * 255);
+      else if (k === 'hl' || k === 'sl' || k === 'l') setHsl(k === 'hl' ? f * 360 : holdL.h, k === 'sl' ? f : holdL.s, k === 'l' ? f : holdL.l);
+      else setHsv(k === 'h' ? f * 360 : hold.h, k === 's' ? f : hold.s, k === 'v' ? f : hold.v);
+      render();
+    });
+  });
+  const BLEND_ON = 'M16.002 11.002l.693.718C18.898 14.012 20 15.294 20 16.852a4.199 4.199 0 01-1.172 2.936 3.906 3.906 0 01-5.656 0A4.199 4.199 0 0112 16.852c0-1.558 1.102-2.84 3.305-5.132l.694-.719zm-2.197 3.91c.502-.681 1.219-1.455 2.195-2.472.976 1.017 1.693 1.79 2.195 2.471.6.814.805 1.38.805 1.94v.003c0 .049 0 .098-.003.146h-5.994a3.37 3.37 0 01-.003-.146v-.002c0-.56.205-1.127.805-1.94z';
+  const BLEND_OFF = 'M16.695 11.72l-.693-.718L16 11l-.001.002-.694.718C13.102 14.012 12 15.294 12 16.852a4.199 4.199 0 001.172 2.936 3.906 3.906 0 005.656 0A4.199 4.199 0 0020 16.852c0-1.558-1.102-2.84-3.305-5.132zm-.695.72c-.977 1.017-1.693 1.79-2.195 2.471-.6.814-.805 1.38-.805 1.94v.003a3.2 3.2 0 00.89 2.239 2.906 2.906 0 004.22 0 3.2 3.2 0 00.89-2.239v-.002c0-.56-.205-1.127-.805-1.94-.502-.681-1.219-1.455-2.195-2.472z';
+  function setBlend(on) {
+    blend = on; const b = $('blendBtn'); b.setAttribute('aria-pressed', on); b.setAttribute('aria-label', on ? 'Show flat channel ramps' : 'Show blended tracks');
+    $('blendPath').setAttribute('d', on ? BLEND_ON : BLEND_OFF); render();
+  }
+  $('blendBtn').onclick = () => setBlend(!blend);
+  function setGroups(list) {
+    groups.clear(); list.forEach(g => groups.add(g));
+    ['RGB', 'HSB', 'HSL'].forEach(g => { $('blk' + g).hidden = !groups.has(g); $('groupsTg').querySelector(`[data-g="${g}"]`).setAttribute('aria-pressed', groups.has(g)); });
+  }
+  const SLIDER_MAX = { r: 255, g: 255, b: 255, h: 360, s: 100, v: 100, hl: 360, sl: 100, l: 100 };
+  function writeSlider(k, val) {
+    const v = clamp(Math.round(val), 0, SLIDER_MAX[k]);
+    if (ORDER.includes(k)) rgb[k] = v;
+    else if (k === 'h' || k === 's' || k === 'v') { const c = rgbToHsv(rgb); setHsv(k === 'h' ? v : c.h, k === 's' ? v / 100 : c.s, k === 'v' ? v / 100 : c.v); }
+    else { const c = rgbToHsl(rgb); setHsl(k === 'hl' ? v : c.h, k === 'sl' ? v / 100 : c.s, k === 'l' ? v / 100 : c.l); }
+    render();
+  }
+  document.querySelectorAll('.sl').forEach(row => {
+    const k = row.dataset.sl, id = TRACK_ID[k], input = $(id + '-in');
+    row.querySelectorAll('button[data-step]').forEach(b => b.onclick = () => { source = 'sl:' + k; writeSlider(k, parseInt(input.value) + +b.dataset.step); release(); });
+    input.addEventListener('input', () => { const n = parseInt(input.value, 10); if (!isNaN(n)) { source = 'sl:' + k; writeSlider(k, n); release(); } });
+    input.addEventListener('focus', () => input.select());
+    input.addEventListener('keydown', e => { const step = e.shiftKey ? 10 : 1; if (e.key === 'ArrowUp' || e.key === 'ArrowRight') { e.preventDefault(); source = 'sl:' + k; writeSlider(k, parseInt(input.value) + step); release(); } if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') { e.preventDefault(); source = 'sl:' + k; writeSlider(k, parseInt(input.value) - step); release(); } });
+  });
+  $('groupsTg').querySelectorAll('button').forEach(b => b.onclick = () => { const g = b.dataset.g; if (groups.has(g)) groups.delete(g); else groups.add(g); setGroups([...groups]); });
+  setBlend(true);
+
+  // ---------- the demo ----------
+  const overlay = $('overlay');
+  let timers = [], raf = 0, reposition = () => {};
+  const later = (f, ms) => timers.push(setTimeout(f, ms));
+  const wait = ms => new Promise(r => later(r, ms));
+  const TOUCH = matchMedia('(pointer: coarse)').matches;
+  const ease = t => t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+  function stopDemo() {
+    timers.forEach(clearTimeout); timers = []; cancelAnimationFrame(raf);
+    overlay.innerHTML = ''; hideTip(); release();
+    stems.forEach(s => s.classList.remove('glow')); handles.forEach(h => h.classList.remove('glow'));
+    window.removeEventListener('resize', reposition); window.removeEventListener('scroll', reposition);
+  }
+  function runDemo() {
+    stopDemo(); Object.assign(rgb, start); setGroups(['RGB', 'HSB']); setBlend(true);
+    overlay.innerHTML = `<div class="ghost ${TOUCH ? 'touch' : 'mouse'}" id="ghost" style="opacity:0"><svg><use href="#cursor-${TOUCH ? 'touch' : 'mouse'}"/></svg></div>
+      <div class="bubble" id="bubble" style="opacity:0"><span id="bubT"></span></div>
+      <div class="demo-bar" id="bar"><span class="k">Demo</span><span class="prog" id="prog"><i></i><i></i><i></i><i></i></span><button id="skip">Skip demo</button></div>`;
+    $('skip').onclick = stopDemo;
+    const ghost = $('ghost'), bub = $('bubble');
+    let gp = { x: innerWidth + 40, y: innerHeight * 0.55 }, anchor = tipScreen, side = 'right', arcSign = 1;
+    const placeGhost = p => { gp = p; ghost.style.left = p.x + 'px'; ghost.style.top = p.y + 'px'; };
+    const pickSide = a => { const w = bub.offsetWidth, h = bub.offsetHeight; if (a.x + 36 + w < innerWidth - 8) return 'right'; if (a.x - 36 - w > 8) return 'left'; return a.y + 36 + h < innerHeight - 90 ? 'below' : 'above'; };
+    const placeBubble = () => {
+      const a = anchor(), w = bub.offsetWidth, h = bub.offsetHeight;
+      bub.className = 'bubble ' + side;
+      if (side === 'right' || side === 'left') {
+        const top = clamp(a.y - 24, 8, innerHeight - h - 8);
+        bub.style.left = (side === 'right' ? a.x + 30 : a.x - 30 - w) + 'px'; bub.style.top = top + 'px';
+        bub.style.setProperty('--ay', clamp(a.y - top - 6, 10, h - 22) + 'px');
+      } else {
+        const left = clamp(a.x - 30, 8, innerWidth - w - 8);
+        bub.style.left = left + 'px'; bub.style.top = (side === 'below' ? a.y + 30 : a.y - 30 - h) + 'px';
+        bub.style.setProperty('--ax', clamp(a.x - left - 6, 10, w - 22) + 'px');
+      }
+    };
+    const say = (text, at) => { anchor = at; $('bubT').textContent = text; side = pickSide(at()); placeBubble(); bub.style.opacity = 1; };
+    const hush = () => { bub.style.opacity = 0; };
+    // Move the ghost along a quadratic bezier that bows to one side, alternating each leg.
+    const moveTo = (at, ms) => new Promise(res => {
+      const p0 = { ...gp }, p2 = at(), d = Math.hypot(p2.x - p0.x, p2.y - p0.y);
+      const nx = -(p2.y - p0.y) / (d || 1), ny = (p2.x - p0.x) / (d || 1), bow = Math.min(90, d * 0.3) * arcSign; arcSign = -arcSign;
+      const c = { x: (p0.x + p2.x) / 2 + nx * bow, y: (p0.y + p2.y) / 2 + ny * bow }, t0 = performance.now();
+      const step = now => { const t = ease(clamp((now - t0) / ms, 0, 1)), u = 1 - t; placeGhost({ x: u * u * p0.x + 2 * u * t * c.x + t * t * p2.x, y: u * u * p0.y + 2 * u * t * c.y + t * t * p2.y }); if (t < 1) raf = requestAnimationFrame(step); else res(); };
+      raf = requestAnimationFrame(step);
+    });
+    // Tween colour while the ghost "holds" a control; `key` is what it holds, so that control is not outlined.
+    const tween = (apply, ms, follow, key) => new Promise(res => {
+      const t0 = performance.now(); source = key; ghost.classList.add('press');
+      const step = now => { const t = ease(clamp((now - t0) / ms, 0, 1)); apply(t); render(); placeGhost(follow()); placeBubble(); if (t < 1) raf = requestAnimationFrame(step); else { release(); ghost.classList.remove('press'); res(); } };
+      raf = requestAnimationFrame(step);
+    });
+    const lerpRgb = (from, to) => t => { for (const k of ORDER) rgb[k] = Math.round(from[k] + (to[k] - from[k]) * t); };
+    const sbMarkScreen = () => { const r = $('sbMk').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; };
+    const thumbScreen = id => { const r = $(id + '-arrow').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + 4 }; };
+    const blendScreen = () => { const r = $('blendBtn').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; };
+    const bring = async elm => { elm.scrollIntoView({ block: 'center', behavior: 'smooth' }); await wait(550); };
+    const setStep = n => $('prog').querySelectorAll('i').forEach((i, k) => i.classList.toggle('on', k < n));
+    const hover = async (elm, at, chs) => { await moveTo(at, 420); elm.classList.add('glow'); showTip(chs); await wait(520); hideTip(); elm.classList.remove('glow'); };
+    reposition = () => placeBubble();
+    window.addEventListener('resize', reposition); window.addEventListener('scroll', reposition, { passive: true });
+
+    (async () => {
+      // 1. the hexagon: hover each leg and handle, then a short drag of the colour handle
+      await bring(svg); setStep(1); placeGhost(gp); ghost.style.opacity = 1;
+      say('Play with the handles to see how they map to the color hex.', tipScreen);
+      const from3 = { ...rgb };
+      for (let i = 0; i < 3; i++) {
+        await hover(stems[i], () => stemScreen(i), [ORDER[i]]);
+        await hover(handles[i], () => handleScreen(i + 1), ORDER.slice(0, i + 1));
+      }
+      await tween(t => { lerpRgb(from3, { r: 255, g: 140, b: 60 })(t); showTip(ORDER); }, 1300, tipScreen, 'handle:3');
+      hideTip(); hush(); await wait(300);
+      // 2. the colour editor
+      await bring($('sb')); setStep(2);
+      await moveTo(sbMarkScreen, 700);
+      say('Work with the tools that feel most familiar to you.', sbMarkScreen);
+      const h0 = rgbToHsv(rgb).h;
+      await tween(t => setHsv(h0, 0.35 + 0.55 * Math.sin(t * Math.PI), 0.55 + 0.45 * Math.cos(t * Math.PI * 0.7)), 2200, sbMarkScreen, 'sb');
+      hush(); await wait(300);
+      // 3. a slider, watching the rest answer
+      await moveTo(() => thumbScreen('tH'), 600); setStep(3);
+      say('Keep an eye open for how your changes impact other parts of the tool.', () => thumbScreen('tH'));
+      const s1 = rgbToHsv(rgb);
+      await tween(t => setHsv((s1.h + 140 * Math.sin(t * Math.PI) + 360) % 360, s1.s, s1.v), 2400, () => thumbScreen('tH'), 'sl:h');
+      hush(); await wait(300);
+      // 4. blend on / off
+      await moveTo(blendScreen, 600); setStep(4);
+      say('Toggle blend to see the source or mixed colors in the sliders.', blendScreen);
+      await wait(400); setBlend(false); await wait(1100); setBlend(true); await wait(1100); setBlend(false); await wait(800); setBlend(true); await wait(500);
+      hush(); await wait(250);
+      // done
+      await bring(svg);
+      say('Have fun!', tipScreen); ghost.style.opacity = 0;
+      const b = $('skip'); b.textContent = 'Start exploring'; b.classList.add('primary'); $('bar').querySelector('.k').textContent = 'Demo done';
+    })();
+  }
+  $('help').onclick = runDemo;
+  render(); // demo is behind the ? button so the highlight feature can be tested on its own first
+})();
+</script>

@@ -21,7 +21,8 @@ The picker's argument is [[hexagon-is-the-cube-down-its-diagonal]]. The demo doe
   - the hexagon by channel, stem and joint as one unit, for every channel that moved - except while a stem or joint is itself held (`hex:*` keys), where the chain moving is feedback enough;
   - the hue badge, its own border turning white, when hue moves from somewhere else;
   - the hue line's white fill while a saturation slider is held;
-  - never the swatch, the SB box or the hex value.
+  - never the swatch, the SB box or the hex value;
+  - during the play cycle, the sliders, bars and badge light as their values move (a rolling snapshot every 600 ms) and the chain does not.
   - Two colours, in `src/index.css`: `--highlight-hex` for the hexagon, set once because the colour field is the same in both themes; `--highlight-line` for the sliders, per theme because the tracks sit on the panel.
 - **Channel tooltips on the hexagon.** Hover or drag a stem and a pill names its channel (RED, GREEN, BLUE) at a fixed side of the stem's midpoint - red below, green north-east, blue north-west, never flipped, allowed outside the hexagon. A joint has no tooltip of its own; it shows the tooltip of every stem it drives. They fade out for the length of a drag so the halos are what the eye follows. Fills are Tailwind's 600 step of each hue.
 - **A "Hue" label** above the hue badge, following it round the circle, in the Saturation and Brightness labels' type.
@@ -56,6 +57,8 @@ The demo starts by setting the groups to RGB + HSB and blend on, and restores th
 - Reduced motion: the cursor's arcs and the highlight fades should respect `prefers-reduced-motion`; the highlights already do.
 
 ## Implementation plan (next)
+
+Handed to the next session in [[handoff-picker-demo]], which carries the technical map, the DOM anchors and the pointer-event recipes.
 
 Lazy-loaded like the deck, so the picker bundle does not carry it: `src/demo/` with a `DemoOverlay` (cursor, caption bubble, bottom bar) mounted by `ColorPicker` while the demo runs, a `steps.ts` script, and a `drive.ts` that moves the cursor and works the controls.
 

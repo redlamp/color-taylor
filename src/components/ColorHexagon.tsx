@@ -1391,7 +1391,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
 
   // Global mouse listeners
   useEffect(() => {
-    const clearAll = () => {
+    const clearAll = (at?: { clientX: number; clientY: number }) => {
       draggingHue.current = false;
       draggingDot.current = null;
       draggingFree.current = false;
@@ -1403,8 +1403,16 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       blPointerDown.current = null;
       satPointerDown.current = null;
       dragOrigin.current = null;
-      setHoveredDot(null);
-      setHoveredLeg(null);
+      // Hover is re-read from whatever is under the release point rather than
+      // cleared: pointerenter does not fire again for an element the pointer
+      // never left, so after a drag on a joint the tooltip would stay away
+      // until the pointer went out and came back. The tooltips are only
+      // suppressed for the drag itself.
+      const under = at ? document.elementFromPoint(at.clientX, at.clientY)?.closest<Element>('[data-stem],[data-joint]') : null;
+      const stem = under?.getAttribute('data-stem');
+      const joint = under?.getAttribute('data-joint');
+      setHoveredLeg(stem !== null && stem !== undefined ? Number(stem) : null);
+      setHoveredDot(joint !== null && joint !== undefined ? Number(joint) : null);
       setDotDragging(false);
       setIsHexDragging(false);
       cancelHoldTone();
@@ -1544,7 +1552,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           if (val !== null) animateSatToValue(val);
         }
       }
-      clearAll();
+      clearAll(e);
     };
     const onPointerLeave = () => clearAll();
     window.addEventListener('pointermove', onPointerMove);
@@ -1968,6 +1976,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                   strokeLinecap="round"
                   className="cursor-pointer touch-none"
                   data-hold={`hex:${ch}`}
+                  data-stem={i}
                   onPointerEnter={() => {
                     if (draggingDot.current || draggingFree.current) return;
                     setHoveredLeg(i);
@@ -2054,6 +2063,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                 opacity={dotOpacity}
                 className={isDraggable ? 'cursor-pointer touch-none' : ''}
                 data-hold={`hex:${drives}`}
+                data-joint={i}
                 // Through pxUnits like every other stroke here: a CSS filter on
                 // an SVG element measures in user space, so the shadow scaled
                 // with the panel - about 1.3px of blur when narrow and 3.8px
@@ -2137,7 +2147,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
               const stemUnits = stemPx * uiScale;
               const isHighlighted = hoveredLeg === i;
               return (
-                <g key={`impact-stem-${ch}`} opacity={on ? 1 : 0} className={on ? HIGHLIGHT_IN : HIGHLIGHT_OUT}>
+                <g key={`impact-stem-${ch}`} id={`impact-stem-${ch}`} opacity={on ? 1 : 0} className={on ? HIGHLIGHT_IN : HIGHLIGHT_OUT}>
                   <line x1={x1} y1={y1} x2={x2} y2={y2} {...CALLOUT_LINE} strokeLinecap="butt" strokeWidth={stemUnits + pxUnits(4)} />
                   <line
                     x1={x1} y1={y1} x2={x2} y2={y2}
