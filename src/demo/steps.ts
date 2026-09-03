@@ -14,7 +14,7 @@
  * skips its step rather than throwing.
  */
 
-import { centerOf, type Driver, type Point } from './drive';
+import { CLICK_MS, centerOf, type Driver, type Point } from './drive';
 
 /**
  * The pacing, in milliseconds, gathered here because it is the thing most
@@ -28,6 +28,8 @@ const DWELL = {
   hoverJoint: 1100,
   /** The travel time of a move between two targets. */
   move: 520,
+  /** The same, across the width of the tool rather than within one panel. */
+  moveFar: 680,
   /** After a caption appears, before the hand starts working. */
   beforeAction: 600,
   /** After a drag lets go, while the highlights are still lit. */
@@ -57,6 +59,15 @@ export interface DemoStep {
   /** Shown in the caption panel for the length of the step. */
   caption: string;
   /**
+   * What the step's own waits and moves add up to, for the playhead in the
+   * progress ticks. Written as the sum of the DWELL entries the step actually
+   * spends, so it cannot drift from the choreography the way a hand-typed
+   * number would. `bring` is the one thing it cannot predict - a step that has
+   * to scroll a target into view runs half a second longer - so the playhead
+   * clamps at full and the tick goes solid when the step really ends.
+   */
+  duration: number;
+  /**
    * Narration to play alongside, a file under `public/demo/`. Recorded
    * separately; NARRATION_READY gates whether the runner goes looking.
    */
@@ -69,6 +80,16 @@ export const NARRATION_READY = false;
 
 /** The last word, after the four steps. */
 export const SIGN_OFF = 'Have fun!';
+
+/**
+ * How long the sign-off stands before the demo takes itself down. Real
+ * seconds, not scaled by `?demospeed`: it is time for a person to read one
+ * short line, which does not get shorter because the spec is in a hurry.
+ */
+export const SIGN_OFF_MS = 5000;
+
+/** The fade on the way out, so the panel leaves rather than blinks off. */
+export const SIGN_OFF_FADE_MS = 350;
 
 const el = (selector: string) => document.querySelector(selector);
 const joints = () => Array.from(document.querySelectorAll('[data-joint]'));
@@ -83,6 +104,8 @@ export const STEPS: DemoStep[] = [
   {
     caption: 'Play with the handles to see how each one maps to a color channel.',
     audio: '01-handles.mp3',
+    duration: 3 * (DWELL.move + DWELL.hoverStem + DWELL.move + DWELL.hoverJoint)
+      + DWELL.move + DWELL.dragTip + DWELL.afterAction,
     /**
      * The chain: each stem, then the joint it ends at, so the tooltips name
      * the channels in order. Then a short drag of the tip - the one handle
@@ -116,6 +139,7 @@ export const STEPS: DemoStep[] = [
   {
     caption: 'Work with the tools that feel most familiar to you.',
     audio: '02-color-box.mp3',
+    duration: DWELL.moveFar + DWELL.beforeAction + DWELL.dragBox + DWELL.afterAction,
     /** The colour box - the control most people reach for first. */
     async run({ d }) {
       const wrapper = el('#sb-wrapper');
@@ -130,7 +154,7 @@ export const STEPS: DemoStep[] = [
         y: lerp(r.top + inset, r.bottom - inset, fy),
       });
       const start = box(0.3, 0.35);
-      await d.moveTo(() => start, 700);
+      await d.moveTo(() => start, DWELL.moveFar);
       await d.wait(DWELL.beforeAction);
 
       const target = at(start);
@@ -147,6 +171,7 @@ export const STEPS: DemoStep[] = [
   {
     caption: 'Keep an eye open for how your changes impact other parts of the tool.',
     audio: '03-impact.mp3',
+    duration: DWELL.moveFar + DWELL.beforeAction + DWELL.dragSlider + DWELL.afterAction,
     /**
      * A slider, so the rest of the tool can answer. The hue slider wraps, and
      * a press on its arrow asks for pointer lock - ColorSlider skips that for
@@ -160,7 +185,7 @@ export const STEPS: DemoStep[] = [
 
       const c = centerOf(arrow);
       const width = track.getBoundingClientRect().width;
-      await d.moveTo(() => c, 620);
+      await d.moveTo(() => c, DWELL.moveFar);
       await d.wait(DWELL.beforeAction);
 
       // A wrapping slider tracks movement, so how far the hue turns is how
@@ -178,12 +203,13 @@ export const STEPS: DemoStep[] = [
   {
     caption: 'Toggle blend to see the source or mixed colors in the sliders.',
     audio: '04-blend.mp3',
+    duration: DWELL.moveFar + DWELL.beforeAction + 4 * CLICK_MS + 3 * DWELL.blendHold + DWELL.afterAction,
     /** Blend on and off, which is a claim about the sliders you can only see. */
     async run({ d }) {
       const toggle = el('#blend-toggle');
       if (!toggle) return;
       await d.bring(toggle);
-      await d.moveTo(() => centerOf(toggle), 620);
+      await d.moveTo(() => centerOf(toggle), DWELL.moveFar);
       await d.wait(DWELL.beforeAction);
 
       // Four presses, ending where it started. The click carries the whole

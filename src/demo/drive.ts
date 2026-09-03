@@ -42,6 +42,9 @@ export interface DriverOptions {
   speed: number;
 }
 
+/** How long a press is held before it becomes a click. Steps total themselves with it. */
+export const CLICK_MS = 110;
+
 const ease = (t: number) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
 const clamp01 = (t: number) => (t < 0 ? 0 : t > 1 ? 1 : t);
 
@@ -131,6 +134,27 @@ export class Driver {
       this.timers.add(id);
     });
   }
+
+  /**
+   * A wait in real seconds, whatever the speed. The pause before the demo
+   * takes itself down is time for a person to read a line, not choreography,
+   * so it should not run eight times faster because the spec is in a hurry.
+   */
+  linger(ms: number): Promise<void> {
+    this.guard();
+    return new Promise<void>((resolve, reject) => {
+      this.pending.add(reject);
+      const id = window.setTimeout(() => {
+        this.timers.delete(id);
+        this.pending.delete(reject);
+        resolve();
+      }, Math.max(0, ms));
+      this.timers.add(id);
+    });
+  }
+
+  /** The speed knob, for anything sizing itself against a scheduled duration. */
+  get speed() { return this.opts.speed; }
 
   /** Run `onFrame(t)` for `ms`, eased, resolving at t=1. */
   private animate(ms: number, onFrame: (t: number) => void): Promise<void> {
@@ -252,7 +276,7 @@ export class Driver {
     el.dispatchEvent(pointerEvent('pointerdown', x, y));
     this.pressedEl = el;
     this.stage.setPressed(true);
-    await this.wait(110);
+    await this.wait(CLICK_MS);
     this.releaseNow();
     this.guard();
     el.dispatchEvent(new MouseEvent('click', {

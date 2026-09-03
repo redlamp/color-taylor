@@ -34,7 +34,8 @@ import { ChevronLeft, ChevronRight, Volume2, VolumeX } from 'lucide-react';
 import DemoCursor, { CURSOR_BOX, cursorKind, hotspotOf, type CursorKind } from './DemoCursor';
 import { Driver, DemoAborted, type Point, type Stage } from './drive';
 import {
-  STEPS, SIGN_OFF, NARRATION_READY, closingPose, openingPose, type DemoHost,
+  STEPS, SIGN_OFF, SIGN_OFF_MS, SIGN_OFF_FADE_MS, NARRATION_READY,
+  closingPose, openingPose, type DemoHost,
 } from './steps';
 
 /**
@@ -98,6 +99,14 @@ export default function DemoRunner({ onRestore, onExit, host }: DemoRunnerProps)
 
   const driverRef = useRef<Driver | null>(null);
   const staged = useRef(false);
+  const [leaving, setLeaving] = useState(false);
+  /*
+   * The playhead's clock. Written when a step starts and read every frame, so
+   * the fill in the current tick is driven straight to the DOM and no part of
+   * this component re-renders for it.
+   */
+  const playhead = useRef<{ index: number; start: number; ms: number } | null>(null);
+  const tickFills = useRef<(HTMLElement | null)[]>([]);
 
   const skip = useCallback(() => {
     driverRef.current?.stop();
@@ -181,6 +190,12 @@ export default function DemoRunner({ onRestore, onExit, host }: DemoRunnerProps)
         cursor.style.transformOrigin = `${hot.x}px ${hot.y}px`;
         cursor.style.transform = `rotate(${tilt.toFixed(2)}deg) scale(${pressed ? 0.86 : 1})`;
       }
+      const head = playhead.current;
+      const fill = head ? tickFills.current[head.index] : null;
+      if (head && fill) {
+        const p = clamp((performance.now() - head.start) / head.ms, 0, 1);
+        fill.style.transform = `scaleX(${p.toFixed(4)})`;
+      }
       placeCaption();
       raf = requestAnimationFrame(frame);
     };
@@ -212,10 +227,19 @@ export default function DemoRunner({ onRestore, onExit, host }: DemoRunnerProps)
         await openingPose(ctx);
       }
       if (index >= STEPS.length) {
+        playhead.current = null;
         await closingPose(ctx);
         restoreRef.current();
+        // The demo is over; it should not sit on the screen waiting to be
+        // dismissed. Through the driver so Back or Skip cancels it, and
+        // through `linger` so it is five seconds however fast the rest ran.
+        await d.linger(SIGN_OFF_MS);
+        setLeaving(true);
+        await d.linger(SIGN_OFF_FADE_MS);
+        exitRef.current();
         return;
       }
+      playhead.current = { index, start: performance.now(), ms: STEPS[index].duration / d.speed };
       await Promise.all([STEPS[index].run(ctx), narrationFor(index, narrate)]);
       if (live) setIndex((i) => (i === index ? i + 1 : i));
     };
@@ -272,8 +296,8 @@ export default function DemoRunner({ onRestore, onExit, host }: DemoRunnerProps)
         ref={captionRef}
         data-demo-chrome=""
         data-testid="demo-bar"
-        className="demo-panel pointer-events-auto fixed rounded-xl bg-card/95 shadow-xl backdrop-blur-sm"
-        style={{ left: 0, top: -400 }}
+        className={`demo-panel pointer-events-auto fixed rounded-xl bg-card/95 shadow-xl backdrop-blur-sm transition-opacity ${leaving ? 'opacity-0' : 'opacity-100'}`}
+        style={{ left: 0, top: -400, transitionDuration: `${SIGN_OFF_FADE_MS}ms` }}
       >
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
           <div role="status" aria-live="polite" className="grid min-w-[15rem] flex-1">
@@ -294,17 +318,21 @@ export default function DemoRunner({ onRestore, onExit, host }: DemoRunnerProps)
           <div className="flex shrink-0 items-center gap-1.5">
             <span className="mr-1 flex gap-1" data-testid="demo-ticks" aria-hidden="true">
               {STEPS.map((step, i) => (
-                <i
-                  key={step.audio}
-                  data-on={i <= index ? '' : undefined}
-                  // All one width. Widening the step you are on read well and
-                  // moved everything to its right by 2px each time it changed,
-                  // including once more at the sign-off, when no tick is
-                  // current. Weight says where you are instead.
-                  className={`h-1 w-5 rounded-full transition-colors ${done || i === index
-                    ? 'bg-foreground'
-                    : i < index ? 'bg-foreground/45' : 'bg-border'}`}
-                />
+                // A track with a fill, so the step being played reads as a
+                // playhead rather than a state. All one width: widening the
+                // current tick moved everything right of it by 2px each time
+                // it changed. Weight tells a played step from a coming one.
+                <span key={step.audio} className="h-1 w-5 overflow-hidden rounded-full bg-border">
+                  <i
+                    ref={(node) => { tickFills.current[i] = node; }}
+                    data-on={i <= index ? '' : undefined}
+                    data-testid={i === index && !done ? 'demo-playhead' : undefined}
+                    className={`block h-full w-full origin-left rounded-full ${done || i === index ? 'bg-foreground' : 'bg-foreground/70'}`}
+                    // The current tick's fill is driven by the frame loop from
+                    // here; the others are simply full or empty.
+                    style={{ transform: `scaleX(${i < index || done ? 1 : 0})` }}
+                  />
+                </span>
               ))}
             </span>
             {NARRATION_READY && (

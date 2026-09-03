@@ -15,6 +15,9 @@ import { test, expect, type Page } from '@playwright/test';
 
 const FAST = '/?demospeed=8';
 
+/** Four choreographed steps; the fifth index is the sign-off. */
+const STEPS_LENGTH = 4;
+
 /** The three RGB readouts, which are on screen in the default slider groups. */
 async function rgb(page: Page): Promise<string> {
   const ids = ['#slider-rgb-r-track', '#slider-rgb-g-track', '#slider-rgb-b-track'];
@@ -121,5 +124,36 @@ test.describe('Picker demo', () => {
     for (let i = 0; i < 4; i++) await page.getByRole('button', { name: 'Next step' }).click();
     await expect(primaryLabel(page)).toHaveText('Start exploring');
     await expect(page.getByRole('button', { name: 'Next step' })).toBeDisabled();
+  });
+
+  test('the tick for the step being played fills as it runs', async ({ page }) => {
+    await page.locator('#demo-button').click();
+    const head = page.getByTestId('demo-playhead');
+    const fill = async () => Number(
+      /scaleX\(([\d.]+)\)/.exec(await head.evaluate((el) => el.style.transform))?.[1] ?? 0,
+    );
+
+    // Slow enough to catch it mid-step: at demospeed=8 a step is under a
+    // second and the playhead would be at either end by the time this looks.
+    await expect.poll(fill, { timeout: 4000 }).toBeGreaterThan(0.05);
+    const early = await fill();
+    await page.waitForTimeout(250);
+    expect(await fill()).toBeGreaterThan(early);
+  });
+
+  test('the sign-off takes itself down, and hands the colour back on the way', async ({ page }) => {
+    const before = await rgb(page);
+    await page.locator('#demo-button').click();
+    for (let i = 0; i < STEPS_LENGTH; i++) {
+      await page.getByRole('button', { name: 'Next step' }).click();
+    }
+    await expect(primaryLabel(page)).toHaveText('Start exploring');
+
+    // Five real seconds, whatever ?demospeed says: it is reading time, not
+    // choreography. Still there a moment later, gone a few seconds after.
+    await page.waitForTimeout(1500);
+    await expect(panel(page)).toBeVisible();
+    await expect(panel(page)).toHaveCount(0, { timeout: 9000 });
+    await expect.poll(() => rgb(page), { timeout: 4000 }).toBe(before);
   });
 });
