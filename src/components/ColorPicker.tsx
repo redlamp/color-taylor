@@ -441,6 +441,11 @@ export default function ColorPicker() {
   }, [lit, held]);
   const hueBadgeLit = lit.has('hsb-h') && held !== 'hue';
   const hueFillLit = held === 'sl:hsb-s' || held === 'sl:hsl-s';
+  // The hexagon's own bars are readouts like the sliders: lit when their value
+  // moved and they are not the thing being held. Which value depends on the
+  // model the bar is showing.
+  const blBarLit = lit.has(blMode === 'lightness' ? 'hsl-l' : 'hsb-b') && held !== 'bl';
+  const satBarLit = lit.has(blMode === 'lightness' ? 'hsl-s' : 'hsb-s') && held !== 'sat';
 
   // Stable per-channel onChange handlers so memoized ColorSlider children
   // can skip re-renders when their channel value hasn't changed.
@@ -730,6 +735,8 @@ export default function ColorPicker() {
             impactChannels={impactChannels}
             hueBadgeLit={hueBadgeLit}
             hueFillLit={hueFillLit}
+            blBarLit={blBarLit}
+            satBarLit={satBarLit}
           />
 
         {/* Right column: Controls. Width comes from the grid track now, so this

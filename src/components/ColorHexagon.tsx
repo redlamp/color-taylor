@@ -404,6 +404,10 @@ interface ColorHexagonProps {
   hueBadgeLit?: boolean;
   /** A saturation slider is held, so the hue line fills like the sat bar does. */
   hueFillLit?: boolean;
+  /** Another control is moving the brightness / lightness bar's value. */
+  blBarLit?: boolean;
+  /** Another control is moving the saturation bar's value. */
+  satBarLit?: boolean;
   /**
    * Shape of the Recent/Saved sections. 'flush' drops the card and gives them
    * the Figma sidebar look: a full-bleed rule above each, content inset by the
@@ -509,7 +513,7 @@ interface HoveredMarker {
   name: string;
 }
 
-export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, onHoverHtmlColor, muted, bare, headerLeft, belowStage, collapsedSections, impactChannels, hueBadgeLit = false, hueFillLit = false, sectionVariant = 'card', alpha = 100, onAlphaRestore, wheelAdjusts = true, blBar = true, stemRange = null, satBar = true, swatchSections = true, blModeTabs = true, vertexLabels = true, blMarkers = true, hueIndicator = true, shapeMix = 1, chainReveal = 1 }: ColorHexagonProps) {
+export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, onHoverHtmlColor, muted, bare, headerLeft, belowStage, collapsedSections, impactChannels, hueBadgeLit = false, hueFillLit = false, blBarLit = false, satBarLit = false, sectionVariant = 'card', alpha = 100, onAlphaRestore, wheelAdjusts = true, blBar = true, stemRange = null, satBar = true, swatchSections = true, blModeTabs = true, vertexLabels = true, blMarkers = true, hueIndicator = true, shapeMix = 1, chainReveal = 1 }: ColorHexagonProps) {
   const flushSections = sectionVariant === 'flush';
   // Horizontal extent of the SVG coordinate space. Without the bar the hexagon
   // is the whole picture, so the 50px reserved to its right goes away - and the
@@ -2183,6 +2187,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
               hue={hue} saturation={saturation} brightness={brightness} hsl={hsl}
               blMode={blMode} blPointerDownRef={blPointerDown} onArrowDragStart={startBLDrag}
               animateBLToValue={animateBLToValue} colorSpace={colorSpace}
+              lit={blBarLit}
             />
           )}
 
@@ -2192,6 +2197,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
               blMode={blMode} lightness={hsl?.l ?? 50}
               satPointerDownRef={satPointerDown} onArrowDragStart={startSatDrag}
               animateSatToValue={animateSatToValue} colorSpace={colorSpace}
+              lit={satBarLit}
             />
           )}
         </svg>
