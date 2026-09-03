@@ -55,3 +55,24 @@ The demo starts by setting the groups to RGB + HSB and blend on, and restores th
 - Whether to offer the demo on first run, or only from `?`.
 - The caption copy above is the prototype's; worth a read-through before it ships.
 - Reduced motion: the cursor's arcs and the highlight fades should respect `prefers-reduced-motion`; the highlights already do.
+
+## Implementation plan (next)
+
+Lazy-loaded like the deck, so the picker bundle does not carry it: `src/demo/` with a `DemoOverlay` (cursor, caption bubble, bottom bar) mounted by `ColorPicker` while the demo runs, a `steps.ts` script, and a `drive.ts` that moves the cursor and works the controls.
+
+**Drive the real controls, not the state.** The steps dispatch synthetic `PointerEvent`s at the anchors - `pointerenter` on a stem for its tooltip, `pointerdown` on a joint then `pointermove` on `window`, `pointerup` to release - the way the browser checks in this session already did. Everything the user would see then happens through the app's own handlers: the hold key, the impact highlights, the tooltip fade, the tone. Setting state directly would have to re-implement each of those and drift.
+
+**Order of work.**
+
+1. `drive.ts`: bezier move between screen points, hold and drag helpers, a `wait` that resolves early when the demo is skipped.
+2. `DemoOverlay`: cursor symbol (`DemoCursor.tsx`, editable SVG with per-symbol hotspot), caption bubble with side picking, bar with ticks and Skip.
+3. `steps.ts`: the five steps above, as data the overlay walks.
+4. Wire `#demo-button`; snapshot HSB at start, tween back at the end; any real pointerdown or keydown skips.
+5. First-run offer, if wanted: the `color-taylor-demo-seen` key with its reset-all listener.
+6. A Playwright spec that runs the demo at speed and asserts the bar's ticks advance and the colour is restored.
+
+**Decide before starting.**
+
+- Auto-offer on first run, or `?` only.
+- Whether the demo may run on a narrow viewport (the prototype scrolls targets into view) or is desktop-only for the first cut.
+- Caption copy.
