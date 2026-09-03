@@ -24,8 +24,6 @@ Package manager: **bun**. `bun.lock` is the source of truth; no `package-lock.js
 
   That reuse is a trap worth knowing: the suite runs against **whatever dev server is already up**, so a local `.env` override reaches it and a failure can have nothing to do with your change. If a spec fails only on your machine, check `.env.development.local` before reading any further.
 
-  The suite does pass with the intro flag either way — the presentation route no longer depends on it.
-
 The `GITHUB_PAGES` env var flips `vite.config.js`'s `base` between `./` (default, works for local file:// preview) and `/color-taylor/` (gh-pages subpath). Don't hardcode either.
 
 `VITE_INTRO_ENABLED` gates **only the Intro button** on the picker. `.env` ships `false`; `.env.development` turns it on for `bun dev`. To flip it for yourself without touching a tracked file, use `.env.development.local` — gitignored via `*.local`, and it wins on Vite's precedence.
