@@ -86,6 +86,12 @@ type BlMode = 'brightness' | 'lightness';
  */
 type SliderGroup = 'RGB' | 'HSB' | 'HSL';
 const SLIDER_GROUPS: SliderGroup[] = ['RGB', 'HSB', 'HSL'];
+/**
+ * Where the bank starts and where "Reset all settings" returns it: RGB and
+ * HSB showing, flat colours. Named once so the two cannot disagree.
+ */
+const DEFAULT_GROUPS: SliderGroup[] = ['RGB', 'HSB'];
+const DEFAULT_BLEND = false;
 const GROUP_TIP: Record<SliderGroup, string> = {
   RGB: 'Red, Green, Blue',
   HSB: 'Hue, Saturation, Brightness',
@@ -146,10 +152,10 @@ export default function ColorPicker() {
     onTweenFrame: (next) => toneController.update(next),
     onTweenEnd: () => toneController.release(),
   });
-  const [groups, setGroups] = useState<SliderGroup[]>(['RGB', 'HSB']);
+  const [groups, setGroups] = useState<SliderGroup[]>(DEFAULT_GROUPS);
   // Blended tracks show the colour a drag would land on; flat ones show the
-  // channel alone. On by default, as in the plugin.
-  const [blend, setBlend] = useState(true);
+  // channel alone.
+  const [blend, setBlend] = useState(DEFAULT_BLEND);
   /*
    * The control under the pointer, for the impact highlights. Set on every
    * pointerdown in the window from the nearest data-hold tag (or 'other'),
@@ -389,6 +395,8 @@ export default function ColorPicker() {
     const onResetAll = () => {
       takeOverFromAnimation();
       animateToHsb(DEFAULT_HSB);
+      setGroups(DEFAULT_GROUPS);
+      setBlend(DEFAULT_BLEND);
     };
     window.addEventListener('color-taylor:reset-all', onResetAll);
     return () => window.removeEventListener('color-taylor:reset-all', onResetAll);
