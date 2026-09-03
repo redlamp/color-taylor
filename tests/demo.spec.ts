@@ -15,8 +15,26 @@ import { test, expect, type Page } from '@playwright/test';
 
 const FAST = '/?demospeed=8';
 
-/** Four choreographed steps; the fifth index is the sign-off. */
-const STEPS_LENGTH = 4;
+/**
+ * How many choreographed steps there are, read from the panel rather than
+ * written down: there is one tick per step plus one for the sign-off, and the
+ * script gains and loses steps as the demo is tuned.
+ */
+const stepCount = async (page: Page) => {
+  // The panel is lazy-loaded, so it is not there the instant the ? is pressed.
+  await page.locator('[data-testid="demo-ticks"] > span').first().waitFor();
+  return await page.locator('[data-testid="demo-ticks"] > span').count() - 1;
+};
+
+/**
+ * Every tick lit, which is where the sign-off leaves them. The zero check is
+ * not decoration: before the lazy panel mounts both counts are 0, and without
+ * it this reads as "finished" the instant the demo is asked for.
+ */
+const allTicksLit = async (page: Page) => {
+  const total = await page.locator('[data-testid="demo-ticks"] > span').count();
+  return total > 0 && await litTicks(page).count() === total;
+};
 
 /** The three RGB readouts, which are on screen in the default slider groups. */
 async function rgb(page: Page): Promise<string> {
@@ -46,7 +64,7 @@ test.describe('Picker demo', () => {
 
     // The tick for the step being played is lit, so the count is the step.
     await expect(litTicks(page)).toHaveCount(1, { timeout: 5000 });
-    await expect(litTicks(page)).toHaveCount(4, { timeout: 20000 });
+    await expect.poll(() => allTicksLit(page), { timeout: 25000 }).toBe(true);
     await expect(primaryLabel(page)).toHaveText('Start exploring', { timeout: 20000 });
 
     // The overlay stays up until the user takes it down.
@@ -97,7 +115,7 @@ test.describe('Picker demo', () => {
     await page.goto(FAST);
     await page.locator('#rgb-dot-green').waitFor();
     await page.locator('#demo-button').click();
-    await expect(litTicks(page)).toHaveCount(4, { timeout: 20000 });
+    await expect.poll(() => allTicksLit(page), { timeout: 25000 }).toBe(true);
     await expect(primaryLabel(page)).toHaveText('Start exploring');
   });
 
@@ -121,7 +139,9 @@ test.describe('Picker demo', () => {
 
   test('Next all the way through reaches the sign-off', async ({ page }) => {
     await page.locator('#demo-button').click();
-    for (let i = 0; i < 4; i++) await page.getByRole('button', { name: 'Next step' }).click();
+    for (let i = await stepCount(page); i > 0; i--) {
+      await page.getByRole('button', { name: 'Next step' }).click();
+    }
     await expect(primaryLabel(page)).toHaveText('Start exploring');
     await expect(page.getByRole('button', { name: 'Next step' })).toBeDisabled();
   });
@@ -144,7 +164,7 @@ test.describe('Picker demo', () => {
   test('the sign-off takes itself down, and hands the colour back on the way', async ({ page }) => {
     const before = await rgb(page);
     await page.locator('#demo-button').click();
-    for (let i = 0; i < STEPS_LENGTH; i++) {
+    for (let i = await stepCount(page); i > 0; i--) {
       await page.getByRole('button', { name: 'Next step' }).click();
     }
     await expect(primaryLabel(page)).toHaveText('Start exploring');

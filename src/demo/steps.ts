@@ -40,6 +40,7 @@ const DWELL = {
   dragTip: 1900,
   dragBox: 2000,
   dragHue: 1800,
+  dragBar: 1800,
   dragSlider: 3200,
   /** Blend: how long each state is held up for inspection. */
   blendHold: 1300,
@@ -245,6 +246,49 @@ export const STEPS: DemoStep[] = [
         x: from.x + sweep * Math.sin(t * Math.PI * 2),
         y: from.y,
       }), DWELL.dragSlider);
+      await d.wait(DWELL.afterAction);
+    },
+  },
+
+  {
+    caption: 'Move one value and everything it changes lights up with it.',
+    audio: '04-impact-bars.mp3',
+    duration: DWELL.moveFar + DWELL.beforeAction + DWELL.dragBar
+      + DWELL.betweenSteps + DWELL.move + DWELL.dragBar + DWELL.afterAction,
+    /**
+     * The claim step three asks them to watch for, made twice on the two bars
+     * that touch the most readouts. Saturation and brightness each reach the
+     * whole of RGB and half of HSL, so a slow sweep of either lights most of
+     * the panel at once - which is the picker's argument in one gesture.
+     *
+     * The bars are the hexagon's own, not the bank's, so the sliders lighting
+     * up are unmistakably somewhere else: nothing here is the control being
+     * held, and the rule is that a control never lights itself.
+     */
+    async run({ d }) {
+      const sat = el('#sat-bar');
+      const bl = el('#bl-bar');
+      if (sat) {
+        await d.bring(sat);
+        const r = sat.getBoundingClientRect();
+        const y = r.top + r.height / 2;
+        const from = { x: centerOf(el('#sat-bar-arrow') ?? sat).x, y };
+        const room = Math.min(from.x - r.left, r.right - from.x);
+        const sweep = Math.max(0, Math.min(room, r.width * 0.4));
+        await d.moveTo(() => from, DWELL.moveFar);
+        await d.wait(DWELL.beforeAction);
+        await d.drag(sat, (t) => ({ x: from.x + sweep * Math.sin(t * Math.PI * 2), y }), DWELL.dragBar);
+        await d.wait(DWELL.betweenSteps);
+      }
+      if (bl) {
+        const r = bl.getBoundingClientRect();
+        const x = r.left + r.width / 2;
+        const from = { x, y: centerOf(el('#bl-bar-arrow') ?? bl).y };
+        const room = Math.min(from.y - r.top, r.bottom - from.y);
+        const sweep = Math.max(0, Math.min(room, r.height * 0.4));
+        await d.moveTo(() => from, DWELL.move);
+        await d.drag(bl, (t) => ({ x, y: from.y + sweep * Math.sin(t * Math.PI * 2) }), DWELL.dragBar);
+      }
       await d.wait(DWELL.afterAction);
     },
   },

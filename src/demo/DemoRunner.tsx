@@ -128,8 +128,14 @@ export default function DemoRunner({ onRestore, onExit, host }: DemoRunnerProps)
     exitRef.current();
   }, []);
 
-  const goTo = useCallback((next: number) => {
-    setIndex(clamp(next, 0, STEPS.length));
+  /*
+   * Relative, and through the updater rather than off the rendered index: two
+   * presses of Next inside one frame both read the same `index` and compute
+   * the same target, so the second does nothing. Which is exactly what
+   * somebody clicking through the demo does.
+   */
+  const step = useCallback((delta: number) => {
+    setIndex((i) => clamp(i + delta, 0, STEPS.length));
   }, []);
 
   /* The ghost: one rAF for the life of the overlay, driving position and lean. */
@@ -359,7 +365,7 @@ export default function DemoRunner({ onRestore, onExit, host }: DemoRunnerProps)
           </div>
 
           <div className="flex shrink-0 items-center gap-1.5">
-            <span className="mr-1 flex gap-1" data-testid="demo-ticks" aria-hidden="true">
+            <span className="mr-1 flex gap-1 self-start" data-testid="demo-ticks" aria-hidden="true">
               {/*
                 One track per step, and a longer one on the end for the
                 sign-off - which is a countdown rather than a step, so it gets
@@ -403,7 +409,7 @@ export default function DemoRunner({ onRestore, onExit, host }: DemoRunnerProps)
             )}
             <button
               type="button"
-              onClick={() => goTo(index - 1)}
+              onClick={() => step(-1)}
               disabled={index === 0}
               className="ctl-quiet-icon disabled:opacity-35"
               aria-label="Previous step"
@@ -412,7 +418,7 @@ export default function DemoRunner({ onRestore, onExit, host }: DemoRunnerProps)
             </button>
             <button
               type="button"
-              onClick={() => goTo(index + 1)}
+              onClick={() => step(1)}
               disabled={done}
               className="ctl-quiet-icon disabled:opacity-35"
               aria-label="Next step"

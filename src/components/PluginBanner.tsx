@@ -140,14 +140,12 @@ export default function PluginBanner() {
             rel="noopener noreferrer"
           >
             Get the plugin
-            {/* The arrow takes off along its own diagonal on hover: up and to
-                the right, which is the direction it already points and the
-                direction the link goes. `group` is on the anchor so the glyph
-                answers a hover anywhere on the button, not only on itself. */}
-            <ArrowUpRight
-              className="size-3.5 transition-transform duration-200 ease-out group-hover:-translate-y-0.5 group-hover:translate-x-0.5 motion-reduce:transition-none"
-              aria-hidden="true"
-            />
+            {/* Nudges along its own diagonal - up and to the right, the way it
+                already points and the way the link goes - to ask for the
+                click, and holds there while the pointer is on the button. The
+                keyframes are in index.css; `group` is on the anchor so the
+                glyph answers a hover anywhere on it, not only on itself. */}
+            <ArrowUpRight className="plugin-arrow size-3.5" aria-hidden="true" />
             <span className="sr-only">
               on the {item.platform} Community (opens in a new tab)
             </span>

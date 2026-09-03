@@ -454,6 +454,39 @@ h1, h2 {
   .demo-panel::before { animation: none; }
 }
 
+/*
+ * The plugin link's arrow, pulsing back and forth along its own diagonal to
+ * ask for the click.
+ *
+ * The first cut was two small nudges and a long rest, on the theory that a
+ * loop with no pause in it becomes texture. At 2px on a 14px glyph, for a
+ * fifth of a three-second cycle, it read as nothing at all - the only motion
+ * anyone saw was the hover. A call to action that has to be pointed out is
+ * not one, so it oscillates: further, slower, and without stopping.
+ *
+ * Hover holds it at the far end, so pointing at the button settles the arrow
+ * rather than leaving it moving under the cursor.
+ */
+.plugin-arrow {
+  animation: plugin-arrow-nudge 1.6s ease-in-out infinite;
+}
+
+@keyframes plugin-arrow-nudge {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(3px, -3px); }
+}
+
+.group:hover .plugin-arrow {
+  animation: none;
+  transform: translate(3px, -3px);
+  transition: transform 200ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .plugin-arrow,
+  .group:hover .plugin-arrow { animation: none; transition: none; transform: none; }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
