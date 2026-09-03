@@ -263,10 +263,10 @@ export default function DemoRunner({ onRestore, onExit, host }: DemoRunnerProps)
         ref={captionRef}
         data-demo-chrome=""
         data-testid="demo-bar"
-        className="demo-panel pointer-events-auto fixed rounded-xl p-px shadow-xl"
+        className="demo-panel pointer-events-auto fixed rounded-xl bg-card/95 shadow-xl backdrop-blur-sm"
         style={{ left: 0, top: -400 }}
       >
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-[11px] bg-card/95 px-4 py-3 backdrop-blur-sm">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
           <p
             role="status"
             aria-live="polite"

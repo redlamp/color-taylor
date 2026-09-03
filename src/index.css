@@ -417,11 +417,33 @@ h1, h2 {
  * read as noise. Twice as wide as the box and drifting across it, slowly
  * enough to be noticed rather than watched - the panel is meant to be read,
  * not looked at. src/demo/DemoRunner.tsx.
+ *
+ * Masked rather than nested. The obvious build - a padded outer box holding
+ * an inner one - needs the inner radius to be the outer's minus the border,
+ * and `rounded-xl` here is `--radius * 1.4`, so any number written into the
+ * markup is wrong the moment --radius moves. It was: the inner corner sat too
+ * square and squeezed the ring away at all four corners. Masking the ring out
+ * of a single box takes its radius from `inherit` and cannot drift.
  */
 .demo-panel {
+  position: relative;
+}
+
+.demo-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
   background: linear-gradient(100deg, #e7000b, #00a63e, #155dfc, #e7000b);
   background-size: 220% 100%;
   animation: demo-panel-drift 14s linear infinite;
+  /* Two layers, the inner one subtracted: what is left is the 1px frame. */
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
 }
 
 @keyframes demo-panel-drift {
@@ -429,7 +451,7 @@ h1, h2 {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .demo-panel { animation: none; }
+  .demo-panel::before { animation: none; }
 }
 
 @layer base {
