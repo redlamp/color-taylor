@@ -28,6 +28,7 @@ export default function BrightnessHandle({ hue, saturation, brightness, hsl, blM
       id="bl-handle"
       className="absolute z-10 -translate-y-1/2 flex items-center cursor-pointer select-none touch-none"
       style={{ left: `${(x / SIZE) * 100}%`, top: `${(y / svgHeight) * 100}%` }}
+      data-hold="bl"
       onPointerDown={onMouseDown}
     >
       {/* Left-pointing arrow */}
