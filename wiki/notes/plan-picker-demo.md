@@ -1,13 +1,13 @@
 ---
 tags:
   - domain/ui
-  - status/draft
+  - status/adopted
   - origin/user-call
 ---
 
 # Plan: The Picker Demo
 
-**2026-09-03.** A self-running demo of the picker: a ghost cursor works the controls while short captions say what to watch. Prototyped in an artifact, chosen over an intro popup and over in-context callouts (pattern C of three), because it needs no reading before the first drag and it works the same on a phone. The layout and interaction changes it depends on landed first, on `feature/demo`, and are recorded below so the demo can be built against them. This note is the spec; nothing here is implemented yet.
+**2026-09-03.** A self-running demo of the picker: a ghost cursor works the controls while short captions say what to watch. Prototyped in an artifact, chosen over an intro popup and over in-context callouts (pattern C of three), because it needs no reading before the first drag and it works the same on a phone. The layout and interaction changes it depends on landed first, on `feature/demo`, and are recorded below so the demo can be built against them. This note is the spec. **Built on 2026-09-03**; the "As built" section at the foot records where it differs.
 
 The picker's argument is [[hexagon-is-the-cube-down-its-diagonal]]. The demo does not explain it - it gets the user dragging, and lets the highlights make the point.
 
@@ -78,3 +78,36 @@ Lazy-loaded like the deck, so the picker bundle does not carry it: `src/demo/` w
 - Auto-offer on first run, or `?` only.
 - Whether the demo may run on a narrow viewport (the prototype scrolls targets into view) or is desktop-only for the first cut.
 - Caption copy.
+
+## As built
+
+Shipped on `feature/demo` on 2026-09-03. `src/demo/` - `drive.ts`, `steps.ts`, `DemoCursor.tsx`,
+`DemoRunner.tsx` - lazy-loaded by `ColorPicker` behind `#demo-button`; `tests/demo.spec.ts`.
+Where it differs from the plan above:
+
+- **The caption is a panel in the header, not a bubble at the target**, and it carries the
+  progress, the stepper, the narration switch and Skip. [[decision-demo-caption-in-the-header]].
+- **Back and Next.** The step index is React state and the effect that plays a step is the player:
+  changing the index interrupts the running step at its next await and starts the new one. A step
+  reads the colour as it finds it, so stepping back re-runs against the current colour rather than
+  rewinding to an earlier one.
+- **Narration.** Each step declares an audio file under `public/demo/`, gated by `NARRATION_READY`
+  in `steps.ts` until the recordings exist. A step waits for both its choreography and its line, so
+  the voice sets the pace where there is one.
+- **Pacing** is one `DWELL` block in `steps.ts`, and slower than the prototype's: watching something
+  happen takes longer than doing it.
+- **The cursor** is the platform's own arrow at roughly three times life size - macOS black with a
+  white outline, Windows white with a black one - pivoting on its point with a spring on the
+  smoothed velocity, so it leans into a move and swings past centre once when it stops.
+- **First run** is not offered; the demo is `?` only, so there is no tenth `localStorage` key.
+- **Narrow viewports are in**, not deferred: `bring` scrolls targets into view and the caption panel
+  drops below the header and pins to the top of the screen.
+- **Caption copy**, step one: "how each one maps to a color channel" rather than "how they map to
+  the color hex", which read as the hex code rather than the hexagon.
+- **`?demospeed=N`** divides every duration, for the spec. Same shape as `?fps`.
+- Two corrections to [[handoff-picker-demo]]'s technical map, both checked in a browser first: a
+  dispatched `pointerenter` never reaches React, so hover goes through `pointerover` with
+  `bubbles: true`; and a synthetic press on the hue arrow would probably *have* been granted
+  pointer lock, since Chrome gates it on sticky activation - `ColorSlider.beginRelative` now skips
+  the request for an untrusted press.
+

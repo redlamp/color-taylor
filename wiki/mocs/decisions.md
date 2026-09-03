@@ -24,6 +24,7 @@ Every `notes/decision-*.md`, newest first. Each note records what was decided, w
 - [[decision-color-editor-is-the-panel]] — the SB box is the right column's subject, not a section in it; "Sliders" was one level too low
 - [[decision-both-columns-absorb-slack]] — both columns stretch unconditionally because each owns a permanent absorber; how a 10px caption broke the old arrangement
 - [[decision-link-preview-card]] — the shared link's preview card is the Figma thumbnail; why the Open Graph URLs cannot use `%BASE_URL%`
+- [[decision-demo-caption-in-the-header]] — the self-running demo's caption is one panel in the header, not a bubble at the target; a bubble covers the very neighbours the caption points at
 
 ## Shared app + plugin
 

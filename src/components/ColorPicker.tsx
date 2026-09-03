@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
+import { useState, useRef, useCallback, useMemo, useEffect, Suspense, lazy } from 'react';
 import { hsbToRgb, rgbToHsb, rgbToHex, type HSB, type HSL, type RGB } from '../utils/colorConversions';
 import type { ColorSpace } from '../utils/sliderGradients';
 import type { HslOrigin } from '../utils/hslWrite';
@@ -24,6 +24,14 @@ import type { Channel } from './hex/hexConstants';
 import ColorSlider from './ColorSlider';
 import ColorHexagon from './ColorHexagon';
 import { HEX_PANEL_WIDTH } from './hex/hexConstants';
+import type { DemoHost } from '@/demo/steps';
+
+/*
+ * The self-running demo, lazy like the deck: it is a few hundred lines that
+ * only run when the ? button is pressed, and the picker's first paint should
+ * not carry them. wiki/notes/plan-picker-demo.md.
+ */
+const DemoRunner = lazy(() => import('@/demo/DemoRunner'));
 
 // Top-row layout constants — root max-width and shrink behavior derive from these
 const SLIDERS_PANEL_WIDTH = 420;          // px, target width of the right column on md+
@@ -416,6 +424,41 @@ export default function ColorPicker() {
     return () => window.removeEventListener('color-taylor:reset-all', onResetAll);
   }, [takeOverFromAnimation, animateToHsb]);
 
+  /*
+   * The self-running demo, behind the ? button.
+   *
+   * It works the real controls with synthetic pointer events, so everything
+   * it shows - the holds, the impact highlights, the channel tooltips, the
+   * tone - is the app's own behaviour rather than a re-staging of it. All
+   * this host owes it is the two settings it wants on stage and the colour it
+   * borrows.
+   *
+   * What it found goes back when it ends or is skipped: the colour through
+   * the same tween an undo uses, the slider groups and blend as they were.
+   * Teaching a setting by silently changing it is a poor trade.
+   */
+  const [demoOpen, setDemoOpen] = useState(false);
+  const demoSnapshot = useRef<{ hsb: HSB; groups: SliderGroup[]; blend: boolean } | null>(null);
+  const startDemo = useCallback(() => {
+    takeOverFromAnimation();
+    demoSnapshot.current = { hsb: { ...hsbRef.current }, groups, blend };
+    setDemoOpen(true);
+  }, [takeOverFromAnimation, hsbRef, groups, blend]);
+  const restoreDemo = useCallback(() => {
+    const snap = demoSnapshot.current;
+    // Null after the first call: the script restores when it reaches the last
+    // caption, and "Start exploring" then asks a second time.
+    if (!snap) return;
+    demoSnapshot.current = null;
+    setGroups(snap.groups);
+    setBlend(snap.blend);
+    animateToHsb(snap.hsb);
+  }, [animateToHsb]);
+  const demoHost = useMemo<DemoHost>(() => ({
+    showDefaultSliders: () => setGroups(DEFAULT_GROUPS),
+    setBlend: (on: boolean) => setBlend(on),
+  }), []);
+
   const handleRgbChange = useCallback((channel: 'r' | 'g' | 'b', value: number) => {
     takeOverFromAnimation();
     setRgbChannel(channel, value);
@@ -601,7 +644,7 @@ export default function ColorPicker() {
         device, or a dev build where VITE_INTRO_ENABLED adds a fourth control,
         simply falls back to two rows on its own.
       */}
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+      <div id="picker-header" className="flex flex-wrap items-center justify-between gap-2 mb-4">
         {/* The emoji sit outside .wordmark on purpose: that class paints the
             glyphs with a background clipped to the text, so anything inside it
             loses its own colour - the palette and thread would come out as
@@ -609,7 +652,10 @@ export default function ColorPicker() {
         <h1 id="color-picker-title" className="text-2xl font-semibold">
           <span className="wordmark">Color Taylor</span> 🎨🧵
         </h1>
-        <div className="flex items-center justify-end gap-2">
+        {/* Tagged because the demo's caption sits in the gap between this and
+            the title when the header has one, and drops below the header when
+            it wraps. src/demo/DemoRunner.tsx. */}
+        <div id="picker-tools" className="flex items-center justify-end gap-2">
           {/* The button only. The route itself is always live - see
               useHashRoute - so /intro can be shared while the deck is still
               too rough to advertise on the picker. */}
@@ -675,10 +721,7 @@ export default function ColorPicker() {
                 <button
                   id="demo-button"
                   className="ctl-quiet-icon"
-                  // The self-running demo lands here; see
-                  // wiki/notes/plan-picker-demo.md. The button ships first so
-                  // the header settles before the demo does.
-                  onClick={() => {}}
+                  onClick={startDemo}
                   aria-label="Show the demo"
                 >
                   <CircleHelp className="size-4" />
@@ -1011,6 +1054,15 @@ export default function ColorPicker() {
 
       {/* Learn section — hidden for now */}
       </div>
+      {demoOpen && (
+        <Suspense fallback={null}>
+          <DemoRunner
+            host={demoHost}
+            onRestore={restoreDemo}
+            onExit={() => setDemoOpen(false)}
+          />
+        </Suspense>
+      )}
       <SettingsPanel
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}

@@ -144,11 +144,16 @@ function ColorSlider({ label, group, value, max, gradient, suffix, wrap, onChang
    * not capped by the edge of the screen - Figma's plugin iframe may not carry
    * `allow="pointer-lock"`, so treat it as a bonus and carry on without it.
    */
-  const beginRelative = useCallback((clientX: number) => {
+  const beginRelative = useCallback((clientX: number, trusted = true) => {
     accum.current = value;
     lastX.current = clientX;
     locked.current = false;
-    if (wrap) {
+    // Not for a synthetic press. The demo drives this slider with dispatched
+    // events, and the page already has the sticky activation pointer lock
+    // asks for - so the lock would be granted, the real cursor would vanish
+    // mid-demo, and `advance` would then read a movementX that a synthetic
+    // event does not carry. An untrusted press keeps the clientX path.
+    if (wrap && trusted) {
       const el = trackRef.current;
       try {
         const req = el?.requestPointerLock?.({ unadjustedMovement: true } as PointerLockOptions);
@@ -255,7 +260,7 @@ function ColorSlider({ label, group, value, max, gradient, suffix, wrap, onChang
             }}
             onPointerDown={(e) => {
               e.preventDefault();
-              beginRelative(e.clientX);
+              beginRelative(e.clientX, e.isTrusted);
             }}
           />
         ) : (
@@ -266,7 +271,7 @@ function ColorSlider({ label, group, value, max, gradient, suffix, wrap, onChang
             style={{ left: `${pct}%` }}
             onPointerDown={(e) => {
               e.preventDefault();
-              beginRelative(e.clientX);
+              beginRelative(e.clientX, e.isTrusted);
             }}
           >
             <div

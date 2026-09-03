@@ -411,6 +411,27 @@ h1, h2 {
   .color-fx .panel-frame::before { transition: none; }
 }
 
+/*
+ * The demo panel's hairline: the chain's three channels, in the tooltip fills
+ * rather than the stems' full-strength primaries, which at 1px on a card edge
+ * read as noise. Twice as wide as the box and drifting across it, slowly
+ * enough to be noticed rather than watched - the panel is meant to be read,
+ * not looked at. src/demo/DemoRunner.tsx.
+ */
+.demo-panel {
+  background: linear-gradient(100deg, #e7000b, #00a63e, #155dfc, #e7000b);
+  background-size: 220% 100%;
+  animation: demo-panel-drift 14s linear infinite;
+}
+
+@keyframes demo-panel-drift {
+  to { background-position: 220% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .demo-panel { animation: none; }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

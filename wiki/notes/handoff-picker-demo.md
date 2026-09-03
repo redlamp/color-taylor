@@ -1,11 +1,14 @@
 ---
 tags:
   - domain/ui
-  - status/open
+  - status/superseded
   - origin/user-call
 ---
 
 # Handoff: Build The Picker Demo
+
+> **Done.** Built on 2026-09-03; see [[plan-picker-demo]]'s "As built" for what changed,
+> including two corrections to the technical map below. Kept for the map and the recipes.
 
 **2026-09-03.** Written by the session that landed the picker's layout and interaction changes on `feature/demo`, for the session that builds the demo itself. Read this, then [[plan-picker-demo]] (the spec), then the prototype at `docs/prototypes/picker-demo-prototype.html`. Start on `feature/demo`; it is pushed and clean.
 
