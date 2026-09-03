@@ -1,7 +1,6 @@
 ---
 tags:
-  - domain/picker
-  - domain/onboarding
+  - domain/ui
   - status/draft
   - origin/user-call
 ---
