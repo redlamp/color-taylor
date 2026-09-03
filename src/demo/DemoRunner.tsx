@@ -159,8 +159,8 @@ export default function DemoRunner({ onRestore, onExit, host }: DemoRunnerProps)
 
     /*
      * The panel rides the header, but the header scrolls: `bring` pushes a
-     * target into view and on a phone that takes the whole row off the top of
-     * the screen. The caption is the one thing that must not go with it.
+     * target into view and that can take the whole row off the top of the
+     * screen. The caption is the one thing that must not go with it.
      */
     const stickyTop = (top: number) => Math.max(8, top);
 
@@ -171,6 +171,22 @@ export default function DemoRunner({ onRestore, onExit, host }: DemoRunnerProps)
      * frame rather than on a breakpoint, so a resize, a scroll or the plugin
      * banner appearing all move it without anything else being told.
      */
+    /*
+     * Room to scroll the last controls clear of a foot-anchored panel.
+     *
+     * `bring` can only scroll as far as the document allows, and the H slider
+     * sits near the bottom of a phone's page - so it scrolled to the end and
+     * left the target sitting behind the panel anyway. A tail of empty space
+     * below the content costs nothing (it is past everything, and goes when
+     * the demo does) and makes the band reachable wherever the target is.
+     */
+    let padApplied = '';
+    const setTail = (value: string) => {
+      if (value === padApplied) return;
+      padApplied = value;
+      document.body.style.paddingBottom = value;
+    };
+
     const placeCaption = () => {
       const box = captionRef.current;
       const header = document.getElementById('picker-header')?.getBoundingClientRect();
@@ -187,11 +203,22 @@ export default function DemoRunner({ onRestore, onExit, host }: DemoRunnerProps)
         // Centred on the header row, which lets it stand taller than the row
         // and overhang the panels a little rather than push anything down.
         box.style.top = `${stickyTop(header.top + header.height / 2 - box.offsetHeight / 2)}px`;
+        setTail('');
       } else {
+        /*
+         * No room beside the title, which is what a phone does. The panel goes
+         * to the foot of the screen rather than under the header: it is a band
+         * the width of the tool either way, and at the top it sat across the
+         * hexagon - the one thing the first two steps are about. At the bottom
+         * it covers the collapsed Recent and Saved rows, which the demo never
+         * touches. `bring` knows which edge it is on and scrolls targets into
+         * whatever is left.
+         */
         const pad = 8;
         box.style.width = `${Math.max(0, root.width - pad * 2)}px`;
         box.style.left = `${root.left + pad}px`;
-        box.style.top = `${stickyTop(header.bottom + 6)}px`;
+        box.style.top = `${Math.max(8, window.innerHeight - box.offsetHeight - pad)}px`;
+        setTail(`${box.offsetHeight + 48}px`);
       }
     };
 
@@ -247,6 +274,7 @@ export default function DemoRunner({ onRestore, onExit, host }: DemoRunnerProps)
 
     return () => {
       cancelAnimationFrame(raf);
+      setTail('');
       driverRef.current?.stop();
     };
     // Both deps are state read once at mount and never written.

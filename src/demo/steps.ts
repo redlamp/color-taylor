@@ -141,6 +141,7 @@ export const STEPS: DemoStep[] = [
 
       // A short arc, ending somewhere new: the sliders, bars and badge light
       // as it moves, and the chain stays quiet because the chain is held.
+      await d.bring(tip);
       const c = centerOf(tip);
       const reach = Math.min(56, window.innerWidth * 0.06);
       await d.moveTo(() => c, DWELL.move);
@@ -197,6 +198,7 @@ export const STEPS: DemoStep[] = [
       const bar = el('#hue-bar');
       const marker = el('#hue-bar-arrow');
       if (bar) {
+        await d.bring(bar);
         const br = bar.getBoundingClientRect();
         const x = br.left + br.width / 2;
         const y0 = marker ? centerOf(marker).y : br.top + br.height / 2;
@@ -285,6 +287,7 @@ export const STEPS: DemoStep[] = [
         await d.wait(DWELL.betweenSteps);
       }
       if (bl) {
+        await d.bring(bl);
         const r = bl.getBoundingClientRect();
         const x = r.left + r.width / 2;
         const from = { x, y: centerOf(el('#bl-bar-arrow') ?? bl).y };
@@ -349,12 +352,13 @@ export const EXIT_MS = 900;
 export const RESTORE_WATCH_MS = 900;
 
 /**
- * And off. Straight down and out the way it came in, rather than blinking off
- * where it stood: a cursor that vanishes mid-screen reads as a dropped frame.
+ * And off, through whichever edge the panel is not on, rather than blinking
+ * off where it stood: a cursor that vanishes mid-screen reads as a dropped
+ * frame, and one that walks out through its own caption reads as a mistake.
  */
 export async function exitPose({ d }: StepContext): Promise<void> {
-  const from = d.pos;
-  await d.moveTo(() => ({ x: from.x, y: window.innerHeight + 140 }), EXIT_MS);
+  const out = d.exitTarget();
+  await d.moveTo(() => out, EXIT_MS);
   d.leave();
 }
 
@@ -363,6 +367,9 @@ export async function exitPose({ d }: StepContext): Promise<void> {
  * every frame, so standing still on a target is all this has to do.
  */
 async function hoverBriefly(d: Driver, target: Element, dwell: number) {
+  // Cheap when it is already clear, which is the usual case; on a phone it is
+  // what keeps the ghost from hovering something behind the panel.
+  await d.bring(target);
   await d.moveTo(() => centerOf(target), DWELL.move);
   await d.wait(dwell);
 }

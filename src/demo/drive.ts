@@ -249,6 +249,18 @@ export class Driver {
     }
   }
 
+  /**
+   * A point off the screen, through whichever edge the panel is not on. The
+   * ghost used to always leave downwards, which on a phone - where the panel
+   * is a band across the foot - walked it straight through the thing it was
+   * leaving behind.
+   */
+  exitTarget(): Point {
+    const p = document.querySelector('[data-demo-chrome]')?.getBoundingClientRect();
+    const panelAtTop = !!p && p.top + p.height / 2 < window.innerHeight / 2;
+    return { x: this.pos.x, y: panelAtTop ? window.innerHeight + 160 : -160 };
+  }
+
   /** Leave whatever the ghost is over, for when it bows out. */
   leave() {
     const prev = this.under;
@@ -308,12 +320,71 @@ export class Driver {
     this.syncUnder();
   }
 
-  /** Scroll a target into view before working it - narrow viewports need it. */
+  /**
+   * The strip of screen the demo's own panel is sitting on. Anything the ghost
+   * is about to work has to end up below it: on a phone the panel is a band
+   * across the top of the picker, and "scrolled into view" is not the same
+   * question as "visible", because the middle of the viewport can be behind it.
+   */
+  private clearBand() {
+    const full = { top: 8, bottom: window.innerHeight - 16 };
+    const p = document.querySelector('[data-demo-chrome]')?.getBoundingClientRect();
+    if (!p || p.bottom <= 0 || p.top >= window.innerHeight) return full;
+    // Which edge it is against, not which edge it was put against: the panel
+    // sits in the header on a wide window and at the foot of the screen on a
+    // narrow one, and the band is whatever it leaves.
+    return p.top + p.height / 2 < window.innerHeight / 2
+      ? { top: p.bottom + 12, bottom: full.bottom }
+      : { top: full.top, bottom: p.top - 12 };
+  }
+
+  /**
+   * Put a target where it can actually be watched: inside the band the demo
+   * panel leaves, not merely inside the window. A no-op when it is already
+   * there, so a step can ask before every beat without the page hopping about.
+   */
   async bring(el: Element): Promise<void> {
     this.guard();
+    const band = this.clearBand();
     const r = el.getBoundingClientRect();
-    if (r.top >= 8 && r.bottom <= window.innerHeight - 96) return;
-    el.scrollIntoView({ block: 'center', behavior: this.opts.reduced ? 'auto' : 'smooth' });
-    await this.wait(this.opts.reduced ? 60 : 520);
+    if (r.top >= band.top && r.bottom <= band.bottom) return;
+    // Centre it in the band by hand rather than through scrollIntoView, which
+    // centres on the viewport and would leave it under the panel.
+    const delta = r.top + r.height / 2 - (band.top + band.bottom) / 2;
+    const max = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+    const destination = Math.max(0, Math.min(window.scrollY + delta, max));
+    window.scrollTo({ top: destination, behavior: this.opts.reduced ? 'auto' : 'smooth' });
+    await this.scrollReaches(destination);
+  }
+
+  /**
+   * Wait until the page is actually where it was sent.
+   *
+   * Two earlier versions of this got it wrong. A fixed pause was divided by
+   * `speed`, so at demospeed=8 it gave a smooth scroll 65ms to finish; and
+   * watching for the scroll position to stop changing resolved immediately,
+   * because it has not started changing yet either - three identical frames
+   * before the animation begins look exactly like three after it ends.
+   *
+   * Waiting for a known destination has neither failure. It matters because
+   * everything downstream takes a getBoundingClientRect: return early and the
+   * whole step is aimed at where its target used to be.
+   */
+  private scrollReaches(destination: number): Promise<void> {
+    this.guard();
+    return new Promise<void>((resolve, reject) => {
+      this.pending.add(reject);
+      const deadline = performance.now() + 1500;
+      const tick = () => {
+        if (this.stopped) return;
+        if (Math.abs(window.scrollY - destination) <= 1 || performance.now() > deadline) {
+          this.pending.delete(reject);
+          resolve();
+          return;
+        }
+        this.raf = requestAnimationFrame(tick);
+      };
+      this.raf = requestAnimationFrame(tick);
+    });
   }
 }

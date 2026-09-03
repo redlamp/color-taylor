@@ -176,4 +176,45 @@ test.describe('Picker demo', () => {
     await expect(panel(page)).toHaveCount(0, { timeout: 9000 });
     await expect.poll(() => rgb(page), { timeout: 4000 }).toBe(before);
   });
+
+  /**
+   * The panel is opaque and the demo is a thing you watch, so the one must
+   * never sit on top of the other. On a phone the header wraps, the panel
+   * drops to the foot of the screen, and `bring` scrolls each target into
+   * whatever band is left - the invariant is the same at any width, which is
+   * why this asserts the property rather than a layout.
+   */
+  test('the demo never works behind its own panel', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 664 });
+    await page.goto(FAST);
+    await page.locator('#rgb-dot-green').waitFor();
+    await page.locator('#demo-button').click();
+    await expect(panel(page)).toBeVisible();
+
+    let samples = 0;
+    let behind = 0;
+    for (let i = 0; i < 24; i++) {
+      await page.waitForTimeout(120);
+      const hit = await page.evaluate(() => {
+        const cursor = document.querySelector<HTMLElement>('[data-testid="demo-cursor"]');
+        const panelEl = document.querySelector('[data-demo-chrome]');
+        if (!cursor || !panelEl) return null;
+        const p = panelEl.getBoundingClientRect();
+        const x = parseFloat(cursor.style.left || '0');
+        const y = parseFloat(cursor.style.top || '0');
+        const tips = [...document.querySelectorAll('[id^="stem-tip-"]')]
+          .filter((el) => getComputedStyle(el).opacity !== '0')
+          .map((el) => el.getBoundingClientRect());
+        return {
+          ghost: y >= p.top && y <= p.bottom && x >= p.left && x <= p.right,
+          tips: tips.some((r) => r.bottom > p.top && r.top < p.bottom),
+        };
+      });
+      if (!hit) continue;
+      samples += 1;
+      if (hit.ghost || hit.tips) behind += 1;
+    }
+    expect(samples).toBeGreaterThan(10);
+    expect(behind).toBe(0);
+  });
 });
