@@ -455,31 +455,25 @@ h1, h2 {
 }
 
 /*
- * The plugin link's arrow, pulsing back and forth along its own diagonal to
- * ask for the click.
+ * The plugin link's arrow: still until the pointer arrives, then pulsing back
+ * and forth along its own diagonal - up and to the right, the way it already
+ * points and the way the link goes.
  *
- * The first cut was two small nudges and a long rest, on the theory that a
- * loop with no pause in it becomes texture. At 2px on a 14px glyph, for a
- * fifth of a three-second cycle, it read as nothing at all - the only motion
- * anyone saw was the hover. A call to action that has to be pointed out is
- * not one, so it oscillates: further, slower, and without stopping.
- *
- * Hover holds it at the far end, so pointing at the button settles the arrow
- * rather than leaving it moving under the cursor.
+ * On hover rather than always. A banner that moves on its own competes with
+ * the sentence beside it for the whole time it is on screen, and the arrow has
+ * nothing to say until someone is already looking at the button.
  */
 .plugin-arrow {
+  transition: transform 200ms ease-out;
+}
+
+.group:hover .plugin-arrow {
   animation: plugin-arrow-nudge 1.6s ease-in-out infinite;
 }
 
 @keyframes plugin-arrow-nudge {
   0%, 100% { transform: translate(0, 0); }
   50% { transform: translate(3px, -3px); }
-}
-
-.group:hover .plugin-arrow {
-  animation: none;
-  transform: translate(3px, -3px);
-  transition: transform 200ms ease-out;
 }
 
 @media (prefers-reduced-motion: reduce) {

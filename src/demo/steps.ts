@@ -36,12 +36,16 @@ const DWELL = {
   afterAction: 1300,
   /** Between one step going quiet and the next starting. */
   betweenSteps: 400,
-  /** How long each drag itself takes. */
-  dragTip: 1900,
-  dragBox: 2000,
-  dragHue: 1800,
-  dragBar: 1800,
-  dragSlider: 3200,
+  /**
+   * How long each drag itself takes. Longer than felt right while building
+   * them: the hand knows where it is going and the eye does not, and every
+   * one of these is asking somebody to watch three other things move.
+   */
+  dragTip: 2200,
+  dragBox: 2800,
+  dragHue: 2600,
+  dragBar: 2600,
+  dragSlider: 4200,
   /** Blend: how long each state is held up for inspection. */
   blendHold: 1300,
 } as const;
@@ -183,7 +187,7 @@ export const STEPS: DemoStep[] = [
         await d.drag(target, (t) => box(
           0.3 + 0.45 * Math.sin(t * Math.PI * 0.9),
           0.35 + 0.4 * Math.sin(t * Math.PI * 1.6),
-        ), DWELL.dragBox);
+        ), DWELL.dragBox, true);
       }
       await d.wait(DWELL.betweenSteps);
 
@@ -200,7 +204,7 @@ export const STEPS: DemoStep[] = [
         const room = Math.min(y0 - (br.top + pad), br.bottom - pad - y0);
         const sweep = Math.max(0, Math.min(room, br.height * 0.38));
         await d.moveTo(() => ({ x, y: y0 }), DWELL.move);
-        await d.drag(bar, (t) => ({ x, y: y0 + sweep * Math.sin(t * Math.PI * 2) }), DWELL.dragHue);
+        await d.drag(bar, (t) => ({ x, y: y0 + sweep * Math.sin(t * Math.PI * 2) }), DWELL.dragHue, true);
       }
       await d.wait(DWELL.afterAction);
     },
@@ -245,14 +249,14 @@ export const STEPS: DemoStep[] = [
       await d.drag(track, (t) => ({
         x: from.x + sweep * Math.sin(t * Math.PI * 2),
         y: from.y,
-      }), DWELL.dragSlider);
+      }), DWELL.dragSlider, true);
       await d.wait(DWELL.afterAction);
     },
   },
 
   {
     caption: 'Move one value and everything it changes lights up with it.',
-    audio: '04-impact-bars.mp3',
+    audio: '04-bars.mp3',
     duration: DWELL.moveFar + DWELL.beforeAction + DWELL.dragBar
       + DWELL.betweenSteps + DWELL.move + DWELL.dragBar + DWELL.afterAction,
     /**
@@ -277,7 +281,7 @@ export const STEPS: DemoStep[] = [
         const sweep = Math.max(0, Math.min(room, r.width * 0.4));
         await d.moveTo(() => from, DWELL.moveFar);
         await d.wait(DWELL.beforeAction);
-        await d.drag(sat, (t) => ({ x: from.x + sweep * Math.sin(t * Math.PI * 2), y }), DWELL.dragBar);
+        await d.drag(sat, (t) => ({ x: from.x + sweep * Math.sin(t * Math.PI * 2), y }), DWELL.dragBar, true);
         await d.wait(DWELL.betweenSteps);
       }
       if (bl) {
@@ -287,15 +291,15 @@ export const STEPS: DemoStep[] = [
         const room = Math.min(from.y - r.top, r.bottom - from.y);
         const sweep = Math.max(0, Math.min(room, r.height * 0.4));
         await d.moveTo(() => from, DWELL.move);
-        await d.drag(bl, (t) => ({ x, y: from.y + sweep * Math.sin(t * Math.PI * 2) }), DWELL.dragBar);
+        await d.drag(bl, (t) => ({ x, y: from.y + sweep * Math.sin(t * Math.PI * 2) }), DWELL.dragBar, true);
       }
       await d.wait(DWELL.afterAction);
     },
   },
 
   {
-    caption: 'Toggle blend to see the source or mixed colors in the sliders.',
-    audio: '04-blend.mp3',
+    caption: 'Press this button to toggle between Source and Mixed color sliders.',
+    audio: '05-blend.mp3',
     duration: DWELL.moveFar + DWELL.beforeAction + 4 * CLICK_MS + 3 * DWELL.blendHold + DWELL.afterAction,
     /** Blend on and off, which is a claim about the sliders you can only see. */
     async run({ d }) {

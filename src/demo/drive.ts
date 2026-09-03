@@ -158,8 +158,16 @@ export class Driver {
   /** The speed knob, for anything sizing itself against a scheduled duration. */
   get speed() { return this.opts.speed; }
 
-  /** Run `onFrame(t)` for `ms`, eased, resolving at t=1. */
-  private animate(ms: number, onFrame: (t: number) => void): Promise<void> {
+  /**
+   * Run `onFrame(t)` for `ms`, resolving at t=1.
+   *
+   * `linear` hands the path an unshaped t. A move between two points wants
+   * the ease - it starts and stops, and should look like it. A sweep that is
+   * already a sine of t does not: easing the clock as well squeezes the fast
+   * part of the curve into the fast part of the sweep, so it lurches through
+   * the middle and snaps at each turn.
+   */
+  private animate(ms: number, onFrame: (t: number) => void, linear = false): Promise<void> {
     this.guard();
     const duration = Math.max(1, ms / this.opts.speed);
     return new Promise<void>((resolve, reject) => {
@@ -167,7 +175,8 @@ export class Driver {
       const t0 = performance.now();
       const step = (now: number) => {
         if (this.stopped) return;
-        const t = ease(clamp01((now - t0) / duration));
+        const raw = clamp01((now - t0) / duration);
+        const t = linear ? raw : ease(raw);
         onFrame(t);
         if (t < 1) {
           this.raf = requestAnimationFrame(step);
@@ -253,7 +262,7 @@ export class Driver {
    * so `holdKeyOf` reads the right tag; the moves go to `window` because that
    * is where the app's drag listeners are.
    */
-  async drag(el: Element, path: (t: number) => Point, ms: number): Promise<void> {
+  async drag(el: Element, path: (t: number) => Point, ms: number, linear = false): Promise<void> {
     this.guard();
     const p0 = path(0);
     this.place(p0);
@@ -266,7 +275,7 @@ export class Driver {
         const p = path(t);
         this.place(p);
         window.dispatchEvent(pointerEvent('pointermove', p.x, p.y));
-      });
+      }, linear);
     } finally {
       this.releaseNow();
     }

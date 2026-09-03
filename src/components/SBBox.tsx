@@ -1,5 +1,6 @@
 import { useRef, useCallback, type PointerEvent as ReactPointerEvent } from 'react';
 import useDrag from '../hooks/useDrag';
+import { hsbToRgb, rgbToHex } from '../utils/colorConversions';
 
 interface SBBoxProps {
   hue: number;
@@ -26,6 +27,14 @@ export default function SBBox({ hue, saturation, brightness, onChange }: SBBoxPr
   }, [update]));
 
   const hueColor = `hsl(${hue}, 100%, 50%)`;
+  // The handle is filled with the colour it is standing on, so it reads as the
+  // selection rather than as a hole punched in the gradient - and stays
+  // legible where it hangs over the edge, off the field that would have
+  // explained it.
+  const selected = (() => {
+    const { r, g, b } = hsbToRgb(hue, saturation, brightness);
+    return rgbToHex(r, g, b);
+  })();
 
   return (
     <div
@@ -76,6 +85,7 @@ export default function SBBox({ hue, saturation, brightness, onChange }: SBBoxPr
           left: `${saturation}%`,
           top: `${100 - brightness}%`,
           transform: 'translate(-50%, -50%)',
+          backgroundColor: selected,
           boxShadow: '0 0 0 1px rgba(0,0,0,0.3), inset 0 0 0 1px rgba(0,0,0,0.3)',
         }}
       />

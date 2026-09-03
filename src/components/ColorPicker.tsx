@@ -913,7 +913,12 @@ export default function ColorPicker() {
             stays for the case where something above it grows. */}
         <div
           id="sb-wrapper"
-          className="flex flex-1 min-h-24 gap-3 min-w-0 overflow-hidden"
+          // No overflow clip. The SB box's handle is meant to hang over the
+          // top edge when brightness is at 100 - it marks a point, and half a
+          // ring reads as a rendering fault rather than as "as bright as it
+          // goes". Nothing else in here overflows: min-w-0 is what keeps the
+          // flex children honest, and it is still on.
+          className="flex flex-1 min-h-24 gap-3 min-w-0"
           // Overrides flex-1's `flex-basis: 0%`. Inline because the value is a
           // layout constant shared with the note above, not a magic number.
           style={{ flexBasis: SB_BOX_DEFAULT_HEIGHT }}
@@ -962,13 +967,17 @@ export default function ColorPicker() {
                       value="blend"
                       className="px-2"
                       id="blend-toggle"
-                      aria-label={blend ? 'Show flat channel ramps' : 'Show blended tracks'}
+                      // The label is the action, the tooltip below is the
+                      // state: blend off draws each channel's own ramp, which
+                      // is the source colour, and blend on draws the colour a
+                      // drag would land on, which is the mix.
+                      aria-label={blend ? 'Show source colors' : 'Show mixed colors'}
                     >
                       <BlendIcon filled={blend} />
                     </ToggleGroupItem>
                   }
                 />
-                <TooltipContent className={TOOLBAR_TIP_CLASS}>{blend ? 'Blend Slider Colors' : 'Flat Slider Colors'}</TooltipContent>
+                <TooltipContent className={TOOLBAR_TIP_CLASS}>{blend ? 'Mixed Colors' : 'Source Colors'}</TooltipContent>
               </Tooltip>
             </ToggleGroup>
           </div>

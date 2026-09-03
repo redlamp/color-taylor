@@ -364,24 +364,34 @@ export default function DemoRunner({ onRestore, onExit, host }: DemoRunnerProps)
             ))}
           </div>
 
-          <div className="flex shrink-0 items-center gap-1.5">
-            <span className="mr-1 flex gap-1 self-start" data-testid="demo-ticks" aria-hidden="true">
+          {/*
+            The controls are a column: progress on top, buttons under it. Side
+            by side they took about 280px of a 430px header slot and the
+            caption wrapped to three lines in what was left; stacked, the
+            column is only as wide as the button row and the text gets the
+            difference.
+          */}
+          <div className="flex shrink-0 flex-col items-stretch gap-2">
+            <span className="flex gap-1" data-testid="demo-ticks" aria-hidden="true">
               {/*
                 One track per step, and a longer one on the end for the
                 sign-off - which is a countdown rather than a step, so it gets
                 a tick of its own to run down rather than borrowing the last
                 step's. Each is a track with a fill, so the one being played
-                reads as a playhead rather than a state, and all are a fixed
-                width: widening the current tick moved everything right of it
-                by 2px each time it changed. Weight tells a played step from a
-                coming one.
+                reads as a playhead rather than a state. Weight tells a played
+                step from a coming one - the tick you are on is not wider than
+                the rest, because that moved everything right of it by 2px
+                each time it changed.
               */}
               {Array.from({ length: STEPS.length + 1 }, (_, i) => {
                 const last = i === STEPS.length;
                 return (
                   <span
                     key={last ? 'sign-off' : STEPS[i].audio}
-                    className={`h-1 overflow-hidden rounded-full bg-border ${last ? 'w-8' : 'w-5'}`}
+                    // Proportional rather than fixed: the row spans the column
+                    // above the buttons, so it reads as one progress bar and
+                    // its total width cannot change as steps are added.
+                    className={`h-1 overflow-hidden rounded-full bg-border ${last ? 'flex-[1.6]' : 'flex-1'}`}
                   >
                     <i
                       ref={(node) => { tickFills.current[i] = node; }}
@@ -396,17 +406,18 @@ export default function DemoRunner({ onRestore, onExit, host }: DemoRunnerProps)
                 );
               })}
             </span>
-            {NARRATION_READY && (
-              <button
-                type="button"
-                onClick={() => setNarrate((v) => !v)}
-                className="ctl-quiet-icon"
-                aria-label={narrate ? 'Turn narration off' : 'Turn narration on'}
-                aria-pressed={narrate}
-              >
-                {narrate ? <Volume2 className="size-4" /> : <VolumeX className="size-4" />}
-              </button>
-            )}
+            <div className="flex items-center gap-1.5">
+              {NARRATION_READY && (
+                <button
+                  type="button"
+                  onClick={() => setNarrate((v) => !v)}
+                  className="ctl-quiet-icon"
+                  aria-label={narrate ? 'Turn narration off' : 'Turn narration on'}
+                  aria-pressed={narrate}
+                >
+                  {narrate ? <Volume2 className="size-4" /> : <VolumeX className="size-4" />}
+                </button>
+              )}
             <button
               type="button"
               onClick={() => step(-1)}
@@ -442,6 +453,7 @@ export default function DemoRunner({ onRestore, onExit, host }: DemoRunnerProps)
                 {done ? 'Start exploring' : 'Skip'}
               </span>
             </button>
+            </div>
           </div>
         </div>
       </div>
