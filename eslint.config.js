@@ -9,7 +9,7 @@ import { defineConfig, globalIgnores } from 'eslint/config'
 export default defineConfig([
   // .obsidian holds the wiki's vault config and any community plugins the
   // vault has installed - vendored JS we neither wrote nor ship.
-  globalIgnores(['dist', '.remember', '**/.obsidian']),
+  globalIgnores(['dist', 'dist-lab', '.remember', '**/.obsidian']),
   {
     files: ['*.config.{js,ts}'],
     languageOptions: {

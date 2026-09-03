@@ -86,6 +86,20 @@ function FlatSection({ title, headerRight, children }: { title: string; headerRi
 
 const STEP_NAMES: Record<CubeStep, string> = { 51: '#33', 17: '#11', 1: '#01' };
 
+/** A segmented control: `options` is `value:Label|value:Label`. */
+function Seg({ value, options, onChange }: { value: string; options: string; onChange: (x: string) => void }) {
+  return (
+    <Tabs value={value} onValueChange={(x) => onChange(x as string)}>
+      <TabsList className="w-full">
+        {options.split('|').map((o) => {
+          const [val, label] = o.split(':');
+          return <TabsTrigger key={val} value={val} className="flex-1">{label}</TabsTrigger>;
+        })}
+      </TabsList>
+    </Tabs>
+  );
+}
+
 export default function CubeBench() {
   const {
     hsb, rgb, hsl, hex: _hex, setHsb, setHsbClear, setRgb, setRgbChannel, setHslChannel, clearOverride,
@@ -114,8 +128,9 @@ export default function CubeBench() {
   // ── WebGL ─────────────────────────────────────────────────────────
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const rendererRef = useRef<CubeRenderer | null>(null);
+  // Latest params for handlers, kept in an effect rather than written during render.
   const paramsRef = useRef(params);
-  paramsRef.current = params;
+  useEffect(() => { paramsRef.current = params; }, [params]);
   const [unsupported, setUnsupported] = useState(false);
 
   useEffect(() => {
@@ -123,7 +138,8 @@ export default function CubeBench() {
     if (!canvas) return;
     let r: CubeRenderer | null = null;
     try { r = createCubeRenderer(canvas); } catch (e) { console.error(e); }
-    if (!r) { setUnsupported(true); return; }
+    // deferred: a synchronous setState inside an effect cascades a render
+    if (!r) { queueMicrotask(() => setUnsupported(true)); return; }
     rendererRef.current = r;
     const ro = new ResizeObserver(() => r.render(paramsRef.current));
     ro.observe(canvas);
@@ -261,11 +277,6 @@ export default function CubeBench() {
   const handleHslL = useCallback((v: number) => setHslChannel('l', v), [setHslChannel]);
   const handleHex = useCallback((parsed: RGB) => { clearOverride(); setHsb(rgbToHsb(parsed.r, parsed.g, parsed.b)); }, [clearOverride, setHsb]);
 
-  const seg = (v: string, on: string, cb: (x: string) => void) => (
-    <Tabs value={v} onValueChange={(x) => cb(x as string)}><TabsList className="w-full">{on.split('|').map((o) => {
-      const [val, label] = o.split(':'); return <TabsTrigger key={val} value={val} className="flex-1">{label}</TabsTrigger>;
-    })}</TabsList></Tabs>
-  );
   const perSide = 255 / p.cubeStep + 1;
   // notches on the RGB sliders at the cube grid; none at 256
   const ticks = useMemo(() => (p.cubeStep === 1 ? undefined : Array.from({ length: perSide }, (_, i) => i * p.cubeStep)), [p.cubeStep, perSide]);
@@ -367,25 +378,25 @@ export default function CubeBench() {
           <CollapsibleSection id="lab-cube" title="Cube" level="h2">
             <div className="flex flex-col gap-3">
               <Label className="text-sm text-muted-foreground">Steps per axis</Label>
-              {seg(String(p.cubeStep), '51:6|17:16|1:256', (x) => goStep(+x as CubeStep))}
+              <Seg value={String(p.cubeStep)} options={'51:6|17:16|1:256'} onChange={(x) => goStep(+x as CubeStep)} />
               {shape === 'cube' && (<>
                 <Label className="text-sm text-muted-foreground">Cube style</Label>
-                {seg(p.cubeStyle, 'cubes:Cubes|dots:Dots', (x) => set('cubeStyle', x as 'cubes' | 'dots'))}
+                <Seg value={p.cubeStyle} options={'cubes:Cubes|dots:Dots'} onChange={(x) => set('cubeStyle', x as 'cubes' | 'dots')} />
               </>)}
               <Label className="text-sm text-muted-foreground">Shape</Label>
-              {seg(shape, 'cube:Cube|hsb:HSB cone|hsl:HSL bicone', (x) => goShape(x as Shape))}
+              <Seg value={shape} options={'cube:Cube|hsb:HSB cone|hsl:HSL bicone'} onChange={(x) => goShape(x as Shape)} />
               <div className="flex items-center justify-between gap-3">
                 <Label htmlFor="lab-pointscale" className="text-sm text-muted-foreground">Point size</Label>
                 <span className="text-sm tabular-nums text-foreground">{p.pointScale.toFixed(2)}</span>
               </div>
               <input id="lab-pointscale" type="range" min={0.25} max={2} step={0.05} value={p.pointScale} onChange={(e) => set('pointScale', +e.target.value)} className="h-1.5 w-full cursor-pointer accent-foreground" />
               <Label className="text-sm text-muted-foreground">Up axis</Label>
-              {seg(p.up, 'neutral:Lightness|r:Red|g:Green|b:Blue', (x) => setP((prev) => ({
+              <Seg value={p.up} options="neutral:Lightness|r:Red|g:Green|b:Blue" onChange={(x) => setP((prev) => ({
                 ...prev, up: x as UpAxis,
                 // lightness: from the white corner looking down to black, the hexagon;
                 // a channel: side-on, so that channel runs straight up the screen
                 theta: Math.PI / 2, phi: x === 'neutral' ? Math.PI / 2 : 0,
-              })))}
+              }))} />
               <SwitchRow label="Guides" checked={p.axes} onToggle={() => set('axes', !p.axes)} ariaLabel="Toggle the axis guides" />
             </div>
           </CollapsibleSection>
