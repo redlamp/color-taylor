@@ -26,6 +26,8 @@ const panel = (page: Page) => page.getByTestId('demo-bar');
 /** Ticks light up to and including the step being played, so the count is the step number. */
 const litTicks = (page: Page) => page.locator('[data-testid="demo-ticks"] i[data-on]');
 const primary = (page: Page) => page.getByTestId('demo-primary');
+/** The button carries its longer label invisibly to hold the width, so read the visible one. */
+const primaryLabel = (page: Page) => page.getByTestId('demo-primary-label');
 
 test.describe('Picker demo', () => {
   test.beforeEach(async ({ page }) => {
@@ -42,7 +44,7 @@ test.describe('Picker demo', () => {
     // The tick for the step being played is lit, so the count is the step.
     await expect(litTicks(page)).toHaveCount(1, { timeout: 5000 });
     await expect(litTicks(page)).toHaveCount(4, { timeout: 20000 });
-    await expect(primary(page)).toHaveText('Start exploring', { timeout: 20000 });
+    await expect(primaryLabel(page)).toHaveText('Start exploring', { timeout: 20000 });
 
     // The overlay stays up until the user takes it down.
     await primary(page).click();
@@ -52,7 +54,7 @@ test.describe('Picker demo', () => {
   test('the colour it borrowed comes back when it finishes', async ({ page }) => {
     const before = await rgb(page);
     await page.locator('#demo-button').click();
-    await expect(primary(page)).toHaveText('Start exploring', { timeout: 25000 });
+    await expect(primaryLabel(page)).toHaveText('Start exploring', { timeout: 25000 });
     // The restore is the same tween an undo uses, so it lands a moment later.
     await expect.poll(() => rgb(page), { timeout: 4000 }).toBe(before);
   });
@@ -93,7 +95,7 @@ test.describe('Picker demo', () => {
     await page.locator('#rgb-dot-green').waitFor();
     await page.locator('#demo-button').click();
     await expect(litTicks(page)).toHaveCount(4, { timeout: 20000 });
-    await expect(primary(page)).toHaveText('Start exploring');
+    await expect(primaryLabel(page)).toHaveText('Start exploring');
   });
 
   test('Next and Back walk the steps', async ({ page }) => {
@@ -117,7 +119,7 @@ test.describe('Picker demo', () => {
   test('Next all the way through reaches the sign-off', async ({ page }) => {
     await page.locator('#demo-button').click();
     for (let i = 0; i < 4; i++) await page.getByRole('button', { name: 'Next step' }).click();
-    await expect(primary(page)).toHaveText('Start exploring');
+    await expect(primaryLabel(page)).toHaveText('Start exploring');
     await expect(page.getByRole('button', { name: 'Next step' })).toBeDisabled();
   });
 });

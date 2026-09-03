@@ -38,6 +38,15 @@ import {
 } from './steps';
 
 /**
+ * Every line the panel can show. It lays all of them out in one grid cell and
+ * hides the ones it is not saying, so its height is the tallest of them at
+ * whatever width it has, and a step with a shorter caption does not resize it.
+ * Height is what moves it: the panel is centred on the header row, so one
+ * line fewer would lift the whole thing off its place.
+ */
+const CAPTIONS = [...STEPS.map((s) => s.caption), SIGN_OFF];
+
+/**
  * How hard the arrow leans. The tilt is a spring on the smoothed velocity,
  * pivoting on the hotspot, so the body trails the point and swings past
  * centre once when the cursor stops. It is the one piece of the demo that is
@@ -267,13 +276,20 @@ export default function DemoRunner({ onRestore, onExit, host }: DemoRunnerProps)
         style={{ left: 0, top: -400 }}
       >
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
-          <p
-            role="status"
-            aria-live="polite"
-            className="min-w-[15rem] flex-1 text-pretty text-[15px] font-medium leading-snug sm:text-base"
-          >
-            {caption}
-          </p>
+          <div role="status" aria-live="polite" className="grid min-w-[15rem] flex-1">
+            {CAPTIONS.map((text) => (
+              <p
+                key={text}
+                // visibility, not display: the hidden lines still take their
+                // space, which is the whole point, and are still out of the
+                // accessibility tree, which is the other one.
+                style={{ visibility: text === caption ? 'visible' : 'hidden' }}
+                className="col-start-1 row-start-1 self-center text-pretty text-[15px] font-medium leading-snug sm:text-base"
+              >
+                {text}
+              </p>
+            ))}
+          </div>
 
           <div className="flex shrink-0 items-center gap-1.5">
             <span className="mr-1 flex gap-1" data-testid="demo-ticks" aria-hidden="true">
@@ -281,7 +297,13 @@ export default function DemoRunner({ onRestore, onExit, host }: DemoRunnerProps)
                 <i
                   key={step.audio}
                   data-on={i <= index ? '' : undefined}
-                  className={`h-1 rounded-full transition-all ${i === index ? 'w-6' : 'w-4'} ${i <= index ? 'bg-foreground' : 'bg-border'}`}
+                  // All one width. Widening the step you are on read well and
+                  // moved everything to its right by 2px each time it changed,
+                  // including once more at the sign-off, when no tick is
+                  // current. Weight says where you are instead.
+                  className={`h-1 w-5 rounded-full transition-colors ${done || i === index
+                    ? 'bg-foreground'
+                    : i < index ? 'bg-foreground/45' : 'bg-border'}`}
                 />
               ))}
             </span>
@@ -318,11 +340,18 @@ export default function DemoRunner({ onRestore, onExit, host }: DemoRunnerProps)
               type="button"
               data-testid="demo-primary"
               onClick={skip}
-              className={`ml-1 whitespace-nowrap rounded-md border px-3 py-1.5 text-sm ${done
+              className={`ml-1 grid place-items-center whitespace-nowrap rounded-md border px-3 py-1.5 text-sm ${done
                 ? 'border-transparent bg-primary font-medium text-primary-foreground'
                 : 'border-input bg-muted text-foreground'}`}
             >
-              {done ? 'Start exploring' : 'Skip'}
+              {/* Holds the longer label's width from the start, so the panel
+                  does not grow by 60px when the demo reaches its end. */}
+              <span aria-hidden="true" className="invisible col-start-1 row-start-1">
+                Start exploring
+              </span>
+              <span data-testid="demo-primary-label" className="col-start-1 row-start-1">
+                {done ? 'Start exploring' : 'Skip'}
+              </span>
             </button>
           </div>
         </div>
