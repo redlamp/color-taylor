@@ -148,11 +148,11 @@ function ColorSlider({ label, group, value, max, gradient, suffix, wrap, onChang
     accum.current = value;
     lastX.current = clientX;
     locked.current = false;
-    // Not for a synthetic press. The demo drives this slider with dispatched
-    // events, and the page already has the sticky activation pointer lock
-    // asks for - so the lock would be granted, the real cursor would vanish
-    // mid-demo, and `advance` would then read a movementX that a synthetic
-    // event does not carry. An untrusted press keeps the clientX path.
+    // Not for a synthetic press. A dispatched pointerdown arrives on a page
+    // that already has the sticky activation pointer lock asks for, so the
+    // lock would be granted: the real cursor would vanish, and `advance`
+    // would then read a movementX that a synthetic event does not carry.
+    // An untrusted press keeps the clientX path.
     if (wrap && trusted) {
       const el = trackRef.current;
       try {

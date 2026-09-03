@@ -38,7 +38,8 @@ const DWELL = {
   betweenSteps: 400,
   /** How long each drag itself takes. */
   dragTip: 1900,
-  dragBox: 2800,
+  dragBox: 2000,
+  dragHue: 1800,
   dragSlider: 3200,
   /** Blend: how long each state is held up for inspection. */
   blendHold: 1300,
@@ -104,12 +105,15 @@ export const STEPS: DemoStep[] = [
   {
     caption: 'Play with the handles to see how each one maps to a color channel.',
     audio: '01-handles.mp3',
-    duration: 3 * (DWELL.move + DWELL.hoverStem + DWELL.move + DWELL.hoverJoint)
+    duration: 2 * (DWELL.move + DWELL.hoverStem) + 2 * (DWELL.move + DWELL.hoverJoint)
       + DWELL.move + DWELL.dragTip + DWELL.afterAction,
     /**
-     * The chain: each stem, then the joint it ends at, so the tooltips name
-     * the channels in order. Then a short drag of the tip - the one handle
-     * that is the selection rather than an explanation of it.
+     * The chain. Four stops, not all six: the first stem, the joint two along,
+     * the last stem and the tip. Visiting every one in order made the point
+     * three times and took nine seconds doing it - the tooltips name a channel
+     * the same whether or not you have seen its neighbour. Then a short drag
+     * of the tip, the one handle that is the selection rather than an
+     * explanation of it.
      */
     async run({ d }) {
       const dots = joints();
@@ -118,9 +122,16 @@ export const STEPS: DemoStep[] = [
       const tip = dots[dots.length - 1];
       await d.bring(tip);
 
-      for (let i = 0; i < Math.min(legs.length, dots.length); i++) {
-        await hoverBriefly(d, legs[i], DWELL.hoverStem);
-        await hoverBriefly(d, dots[i], DWELL.hoverJoint);
+      // Positional rather than by channel: the chain's order changes with the
+      // vector mode, and a missing one should be skipped, not thrown over.
+      const tour: Array<[Element | undefined, number]> = [
+        [legs[0], DWELL.hoverStem],
+        [dots[1], DWELL.hoverJoint],
+        [legs[legs.length - 1], DWELL.hoverStem],
+        [tip, DWELL.hoverJoint],
+      ];
+      for (const [target, dwell] of tour) {
+        if (target) await hoverBriefly(d, target, dwell);
       }
 
       // A short arc, ending somewhere new: the sliders, bars and badge light
@@ -139,8 +150,17 @@ export const STEPS: DemoStep[] = [
   {
     caption: 'Work with the tools that feel most familiar to you.',
     audio: '02-color-box.mp3',
-    duration: DWELL.moveFar + DWELL.beforeAction + DWELL.dragBox + DWELL.afterAction,
-    /** The colour box - the control most people reach for first. */
+    duration: DWELL.moveFar + DWELL.beforeAction + DWELL.dragBox
+      + DWELL.betweenSteps + DWELL.move + DWELL.dragHue + DWELL.afterAction,
+    /**
+     * The colour editor: the box most people reach for first, and then the hue
+     * strip beside it, because saturation and brightness alone never leave the
+     * one hue and the pair is what makes it a picker.
+     *
+     * Both are worked by the track rather than the handle. Reaching for a 10px
+     * marker is what a person does because they have to; watching a cursor hunt
+     * for one teaches nothing, and a near miss looks like a bug.
+     */
     async run({ d }) {
       const wrapper = el('#sb-wrapper');
       if (!wrapper) return;
@@ -164,6 +184,23 @@ export const STEPS: DemoStep[] = [
           0.35 + 0.4 * Math.sin(t * Math.PI * 1.6),
         ), DWELL.dragBox);
       }
+      await d.wait(DWELL.betweenSteps);
+
+      // The hue strip. Absolute mapping on clientY, so pressing at the marker's
+      // own height changes nothing on contact and the sweep starts from where
+      // the colour already is.
+      const bar = el('#hue-bar');
+      const marker = el('#hue-bar-arrow');
+      if (bar) {
+        const br = bar.getBoundingClientRect();
+        const x = br.left + br.width / 2;
+        const y0 = marker ? centerOf(marker).y : br.top + br.height / 2;
+        const pad = 8;
+        const room = Math.min(y0 - (br.top + pad), br.bottom - pad - y0);
+        const sweep = Math.max(0, Math.min(room, br.height * 0.38));
+        await d.moveTo(() => ({ x, y: y0 }), DWELL.move);
+        await d.drag(bar, (t) => ({ x, y: y0 + sweep * Math.sin(t * Math.PI * 2) }), DWELL.dragHue);
+      }
       await d.wait(DWELL.afterAction);
     },
   },
@@ -173,9 +210,18 @@ export const STEPS: DemoStep[] = [
     audio: '03-impact.mp3',
     duration: DWELL.moveFar + DWELL.beforeAction + DWELL.dragSlider + DWELL.afterAction,
     /**
-     * A slider, so the rest of the tool can answer. The hue slider wraps, and
-     * a press on its arrow asks for pointer lock - ColorSlider skips that for
-     * an untrusted press, which is what this is.
+     * A slider, so the rest of the tool can answer.
+     *
+     * The ghost rides the track, not the arrow. Reaching for a 10px handle is
+     * what a person does because they have to; watching a cursor hunt for one
+     * teaches nothing, and the arrow is small enough that a near miss looks
+     * like a bug. Pressing the track is the same gesture with nothing to aim
+     * at - and `updateValue` seeds the same accumulator the handle would, so
+     * the wrapping drag that follows behaves identically.
+     *
+     * It presses at the handle's own x so the value does not jump on contact,
+     * and rides the track's centre line rather than the arrow's, which sits
+     * below it.
      */
     async run({ d }) {
       const arrow = el('#slider-hsb-h-arrow');
@@ -183,18 +229,21 @@ export const STEPS: DemoStep[] = [
       if (!arrow || !track) return;
       await d.bring(track);
 
-      const c = centerOf(arrow);
-      const width = track.getBoundingClientRect().width;
-      await d.moveTo(() => c, DWELL.moveFar);
+      const rect = track.getBoundingClientRect();
+      const from = { x: centerOf(arrow).x, y: rect.top + rect.height / 2 };
+      await d.moveTo(() => from, DWELL.moveFar);
       await d.wait(DWELL.beforeAction);
 
-      // A wrapping slider tracks movement, so how far the hue turns is how
-      // far the ghost travels: a third of the track each way is about 120
-      // degrees, out and back.
-      const sweep = width * 0.34;
-      await d.drag(arrow, (t) => ({
-        x: c.x + sweep * Math.sin(t * Math.PI * 2),
-        y: c.y,
+      // A wrapping slider tracks movement, so how far the hue turns is how far
+      // the ghost travels: a third of the track each way is about 120 degrees,
+      // out and back. Clamped to the room actually on either side, so the
+      // sweep stays on the track wherever the handle happens to start.
+      const pad = 10;
+      const room = Math.min(from.x - (rect.left + pad), rect.right - pad - from.x);
+      const sweep = Math.max(0, Math.min(room, rect.width * 0.34));
+      await d.drag(track, (t) => ({
+        x: from.x + sweep * Math.sin(t * Math.PI * 2),
+        y: from.y,
       }), DWELL.dragSlider);
       await d.wait(DWELL.afterAction);
     },

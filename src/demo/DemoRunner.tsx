@@ -452,6 +452,7 @@ export default function DemoRunner({ onRestore, onExit, host }: DemoRunnerProps)
       <div
         ref={cursorRef}
         aria-hidden="true"
+        data-testid="demo-cursor"
         className="pointer-events-none fixed transition-opacity"
         style={{
           width: CURSOR_BOX,
