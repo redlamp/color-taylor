@@ -38,3 +38,6 @@ figma/ui.html
 
 # Obsidian vault config
 .obsidian/
+
+# Single-file cube bench, from scripts/build-cube-bench.mjs
+dist-lab

@@ -13,6 +13,13 @@ export interface AppSettings {
    */
   audioEnabled: boolean;
   synth: SynthConfig;
+  /**
+   * The frame-rate meter, top-left. A field here rather than its own
+   * localStorage key so "Reset all settings" clears it for free - see the
+   * table in CLAUDE.md for why every new key otherwise needs an owner. `?fps`
+   * in the URL turns it on too, without touching this.
+   */
+  fpsMeter: boolean;
 }
 
 const STORAGE_KEY = 'color-taylor-settings';
@@ -20,6 +27,7 @@ const STORAGE_KEY = 'color-taylor-settings';
 const DEFAULTS: AppSettings = {
   audioEnabled: false,
   synth: { ...DEFAULT_SYNTH_CONFIG },
+  fpsMeter: false,
 };
 
 function loadSettings(): AppSettings {
@@ -31,6 +39,7 @@ function loadSettings(): AppSettings {
       // Strict true, so anything else stored - or nothing - reads as off.
       audioEnabled: parsed?.audioEnabled === true,
       synth: { ...DEFAULTS.synth, ...(parsed?.synth ?? {}) },
+      fpsMeter: parsed?.fpsMeter === true,
     };
   } catch {
     return DEFAULTS;
@@ -41,6 +50,7 @@ interface SettingsContextValue {
   settings: AppSettings;
   updateSynth: (patch: Partial<SynthConfig>) => void;
   setAudioEnabled: (next: boolean) => void;
+  setFpsMeter: (next: boolean) => void;
   reset: () => void;
 }
 
@@ -48,6 +58,7 @@ const SettingsContext = createContext<SettingsContextValue>({
   settings: DEFAULTS,
   updateSynth: () => {},
   setAudioEnabled: () => {},
+  setFpsMeter: () => {},
   reset: () => {},
 });
 
@@ -85,13 +96,17 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
+  const setFpsMeter = useCallback((next: boolean) => {
+    setSettings(s => ({ ...s, fpsMeter: next }));
+  }, []);
+
   const reset = useCallback(() => {
     setSettings(DEFAULTS);
     try { localStorage.removeItem(STORAGE_KEY); } catch { /* localStorage unavailable */ }
   }, []);
 
   return (
-    <SettingsContext.Provider value={{ settings, updateSynth, setAudioEnabled: setAudio, reset }}>
+    <SettingsContext.Provider value={{ settings, updateSynth, setAudioEnabled: setAudio, setFpsMeter, reset }}>
       {children}
     </SettingsContext.Provider>
   );

@@ -9,6 +9,7 @@ Top-level Map of Content. See `CLAUDE.md` in this folder for conventions.
 - [[architecture]] — how the three surfaces share one picker
 - [[decisions]] — every decision note, and what hasn't been written up
 - [[figma-plugin]] — the plugin: status, decisions, platform knowledge
+- [[color-models]] — the colour maths: the geometry, where each model gives out, and the perceptual spaces
 - [[presentation]] — the intro deck: the argument, the script, the narration plan
 
 ## Active
@@ -19,13 +20,18 @@ Top-level Map of Content. See `CLAUDE.md` in this folder for conventions.
 - [[plan-narrated-intro]] — recording the intro as narration, for the app and for a video; #77, #78
 - [[plan-intro-two-paths]] — forking the intro, and dressing the history path in period hardware; #79, #80
 - [[decision-intro-renders-the-real-picker]] — the deck stems from the app; #81
+- [[plan-perceptual-color-in-color-taylor]] — should the picker learn OkHSL, and what it would cost; no issue yet
 
 ## Concepts
 
 - [[hexagon-is-the-cube-down-its-diagonal]] — the geometry the picker is built on, and the interactive proof in `docs/prototypes/rgb-cube/`
+- [[constant-lightness-needs-the-hsl-family]] — flat perceived brightness across a hue rotation is an HSV-vs-HSL question, not an sRGB-vs-Oklab one
+- [[srgb-gamut-is-not-star-shaped-in-oklab]] — the gamut can go in, out, and back in; invisible to a person, fatal to a naive search
+- [[rgb-stems-must-curve-in-circle-space]] — the vector chain's legs are forced to bow once the hexagon becomes a circle; prototype in `docs/prototypes/`
 
 ## Research
 
+- [[research/oklab-and-the-perceptual-color-spaces]] — CIELAB, what "Ok" means, the criticisms, and the successor spaces; with sources
 - [[research/hsl-degenerate-states]] — where each colour model gives out, what CSS Color 4 calls it, and the hexagon claim part-verified
 - [[research/figma-plugin-review-guidelines]] — Figma's published rules, and where Color Taylor stood on 2026-08-03
 - [[research/figma-plugin-platform-constraints]] — what the sandbox and the plugin iframe can't do
@@ -34,6 +40,8 @@ Top-level Map of Content. See `CLAUDE.md` in this folder for conventions.
 
 `wiki/daily/YYYY-MM-DD.md`. Dailies before 2026-08-01 were reconstructed from git history on 2026-08-03 and are marked as such.
 
+- [[2026-09-02]] — the frame-rate meter and bench: measured, no regression
+- [[2026-09-01]] — the Oklab research, and what a circle does to the RGB chain
 - [[2026-08-25]] — a linkable `/intro`, the route renamed, and the narration plan
 - [[2026-08-24]] — the colour model session: strict TS, radius is chroma, and the HSL edge cases
 - [[2026-08-19]] — shipped; the coordinate-space and zoom bugs behind west-edge resize; what Figma owns
