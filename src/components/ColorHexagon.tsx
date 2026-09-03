@@ -395,6 +395,12 @@ interface ColorHexagonProps {
   /** Start Recent and Saved closed - they cost a lot of height in a panel. */
   collapsedSections?: boolean;
   /**
+   * Whether a settled colour joins the recent palette. Off while the demo
+   * runs: it moves through a dozen colours a person never chose, and the
+   * demo's whole promise is that it leaves the picker as it found it.
+   */
+  recordRecent?: boolean;
+  /**
    * Channels whose stem and joint light as "changing", from the host's
    * useImpact: every channel whose value moved plus every channel the held
    * stem or joint drives. Empty or absent draws nothing.
@@ -513,7 +519,7 @@ interface HoveredMarker {
   name: string;
 }
 
-export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, onHoverHtmlColor, muted, bare, headerLeft, belowStage, collapsedSections, impactChannels, hueBadgeLit = false, hueFillLit = false, blBarLit = false, satBarLit = false, sectionVariant = 'card', alpha = 100, onAlphaRestore, wheelAdjusts = true, blBar = true, stemRange = null, satBar = true, swatchSections = true, blModeTabs = true, vertexLabels = true, blMarkers = true, hueIndicator = true, shapeMix = 1, chainReveal = 1 }: ColorHexagonProps) {
+export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, onHoverHtmlColor, muted, bare, headerLeft, belowStage, collapsedSections, recordRecent = true, impactChannels, hueBadgeLit = false, hueFillLit = false, blBarLit = false, satBarLit = false, sectionVariant = 'card', alpha = 100, onAlphaRestore, wheelAdjusts = true, blBar = true, stemRange = null, satBar = true, swatchSections = true, blModeTabs = true, vertexLabels = true, blMarkers = true, hueIndicator = true, shapeMix = 1, chainReveal = 1 }: ColorHexagonProps) {
   const flushSections = sectionVariant === 'flush';
   // Horizontal extent of the SVG coordinate space. Without the bar the hexagon
   // is the whole picture, so the 50px reserved to its right goes away - and the
@@ -1149,6 +1155,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   // to avoid restarting the timer when the recent list updates.
   useEffect(() => {
     if (addRecentTimer.current) clearTimeout(addRecentTimer.current);
+    if (!recordRecent) return;
     addRecentTimer.current = setTimeout(() => {
       if (skipNextRecent.current) {
         skipNextRecent.current = false;
@@ -1178,7 +1185,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     };
     // Opacity is half of a swatch's identity now, so a change to it has to
     // restart the debounce or a new opacity would never be recorded.
-  }, [currentHex, alpha]);
+  }, [currentHex, alpha, recordRecent]);
 
   const addToRecent = useCallback((hex: string) => {
     const a = alphaRef.current;
@@ -2098,7 +2105,12 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             const ch = order[i];
             const prev = points[i];
             const shown = hoveredLeg !== null ? hoveredLeg === i : hoveredDot !== null && i < hoveredDot;
-            if (!shown || chainReveal < 1) return null;
+            if (chainReveal < 1) return null;
+            // Mounted whether or not it is showing, and crossfaded - the same
+            // shape the halos use, and for the same reason: a pill that is
+            // only in the DOM while hovered has nothing to ease in from, so it
+            // popped where the halo around it eased.
+            const on = shown && !dotDragging;
             const k = uiScale;
             const side = TIP_SIDE[ch];
             const cx = (prev.x + p.x) / 2 + side.x * TIP_GAP * k;
@@ -2109,7 +2121,16 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             return (
               // Named on hover, quiet while moving: the tooltips fade out for
               // the drag so the halos are what the eye follows.
-              <g key={`tip-${ch}`} id={`stem-tip-${ch}`} className="pointer-events-none select-none transition-opacity duration-300 ease-out motion-reduce:transition-none" opacity={dotDragging ? 0 : 1} style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.35))', userSelect: 'none' }}>
+              <g
+                key={`tip-${ch}`}
+                id={`stem-tip-${ch}`}
+                // In on the halos' timing; out on the drag fade's, which is
+                // slower on purpose so the tooltips clear the way for a drag
+                // without snatching themselves off the screen.
+                className={`pointer-events-none select-none ${on ? HIGHLIGHT_IN : 'transition-opacity duration-300 ease-out motion-reduce:transition-none'}`}
+                opacity={on ? 1 : 0}
+                style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.35))', userSelect: 'none' }}
+              >
                 <rect x={cx - w / 2} y={cy - h / 2} width={w} height={h} rx={h / 2} fill={TIP_FILL[ch]} fillOpacity={TIP_FILL_OPACITY} />
                 <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central" fill="#fff" fontSize={11 * k} fontWeight={600} letterSpacing={0.5 * k} style={{ fontFamily: 'var(--sans)' }}>
                   {label}

@@ -19,9 +19,13 @@ export function DisplaySettings({
   const { settings, setFpsMeter } = useSettings();
   return (
     <div className="flex flex-col gap-3 px-1">
+      {/* Checked is *light*, so the default sits on the left like every other
+          row here: a switch to the right should mean "turned something on",
+          and dark is where this app starts. The knob still shows which way it
+          is set, so nothing depends on reading the direction. */}
       <SwitchRow
         label="Theme"
-        checked={isDark}
+        checked={!isDark}
         onToggle={toggle}
         ariaLabel="Toggle theme"
         // No colour on the glyph: it inherits currentColor from the knob, which

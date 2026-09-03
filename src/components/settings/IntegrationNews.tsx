@@ -35,7 +35,7 @@ export function IntegrationNews() {
       <div className="flex items-start gap-2.5">
         {Glyph && <Glyph className="mt-0.5 size-5 shrink-0" />}
         <div className="min-w-0 flex-1">
-          <p className="text-sm text-foreground">
+          <p className="text-base text-foreground">
             {live
               ? `Try Color Taylor in ${item.platform}`
               : `Color Taylor is coming to ${item.platform}`}

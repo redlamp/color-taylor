@@ -33,6 +33,8 @@ export interface Stage {
   setCursor(p: Point): void;
   /** Scale the ghost down while it holds something. */
   setPressed(pressed: boolean): void;
+  /** Ring the spot: a synthetic press makes no sound and moves no hardware. */
+  ripple(p: Point): void;
 }
 
 export interface DriverOptions {
@@ -258,6 +260,7 @@ export class Driver {
     el.dispatchEvent(pointerEvent('pointerdown', p0.x, p0.y));
     this.pressedEl = el;
     this.stage.setPressed(true);
+    this.stage.ripple(p0);
     try {
       await this.animate(ms, (t) => {
         const p = path(t);
@@ -276,6 +279,7 @@ export class Driver {
     el.dispatchEvent(pointerEvent('pointerdown', x, y));
     this.pressedEl = el;
     this.stage.setPressed(true);
+    this.stage.ripple({ x, y });
     await this.wait(CLICK_MS);
     this.releaseNow();
     this.guard();

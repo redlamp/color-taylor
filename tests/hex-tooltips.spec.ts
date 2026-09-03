@@ -26,9 +26,12 @@ test.describe('Hexagon channel tooltips', () => {
   test('a hovered joint names every stem it drives', async ({ page }) => {
     const g = await center(page, '#rgb-dot-green');
     await page.mouse.move(g.x, g.y);
-    await expect(page.locator('#stem-tip-r')).toHaveCount(1);
-    await expect(page.locator('#stem-tip-g')).toHaveCount(1);
-    await expect(page.locator('#stem-tip-b')).toHaveCount(0);
+    // Mounted whether or not they are showing - they crossfade now, and a
+    // pill that is only in the DOM while hovered has nothing to ease in from.
+    // Which are showing is a question about opacity.
+    await expect.poll(() => tipOpacity(page, 'r')).toBe('1');
+    await expect.poll(() => tipOpacity(page, 'g')).toBe('1');
+    expect(await tipOpacity(page, 'b')).toBe('0');
   });
 
   test('tooltips fade for the drag and return on release over the joint', async ({ page }) => {
@@ -55,8 +58,8 @@ test.describe('Hexagon channel tooltips', () => {
     // go where the joint cannot: well outside the hexagon, where it clamps.
     await page.mouse.move(g.x + 500, g.y + 300, { steps: 6 });
     await page.mouse.up();
-    await page.waitForTimeout(300);
-    await expect(page.locator('[id^="stem-tip-"]')).toHaveCount(0);
+    await page.waitForTimeout(400);
+    for (const ch of ['r', 'g', 'b']) expect(await tipOpacity(page, ch)).toBe('0');
   });
 });
 

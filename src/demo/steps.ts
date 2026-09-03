@@ -230,15 +230,34 @@ export async function openingPose(ctx: StepContext): Promise<void> {
   await ctx.d.wait(DWELL.betweenSteps);
 }
 
-/** Park the ghost back at the hexagon for the sign-off, and let go of it. */
+/**
+ * Home, for the sign-off: back to the hexagon, where the colour it borrowed
+ * is about to tween back. Standing on the thing that is about to move is the
+ * whole reason to come back here rather than fade out over the blend button.
+ */
 export async function closingPose({ d }: StepContext): Promise<void> {
   const tip = joints().at(-1);
   if (tip) await d.bring(tip);
   await d.moveTo(() => (tip
     ? centerOf(tip)
-    : { x: window.innerWidth / 2, y: window.innerHeight / 2 }), DWELL.move);
-  // The ghost fades out on the sign-off, so it should not leave a tooltip
-  // standing on whatever handle it is parked over.
+    : { x: window.innerWidth / 2, y: window.innerHeight / 2 }), DWELL.moveFar);
+  // Nothing should be left hovered under a cursor that is about to leave.
+  d.leave();
+}
+
+/** How long the walk off the screen takes, and the fade that rides it. */
+export const EXIT_MS = 900;
+
+/** Time to watch the colour tween home before the ghost goes. */
+export const RESTORE_WATCH_MS = 900;
+
+/**
+ * And off. Straight down and out the way it came in, rather than blinking off
+ * where it stood: a cursor that vanishes mid-screen reads as a dropped frame.
+ */
+export async function exitPose({ d }: StepContext): Promise<void> {
+  const from = d.pos;
+  await d.moveTo(() => ({ x: from.x, y: window.innerHeight + 140 }), EXIT_MS);
   d.leave();
 }
 

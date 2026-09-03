@@ -88,7 +88,7 @@ export function SwitchRow({ label, ...props }: SwitchRowProps) {
     // line of a two-line row. Every row is a single line now, so the row
     // centres them instead.
     <div className="flex items-center justify-between gap-3">
-      <Label className="text-sm text-muted-foreground">{label}</Label>
+      <Label className="text-base text-muted-foreground">{label}</Label>
       <SettingsSwitch {...props} />
     </div>
   );

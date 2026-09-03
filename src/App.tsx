@@ -57,10 +57,10 @@ function AppInner() {
         </Suspense>
       ) : (
         <div className="relative min-h-svh flex flex-col">
-          {/* A sibling above the centring row rather than a child of it, so it
-              displaces the picker instead of overlaying it and the picker still
-              centres in whatever height is left. Living at app level also keeps
-              it off the presentation route entirely. */}
+          {/* Fixed to the top of the viewport rather than sitting in the flow:
+              it costs the picker no vertical room, so dismissing it does not
+              move the tool. Living at app level keeps it off the presentation
+              route entirely. */}
           <PluginBanner />
           <div className="flex flex-1 items-center justify-center p-5">
             <ColorPicker />

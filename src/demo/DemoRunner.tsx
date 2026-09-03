@@ -34,8 +34,8 @@ import { ChevronLeft, ChevronRight, Volume2, VolumeX } from 'lucide-react';
 import DemoCursor, { CURSOR_BOX, cursorKind, hotspotOf, type CursorKind } from './DemoCursor';
 import { Driver, DemoAborted, type Point, type Stage } from './drive';
 import {
-  STEPS, SIGN_OFF, SIGN_OFF_MS, SIGN_OFF_FADE_MS, NARRATION_READY,
-  closingPose, openingPose, type DemoHost,
+  STEPS, SIGN_OFF, SIGN_OFF_MS, SIGN_OFF_FADE_MS, EXIT_MS, RESTORE_WATCH_MS,
+  NARRATION_READY, closingPose, exitPose, openingPose, type DemoHost,
 } from './steps';
 
 /**
@@ -58,6 +58,17 @@ const TILT_PER_PX = 1.5;    // degrees per px-per-frame of travel
 const TILT_SPRING = 0.16;
 const TILT_DAMP = 0.82;
 
+/**
+ * The ring a press leaves behind. A synthetic click moves no hardware and
+ * makes no sound, so without this the blend toggle simply changes on its own
+ * while a cursor happens to be nearby. An expanding ring is what every
+ * screencast tool draws for a click, which is the point: it needs no
+ * explaining.
+ */
+const RIPPLE_MS = 480;
+const RIPPLE_FROM = 12;   // px across, at the moment of the press
+const RIPPLE_TO = 58;
+
 const clamp = (v: number, lo: number, hi: number) => (v < lo ? lo : v > hi ? hi : v);
 
 export interface DemoRunnerProps {
@@ -69,12 +80,13 @@ export interface DemoRunnerProps {
 }
 
 /** Below this, the header slot is too narrow to read a sentence in. */
-const CAPTION_MIN_WIDTH = 320;
+const CAPTION_MIN_WIDTH = 420;
 const CAPTION_MAX_WIDTH = 720;
 
 export default function DemoRunner({ onRestore, onExit, host }: DemoRunnerProps) {
   const cursorRef = useRef<HTMLDivElement | null>(null);
   const captionRef = useRef<HTMLDivElement | null>(null);
+  const rippleRef = useRef<HTMLDivElement | null>(null);
   const [kind] = useState<CursorKind>(() => cursorKind());
   /** The step being played. STEPS.length is the sign-off. */
   const [index, setIndex] = useState(0);
@@ -100,6 +112,8 @@ export default function DemoRunner({ onRestore, onExit, host }: DemoRunnerProps)
   const driverRef = useRef<Driver | null>(null);
   const staged = useRef(false);
   const [leaving, setLeaving] = useState(false);
+  /** The ghost's own exit, which runs before the panel's. */
+  const [ghostLeaving, setGhostLeaving] = useState(false);
   /*
    * The playhead's clock. Written when a step starts and read every frame, so
    * the fill in the current tick is driven straight to the DOM and no part of
@@ -129,9 +143,12 @@ export default function DemoRunner({ onRestore, onExit, host }: DemoRunnerProps)
     let pressed = false;
     let raf = 0;
 
+    let ring: { x: number; y: number; start: number } | null = null;
+
     const stage: Stage = {
       setCursor(p) { target = p; },
       setPressed(v) { pressed = v; },
+      ripple(p) { ring = reduced ? null : { x: p.x, y: p.y, start: performance.now() }; },
     };
 
     /*
@@ -190,6 +207,25 @@ export default function DemoRunner({ onRestore, onExit, host }: DemoRunnerProps)
         cursor.style.transformOrigin = `${hot.x}px ${hot.y}px`;
         cursor.style.transform = `rotate(${tilt.toFixed(2)}deg) scale(${pressed ? 0.86 : 1})`;
       }
+      const dot = rippleRef.current;
+      if (dot && ring) {
+        const t = (performance.now() - ring.start) / RIPPLE_MS;
+        if (t >= 1) {
+          ring = null;
+          dot.style.opacity = '0';
+        } else {
+          // Out fast and gone slow, so the ring reads as something leaving the
+          // press rather than an object arriving at it.
+          const eased = 1 - Math.pow(1 - t, 3);
+          const size = RIPPLE_FROM + (RIPPLE_TO - RIPPLE_FROM) * eased;
+          dot.style.width = `${size}px`;
+          dot.style.height = `${size}px`;
+          dot.style.left = `${ring.x - size / 2}px`;
+          dot.style.top = `${ring.y - size / 2}px`;
+          dot.style.opacity = `${(1 - eased) * 0.85}`;
+        }
+      }
+
       const head = playhead.current;
       const fill = head ? tickFills.current[head.index] : null;
       if (head && fill) {
@@ -228,11 +264,18 @@ export default function DemoRunner({ onRestore, onExit, host }: DemoRunnerProps)
       }
       if (index >= STEPS.length) {
         playhead.current = null;
+        // Home first, so the colour tweens back under the ghost rather than
+        // somewhere it is not looking; then off the bottom of the screen,
+        // fading as it goes, rather than blinking out where it stood.
         await closingPose(ctx);
         restoreRef.current();
+        await d.wait(RESTORE_WATCH_MS);
+        setGhostLeaving(true);
+        await exitPose(ctx);
         // The demo is over; it should not sit on the screen waiting to be
         // dismissed. Through the driver so Back or Skip cancels it, and
         // through `linger` so it is five seconds however fast the rest ran.
+        playhead.current = { index: STEPS.length, start: performance.now(), ms: SIGN_OFF_MS };
         await d.linger(SIGN_OFF_MS);
         setLeaving(true);
         await d.linger(SIGN_OFF_FADE_MS);
@@ -308,7 +351,7 @@ export default function DemoRunner({ onRestore, onExit, host }: DemoRunnerProps)
                 // space, which is the whole point, and are still out of the
                 // accessibility tree, which is the other one.
                 style={{ visibility: text === caption ? 'visible' : 'hidden' }}
-                className="col-start-1 row-start-1 self-center text-pretty text-[15px] font-medium leading-snug sm:text-base"
+                className="col-start-1 row-start-1 self-center text-pretty text-xl font-medium leading-snug sm:text-2xl"
               >
                 {text}
               </p>
@@ -317,23 +360,35 @@ export default function DemoRunner({ onRestore, onExit, host }: DemoRunnerProps)
 
           <div className="flex shrink-0 items-center gap-1.5">
             <span className="mr-1 flex gap-1" data-testid="demo-ticks" aria-hidden="true">
-              {STEPS.map((step, i) => (
-                // A track with a fill, so the step being played reads as a
-                // playhead rather than a state. All one width: widening the
-                // current tick moved everything right of it by 2px each time
-                // it changed. Weight tells a played step from a coming one.
-                <span key={step.audio} className="h-1 w-5 overflow-hidden rounded-full bg-border">
-                  <i
-                    ref={(node) => { tickFills.current[i] = node; }}
-                    data-on={i <= index ? '' : undefined}
-                    data-testid={i === index && !done ? 'demo-playhead' : undefined}
-                    className={`block h-full w-full origin-left rounded-full ${done || i === index ? 'bg-foreground' : 'bg-foreground/70'}`}
-                    // The current tick's fill is driven by the frame loop from
-                    // here; the others are simply full or empty.
-                    style={{ transform: `scaleX(${i < index || done ? 1 : 0})` }}
-                  />
-                </span>
-              ))}
+              {/*
+                One track per step, and a longer one on the end for the
+                sign-off - which is a countdown rather than a step, so it gets
+                a tick of its own to run down rather than borrowing the last
+                step's. Each is a track with a fill, so the one being played
+                reads as a playhead rather than a state, and all are a fixed
+                width: widening the current tick moved everything right of it
+                by 2px each time it changed. Weight tells a played step from a
+                coming one.
+              */}
+              {Array.from({ length: STEPS.length + 1 }, (_, i) => {
+                const last = i === STEPS.length;
+                return (
+                  <span
+                    key={last ? 'sign-off' : STEPS[i].audio}
+                    className={`h-1 overflow-hidden rounded-full bg-border ${last ? 'w-8' : 'w-5'}`}
+                  >
+                    <i
+                      ref={(node) => { tickFills.current[i] = node; }}
+                      data-on={i <= index ? '' : undefined}
+                      data-testid={i === index ? 'demo-playhead' : undefined}
+                      className={`block h-full w-full origin-left rounded-full ${i === index ? 'bg-foreground' : 'bg-foreground/70'}`}
+                      // The tick being played is driven by the frame loop from
+                      // here; the others are simply full or empty.
+                      style={{ transform: `scaleX(${i < index ? 1 : 0})` }}
+                    />
+                  </span>
+                );
+              })}
             </span>
             {NARRATION_READY && (
               <button
@@ -385,10 +440,19 @@ export default function DemoRunner({ onRestore, onExit, host }: DemoRunnerProps)
         </div>
       </div>
 
+      {/* Drawn under the arrow, so the ring reads as coming out from the point
+          rather than sitting on top of it. */}
+      <div
+        ref={rippleRef}
+        aria-hidden="true"
+        className="pointer-events-none fixed rounded-full border-2 border-foreground"
+        style={{ opacity: 0, boxShadow: '0 0 0 1px rgba(0,0,0,0.35)' }}
+      />
+
       <div
         ref={cursorRef}
         aria-hidden="true"
-        className="pointer-events-none fixed transition-opacity duration-300"
+        className="pointer-events-none fixed transition-opacity"
         style={{
           width: CURSOR_BOX,
           height: CURSOR_BOX,
@@ -396,11 +460,13 @@ export default function DemoRunner({ onRestore, onExit, host }: DemoRunnerProps)
           marginTop: -hot.y,
           transformOrigin: `${hot.x}px ${hot.y}px`,
           filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.45))',
-          opacity: done ? 0 : 1,
+          opacity: ghostLeaving ? 0 : 1,
+          transitionDuration: `${EXIT_MS}ms`,
         }}
       >
         <DemoCursor kind={kind} />
       </div>
+
     </div>,
     document.body,
   );

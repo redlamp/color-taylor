@@ -151,16 +151,27 @@ export default function ColorPicker() {
   // pulseTone is declared below, after the audio settings it reads; the hook
   // reaches it through a ref so the state can be declared up here with the rest.
   const pulseToneRef = useRef<(next: HSB) => void>(() => {});
+  /*
+   * Run when a tween lands. The demo's restore uses it to put an exact RGB
+   * back: animateToHsb nulls rgbOverride on every frame, so a colour the user
+   * typed as R=137 would come back as whatever hsbToRgb makes of it - which
+   * differs for 86.4% of 8-bit colours. Through a ref because the callback
+   * needs setRgb, which this hook has not returned yet.
+   */
+  const onTweenLandedRef = useRef<() => void>(() => {});
   const {
     hsb, setHsb, rgb, hsl,
     hsbRef, rgbOverride, animRef,
-    setHsbClear, clearOverride, setRgbChannel, setHslChannel, animateToHsb: tweenTo, cancelTween,
+    setHsbClear, clearOverride, setRgb, setRgbChannel, setHslChannel, animateToHsb: tweenTo, cancelTween,
   } = useColorState({
     initial: initialHsb,
     onEdit: (next) => pulseToneRef.current(next),
     onTweenStart: (from) => toneController.start(from),
     onTweenFrame: (next) => toneController.update(next),
-    onTweenEnd: () => toneController.release(),
+    onTweenEnd: () => {
+      toneController.release();
+      onTweenLandedRef.current();
+    },
   });
   const [groups, setGroups] = useState<SliderGroup[]>(DEFAULT_GROUPS);
   // Blended tracks show the colour a drag would land on; flat ones show the
@@ -263,6 +274,13 @@ export default function ColorPicker() {
       window.removeEventListener('pointercancel', onUp, { capture: true } as EventListenerOptions);
     };
   }, []);
+  /*
+   * Declared up here rather than beside the rest of the demo's state, because
+   * the undo history below reads it: the demo's colours are not the user's
+   * edits and must not enter the stack.
+   */
+  const [demoOpen, setDemoOpen] = useState(false);
+
   // Undo/redo history
   const undoStack = useRef<HSB[]>([]);
   const redoStack = useRef<HSB[]>([]);
@@ -272,6 +290,9 @@ export default function ColorPicker() {
   // Push to undo stack (debounced — only if value changed significantly)
   useEffect(() => {
     if (isUndoRedoing.current) return;
+    // The demo's colours are not the user's edits; undo after it should reach
+    // back past the whole thing to whatever they were doing before.
+    if (demoOpen) return;
     const key = `${hsb.h},${hsb.s},${hsb.b}`;
     if (key === lastPushed.current) return;
     const timeout = setTimeout(() => {
@@ -284,7 +305,7 @@ export default function ColorPicker() {
       lastPushed.current = key;
     }, 500);
     return () => clearTimeout(timeout);
-  }, [hsb.h, hsb.s, hsb.b]);
+  }, [hsb.h, hsb.s, hsb.b, demoOpen]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -433,6 +454,7 @@ export default function ColorPicker() {
       setGroups(DEFAULT_GROUPS);
       setBlend(DEFAULT_BLEND);
       setHighlights(true);
+      setColorFx(true);
     };
     window.addEventListener('color-taylor:reset-all', onResetAll);
     return () => window.removeEventListener('color-taylor:reset-all', onResetAll);
@@ -451,13 +473,15 @@ export default function ColorPicker() {
    * the same tween an undo uses, the slider groups and blend as they were.
    * Teaching a setting by silently changing it is a poor trade.
    */
-  const [demoOpen, setDemoOpen] = useState(false);
-  const demoSnapshot = useRef<{ hsb: HSB; groups: SliderGroup[]; blend: boolean } | null>(null);
+  const demoSnapshot = useRef<{
+    hsb: HSB; rgb: RGB; groups: SliderGroup[]; blend: boolean;
+  } | null>(null);
+  const demoExactRgb = useRef<RGB | null>(null);
   const startDemo = useCallback(() => {
     takeOverFromAnimation();
-    demoSnapshot.current = { hsb: { ...hsbRef.current }, groups, blend };
+    demoSnapshot.current = { hsb: { ...hsbRef.current }, rgb: { ...rgb }, groups, blend };
     setDemoOpen(true);
-  }, [takeOverFromAnimation, hsbRef, groups, blend]);
+  }, [takeOverFromAnimation, hsbRef, rgb, groups, blend]);
   const restoreDemo = useCallback(() => {
     const snap = demoSnapshot.current;
     // Null after the first call: the script restores when it reaches the last
@@ -466,8 +490,26 @@ export default function ColorPicker() {
     demoSnapshot.current = null;
     setGroups(snap.groups);
     setBlend(snap.blend);
+    /*
+     * The tween restores HSB, and hsbToRgb(rgbToHsb(rgb)) changes 86.4% of
+     * 8-bit colours - so a colour the user typed as R=137 would come back as
+     * something else. Only when the two disagree: a colour that came from the
+     * hexagon has no exact RGB to put back, and forcing one would pin its hue.
+     */
+    const derived = hsbToRgb(snap.hsb.h, snap.hsb.s, snap.hsb.b);
+    const exact = snap.rgb;
+    const drifts = exact.r !== derived.r || exact.g !== derived.g || exact.b !== derived.b;
+    demoExactRgb.current = drifts ? exact : null;
     animateToHsb(snap.hsb);
   }, [animateToHsb]);
+  useEffect(() => {
+    onTweenLandedRef.current = () => {
+      const exact = demoExactRgb.current;
+      if (!exact) return;
+      demoExactRgb.current = null;
+      setRgb(exact);
+    };
+  }, [setRgb]);
   const demoHost = useMemo<DemoHost>(() => ({
     showDefaultSliders: () => setGroups(DEFAULT_GROUPS),
     setBlend: (on: boolean) => setBlend(on),
@@ -817,6 +859,7 @@ export default function ColorPicker() {
             onHoverHtmlColor={setHoveredHtmlColor}
             muted={effectiveMuted}
             collapsedSections
+            recordRecent={!demoOpen}
             impactChannels={impactChannels}
             hueBadgeLit={hueBadgeLit}
             hueFillLit={hueFillLit}

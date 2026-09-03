@@ -94,13 +94,21 @@ export default function PluginBanner() {
    * (settings/IntegrationNews), where it costs the picker no vertical room at
    * all. One shape, one breakpoint, no `sm:contents` trick to maintain.
    */
+  /*
+   * Floating, not in the flow. It used to be a sibling above the centring row
+   * so it displaced the picker rather than covering it - which meant the whole
+   * tool jumped up the moment anyone dismissed it, and jumped again on the
+   * next visit. A notice about something else should not be able to move the
+   * thing you came for. The row keeps its padding so the pill sits clear of
+   * the top edge, and only the pill itself takes a pointer.
+   */
   return (
-    <div className="hidden justify-center p-3 sm:flex">
+    <div className="pointer-events-none fixed inset-x-0 top-0 z-40 hidden justify-center p-3 sm:flex">
       <div
         role="region"
         aria-label="Color Taylor plugin"
         className={
-          'relative flex items-center gap-2 rounded-full border border-border ' +
+          'pointer-events-auto relative flex items-center gap-2 rounded-full border border-border ' +
           'bg-card/95 py-1.5 pr-1.5 pl-3.5 shadow-lg supports-backdrop-filter:backdrop-blur-sm'
         }
       >
@@ -126,13 +134,20 @@ export default function PluginBanner() {
         {live && (
           <a
             // nowrap: the label must never break to "Get the / plugin".
-            className="ctl-quiet h-7 shrink-0 rounded-full px-3 text-xs whitespace-nowrap no-underline"
+            className="group ctl-quiet h-7 shrink-0 rounded-full px-3 text-xs whitespace-nowrap no-underline"
             href={item.href}
             target="_blank"
             rel="noopener noreferrer"
           >
             Get the plugin
-            <ArrowUpRight className="size-3.5" aria-hidden="true" />
+            {/* The arrow takes off along its own diagonal on hover: up and to
+                the right, which is the direction it already points and the
+                direction the link goes. `group` is on the anchor so the glyph
+                answers a hover anywhere on the button, not only on itself. */}
+            <ArrowUpRight
+              className="size-3.5 transition-transform duration-200 ease-out group-hover:-translate-y-0.5 group-hover:translate-x-0.5 motion-reduce:transition-none"
+              aria-hidden="true"
+            />
             <span className="sr-only">
               on the {item.platform} Community (opens in a new tab)
             </span>

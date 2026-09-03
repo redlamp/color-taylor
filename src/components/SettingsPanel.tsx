@@ -78,7 +78,7 @@ export function SettingsPanel({
           }
         >
           <div className="flex items-center justify-between border-b border-border px-3 py-2">
-            <DialogPrimitive.Title className="text-sm font-semibold">Settings</DialogPrimitive.Title>
+            <DialogPrimitive.Title className="text-base font-semibold">Settings</DialogPrimitive.Title>
             <DialogPrimitive.Close
               aria-label="Close settings"
               className="cursor-pointer select-none rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"

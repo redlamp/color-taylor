@@ -40,7 +40,12 @@ export default function SBBox({ hue, saturation, brightness, onChange }: SBBoxPr
       // section could not flex at all. Safe to drop because the pointer maths
       // reads rect.width and rect.height at the time of the event, so saturation
       // and brightness stay correct at any shape.
-      className="relative flex-1 min-w-0 overflow-hidden cursor-crosshair select-none touch-none"
+      // No overflow clip: at the edges of the box the handle is the thing
+      // being positioned, and half a ring reads as a rendering fault rather
+      // than as "fully saturated". It is absolutely positioned, so hanging
+      // over the edge costs no layout - the box does not grow to hold it.
+      // The two gradients below are inset-0 and cannot spill in any case.
+      className="relative flex-1 min-w-0 cursor-crosshair select-none touch-none"
       ref={ref}
       style={{ backgroundColor: hueColor }}
       onPointerDown={(e) => {

@@ -62,7 +62,7 @@ function SegmentedRow<T extends string>({
           type="button"
           onClick={() => onChange(o.value)}
           className={
-            'px-2 py-1 text-sm rounded-sm cursor-pointer select-none transition ' +
+            'px-2 py-1 text-base rounded-sm cursor-pointer select-none transition ' +
             (value === o.value
               ? active
               : 'text-muted-foreground hover:text-foreground hover:bg-muted')
@@ -89,8 +89,8 @@ function SliderRow({
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center justify-between">
-        <Label className="text-sm text-muted-foreground">{label}</Label>
-        <span className="text-sm tabular-nums text-foreground">{format ? format(value) : value}</span>
+        <Label className="text-base text-muted-foreground">{label}</Label>
+        <span className="text-base tabular-nums text-foreground">{format ? format(value) : value}</span>
       </div>
       <Slider
         value={[value]}
@@ -210,9 +210,9 @@ export function AudioSettings({ muted, onToggleMute }: AudioSettingsProps) {
             >
               <MuteIcon className="size-3.5" />
             </button>
-            <Label className="text-sm text-muted-foreground">Main volume</Label>
+            <Label className="text-base text-muted-foreground">Main volume</Label>
           </div>
-          <span className="text-sm tabular-nums text-foreground">{(s.masterGain * 100).toFixed(0)}%</span>
+          <span className="text-base tabular-nums text-foreground">{(s.masterGain * 100).toFixed(0)}%</span>
         </div>
         <Slider
           value={[s.masterGain]}
@@ -233,7 +233,7 @@ export function AudioSettings({ muted, onToggleMute }: AudioSettingsProps) {
 
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center justify-between gap-2">
-          <Label className="text-sm text-muted-foreground shrink-0">Mode</Label>
+          <Label className="text-base text-muted-foreground shrink-0">Mode</Label>
           <div className="flex-1 max-w-[65%]">
             <SegmentedRow value={s.mode} options={MODES} onChange={(v) => updateSynth({ mode: v })} />
           </div>
@@ -256,11 +256,11 @@ export function AudioSettings({ muted, onToggleMute }: AudioSettingsProps) {
       <Accordion multiple defaultValue={[]}>
         {isChord && (
           <AccordionItem value="voicing">
-            <AccordionTrigger className="text-sm text-muted-foreground">Voicing</AccordionTrigger>
+            <AccordionTrigger className="text-base text-muted-foreground">Voicing</AccordionTrigger>
             <AccordionContent>
               <div className="flex flex-col gap-3 pt-1 pl-3 pr-1 ml-0.5 border-l border-input/40">
                 <div className="flex items-center justify-between gap-2">
-                  <Label className="text-sm text-muted-foreground shrink-0">Chord</Label>
+                  <Label className="text-base text-muted-foreground shrink-0">Chord</Label>
                   <div className="flex-1 max-w-[65%]">
                     <SegmentedRow value={s.chord} options={CHORDS} onChange={(v) => updateSynth({ chord: v })} />
                   </div>
@@ -279,7 +279,7 @@ export function AudioSettings({ muted, onToggleMute }: AudioSettingsProps) {
                 />
 
                 <div className="flex items-center justify-between gap-2">
-                  <Label className="text-sm text-muted-foreground shrink-0">Tuning</Label>
+                  <Label className="text-base text-muted-foreground shrink-0">Tuning</Label>
                   <div className="flex-1 max-w-[65%]">
                     <SegmentedRow
                       value={s.tuning}
@@ -290,7 +290,7 @@ export function AudioSettings({ muted, onToggleMute }: AudioSettingsProps) {
                 </div>
 
                 <div className="flex items-center justify-between gap-2">
-                  <Label className="text-sm text-muted-foreground shrink-0">Voice order</Label>
+                  <Label className="text-base text-muted-foreground shrink-0">Voice order</Label>
                   <div className="flex-1 max-w-[65%]">
                     <SegmentedRow value={s.voiceOrder} options={ORDERS} onChange={(v) => updateSynth({ voiceOrder: v })} />
                   </div>
@@ -302,11 +302,11 @@ export function AudioSettings({ muted, onToggleMute }: AudioSettingsProps) {
 
         {!isChord && (
           <AccordionItem value="voicing">
-            <AccordionTrigger className="text-sm text-muted-foreground">Voicing</AccordionTrigger>
+            <AccordionTrigger className="text-base text-muted-foreground">Voicing</AccordionTrigger>
             <AccordionContent>
               <div className="flex flex-col gap-3 pt-1 pl-3 pr-1 ml-0.5 border-l border-input/40">
                 <div className="flex flex-col gap-1.5">
-                  <Label className="text-sm text-muted-foreground">Scale</Label>
+                  <Label className="text-base text-muted-foreground">Scale</Label>
                   <SegmentedRow value={s.scale} options={SCALES} onChange={(v) => updateSynth({ scale: v })} />
                 </div>
                 <SliderRow
@@ -323,12 +323,12 @@ export function AudioSettings({ muted, onToggleMute }: AudioSettingsProps) {
         )}
 
         <AccordionItem value="sound">
-          <AccordionTrigger className="text-sm text-muted-foreground">Sound</AccordionTrigger>
+          <AccordionTrigger className="text-base text-muted-foreground">Sound</AccordionTrigger>
           <AccordionContent keepMounted>
             <div className="flex flex-col gap-3 pt-1 pl-3 pr-1 ml-0.5 border-l border-input/40">
               <div className="flex flex-col gap-1.5">
                 <div className="flex items-center justify-between">
-                  <Label className="text-sm text-muted-foreground">Oscillator</Label>
+                  <Label className="text-base text-muted-foreground">Oscillator</Label>
                   {isChord && (
                     <div className="flex items-center gap-1.5 shrink-0">
                       <Label className="text-xs text-muted-foreground">Linked</Label>
@@ -347,19 +347,19 @@ export function AudioSettings({ muted, onToggleMute }: AudioSettingsProps) {
                 {isChord && !s.oscLinked && (
                   <div className="flex flex-col gap-1.5">
                     <div className="flex items-center gap-2">
-                      <span className="w-4 text-sm font-semibold text-red-500">R</span>
+                      <span className="w-4 text-base font-semibold text-red-500">R</span>
                       <div className="flex-1">
                         <SegmentedRow value={s.oscR} options={OSCS} onChange={(v) => updateSynth({ oscR: v })} activeClass="bg-red-600 text-white" />
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="w-4 text-sm font-semibold text-green-500">G</span>
+                      <span className="w-4 text-base font-semibold text-green-500">G</span>
                       <div className="flex-1">
                         <SegmentedRow value={s.oscG} options={OSCS} onChange={(v) => updateSynth({ oscG: v })} activeClass="bg-green-600 text-white" />
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="w-4 text-sm font-semibold text-blue-500">B</span>
+                      <span className="w-4 text-base font-semibold text-blue-500">B</span>
                       <div className="flex-1">
                         <SegmentedRow value={s.oscB} options={OSCS} onChange={(v) => updateSynth({ oscB: v })} activeClass="bg-blue-600 text-white" />
                       </div>
@@ -385,7 +385,7 @@ export function AudioSettings({ muted, onToggleMute }: AudioSettingsProps) {
               />
               <Accordion defaultValue={[]}>
                 <AccordionItem value="advanced">
-                  <AccordionTrigger className="text-sm text-muted-foreground">Advanced</AccordionTrigger>
+                  <AccordionTrigger className="text-base text-muted-foreground">Advanced</AccordionTrigger>
                   <AccordionContent keepMounted>
                     <div className="flex flex-col gap-3 pt-1 pl-3 pr-1 ml-0.5 border-l border-input/40">
                       <SliderRow
