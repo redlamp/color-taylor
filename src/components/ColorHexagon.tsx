@@ -1020,6 +1020,17 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
    * saturation out instead, which is what "lighter" means for a saturated
    * color.
    */
+  /** Straight RGB lerp between two hex colors. t of 1 returns `b` exactly. */
+  const mixHex = useCallback((a: string, b: string, t: number) => {
+    const ca = hexToRgb(a), cb = hexToRgb(b);
+    if (!ca || !cb) return b;
+    return rgbToHex(
+      Math.round(ca.r + (cb.r - ca.r) * t),
+      Math.round(ca.g + (cb.g - ca.g) * t),
+      Math.round(ca.b + (cb.b - ca.b) * t),
+    );
+  }, []);
+
   const lift = useCallback((hex: string, amount = 22) => {
     const c = hexToRgb(hex);
     if (!c) return hex;
@@ -2021,11 +2032,11 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             // marks a selection with, and it takes on the channel's color as
             // the stems that justify it arrive.
             //
-            // The tip is the colour itself, so it is the one handle that stays
-            // white-ringed with the chain drawn too, and a size up from the
-            // joints, which are explanation rather than selection.
-            const baseRing = isTip ? '#ffffff' : CHANNEL_COLOR[ch];
-            const hoverRing = isTip ? baseRing : lift(baseRing);
+            // The tip is a size up from the joints - it is the selection, they
+            // are the explanation - but it carries its channel's colour like
+            // them; the highlight colour is what a drag shows.
+            const baseRing = isTip ? mixHex('#ffffff', CHANNEL_COLOR[ch], chainReveal) : CHANNEL_COLOR[ch];
+            const hoverRing = lift(baseRing);
             // Thickens outward on hover, same 1.5x the stems use.
             const ringW = isHighlighted ? HANDLE.ring * HANDLE.hoverScale : HANDLE.ring;
             const ringR = ringRadius(ringW) + (isTip ? 2 : 0);

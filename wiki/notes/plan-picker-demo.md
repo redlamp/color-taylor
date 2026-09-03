@@ -25,7 +25,7 @@ The picker's argument is [[hexagon-is-the-cube-down-its-diagonal]]. The demo doe
   - Two colours, in `src/index.css`: `--highlight-hex` for the hexagon, set once because the colour field is the same in both themes; `--highlight-line` for the sliders, per theme because the tracks sit on the panel.
 - **Channel tooltips on the hexagon.** Hover or drag a stem and a pill names its channel (RED, GREEN, BLUE) at a fixed side of the stem's midpoint - red below, green north-east, blue north-west, never flipped, allowed outside the hexagon. A joint has no tooltip of its own; it shows the tooltip of every stem it drives. They fade out for the length of a drag so the halos are what the eye follows. Fills are Tailwind's 600 step of each hue.
 - **A "Hue" label** above the hue badge, following it round the circle, in the Saturation and Brightness labels' type.
-- **Handles.** Joints keep the channel-coloured ring with the field colour under them as the core. The tip is a size up with a white ring: it is the selection, the joints are the explanation.
+- **Handles.** Joints keep the channel-coloured ring with the field colour under them as the core. The tip is a size up, in its channel's colour like the others: it is the selection, the joints are the explanation, and the highlight colour is what a drag shows.
 
 ## The demo itself
 
