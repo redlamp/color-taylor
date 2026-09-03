@@ -285,7 +285,9 @@ function ColorSlider({ label, group, value, max, gradient, suffix, wrap, onChang
       {/* h-8, the app's one control height. This was h-6 while the segmented
           controls beside it were h-8, so a row mixed two sizes. Widths grow with
           it to keep the plus/minus targets from going narrow and tall. */}
-      {stepperMode !== 'none' && <div id={`${sliderId}-stepper`} className="flex items-center h-8 shrink-0">
+      {/* Tagged like the track: a drag on the number field is still this
+          slider being held, and a control never lights itself. */}
+      {stepperMode !== 'none' && <div id={`${sliderId}-stepper`} data-hold={`sl:${channel}`} className="flex items-center h-8 shrink-0">
         <div className={`flex items-center border border-input rounded-md overflow-hidden h-8 ${stepperMode === 'value' ? 'w-[52px]' : 'w-[92px]'}`}>
           {stepperMode === 'full' && (
             <Button

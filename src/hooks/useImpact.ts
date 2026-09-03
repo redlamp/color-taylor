@@ -11,9 +11,11 @@ import { useMemo } from 'react';
  * flickering when a value pauses mid-drag, and it makes the set a pure
  * function of state - nothing accumulates, nothing needs an effect.
  *
- * Nothing is excluded here. The held control's own key is in the set too, and
- * each consumer decides whether it wants itself lit - a slider does not, a
- * hexagon stem does.
+ * Nothing is excluded here. The held control's own key is in the set too;
+ * each consumer compares against the hold key and the rule is the same
+ * everywhere: a control never lights while it is the one being manipulated.
+ * A slider, a bar, the hue badge each skip themselves, and the hexagon's
+ * stems and joints draw no halos at all while one of them is held.
  *
  * `values` must be memoised on its scalars: the memo keys off its identity.
  */
