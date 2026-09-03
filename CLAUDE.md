@@ -54,7 +54,7 @@ Single-page app with two top-level views routed by URL hash via `src/hooks/useHa
 
 Undo/redo lives in `undoStack`/`redoStack` refs in `ColorPicker.tsx` (debounced 500ms push on HSB change, capped at 50). It tweens to the popped value rather than snapping, and uses an `isUndoRedoing` ref to suppress re-pushes during the tween.
 
-`localStorage` keys, all nine of them:
+`localStorage` keys, all ten of them:
 
 | Key | Holds | Owner |
 |---|---|---|
@@ -66,6 +66,7 @@ Undo/redo lives in `undoStack`/`redoStack` refs in `ColorPicker.tsx` (debounced 
 | `color-taylor-theme` | dark/light | `useTheme` |
 | `color-taylor-muted` | mute toggle, `'1'`/`'0'` | `ColorPicker` |
 | `color-taylor-effects` | color-reactive chrome, `'1'`/`'0'`, read as "not explicitly off" | `ColorPicker` |
+| `color-taylor-highlights` | impact highlights, `'1'`/`'0'`, read the same way | `ColorPicker` |
 | `color-taylor-plugin-banner` | banner dismissal | `PluginBanner` |
 
 Reset-all doesn't clear these centrally. `SettingsPanel` broadcasts a `color-taylor:reset-all` window event and each owner clears its own keys, so **a new key needs its owner to listen for that event** or it will survive a reset.

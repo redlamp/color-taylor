@@ -209,6 +209,19 @@ export default function ColorPicker() {
   useEffect(() => {
     try { localStorage.setItem('color-taylor-effects', colorFx ? '1' : '0'); } catch { /* localStorage unavailable */ }
   }, [colorFx]);
+  /*
+   * The impact highlights, on by default and read the same way: "not
+   * explicitly off". They are the picker's argument made visible - drag one
+   * control and the others that moved light up - but they are also motion on
+   * every drag, and someone working rather than learning may want the tool to
+   * hold still.
+   */
+  const [highlights, setHighlights] = useState<boolean>(() => {
+    try { return localStorage.getItem('color-taylor-highlights') !== '0'; } catch { return true; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('color-taylor-highlights', highlights ? '1' : '0'); } catch { /* localStorage unavailable */ }
+  }, [highlights]);
   const { isDark } = useTheme();
   useColorEffects({ enabled: colorFx, hsb, isDark });
   const { settings, updateSynth } = useSettings();
@@ -419,6 +432,7 @@ export default function ColorPicker() {
       animateToHsb(DEFAULT_HSB);
       setGroups(DEFAULT_GROUPS);
       setBlend(DEFAULT_BLEND);
+      setHighlights(true);
     };
     window.addEventListener('color-taylor:reset-all', onResetAll);
     return () => window.removeEventListener('color-taylor:reset-all', onResetAll);
@@ -487,7 +501,13 @@ export default function ColorPicker() {
     const id = setInterval(snap, PLAY_SNAP_MS);
     return () => { clearTimeout(first); clearInterval(id); };
   }, [colorAnimActive]);
-  const effectiveHold = hold ?? (colorAnimActive ? playHold : null);
+  /*
+   * One gate for the whole feature: every highlight in the picker derives from
+   * `lit` and `held`, and both come from here, so a null hold silences the
+   * sliders, the hexagon's halos, the bars, the badge and the hue fill at once
+   * without any of them being told about the setting.
+   */
+  const effectiveHold = highlights ? (hold ?? (colorAnimActive ? playHold : null)) : null;
   const lit = useImpact(shown, effectiveHold);
   const held = effectiveHold?.key ?? null;
   /** A slider lights when its value moved and it is not the one being held. */
@@ -1070,6 +1090,8 @@ export default function ColorPicker() {
         onToggleMute={() => setMuted(m => !m)}
         colorFx={colorFx}
         onToggleColorFx={() => setColorFx(v => !v)}
+        highlights={highlights}
+        onToggleHighlights={() => setHighlights(v => !v)}
       />
     </div>
   );

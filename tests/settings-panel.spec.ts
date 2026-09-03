@@ -113,4 +113,46 @@ test.describe('Settings sheet', () => {
     await sheet(page).getByRole('button', { name: /reset all settings/i }).click();
     await expect(page.locator('#fps-meter')).toHaveCount(0);
   });
+
+  /**
+   * The impact highlights are one gate in ColorPicker - every lit thing in the
+   * picker derives from the same hold - so this drags one slider and watches
+   * another's keyline, which is the cross-control case the whole feature is
+   * for. The keyline is always mounted and crossfades, so it is opacity that
+   * is asserted, not presence.
+   */
+  test('the interaction highlights switch silences them, and reset-all brings them back', async ({ page }) => {
+    const keyline = page.locator('#slider-hsb-h-keyline');
+    const opacityOf = () => keyline.evaluate((el) => getComputedStyle(el).opacity);
+
+    const dragRed = async () => {
+      const box = (await page.locator('#slider-rgb-r-arrow').boundingBox())!;
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(box.x + box.width / 2 + 60, box.y + box.height / 2, { steps: 6 });
+    };
+
+    await dragRed();
+    await expect.poll(opacityOf, { timeout: 1000 }).toBe('1');
+    await page.mouse.up();
+
+    await gear(page).click();
+    await sheet(page).getByRole('switch', { name: 'Toggle interaction highlights' }).click();
+    await page.keyboard.press('Escape');
+    await expect(sheet(page)).toBeHidden();
+
+    await dragRed();
+    await page.waitForTimeout(400);
+    expect(await opacityOf()).toBe('0');
+    await page.mouse.up();
+
+    await gear(page).click();
+    await sheet(page).getByRole('button', { name: /reset all settings/i }).click();
+    await page.keyboard.press('Escape');
+    await expect(sheet(page)).toBeHidden();
+
+    await dragRed();
+    await expect.poll(opacityOf, { timeout: 1000 }).toBe('1');
+    await page.mouse.up();
+  });
 });

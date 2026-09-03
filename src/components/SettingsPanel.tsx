@@ -41,10 +41,14 @@ interface Props {
   muted: boolean;
   onToggleMute: () => void;
   colorFx: boolean;
+  highlights: boolean;
+  onToggleHighlights: () => void;
   onToggleColorFx: () => void;
 }
 
-export function SettingsPanel({ open, onClose, muted, onToggleMute, colorFx, onToggleColorFx }: Props) {
+export function SettingsPanel({
+  open, onClose, muted, onToggleMute, colorFx, onToggleColorFx, highlights, onToggleHighlights,
+}: Props) {
   const { reset: resetSynth, settings, setAudioEnabled } = useSettings();
   const audioEnabled = settings.audioEnabled;
   const { reset: resetTheme } = useTheme();
@@ -90,6 +94,8 @@ export function SettingsPanel({ open, onClose, muted, onToggleMute, colorFx, onT
                 <AccordionContent keepMounted>
                   <DisplaySettings
                     colorFx={colorFx}
+                    highlights={highlights}
+                    onToggleHighlights={onToggleHighlights}
                     onToggleColorFx={onToggleColorFx}
                     audioEnabled={audioEnabled}
                     onToggleAudio={() => setAudioEnabled(!audioEnabled)}
