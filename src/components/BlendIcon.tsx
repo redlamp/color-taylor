@@ -3,7 +3,7 @@
  * and half-filled when on.
  *
  * Their artwork rather than a Lucide approximation, because this control sits
- * beside Figma's chrome and their vocabulary for "blend" is this exact shape -
+in the plugin and the app, and Figma's vocabulary for "blend" is this exact shape -
  * not the overlapping circles most icon sets reach for. Two paths on a 32x32
  * artboard with the glyph occupying roughly x 12-20, y 11-21, so the viewBox is
  * cropped to the artwork or it renders as a speck at 14px.

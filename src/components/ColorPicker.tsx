@@ -17,7 +17,10 @@ import {
   greenChannelGradient,
   blueChannelGradient,
 } from '../utils/sliderGradients';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import BlendIcon from './BlendIcon';
+import { useImpact, holdKeyOf, type Hold } from '@/hooks/useImpact';
+import type { Channel } from './hex/hexConstants';
 import ColorSlider from './ColorSlider';
 import ColorHexagon from './ColorHexagon';
 import { HEX_PANEL_WIDTH } from './hex/hexConstants';
@@ -72,11 +75,26 @@ import { useTheme } from '@/hooks/useTheme';
 import useColorEffects from '@/hooks/useColorEffects';
 import { toneController } from '@/utils/toneControllerLazy';
 import { useColorState } from '@/hooks/useColorState';
-import { Play, Pause, Settings, Music, Slash } from 'lucide-react';
+import { Play, Pause, Settings, Music, Slash, CircleHelp } from 'lucide-react';
 
-type HslMode = 'hsb' | 'hsl' | 'both';
-type RgbGradientMode = 'channel' | 'mixed';
 type BlMode = 'brightness' | 'lightness';
+/**
+ * The slider blocks, in the order they stack. The same control as the Figma
+ * plugin's, without its alpha row: a multi-select rather than HSB-or-HSL tabs,
+ * because each block reads and writes within its own model and any set of
+ * them stays self-consistent through the shared colour.
+ */
+type SliderGroup = 'RGB' | 'HSB' | 'HSL';
+const SLIDER_GROUPS: SliderGroup[] = ['RGB', 'HSB', 'HSL'];
+const GROUP_TIP: Record<SliderGroup, string> = {
+  RGB: 'Red, Green, Blue',
+  HSB: 'Hue, Saturation, Brightness',
+  HSL: 'Hue, Saturation, Lightness',
+};
+/** The toolbar's tooltips read at a glance: a step up from the default size, and bold. */
+const TOOLBAR_TIP_CLASS = 'text-sm font-semibold';
+/** Tailwind for the rule a block draws above itself when it is not first. */
+const BLOCK_CLASS = 'flex flex-col gap-2 [&:not(:first-child)]:mt-3 [&:not(:first-child)]:border-t [&:not(:first-child)]:border-input [&:not(:first-child)]:pt-3';
 
 // Color-cycle animation constants (mirror DEFAULT_RECENT in ColorHexagon)
 const COLOR_KEYFRAMES = [
@@ -128,8 +146,20 @@ export default function ColorPicker() {
     onTweenFrame: (next) => toneController.update(next),
     onTweenEnd: () => toneController.release(),
   });
-  const [hslMode, setHslMode] = useState<HslMode>('hsb');
-  const [rgbGradientMode, setRgbGradientMode] = useState<RgbGradientMode>('channel');
+  const [groups, setGroups] = useState<SliderGroup[]>(['RGB', 'HSB']);
+  // Blended tracks show the colour a drag would land on; flat ones show the
+  // channel alone. On by default, as in the plugin.
+  const [blend, setBlend] = useState(true);
+  /*
+   * The control under the pointer, for the impact highlights. Set on every
+   * pointerdown in the window from the nearest data-hold tag (or 'other'),
+   * with the readouts as they stood at the press; cleared on release. The
+   * ref carries the latest readouts to the listener, which is registered
+   * once. Its key is what the sliders compare against, so it is read below
+   * as `held`.
+   */
+  const [hold, setHold] = useState<Hold | null>(null);
+  const shownRef = useRef<Record<string, number>>({});
   const [blMode, setBlMode] = useState<BlMode>('brightness');
   const [colorSpace, setColorSpace] = useState<ColorSpace>('srgb');
   const [hoverMatchRgb, setHoverMatchRgb] = useState<RGB | null>(null);
@@ -174,9 +204,13 @@ export default function ColorPicker() {
   useEffect(() => { pulseToneRef.current = pulseTone; }, [pulseTone]);
 
   useEffect(() => {
-    const onDown = () => { isPointerDownRef.current = true; };
+    const onDown = (e: PointerEvent) => {
+      isPointerDownRef.current = true;
+      setHold({ key: holdKeyOf(e.target), base: shownRef.current });
+    };
     const onUp = () => {
       isPointerDownRef.current = false;
+      setHold(null);
       toneController.notifyPointerUp();
     };
     window.addEventListener('pointerdown', onDown, { capture: true });
@@ -370,8 +404,35 @@ export default function ColorPicker() {
     setHslChannel(channel, value);
   }, [setHslChannel, takeOverFromAnimation]);
 
-  const showHsb = hslMode === 'hsb' || hslMode === 'both';
-  const showHsl = hslMode === 'hsl' || hslMode === 'both';
+  /*
+   * What each readout shows, as integers, keyed the way the sliders tag
+   * themselves. Rounded because that is the number a slider displays: a hue
+   * that moved by a hundredth of a degree has not moved on any track.
+   */
+  const shown = useMemo(() => ({
+    'rgb-r': rgb.r, 'rgb-g': rgb.g, 'rgb-b': rgb.b,
+    'hsb-h': Math.round(hsb.h), 'hsb-s': Math.round(hsb.s), 'hsb-b': Math.round(hsb.b),
+    'hsl-h': Math.round(hsl.h), 'hsl-s': Math.round(hsl.s), 'hsl-l': Math.round(hsl.l),
+  }), [rgb.r, rgb.g, rgb.b, hsb.h, hsb.s, hsb.b, hsl.h, hsl.s, hsl.l]);
+  useEffect(() => { shownRef.current = shown; }, [shown]);
+  const lit = useImpact(shown, hold);
+  const held = hold?.key ?? null;
+  /** A slider lights when its value moved and it is not the one being held. */
+  const sliderLit = (key: string) => lit.has(key) && held !== `sl:${key}`;
+  /*
+   * The hexagon lights by channel: a stem and its joint as one unit, for every
+   * channel that moved plus every channel the held stem or joint drives. The
+   * drives come from the hold key - `hex:rg` is the green joint - so grabbing
+   * a joint lights its whole chain before anything has moved.
+   */
+  const impactChannels = useMemo(() => {
+    const set = new Set<Channel>();
+    (['r', 'g', 'b'] as Channel[]).forEach((c) => { if (lit.has(`rgb-${c}`)) set.add(c); });
+    if (held?.startsWith('hex:')) (held.slice(4).split('') as Channel[]).forEach((c) => set.add(c));
+    return set;
+  }, [lit, held]);
+  const hueBadgeLit = lit.has('hsb-h') && held !== 'hue';
+  const hueFillLit = held === 'sl:hsb-s' || held === 'sl:hsl-s';
 
   // Stable per-channel onChange handlers so memoized ColorSlider children
   // can skip re-renders when their channel value hasn't changed.
@@ -577,6 +638,24 @@ export default function ColorPicker() {
             <TooltipTrigger
               render={
                 <button
+                  id="demo-button"
+                  className="ctl-quiet-icon"
+                  // The self-running demo lands here; see
+                  // wiki/notes/plan-picker-demo.md. The button ships first so
+                  // the header settles before the demo does.
+                  onClick={() => {}}
+                  aria-label="Show the demo"
+                >
+                  <CircleHelp className="size-4" />
+                </button>
+              }
+            />
+            <TooltipContent>Demo</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <button
                   className="ctl-quiet-icon"
                   onClick={() => setSettingsOpen(o => !o)}
                   aria-label="Open settings"
@@ -639,6 +718,10 @@ export default function ColorPicker() {
             showHtmlOnHex={showHtmlOnHex}
             onHoverHtmlColor={setHoveredHtmlColor}
             muted={effectiveMuted}
+            collapsedSections
+            impactChannels={impactChannels}
+            hueBadgeLit={hueBadgeLit}
+            hueFillLit={hueFillLit}
           />
 
         {/* Right column: Controls. Width comes from the grid track now, so this
@@ -705,134 +788,151 @@ export default function ColorPicker() {
           />
         </div>
 
-        {/* RGB sliders */}
-        <CollapsibleSection
-          id="rgb-group"
-          title="RGB"
-          headerRight={
-            <Tabs value={rgbGradientMode} onValueChange={setRgbGradientMode}>
-              <TabsList>
-                <TabsTrigger value="channel" className="w-16">Channel</TabsTrigger>
-                <TabsTrigger value="mixed" className="w-16">Mixed</TabsTrigger>
-              </TabsList>
-            </Tabs>
-          }
-        >
-          <div className="flex flex-col gap-2">
-            <ColorSlider
-              label="R"
-              group='rgb'
-              value={rgb.r}
-              max={255}
-              gradient={rgbGradientMode === 'mixed' ? redGradient(rgb.g, rgb.b) : redChannelGradient}
-              onChange={handleRChange}
-            />
-            <ColorSlider
-              label="G"
-              group='rgb'
-              value={rgb.g}
-              max={255}
-              gradient={rgbGradientMode === 'mixed' ? greenGradient(rgb.r, rgb.b) : greenChannelGradient}
-              onChange={handleGChange}
-            />
-            <ColorSlider
-              label="B"
-              group='rgb'
-              value={rgb.b}
-              max={255}
-              gradient={rgbGradientMode === 'mixed' ? blueGradient(rgb.r, rgb.g) : blueChannelGradient}
-              onChange={handleBChange}
-            />
+        {/* The slider banks, one flat block of the panel rather than two cards:
+            the models are the same colour read three ways, and a card each made
+            them look like three tools. The toolbar is the plugin's: which
+            blocks show, and whether tracks blend. */}
+        <div className="flex flex-col gap-3" id="slider-banks">
+          <div className="flex items-center justify-between gap-2">
+            <ToggleGroup
+              multiple
+              value={groups}
+              onValueChange={(v) => setGroups(SLIDER_GROUPS.filter((g) => (v as SliderGroup[]).includes(g)))}
+              aria-label="Slider groups"
+            >
+              {SLIDER_GROUPS.map((g) => (
+                <Tooltip key={g}>
+                  <TooltipTrigger render={<ToggleGroupItem value={g} className="w-12">{g}</ToggleGroupItem>} />
+                  <TooltipContent className={TOOLBAR_TIP_CLASS}>{GROUP_TIP[g]}</TooltipContent>
+                </Tooltip>
+              ))}
+            </ToggleGroup>
+            <ToggleGroup
+              multiple
+              value={blend ? ['blend'] : []}
+              onValueChange={(v) => setBlend(v.length > 0)}
+            >
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <ToggleGroupItem
+                      value="blend"
+                      className="px-2"
+                      id="blend-toggle"
+                      aria-label={blend ? 'Show flat channel ramps' : 'Show blended tracks'}
+                    >
+                      <BlendIcon filled={blend} />
+                    </ToggleGroupItem>
+                  }
+                />
+                <TooltipContent className={TOOLBAR_TIP_CLASS}>{blend ? 'Blend Slider Colors' : 'Flat Slider Colors'}</TooltipContent>
+              </Tooltip>
+            </ToggleGroup>
           </div>
-        </CollapsibleSection>
 
-        {/* HSB / HSL section with tabs */}
-        <CollapsibleSection
-          id="hsb-hsl-group"
-          title="HSB / HSL"
-          headerRight={
-            <Tabs value={hslMode} onValueChange={setHslMode}>
-              <TabsList>
-                <TabsTrigger value="hsb" className="w-12">HSB</TabsTrigger>
-                <TabsTrigger value="hsl" className="w-12">HSL</TabsTrigger>
-                <TabsTrigger value="both" className="w-12">Both</TabsTrigger>
-              </TabsList>
-            </Tabs>
-          }
-        >
-          <div className="flex flex-col gap-3">
-            {/* Labelled groups: the section header says "HSB / HSL", so without
-                these a screen reader hits two "Saturation channel" sliders in a
-                row holding different values with nothing to tell them apart. */}
-            {showHsb && (
-              <div className="flex flex-col gap-2" role="group" aria-label="HSB">
-                {hslMode === 'both' && (
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">HSB</span>
-                )}
+          {/* A rule between blocks, drawn by the block below: the blocks are
+              conditional, and :first-child already knows which is on top. */}
+          <div className="flex flex-col">
+            {groups.includes('RGB') && (
+              <div className={BLOCK_CLASS} role="group" aria-label="RGB">
+                <ColorSlider
+                  label="R"
+                  group='rgb'
+                  value={rgb.r}
+                  max={255}
+                  gradient={blend ? redGradient(rgb.g, rgb.b) : redChannelGradient}
+                  onChange={handleRChange}
+                  lit={sliderLit('rgb-r')}
+                />
+                <ColorSlider
+                  label="G"
+                  group='rgb'
+                  value={rgb.g}
+                  max={255}
+                  gradient={blend ? greenGradient(rgb.r, rgb.b) : greenChannelGradient}
+                  onChange={handleGChange}
+                  lit={sliderLit('rgb-g')}
+                />
+                <ColorSlider
+                  label="B"
+                  group='rgb'
+                  value={rgb.b}
+                  max={255}
+                  gradient={blend ? blueGradient(rgb.r, rgb.g) : blueChannelGradient}
+                  onChange={handleBChange}
+                  lit={sliderLit('rgb-b')}
+                />
+              </div>
+            )}
+            {groups.includes('HSB') && (
+              <div className={BLOCK_CLASS} role="group" aria-label="HSB">
                 <ColorSlider
                   label="H"
                   group='hsb'
                   value={hsb.h}
                   max={360}
                   wrap
-                  gradient={hueGradient(hsb.s, hsb.b, colorSpace)}
+                  gradient={hueGradient(blend ? hsb.s : 100, blend ? hsb.b : 100, colorSpace)}
                   onChange={handleHsbHChange}
+                  lit={sliderLit('hsb-h')}
                 />
                 <ColorSlider
                   label="S"
                   group='hsb'
                   value={hsb.s}
                   max={100}
-                  gradient={saturationGradient(hsb.h, hsb.b, colorSpace)}
+                  gradient={saturationGradient(hsb.h, blend ? hsb.b : 100, colorSpace)}
                   onChange={handleHsbSChange}
+                  lit={sliderLit('hsb-s')}
                 />
                 <ColorSlider
                   label="B"
                   group='hsb'
                   value={hsb.b}
                   max={100}
-                  gradient={brightnessGradient(hsb.h, hsb.s, colorSpace)}
+                  gradient={brightnessGradient(hsb.h, blend ? hsb.s : 0, colorSpace)}
                   onChange={handleHsbBChange}
+                  lit={sliderLit('hsb-b')}
                 />
               </div>
             )}
-            {showHsl && (
-              <div className="flex flex-col gap-2" role="group" aria-label="HSL">
-                {hslMode === 'both' && (
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">HSL</span>
-                )}
+            {groups.includes('HSL') && (
+              <div className={BLOCK_CLASS} role="group" aria-label="HSL">
                 <ColorSlider
                   label="H"
                   group='hsl'
                   value={hsl.h}
                   max={360}
                   wrap
-                  gradient={hslHueGradient(hsl.s, hsl.l, colorSpace)}
+                  gradient={hslHueGradient(blend ? hsl.s : 100, blend ? hsl.l : 50, colorSpace)}
                   onChange={handleHslHChange}
+                  lit={sliderLit('hsl-h')}
                 />
                 <ColorSlider
                   label="S"
                   group='hsl'
                   value={hsl.s}
                   max={100}
-                  gradient={hslSaturationGradient(hsl.h, hsl.l, colorSpace)}
+                  gradient={hslSaturationGradient(hsl.h, blend ? hsl.l : 50, colorSpace)}
                   onChange={handleHslSChange}
+                  lit={sliderLit('hsl-s')}
                 />
                 <ColorSlider
                   label="L"
                   group='hsl'
                   value={hsl.l}
                   max={100}
-                  gradient={lightnessGradient(hsl.h, hsl.s, colorSpace)}
+                  gradient={lightnessGradient(hsl.h, blend ? hsl.s : 0, colorSpace)}
                   onChange={handleHslLChange}
+                  lit={sliderLit('hsl-l')}
                 />
               </div>
             )}
           </div>
-        </CollapsibleSection>
+        </div>
 
         {/* Hex & HTML Colors */}
-        <CollapsibleSection id="hex-group" title="Hex and HTML Colors">
+        <CollapsibleSection id="hex-group" title="Hex and HTML Colors" defaultOpen={false}>
           <div className="flex flex-col gap-3">
             <div className="flex gap-3 items-stretch">
               <PreviewSwatch hex={hex} />

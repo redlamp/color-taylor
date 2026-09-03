@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { openSections } from './open-sections';
 
 /**
  * The settings sheet's interaction contract.
@@ -20,6 +21,7 @@ test.describe('Settings sheet', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await gear(page).waitFor();
+    await openSections(page, ['hex-group']);
   });
 
   test('opens from the gear and is a named dialog', async ({ page }) => {

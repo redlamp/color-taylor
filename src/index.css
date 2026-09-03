@@ -82,6 +82,14 @@
    */
   --border: oklch(0.145 0 0 / 0.07);
   --input: oklch(0.145 0 0 / 0.11);
+  /* The "this is changing" keylines; read by src/utils/highlight.ts
+     (--highlight is taken). Two of them: the sliders sit on the panel, so
+     theirs follows the theme - a dark grey here, where the panel is light.
+     The hexagon's sits on the colour field, which is the same in both themes,
+     so it is set once and .dark leaves it alone. The tight dark drop shadow
+     under both stays the same in both themes. */
+  --highlight-line: rgba(51, 51, 51, 0.8);
+  --highlight-hex: rgba(238, 238, 238, 0.8);
 
   /*
    * The inner-section surface, one step off --card. It steps *down* in light and
@@ -129,6 +137,8 @@
   /* dL 0.050, the same apparent weight as the light theme's 7%. See the note there. */
   --border: oklch(1 0 0 / 0.061);
   --input: oklch(1 0 0 / 0.13);
+  /* #eee at 0.8: pure white shouted. */
+  --highlight-line: rgba(238, 238, 238, 0.8);
   --surface-inset: oklch(0.3 0 0);
 
   --highlight: inset 0 1px 0 oklch(1 0 0 / 0.07);

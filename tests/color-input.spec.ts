@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { openSections } from './open-sections';
 
 /**
  * Direct input must beat an animation that is already running.
@@ -22,6 +23,7 @@ test.describe('Input during a tween', () => {
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(clearStorage);
     await page.goto('/');
+    await openSections(page);
     await page.locator('#saved-colors [data-saved-idx="0"]').waitFor();
   });
 

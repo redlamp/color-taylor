@@ -52,7 +52,7 @@ import { useColorState } from '../../src/hooks/useColorState';
 import ColorSlider from '../../src/components/ColorSlider';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import BlendIcon from './lite/BlendIcon';
+import BlendIcon from '../../src/components/BlendIcon';
 import { Ban, Brush, PaintBucket } from 'lucide-react';
 import ColorHexagon from '../../src/components/ColorHexagon';
 // The bridge protocol, shared with code.js - the one place the two halves of

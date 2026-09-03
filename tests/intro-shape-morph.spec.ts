@@ -174,14 +174,16 @@ test.describe('Wheel to hexagon morph', () => {
     }
   });
 
-  test('the loop is white with no chain, and the channel colour with one', async ({ page }) => {
-    // A blue ring on an orange colour is a label for an explanation that is not
-    // on screen. It earns the channel's colour when the stems arrive.
+  test('the loop stays white with or without the chain', async ({ page }) => {
+    // The tip is the selection, and white is what every picker marks one
+    // with. It used to take the blue channel's colour once the stems arrived;
+    // now the joints carry the channel colours and the tip stays white, a
+    // size up, so the chain reads as explanation and the tip as the answer.
     await settle(page, '#/intro/11');
     expect((await loop(page)).ring?.toLowerCase()).toBe('#ffffff');
 
     await settle(page, '#/intro/12');
-    expect((await loop(page)).ring?.toLowerCase()).toBe('#0000ff');
+    expect((await loop(page)).ring?.toLowerCase()).toBe('#ffffff');
   });
 
   test('the deck brightness bar is not buried under the hexagon', async ({ page }) => {

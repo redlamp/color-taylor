@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Minus, Plus } from 'lucide-react';
 import useDrag from '../hooks/useDrag';
 import { HANDLE_SIZE, HANDLE_SHADOW } from '../utils/handleStyle';
+import { HIGHLIGHT_IN, HIGHLIGHT_OUT, CALLOUT_BOX_SHADOW } from '../utils/highlight';
 
 /**
  * Spoken names, keyed `${group}-${label}`.
@@ -64,9 +65,15 @@ interface ColorSliderProps {
    * the readout entirely. Defaults to hideStepper's meaning.
    */
   stepper?: 'full' | 'value' | 'none';
+  /**
+   * Another control is moving this value. Draws the shared keyline on the
+   * track edge; the host decides when from useImpact. The slider never lights
+   * for its own drag - that is the pointer's job.
+   */
+  lit?: boolean;
 }
 
-function ColorSlider({ label, group, value, max, gradient, suffix, wrap, onChange, hideStepper, handle = 'triangle', handleFill, round, stepper }: ColorSliderProps) {
+function ColorSlider({ label, group, value, max, gradient, suffix, wrap, onChange, hideStepper, handle = 'triangle', handleFill, round, stepper, lit = false }: ColorSliderProps) {
   const stepperMode = stepper ?? (hideStepper ? 'none' : 'full');
   const trackRef = useRef<HTMLDivElement | null>(null);
 
@@ -213,6 +220,7 @@ function ColorSlider({ label, group, value, max, gradient, suffix, wrap, onChang
           aria-valuemin={0}
           aria-valuemax={max}
           aria-valuenow={value}
+          data-hold={`sl:${channel}`}
           className={`h-4 w-full cursor-pointer select-none touch-none ${round ? 'rounded-full' : 'rounded'}`}
           style={{ background: gradient, boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.1)' }}
           onPointerDown={(e) => {
@@ -222,9 +230,18 @@ function ColorSlider({ label, group, value, max, gradient, suffix, wrap, onChang
             startDrag();
           }}
         />
+        {/* The impact keyline, on the track's own edge with no gap - a gap
+            read as a dark ring between track and line. Always mounted so the
+            fade out has something to fade. */}
+        <div
+          aria-hidden="true"
+          className={`pointer-events-none absolute inset-0 h-4 ${round ? 'rounded-full' : 'rounded'} ${lit ? HIGHLIGHT_IN : HIGHLIGHT_OUT}`}
+          style={{ boxShadow: CALLOUT_BOX_SHADOW, opacity: lit ? 1 : 0 }}
+        />
         {handle === 'ring' ? (
           <div
             id={`${sliderId}-handle`}
+            data-hold={`sl:${channel}`}
             className="absolute top-2 -translate-x-1/2 -translate-y-1/2 cursor-pointer touch-none rounded-full"
             style={{
               left: `calc(${inset}px + ${value / max} * (100% - ${inset * 2}px))`,
@@ -243,6 +260,7 @@ function ColorSlider({ label, group, value, max, gradient, suffix, wrap, onChang
         ) : (
           <div
             id={`${sliderId}-arrow`}
+            data-hold={`sl:${channel}`}
             className="absolute top-4 -translate-x-1/2 cursor-pointer px-1 py-0.5 touch-none"
             style={{ left: `${pct}%` }}
             onPointerDown={(e) => {

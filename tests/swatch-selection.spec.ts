@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { openSections } from './open-sections';
 
 /**
  * Which swatches read as selected.
@@ -37,6 +38,7 @@ test.describe('Swatch selection ring', () => {
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(clearStorage);
     await page.goto('/');
+    await openSections(page);
     await page.locator('#saved-colors [data-saved-idx="0"]').waitFor();
   });
 
@@ -97,6 +99,7 @@ test.describe('Saved sort modes', () => {
    */
   test('the app cycle omits alpha', async ({ page }) => {
     await page.goto('/');
+    await openSections(page);
     const sort = page.locator('#saved-colors button[data-sort-mode]');
     await sort.waitFor();
 

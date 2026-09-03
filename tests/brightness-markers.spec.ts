@@ -198,10 +198,11 @@ test.describe('Picker column heights', () => {
     const sb = page.locator('#sb-wrapper');
     const before = (await sb.boundingBox())!.height;
 
-    for (const id of ['rgb-group', 'hsb-hsl-group', 'hex-group']) {
-      await page.locator(`#${id}-trigger`).click();
-      await page.waitForTimeout(250);
-    }
+    // The slider bank is one flat block now and Hex starts closed, so the
+    // room comes from switching the two default groups off.
+    const bank = page.locator('#slider-banks');
+    await bank.getByRole('button', { name: 'RGB' }).click();
+    await bank.getByRole('button', { name: 'HSB' }).click();
     await page.waitForTimeout(500);
 
     const after = (await sb.boundingBox())!.height;
