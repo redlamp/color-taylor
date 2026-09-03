@@ -36,6 +36,10 @@ function readDismissed(): boolean {
 
 export default function PluginBanner() {
   const [dismissed, setDismissed] = useState(readDismissed);
+  /** The arrow moves only while the pointer or focus is on the link. */
+  const [nudging, setNudging] = useState(false);
+  const [reducedMotion] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const item = primaryIntegration();
 
   /*
@@ -134,18 +138,32 @@ export default function PluginBanner() {
         {live && (
           <a
             // nowrap: the label must never break to "Get the / plugin".
-            className="group ctl-quiet h-7 shrink-0 rounded-full px-3 text-xs whitespace-nowrap no-underline"
+            className="ctl-quiet h-7 shrink-0 rounded-full px-3 text-xs whitespace-nowrap no-underline"
             href={item.href}
             target="_blank"
             rel="noopener noreferrer"
+            onPointerEnter={() => setNudging(true)}
+            onPointerLeave={() => setNudging(false)}
+            onFocus={() => setNudging(true)}
+            onBlur={() => setNudging(false)}
           >
             Get the plugin
             {/* Nudges along its own diagonal - up and to the right, the way it
-                already points and the way the link goes - to ask for the
-                click, and holds there while the pointer is on the button. The
-                keyframes are in index.css; `group` is on the anchor so the
-                glyph answers a hover anywhere on it, not only on itself. */}
-            <ArrowUpRight className="plugin-arrow size-3.5" aria-hidden="true" />
+                already points and the way the link goes - while the pointer is
+                on the button, and rests otherwise. Inline rather than a hover
+                rule in the stylesheet: see the keyframes in index.css for why
+                the decision lives here. `none` is explicit, so nothing in a
+                stylesheet can start it. */}
+            <ArrowUpRight
+              className="size-3.5"
+              aria-hidden="true"
+              style={{
+                animation: nudging && !reducedMotion
+                  ? 'plugin-arrow-nudge 1.6s ease-in-out infinite'
+                  : 'none',
+                transition: reducedMotion ? 'none' : 'transform 200ms ease-out',
+              }}
+            />
             <span className="sr-only">
               on the {item.platform} Community (opens in a new tab)
             </span>

@@ -15,6 +15,7 @@
  */
 
 import { CLICK_MS, centerOf, type Driver, type Point } from './drive';
+import { HSB_TWEEN_MS } from '../utils/colorTween';
 
 /**
  * The pacing, in milliseconds, gathered here because it is the thing most
@@ -105,6 +106,23 @@ const stems = () => Array.from(document.querySelectorAll('[data-stem]'));
 const at = (p: Point) => document.elementFromPoint(p.x, p.y);
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+
+/**
+ * A sweep along a track, out and back, from wherever the handle happens to be.
+ *
+ * The obvious version - swing symmetrically about the start and clamp to the
+ * smaller side - collapses to nothing at an end of the track, which is exactly
+ * where the brightness handle sits by default. So it goes toward whichever end
+ * has the room and comes back, which is a real gesture at any starting point
+ * and still finishes where it began.
+ */
+function sweepFrom(lo: number, hi: number, start: number, fraction = 0.55) {
+  const before = start - lo;
+  const after = hi - start;
+  const dir = after >= before ? 1 : -1;
+  const reach = Math.min(dir > 0 ? after : before, (hi - lo) * fraction);
+  return (t: number) => start + dir * reach * Math.sin(t * Math.PI);
+}
 
 export const STEPS: DemoStep[] = [
   {
@@ -203,10 +221,9 @@ export const STEPS: DemoStep[] = [
         const x = br.left + br.width / 2;
         const y0 = marker ? centerOf(marker).y : br.top + br.height / 2;
         const pad = 8;
-        const room = Math.min(y0 - (br.top + pad), br.bottom - pad - y0);
-        const sweep = Math.max(0, Math.min(room, br.height * 0.38));
+        const at = sweepFrom(br.top + pad, br.bottom - pad, y0);
         await d.moveTo(() => ({ x, y: y0 }), DWELL.move);
-        await d.drag(bar, (t) => ({ x, y: y0 + sweep * Math.sin(t * Math.PI * 2) }), DWELL.dragHue, true);
+        await d.drag(bar, (t) => ({ x, y: at(t) }), DWELL.dragHue, true);
       }
       await d.wait(DWELL.afterAction);
     },
@@ -246,12 +263,8 @@ export const STEPS: DemoStep[] = [
       // out and back. Clamped to the room actually on either side, so the
       // sweep stays on the track wherever the handle happens to start.
       const pad = 10;
-      const room = Math.min(from.x - (rect.left + pad), rect.right - pad - from.x);
-      const sweep = Math.max(0, Math.min(room, rect.width * 0.34));
-      await d.drag(track, (t) => ({
-        x: from.x + sweep * Math.sin(t * Math.PI * 2),
-        y: from.y,
-      }), DWELL.dragSlider, true);
+      const at = sweepFrom(rect.left + pad, rect.right - pad, from.x, 0.45);
+      await d.drag(track, (t) => ({ x: at(t), y: from.y }), DWELL.dragSlider, true);
       await d.wait(DWELL.afterAction);
     },
   },
@@ -279,11 +292,10 @@ export const STEPS: DemoStep[] = [
         const r = sat.getBoundingClientRect();
         const y = r.top + r.height / 2;
         const from = { x: centerOf(el('#sat-bar-arrow') ?? sat).x, y };
-        const room = Math.min(from.x - r.left, r.right - from.x);
-        const sweep = Math.max(0, Math.min(room, r.width * 0.4));
+        const at = sweepFrom(r.left + 4, r.right - 4, from.x);
         await d.moveTo(() => from, DWELL.moveFar);
         await d.wait(DWELL.beforeAction);
-        await d.drag(sat, (t) => ({ x: from.x + sweep * Math.sin(t * Math.PI * 2), y }), DWELL.dragBar, true);
+        await d.drag(sat, (t) => ({ x: at(t), y }), DWELL.dragBar, true);
         await d.wait(DWELL.betweenSteps);
       }
       if (bl) {
@@ -291,10 +303,12 @@ export const STEPS: DemoStep[] = [
         const r = bl.getBoundingClientRect();
         const x = r.left + r.width / 2;
         const from = { x, y: centerOf(el('#bl-bar-arrow') ?? bl).y };
-        const room = Math.min(from.y - r.top, r.bottom - from.y);
-        const sweep = Math.max(0, Math.min(room, r.height * 0.4));
+        // Brightness starts pinned at the top for the default colour, so this
+        // is the one that has to sweep away from an end rather than about a
+        // middle - which is what sweepFrom exists for.
+        const at = sweepFrom(r.top + 4, r.bottom - 4, from.y);
         await d.moveTo(() => from, DWELL.move);
-        await d.drag(bl, (t) => ({ x, y: from.y + sweep * Math.sin(t * Math.PI * 2) }), DWELL.dragBar, true);
+        await d.drag(bl, (t) => ({ x, y: at(t) }), DWELL.dragBar, true);
       }
       await d.wait(DWELL.afterAction);
     },
@@ -341,15 +355,26 @@ export async function closingPose({ d }: StepContext): Promise<void> {
   await d.moveTo(() => (tip
     ? centerOf(tip)
     : { x: window.innerWidth / 2, y: window.innerHeight / 2 }), DWELL.moveFar);
+}
+
+/**
+ * Ride the tip home while the colour tweens back to where the demo found it.
+ *
+ * `moveTo` reads its destination once, so parking on the handle and letting go
+ * left the ghost sitting where the handle used to be while the chain walked
+ * off without it. Following it frame by frame is what makes the ending read as
+ * the cursor putting the colour back rather than the colour leaving on its own.
+ */
+export async function carryHome({ d }: StepContext): Promise<void> {
+  const tip = joints().at(-1);
+  if (tip) await d.follow(() => centerOf(tip), HSB_TWEEN_MS + 120);
+  else await d.wait(HSB_TWEEN_MS);
   // Nothing should be left hovered under a cursor that is about to leave.
   d.leave();
 }
 
 /** How long the walk off the screen takes, and the fade that rides it. */
 export const EXIT_MS = 900;
-
-/** Time to watch the colour tween home before the ghost goes. */
-export const RESTORE_WATCH_MS = 900;
 
 /**
  * And off, through whichever edge the panel is not on, rather than blinking

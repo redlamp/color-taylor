@@ -455,30 +455,19 @@ h1, h2 {
 }
 
 /*
- * The plugin link's arrow: still until the pointer arrives, then pulsing back
- * and forth along its own diagonal - up and to the right, the way it already
- * points and the way the link goes.
+ * The keyframes for the plugin link's arrow. Only the keyframes: whether it is
+ * running is decided in PluginBanner.tsx, as an inline style.
  *
- * On hover rather than always. A banner that moves on its own competes with
- * the sentence beside it for the whole time it is on screen, and the arrow has
- * nothing to say until someone is already looking at the button.
+ * That split is deliberate. A `:hover` rule here is the obvious way to write
+ * this, and it was written that way twice - but a stale stylesheet then keeps
+ * serving an older version of the rule while the component code hot-reloads
+ * fine, so the arrow moves at rest and freezes on hover with nothing in the
+ * source to explain it. An inline `animation` wins over any class rule, stale
+ * or not, so the component's idea of the truth is the one on screen.
  */
-.plugin-arrow {
-  transition: transform 200ms ease-out;
-}
-
-.group:hover .plugin-arrow {
-  animation: plugin-arrow-nudge 1.6s ease-in-out infinite;
-}
-
 @keyframes plugin-arrow-nudge {
   0%, 100% { transform: translate(0, 0); }
   50% { transform: translate(3px, -3px); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .plugin-arrow,
-  .group:hover .plugin-arrow { animation: none; transition: none; transform: none; }
 }
 
 @layer base {

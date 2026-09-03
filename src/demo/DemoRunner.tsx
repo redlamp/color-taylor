@@ -34,8 +34,8 @@ import { ChevronLeft, ChevronRight, Volume2, VolumeX } from 'lucide-react';
 import DemoCursor, { CURSOR_BOX, cursorKind, hotspotOf, type CursorKind } from './DemoCursor';
 import { Driver, DemoAborted, type Point, type Stage } from './drive';
 import {
-  STEPS, SIGN_OFF, SIGN_OFF_MS, SIGN_OFF_FADE_MS, EXIT_MS, RESTORE_WATCH_MS,
-  NARRATION_READY, closingPose, exitPose, openingPose, type DemoHost,
+  STEPS, SIGN_OFF, SIGN_OFF_MS, SIGN_OFF_FADE_MS, EXIT_MS,
+  NARRATION_READY, carryHome, closingPose, exitPose, openingPose, type DemoHost,
 } from './steps';
 
 /**
@@ -303,7 +303,9 @@ export default function DemoRunner({ onRestore, onExit, host }: DemoRunnerProps)
         // fading as it goes, rather than blinking out where it stood.
         await closingPose(ctx);
         restoreRef.current();
-        await d.wait(RESTORE_WATCH_MS);
+        // Riding the tip while the colour tweens back, so the ending reads as
+        // the cursor putting the colour where it found it.
+        await carryHome(ctx);
         setGhostLeaving(true);
         await exitPose(ctx);
         // The demo is over; it should not sit on the screen waiting to be

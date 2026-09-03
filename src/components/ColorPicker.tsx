@@ -177,6 +177,9 @@ export default function ColorPicker() {
   // Blended tracks show the colour a drag would land on; flat ones show the
   // channel alone.
   const [blend, setBlend] = useState(DEFAULT_BLEND);
+  // Its tooltip names the state, so it has to survive the press that changes
+  // it; see the Tooltip on #blend-toggle.
+  const [blendTipOpen, setBlendTipOpen] = useState(false);
   /*
    * The control under the pointer, for the impact highlights. Set on every
    * pointerdown in the window from the nearest data-hold tag (or 'other'),
@@ -960,13 +963,28 @@ export default function ColorPicker() {
               value={blend ? ['blend'] : []}
               onValueChange={(v) => setBlend(v.length > 0)}
             >
-              <Tooltip>
+              {/*
+                Controlled, unlike every other tooltip here, because this one
+                describes a state the trigger changes. base-ui closes a tooltip
+                when its trigger is pressed and will not reopen while the
+                pointer has not left - so clicking swapped the label to one
+                nobody could see without moving away and coming back. Only the
+                pointer leaving or focus going closes it now; the press cannot.
+              */}
+              <Tooltip
+                open={blendTipOpen}
+                onOpenChange={(next) => { if (next) setBlendTipOpen(true); }}
+              >
                 <TooltipTrigger
                   render={
                     <ToggleGroupItem
                       value="blend"
                       className="px-2"
                       id="blend-toggle"
+                      onPointerEnter={() => setBlendTipOpen(true)}
+                      onPointerLeave={() => setBlendTipOpen(false)}
+                      onFocus={() => setBlendTipOpen(true)}
+                      onBlur={() => setBlendTipOpen(false)}
                       // The label is the action, the tooltip below is the
                       // state: blend off draws each channel's own ramp, which
                       // is the source colour, and blend on draws the colour a

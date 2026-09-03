@@ -216,6 +216,16 @@ export class Driver {
     });
   }
 
+  /**
+   * Keep the ghost on a moving target for `ms`. Unlike `moveTo`, which reads
+   * its destination once and flies a curve to it, this re-reads every frame -
+   * so it tracks something the app is animating rather than landing where it
+   * used to be.
+   */
+  async follow(at: () => Point, ms: number): Promise<void> {
+    await this.animate(ms, () => this.place(at()), true);
+  }
+
   private place(p: Point) {
     this.pos = p;
     this.stage.setCursor(p);

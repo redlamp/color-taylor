@@ -111,3 +111,45 @@ Where it differs from the plan above:
   pointer lock, since Chrome gates it on sticky activation - `ColorSlider.beginRelative` now skips
   the request for an untrusted press.
 
+## After the first review (same day)
+
+Taylor drove a long round of changes on the evening of 2026-09-03. What the
+demo is now, where it differs from the "As built" list above:
+
+**Five steps, not four.** A new fourth step sweeps the hexagon's Saturation and
+Brightness bars: step three tells you to watch for the impact highlights, and
+this one is the demonstration. The bars belong to the hexagon rather than the
+bank, so the sliders lighting up are unmistakably somewhere else - nothing on
+screen is the control being held. Step one visits four stops rather than all
+six; step two gained the colour editor's hue strip after the box.
+
+**One panel, and where it goes.** Caption, progress, stepper, narration switch
+and Skip in a single panel with a drifting channel-coloured hairline. It takes
+the header's empty span on a wide window and drops to the foot of the screen
+when that row wraps. Controls are stacked above one another rather than beside
+the text, which is what got the panel down to 90px on desktop. Its size is
+constant for the whole run - the caption grid is sized to the longest line, the
+ticks are one width, and the primary button carries its longer label invisibly -
+because the panel is centred on the header row and a change of height moves it.
+
+**Every drag works a track, not a handle.** Watching a cursor hunt for a 10px
+marker teaches nothing and a near miss reads as a bug. `sweepFrom` sends the
+sweep toward whichever end of the track has room, which is what makes it a real
+gesture even when the handle starts pinned at an end - as brightness does.
+
+**The ending.** The ghost goes home to the tip, rides it while the colour tweens
+back underneath, then walks off through whichever edge the panel is not on. A
+sixth tick runs down as a five-second timer and the panel takes itself away.
+
+**Nothing is left behind.** The colour (including an exact typed RGB, which the
+HSB tween would otherwise round off), the slider groups and blend all go back.
+The demo's colours never enter Recent or the undo stack.
+
+**It never works behind its own panel.** `bring` scrolls targets into the band
+the panel leaves rather than the middle of the viewport, waits for the scroll to
+actually arrive, and the demo adds a tail of scrollable space so the last
+controls can always be cleared. Asserted as a property in `tests/demo.spec.ts`.
+
+The beat-by-beat script and every timing is `docs/demo-script.md`, generated
+from the code. Narration is wired and dormant behind `NARRATION_READY`.
+

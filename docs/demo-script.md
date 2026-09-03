@@ -1,7 +1,7 @@
 # The Picker Demo: Script and Timing
 
 The self-running demo behind the `?` button, beat by beat, as it actually runs.
-Five steps and a sign-off, **49.2 seconds** end to end.
+Five steps and a sign-off, **49.5 seconds** end to end.
 
 Everything here is generated from the code, not written alongside it. If you
 change a number in this document, change it in the file named beside it — the
@@ -38,12 +38,18 @@ Every duration in the script is one of these, in the `DWELL` block at the top of
 | `dragSlider` | 4200 | The H slider in the bank |
 | `blendHold` | 1300 | How long each blend state is held up for inspection |
 
+Every one of those sweeps goes out and back along its track, toward whichever
+end has the room. It used to swing symmetrically about the handle and clamp to
+the smaller side, which collapses to nothing at an end of a track — exactly
+where the brightness handle sits by default, so that gesture moved a few pixels
+and looked broken. `sweepFrom` in `steps.ts` is the shared version.
+
 Four more live beside them, and are named in the beats below:
 
 | Name | ms | Where |
 |---|---:|---|
 | `CLICK_MS` | 110 | `src/demo/drive.ts` — how long a press is held before it becomes a click |
-| `RESTORE_WATCH_MS` | 900 | `steps.ts` — watching the colour tween home |
+| `HSB_TWEEN_MS` | 1000 | `utils/colorTween.ts` — the colour's own tween, which the ghost rides home |
 | `EXIT_MS` | 900 | `steps.ts` — the ghost's walk off the screen |
 | `SIGN_OFF_MS` | 5000 | `steps.ts` — how long "Have fun!" stands before the panel leaves |
 
@@ -133,18 +139,18 @@ Narration: `public/demo/05-blend.mp3`
 | `beforeAction` | 600 | |
 | 4 × (`CLICK_MS` + `blendHold`) | 4 × 110 + 3 × 1300 + 1300 | Four presses, each leaving a ring, ending where it started. |
 
-## Sign-off · 7.8s
+## Sign-off · 8.1s
 
 > **Have fun!**
 
 | Beat | ms | What happens |
 |---|---:|---|
-| `moveFar` | 680 | Home to the hexagon. |
+| `moveFar` | 680 | Home to the hexagon's tip. |
 | — | — | The colour, the slider groups and blend all go back to what the demo found. |
-| `RESTORE_WATCH_MS` | 900 | Standing there while the colour tweens back underneath. |
-| `EXIT_MS` | 900 | Walks off the bottom of the screen, fading as it goes. |
+| `HSB_TWEEN_MS` + 120 | 1120 | The ghost **rides the tip** while the colour tweens home, so the ending reads as the cursor putting the colour back rather than the colour leaving on its own. |
+| `EXIT_MS` | 900 | Walks off through whichever edge the panel is not on, fading as it goes. |
 | `SIGN_OFF_MS` | 5000 | "Have fun!" stands, the last tick running down as a timer. |
-| `SIGN_OFF_FADE_MS` | 350 | The panel fades out. |
+| `SIGN_OFF_FADE_MS` | 350 | The panel fades out and the demo takes itself down. |
 
 ---
 
@@ -169,9 +175,11 @@ the length. A recording shorter than the step changes nothing.
 
 ## Things the timings cannot predict
 
-- **Scrolling.** Any step whose target is off screen scrolls it into view first
-  and spends about 500ms extra doing so. On a desktop window big enough for the
-  whole tool this never happens; on a phone it happens most steps.
+- **Scrolling.** Any step whose target is not already clear of the demo panel
+  scrolls it there first, and waits for the scroll to actually arrive rather
+  than for a fixed time. On a desktop window big enough for the whole tool this
+  never happens; on a phone it happens most steps, and adds roughly half a
+  second each.
 - **Back and Next.** A step interrupted part way is abandoned at its next
   pause, so its remaining beats are simply not spent.
 - **Reduced motion.** `prefers-reduced-motion` removes the arcs and the cursor's
