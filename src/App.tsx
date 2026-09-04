@@ -62,7 +62,9 @@ function AppInner() {
               move the tool. Living at app level keeps it off the presentation
               route entirely. */}
           <PluginBanner />
-          <div className="flex flex-1 items-center justify-center p-5">
+          {/* Named because the pinned menu narrows it - see the
+              `[data-menu-pinned]` rule in index.css. */}
+          <div id="app-stage" className="flex flex-1 items-center justify-center p-5">
             <ColorPicker />
             <Toaster position="top-center" />
           </div>

@@ -20,6 +20,19 @@ export interface AppSettings {
    * in the URL turns it on too, without touching this.
    */
   fpsMeter: boolean;
+  /**
+   * Keep the menu open while the app is used, and take its scrim away.
+   *
+   * The menu is modal by default: a scrim, a focus trap, and a click outside
+   * closes it. That is right for a settings sheet you visit and leave, and
+   * wrong for the synth, which you can only judge by hearing it against
+   * colours you are changing - the panel closes on the first thing you touch.
+   *
+   * A Display setting: what it changes is how the menu behaves against the
+   * app, and every row above it in that section is something you judge by
+   * looking at the app while you toggle it.
+   */
+  keepMenuOpen: boolean;
 }
 
 const STORAGE_KEY = 'color-taylor-settings';
@@ -28,6 +41,7 @@ const DEFAULTS: AppSettings = {
   audioEnabled: false,
   synth: { ...DEFAULT_SYNTH_CONFIG },
   fpsMeter: false,
+  keepMenuOpen: false,
 };
 
 function loadSettings(): AppSettings {
@@ -40,6 +54,7 @@ function loadSettings(): AppSettings {
       audioEnabled: parsed?.audioEnabled === true,
       synth: { ...DEFAULTS.synth, ...(parsed?.synth ?? {}) },
       fpsMeter: parsed?.fpsMeter === true,
+      keepMenuOpen: parsed?.keepMenuOpen === true,
     };
   } catch {
     return DEFAULTS;
@@ -51,6 +66,7 @@ interface SettingsContextValue {
   updateSynth: (patch: Partial<SynthConfig>) => void;
   setAudioEnabled: (next: boolean) => void;
   setFpsMeter: (next: boolean) => void;
+  setKeepMenuOpen: (next: boolean) => void;
   reset: () => void;
 }
 
@@ -59,6 +75,7 @@ const SettingsContext = createContext<SettingsContextValue>({
   updateSynth: () => {},
   setAudioEnabled: () => {},
   setFpsMeter: () => {},
+  setKeepMenuOpen: () => {},
   reset: () => {},
 });
 
@@ -100,13 +117,17 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     setSettings(s => ({ ...s, fpsMeter: next }));
   }, []);
 
+  const setKeepMenuOpen = useCallback((next: boolean) => {
+    setSettings(s => ({ ...s, keepMenuOpen: next }));
+  }, []);
+
   const reset = useCallback(() => {
     setSettings(DEFAULTS);
     try { localStorage.removeItem(STORAGE_KEY); } catch { /* localStorage unavailable */ }
   }, []);
 
   return (
-    <SettingsContext.Provider value={{ settings, updateSynth, setAudioEnabled: setAudio, setFpsMeter, reset }}>
+    <SettingsContext.Provider value={{ settings, updateSynth, setAudioEnabled: setAudio, setFpsMeter, setKeepMenuOpen, reset }}>
       {children}
     </SettingsContext.Provider>
   );

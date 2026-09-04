@@ -151,6 +151,41 @@ body {
   margin: 0;
 }
 
+/*
+ * The menu rail's width, in one place because two things need to agree on it:
+ * the rail itself, and the room the app gives up when the rail is pinned open.
+ * `min()` takes the smaller, so this is 380px at every width from 432px up -
+ * the vw term only bites on a phone, where the rail is edge to edge anyway.
+ */
+:root {
+  --menu-rail: min(88vw, 380px);
+}
+
+/*
+ * Make room for a pinned menu rather than letting it sit over the tool.
+ *
+ * `#app-stage` is what centres the picker, so narrowing it by the rail's
+ * footprint moves the content left and leaves the gap exactly where the rail
+ * is - as opposed to padding the picker itself, which would push the content
+ * a further 200px left of where it needs to be.
+ *
+ * Only from `sm`: below it the rail covers the screen and there is nothing to
+ * move out of its way.
+ */
+@media (min-width: 40rem) {
+  html[data-menu-pinned] #app-stage {
+    padding-right: calc(var(--menu-rail) + 2rem);
+  }
+}
+
+#app-stage {
+  transition: padding-right 200ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #app-stage { transition: none; }
+}
+
 h1, h2 {
   font-family: var(--sans);
 }

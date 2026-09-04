@@ -254,6 +254,18 @@ export default function ColorPicker() {
   useEffect(() => { toneController.setMuted(effectiveMuted); }, [effectiveMuted]);
   const prevSynthEnabledRef = useRef(settings.synth.synthEnabled);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  /*
+   * Tell the page when the menu is pinned open, so the stage can narrow and
+   * leave the rail somewhere to be. An attribute on the root rather than props
+   * threaded up through App: the element that has to move is the one that
+   * centres this component, so it is the parent's layout that changes and not
+   * this one's - the same shape as the theme's `dark` class.
+   */
+  const menuPinned = settingsOpen && settings.keepMenuOpen;
+  useEffect(() => {
+    document.documentElement.toggleAttribute('data-menu-pinned', menuPinned);
+    return () => document.documentElement.removeAttribute('data-menu-pinned');
+  }, [menuPinned]);
   const isPointerDownRef = useRef(false);
   const pulseTone = useCallback((target: HSB) => {
     toneController.pulse(target, isPointerDownRef.current);

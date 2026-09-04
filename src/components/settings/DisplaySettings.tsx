@@ -14,7 +14,7 @@ export function DisplaySettings({
   highlights, onToggleHighlights, colorFx, onToggleColorFx,
 }: Props) {
   const { isDark, toggle } = useTheme();
-  const { settings, setFpsMeter } = useSettings();
+  const { settings, setFpsMeter, setKeepMenuOpen } = useSettings();
   return (
     <div className="flex flex-col gap-3 px-1">
       {/* Checked is *light*, so the default sits on the left like every other
@@ -52,6 +52,17 @@ export function DisplaySettings({
         checked={settings.fpsMeter}
         onToggle={() => setFpsMeter(!settings.fpsMeter)}
         ariaLabel="Toggle frame rate meter"
+      />
+      {/* Last, because it is about the menu rather than about the app - and
+          because what it is for is everything above it: the menu is modal, so
+          judging a setting against the tool means the menu closing on the first
+          thing you touch. On it, the scrim goes, the app takes the pointer, and
+          the stage narrows so the rail has somewhere to be. */}
+      <SwitchRow
+        label="Keep Menu Open"
+        checked={settings.keepMenuOpen}
+        onToggle={() => setKeepMenuOpen(!settings.keepMenuOpen)}
+        ariaLabel="Keep the menu open while using the app"
       />
     </div>
   );

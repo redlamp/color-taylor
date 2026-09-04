@@ -186,6 +186,102 @@ test.describe('Settings sheet', () => {
   });
 
   /**
+   * The label drives the switch. A 36px track at the far end of the row is a
+   * small thing to aim at, and on a phone the words are the only part of the
+   * row worth aiming at.
+   *
+   * `htmlFor` on a `button`, which is a labelable element - so the browser
+   * forwards the activation and it fires once, not twice. `aria-label` still
+   * wins for the accessible name, which is why the switch is still found by
+   * what it does rather than by the row it sits in.
+   */
+  test('tapping a row label works its switch', async ({ page }) => {
+    await menuButton(page).click();
+    const highlights = sheet(page).getByRole('switch', { name: 'Toggle interaction highlights' });
+    await expect(highlights).toHaveAttribute('aria-checked', 'true');
+
+    await sheet(page).getByText('Interaction Highlights', { exact: true }).click();
+    await expect(highlights).toHaveAttribute('aria-checked', 'false');
+
+    // Once per click: a row that toggled twice would land back where it was.
+    await sheet(page).getByText('Interaction Highlights', { exact: true }).click();
+    await expect(highlights).toHaveAttribute('aria-checked', 'true');
+  });
+
+  /**
+   * "Keep Menu Open" makes the menu non-modal.
+   *
+   * The synth can only be judged against colours you are changing, and a modal
+   * menu closes on the first thing you touch. So the scrim goes, outside
+   * pointer events reach the app, and an outside press no longer dismisses -
+   * but Escape and the X still do, because what should go is dismissal by
+   * accident, not the ways out.
+   *
+   * It is a field inside the settings object rather than its own key, so the
+   * existing reset owns it; see the table in CLAUDE.md.
+   */
+  test('"Keep Menu Open" drops the scrim and survives a click on the app', async ({ page }) => {
+    const scrim = page.locator('[data-testid="app-scrim"], .fixed.inset-0.isolate');
+    const trackPoint = async () => {
+      const r = (await page.locator('#slider-rgb-g-track').boundingBox())!;
+      return { x: Math.round(r.x + 40), y: Math.round(r.y + r.height / 2) };
+    };
+    const colour = () => page.locator('#slider-rgb-g-track').getAttribute('aria-valuenow');
+
+    // Modal to begin with: there is a scrim, the rail sits over the tool, and
+    // a press outside closes it.
+    await menuButton(page).click();
+    await expect(scrim).toBeVisible();
+    // Polled: it slides in from the right, so it overlaps nothing until it
+    // has landed.
+    await expect.poll(() => page.evaluate(() => {
+      const rail = document.querySelector('[role="dialog"]')!.getBoundingClientRect();
+      const content = document.querySelector('#color-picker-root')!.getBoundingClientRect();
+      return content.right > rail.left;
+    }), { timeout: 4000 }).toBe(true);
+    let at = await trackPoint();
+    await page.mouse.click(at.x, at.y);
+    await expect(sheet(page)).toHaveCount(0);
+
+    await menuButton(page).click();
+    await sheet(page).getByRole('switch', { name: 'Keep the menu open while using the app' }).click();
+    await expect(scrim).toHaveCount(0);
+
+    /*
+     * The stage narrows by the rail's footprint, so the tool stops sitting
+     * under it. Measured on the picker rather than on the stage: the stage is
+     * a full-width flex container and stays one - it is its padding that moves
+     * the content, so its own box still spans the viewport either way.
+     *
+     * Polled, because the padding is transitioned and one reading catches it
+     * part way across.
+     */
+    await expect.poll(() => page.evaluate(() => {
+      const rail = document.querySelector('[role="dialog"]')!.getBoundingClientRect();
+      const content = document.querySelector('#color-picker-root')!.getBoundingClientRect();
+      return content.right <= rail.left + 1;
+    }), { timeout: 4000 }).toBe(true);
+
+    // The press now reaches the slider, and the menu is still there.
+    const before = await colour();
+    at = await trackPoint();
+    await page.mouse.click(at.x, at.y);
+    await expect(sheet(page)).toBeVisible();
+    expect(await colour()).not.toBe(before);
+
+    // The ways out that were asked for still work.
+    await page.keyboard.press('Escape');
+    await expect(sheet(page)).toHaveCount(0);
+
+    // And "Default Settings" puts it back, since it lives in the settings
+    // object. The reset does not close the panel, so the scrim returning under
+    // the open panel is the whole of the assertion.
+    await menuButton(page).click();
+    await sheet(page).getByRole('button', { name: /default settings/i }).click();
+    await expect(scrim).toBeVisible();
+  });
+
+  /**
    * The header is a handle, and it slides the rail up and down its own edge.
    *
    * Vertical only - a sidebar that can be put in the middle of the screen is a

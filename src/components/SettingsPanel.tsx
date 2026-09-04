@@ -62,6 +62,7 @@ export function SettingsPanel({
 }: Props) {
   const { reset: resetSynth, settings, setAudioEnabled } = useSettings();
   const audioEnabled = settings.audioEnabled;
+  const keepOpen = settings.keepMenuOpen;
   const { reset: resetTheme } = useTheme();
 
   /*
@@ -155,7 +156,21 @@ export function SettingsPanel({
   };
 
   return (
-    <DialogPrimitive.Root open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
+    /*
+     * Modal unless the user has asked otherwise.
+     *
+     * `modal={false}` is the whole of it: no focus trap, no scroll lock, and
+     * pointer interactions outside the panel go through to the app. Paired with
+     * `disablePointerDismissal` so a click on the hexagon works the hexagon
+     * rather than closing the thing that was listening to it. Escape still
+     * closes, and so does the X - what goes is dismissal by accident.
+     */
+    <DialogPrimitive.Root
+      open={open}
+      modal={!keepOpen}
+      disablePointerDismissal={keepOpen}
+      onOpenChange={(next) => { if (!next) onClose(); }}
+    >
       <DialogPrimitive.Portal>
         {/*
           Deliberately faint, and no backdrop-blur. Two of the settings behind
@@ -163,7 +178,11 @@ export function SettingsPanel({
           the app while you toggle them, and this is a colour tool besides, so
           the scrim says "modal" without recolouring what it sits over.
         */}
-        <DialogPrimitive.Backdrop className="fixed inset-0 isolate z-50 bg-black/20 duration-200 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0" />
+        {/* No scrim at all in the non-modal case. A transparent one would still
+            be a full-screen element between the pointer and the app. */}
+        {!keepOpen && (
+          <DialogPrimitive.Backdrop className="fixed inset-0 isolate z-50 bg-black/20 duration-200 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0" />
+        )}
         <DialogPrimitive.Popup
           /*
            * Edge to edge on a phone, a detached rail on a desktop.
@@ -185,7 +204,7 @@ export function SettingsPanel({
            * phone, and an inset rail there is a rail with less rail in it.
            */
           className={
-            'fixed top-0 right-0 bottom-0 z-50 flex w-[min(88vw,380px)] flex-col ' +
+            'fixed top-0 right-0 bottom-0 z-50 flex w-(--menu-rail) flex-col ' +
             'border-l border-border bg-background shadow-xl outline-none duration-200 ' +
             'sm:top-(--menu-top) sm:right-4 sm:bottom-auto ' +
             'sm:max-h-[calc(100dvh-var(--menu-top)-1rem)] ' +
