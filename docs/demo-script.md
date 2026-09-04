@@ -96,6 +96,20 @@ borrows as little as it can.
 | **Blend** | Left alone. Step 4 presses the toggle an even number of times, so it demonstrates the same thing from either state and gives it back either way. Still restored, because a skip part way through would leave it flipped. |
 | **Scroll position** | Not restored. Each step scrolls its target clear of the panel, and the page is left wherever the last one put it. |
 
+"Default Settings" goes further than the demo does: it also returns every
+section to open or closed as a first visit finds it, which the demo deliberately
+does not touch beyond the two it needs.
+
+## How the ghost moves
+
+Three shapes, and they are not the same shape:
+
+| | |
+|---|---|
+| **Travel** between one target and the next | Smootherstep, in `drive.ts`. It was easeInOutQuad, which lands from twice its average speed and does the whole deceleration in the last quarter — across the tool that is 44px per frame arriving in under a fifth of a second, and it reads as the hand being stopped rather than stopping. The quintic has zero acceleration as well as zero velocity at both ends. |
+| **Gestures** — every drag | Written as a function of `smooth(t)`, the plain cubic, with a linear clock so the shaping applies once. `sin(pi * t)` is at its fastest as it lands; `sin(pi * smooth(t))` traces the identical path at the same peak speed but starts and stops at rest. Not the quintic, whose steeper middle would speed up the turn as well as softening the ends. |
+| **The lean** | A heavily damped spring on four frames of smoothed velocity, in `DemoRunner.tsx`. Sway, not spring: it follows the direction of travel and settles without ringing. Vertical travel counts for half of horizontal — the arrow's body runs from its point at (1,1) down to about (5,12), and a body trailing its point swings by the cross product of those two, which is about 0.36; half because it is meant to be fun. It used to count for nothing, so the brightness bar and the hue strip moved a perfectly rigid arrow down a track. |
+
 ## The pacing dial
 
 Every duration in the script is one of these, in the `DWELL` block at the top of
@@ -160,11 +174,16 @@ never leave the one hue, and the pair is what makes it a picker.
 | `dragBox` | 2800 | Out through the dark and back up to the top edge, landing on **s69, b100**. |
 | `betweenSteps` | 400 | |
 | `move` | 520 | To the **hue strip**, at the marker's own height so nothing jumps. |
-| `dragHue` | 2600 | A full period of a sine: 140° above the hue and 140° below it, ending on **h216**. |
+| `dragHue` | 2600 | Out to whichever end of the strip has the room, then back to **h216**. |
 | `afterAction` | 950 | |
 
-140 rather than 180 because the strip wraps: overshooting either end is harmless
-to the value but walks the ghost off the control.
+The strip loops; the ghost must not. This was a sine about the starting hue,
+wrapped into 0–360 to find a height — right for the value and wrong for the
+hand, because the frame the sweep crossed an end the cursor jumped the whole
+length of the control. The path stays on the strip instead, and turns once
+rather than twice: both ends only fit when the start and the target are both
+near the middle, and a sweep that reverses twice in two and a half seconds
+reads as fidgeting rather than as showing a range.
 
 ## Step 2 — The chain · 9.9s
 
@@ -255,15 +274,16 @@ last tick sitting empty for nearly three seconds under a finished line.
 | Beat | ms | What happens |
 |---|---:|---|
 | `SIGN_OFF_MS` | 4000 | "Have fun!" stands, the last tick running down as a timer. Everything below happens inside it. |
-| ↳ `moveFar` | 680 | Home to the hexagon's tip. |
-| ↳ — | — | The colour, the slider groups and blend all go back to what the demo found. |
-| ↳ `HSB_TWEEN_MS` + 120 | 1120 | The ghost **rides the tip** while the colour tweens home, so the ending reads as the cursor putting the colour back rather than the colour leaving on its own. |
+| ↳ `moveFar` | 680 | Home to the hexagon's tip — **only if the colour is going to move**. The demo lands on the app's default, so for a visitor who had not changed theirs the restore is a no-op and the walk is a cursor crossing the tool to watch nothing happen. `DemoHost.restoreMovesColour` is asked before the trip rather than after it. |
+| ↳ — | — | The colour, the slider groups, blend and any section it opened all go back to what the demo found. |
+| ↳ `HSB_TWEEN_MS` + 120 | 1120 | Skipped with the walk. Otherwise the ghost **rides the tip** while the colour tweens home, so the ending reads as the cursor putting the colour back rather than the colour leaving on its own. |
 | ↳ `EXIT_MS` | 900 | Walks off through whichever edge the panel is not on, fading as it goes. |
 | `SIGN_OFF_FADE_MS` | 350 | The panel fades out and the demo takes itself down. |
 
-The goodbye adds up to 2.7s, so the panel stands still and quiet for the last
-1.3 of the four. Taking `SIGN_OFF_MS` any lower would start cutting into the
-walk home rather than into the pause.
+The goodbye adds up to 2.7s where there is a colour to take home, so the panel
+stands still and quiet for the last 1.3 of the four; where there is not, it is
+just the 900ms walk off. Taking `SIGN_OFF_MS` any lower would start cutting into
+the goodbye rather than into the pause.
 
 ---
 

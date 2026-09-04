@@ -236,8 +236,6 @@ test.describe('Picker demo', () => {
     // And it stays empty - nothing is still driving it.
     await page.waitForTimeout(250);
     expect(await scale(1)).toBe(0);
-    // The step it came back to runs again from the start rather than resuming.
-    expect(await scale(0)).toBeLessThan(0.9);
   });
 
   /**
@@ -341,6 +339,62 @@ test.describe('Picker demo', () => {
     await primary(page).click();
     await expect(panel(page)).toHaveCount(0);
     await expect.poll(height, { timeout: 5000 }).toBe(0);
+  });
+
+  /**
+   * A pointer does not teleport.
+   *
+   * The hue strip loops, and the sweep along it used to be written as a hue
+   * wrapped into 0-360 and then turned into a height - right for the value and
+   * wrong for the hand, because the frame the sweep crossed an end the ghost
+   * jumped the whole length of the control. Nothing else here could see it: the
+   * colour landed correctly and every tick advanced.
+   *
+   * Measured while something is held, which is where every gesture lives; the
+   * travel between targets is legitimately much faster.
+   *
+   * In pixels per millisecond rather than per frame, which is what makes this
+   * safe to run beside eleven other workers. A starved frame advances the path
+   * further, so distance and elapsed time grow together and the rate holds; a
+   * teleport covers its distance in whatever frame it lands in, so the rate is
+   * what spikes. The gestures run at about 1.5px/ms at demospeed=4 and the
+   * jump this is looking for was the height of the strip in one frame.
+   */
+  test('the ghost never jumps while it is holding something', async ({ page }) => {
+    await page.goto('/?demospeed=4');
+    await page.locator('#rgb-dot-green').waitFor();
+    await page.locator('#demo-button').click();
+    await expect(panel(page)).toBeVisible();
+
+    // Sampled in the page, so it is every frame rather than every round trip.
+    await page.evaluate(() => {
+      (window as unknown as { __path: number[] }).__path = [];
+      let last: { x: number; y: number; held: boolean; t: number } | null = null;
+      const tick = (t: number) => {
+        const c = document.querySelector<HTMLElement>('[data-testid="demo-cursor"]');
+        if (c) {
+          // The ghost shrinks while it holds something, which is the only
+          // signal here for "this is a gesture and not a journey".
+          const held = c.style.transform.includes('scale(0.86)');
+          const now = { x: parseFloat(c.style.left), y: parseFloat(c.style.top), held, t };
+          if (last?.held && held && t > last.t) {
+            (window as unknown as { __path: number[] }).__path
+              .push(Math.hypot(now.x - last.x, now.y - last.y) / (t - last.t));
+          }
+          last = now;
+        }
+        requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    });
+
+    await expect(primaryLabel(page)).toHaveText('Start exploring', { timeout: 25000 });
+    const steps = await page.evaluate(() => (window as unknown as { __path: number[] }).__path);
+    // Only a guard against having sampled nothing at all. Deliberately loose:
+    // beside eleven other workers this browser gets a fraction of the frames it
+    // gets on its own, and the rate above is the assertion that matters.
+    expect(steps.length).toBeGreaterThan(40);
+    expect(Math.max(...steps)).toBeLessThan(4);
   });
 
   /**

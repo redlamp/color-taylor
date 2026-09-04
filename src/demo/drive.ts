@@ -47,7 +47,21 @@ export interface DriverOptions {
 /** How long a press is held before it becomes a click. Steps total themselves with it. */
 export const CLICK_MS = 110;
 
-const ease = (t: number) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
+/**
+ * Smootherstep, for the travel between one target and the next.
+ *
+ * This was easeInOutQuad, which lands from 2x its average speed and does the
+ * whole deceleration in the last quarter - on a long trip across the tool that
+ * is 44px per frame arriving in under a fifth of a second, and it reads as the
+ * hand being stopped rather than stopping. The quintic has zero acceleration at
+ * both ends as well as zero velocity, so the last tenth of the trip is 40%
+ * slower and the last twentieth three times slower, off a slightly lower peak.
+ *
+ * Deliberately not the same shape the gesture paths use, which is the plain
+ * cubic: a sweep is already a sine of its own parameter, and the quintic's
+ * steeper middle would speed up its turn as well as softening its ends.
+ */
+const ease = (t: number) => t * t * t * (t * (t * 6 - 15) + 10);
 const clamp01 = (t: number) => (t < 0 ? 0 : t > 1 ? 1 : t);
 
 /** The centre of an element in client coordinates. Zero-height SVG lines included. */
@@ -161,11 +175,12 @@ export class Driver {
   /**
    * Run `onFrame(t)` for `ms`, resolving at t=1.
    *
-   * `linear` hands the path an unshaped t. A move between two points wants
-   * the ease - it starts and stops, and should look like it. A sweep that is
-   * already a sine of t does not: easing the clock as well squeezes the fast
-   * part of the curve into the fast part of the sweep, so it lurches through
-   * the middle and snaps at each turn.
+   * `linear` hands the path an unshaped t. A move between two points wants the
+   * ease - it starts and stops, and should look like it. A gesture path does
+   * not, because it carries its own: every one of them in steps.ts is written
+   * as a function of `smooth(t)`, which is what gives it a resting start and a
+   * resting finish. Easing the clock on top of that warps the turn as well as
+   * the ends, and the sweep lurches through its middle.
    */
   private animate(ms: number, onFrame: (t: number) => void, linear = false): Promise<void> {
     this.guard();

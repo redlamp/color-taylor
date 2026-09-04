@@ -90,6 +90,36 @@ test.describe('Settings sheet', () => {
     await expect(hexInput).toHaveValue('#4F95FF', { timeout: 4000 });
   });
 
+  /**
+   * Which sections are open is show/hide state like the slider banks and the
+   * blend mode, both of which the reset already returned. It is not persisted -
+   * closing a section once should not close it forever - but it does outlive
+   * the components, so the reset has to reach in and clear it.
+   *
+   * Color Editor defaults open and Recent defaults closed, so moving both and
+   * resetting checks that a default is restored in each direction rather than
+   * everything simply being opened or shut.
+   */
+  test('"Default Settings" restores which sections are open', async ({ page }) => {
+    // The grid row the section animates, whose height is 0 while collapsed.
+    const height = (id: string) => async () =>
+      (await page.locator(`#${id}-content`).locator('..').boundingBox())?.height ?? -1;
+    // The trigger by what it controls, rather than by its title text: the
+    // header holds the section's own action buttons beside it.
+    const toggle = (id: string) => page.locator(`[aria-controls="${id}-content"]`);
+
+    await toggle('color-editor-group').click();
+    await expect.poll(height('color-editor-group')).toBe(0);
+    await toggle('recent-colors').click();
+    await expect.poll(height('recent-colors')).toBeGreaterThan(0);
+
+    await menuButton(page).click();
+    await sheet(page).getByRole('button', { name: /default settings/i }).click();
+
+    await expect.poll(height('color-editor-group'), { timeout: 4000 }).toBeGreaterThan(0);
+    await expect.poll(height('recent-colors'), { timeout: 4000 }).toBe(0);
+  });
+
   test('the audio section is always there; its controls arrive with the feature', async ({ page }) => {
     await menuButton(page).click();
     // The section holds the switch that brings the feature into existence, so

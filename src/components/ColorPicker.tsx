@@ -564,7 +564,15 @@ export default function ColorPicker() {
       const c = hsbToRgb(h, s, b);
       return { h, s, b, l: rgbToHsl(c.r, c.g, c.b).l, blMode };
     },
-  }), [hsbRef, blMode]);
+    restoreMovesColour: () => {
+      const snap = demoSnapshot.current;
+      if (!snap) return false;
+      // The displayed colour, which is the override where there is one - the
+      // same reading the restore itself puts back.
+      const now = rgbOverride.current ?? hsbToRgb(hsbRef.current.h, hsbRef.current.s, hsbRef.current.b);
+      return now.r !== snap.rgb.r || now.g !== snap.rgb.g || now.b !== snap.rgb.b;
+    },
+  }), [hsbRef, rgbOverride, blMode]);
 
   const handleRgbChange = useCallback((channel: 'r' | 'g' | 'b', value: number) => {
     takeOverFromAnimation();

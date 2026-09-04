@@ -695,6 +695,11 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     const onReset = () => {
       setRecentColors([]);
       setSavedSlots(defaultSaved());
+      // The panel's own show/hide state, which the reset returns along with
+      // the sections inside it. See CollapsibleSection's own listener.
+      hexDemoRestore.current = null;
+      setHexSettling(true);
+      setHexOpen(true);
     };
     window.addEventListener('color-taylor:reset-all', onReset);
     return () => window.removeEventListener('color-taylor:reset-all', onReset);

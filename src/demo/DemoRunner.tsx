@@ -49,14 +49,40 @@ const CAPTIONS = [...STEPS.map((s) => s.caption), SIGN_OFF];
 
 /**
  * How hard the arrow leans. The tilt is a spring on the smoothed velocity,
- * pivoting on the hotspot, so the body trails the point and swings past
- * centre once when the cursor stops. It is the one piece of the demo that is
- * there purely to be fun.
+ * pivoting on the hotspot, so the body trails the point and swings past centre
+ * when the cursor stops. It is the one piece of the demo that is there purely
+ * to be fun, which is the whole argument for the numbers being loose.
  */
-const TILT_MAX = 18;        // degrees, before the spring's overshoot
+const TILT_MAX = 20;        // degrees the velocity can ask for, before overshoot
 const TILT_PER_PX = 1.5;    // degrees per px-per-frame of travel
-const TILT_SPRING = 0.16;
-const TILT_DAMP = 0.82;
+/**
+ * How much vertical travel counts toward the lean.
+ *
+ * It used to count for nothing: the goal was read off horizontal velocity
+ * alone, so the two gestures that are purely vertical - the brightness bar and
+ * the hue strip - moved a perfectly rigid arrow down a track.
+ *
+ * The arrow's body runs from its point at (1,1) down to about (5,12), so it is
+ * mostly a downward shape with a little rightward in it. A body trailing its
+ * point swings by the cross product of those two, which puts the vertical
+ * contribution at about 0.36 of the horizontal and pointing the other way.
+ * Half rather than 0.36 because this is meant to be fun rather than correct.
+ */
+const TILT_FROM_VERTICAL = 0.5;
+/**
+ * Sway rather than spring: heavily damped, so the lean follows the direction of
+ * travel and settles without ringing.
+ *
+ * These were 0.16 / 0.82, which overshoots a step by 44% and takes a dozen
+ * crossings to give up - the arrow swung back and forth after every stop.
+ * 0.10 / 0.65 overshoots by 3% and is inside half a degree in eleven frames,
+ * which reads as weight hanging off the point rather than a spring attached
+ * to it.
+ */
+const TILT_SPRING = 0.10;
+const TILT_DAMP = 0.65;
+/** Nothing should get here now, but a lean is not allowed to run away. */
+const TILT_LIMIT = 30;
 
 /**
  * The ring a press leaves behind. A synthetic click moves no hardware and
@@ -188,6 +214,7 @@ export default function DemoRunner({ from = null, onRestore, onExit, host }: Dem
     let target: Point = { x: window.innerWidth * 0.5, y: window.innerHeight + 80 };
     let shown: Point = { ...target };
     let vx = 0;
+    let vy = 0;
     let tilt = 0;
     let tiltV = 0;
     let pressed = false;
@@ -269,14 +296,24 @@ export default function DemoRunner({ from = null, onRestore, onExit, host }: Dem
 
     const frame = () => {
       const dx = target.x - shown.x;
+      const dy = target.y - shown.y;
       shown = target;
-      // Smoothed px-per-frame. The bezier is already eased, so the position
-      // itself is taken exactly and only the lean is filtered.
-      vx = vx * 0.6 + dx * 0.4;
+      /*
+       * Smoothed px-per-frame. The path is already eased, so the position
+       * itself is taken exactly and only the lean is filtered.
+       *
+       * A longer filter than it had (0.6/0.4). What the lean is meant to show
+       * is which way the hand is going, and at one frame's resolution that
+       * question has a twitchy answer - a sweep reversing, a bezier crossing
+       * its own bow. Four frames of memory answers the question that was
+       * actually being asked.
+       */
+      vx = vx * 0.75 + dx * 0.25;
+      vy = vy * 0.75 + dy * 0.25;
       if (!reduced) {
-        const goal = clamp(vx * TILT_PER_PX, -TILT_MAX, TILT_MAX);
+        const goal = clamp((vx - vy * TILT_FROM_VERTICAL) * TILT_PER_PX, -TILT_MAX, TILT_MAX);
         tiltV = (tiltV + (goal - tilt) * TILT_SPRING) * TILT_DAMP;
-        tilt += tiltV;
+        tilt = clamp(tilt + tiltV, -TILT_LIMIT, TILT_LIMIT);
       }
       const cursor = cursorRef.current;
       if (cursor) {
@@ -382,14 +419,24 @@ export default function DemoRunner({ from = null, onRestore, onExit, host }: Dem
         // caller handles it - but an abort would otherwise be reported twice.
         hold.catch(() => {});
 
-        // Home first, so the colour tweens back under the ghost rather than
-        // somewhere it is not looking; then off the bottom of the screen,
-        // fading as it goes, rather than blinking out where it stood.
-        await closingPose(ctx);
-        restoreRef.current();
-        // Riding the tip while the colour tweens back, so the ending reads as
-        // the cursor putting the colour where it found it.
-        await carryHome(ctx);
+        /*
+         * Home first, so the colour tweens back under the ghost rather than
+         * somewhere it is not looking - but only when there is a colour to
+         * take home. The demo lands on the app's default, so a visitor who
+         * had not changed theirs is being restored to what is already on
+         * screen, and the walk is then a cursor crossing the tool to stand
+         * over a hexagon and watch nothing happen.
+         */
+        if (ctx.host.restoreMovesColour()) {
+          await closingPose(ctx);
+          restoreRef.current();
+          // Riding the tip while the colour tweens back, so the ending reads
+          // as the cursor putting the colour where it found it.
+          await carryHome(ctx);
+        } else {
+          // Still restores the sections, the banks and the blend.
+          restoreRef.current();
+        }
         setGhostLeaving(true);
         await exitPose(ctx);
 

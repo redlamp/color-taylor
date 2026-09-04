@@ -91,6 +91,16 @@ export interface DemoHost {
    * has to know the one it is starting from.
    */
   field(): FieldState;
+  /**
+   * Whether handing the colour back is going to move anything.
+   *
+   * The demo lands on LANDING, which is the app's own default, so for a
+   * visitor who had not changed the colour the restore is a no-op - and the
+   * walk home is then a cursor crossing the screen to stand over a hexagon
+   * and watch nothing happen. Asked before the walk rather than discovered
+   * after it, because by then the trip has been taken.
+   */
+  restoreMovesColour(): boolean;
 }
 
 export interface StepContext {
@@ -143,6 +153,23 @@ const joints = () => Array.from(document.querySelectorAll('[data-joint]'));
 const stems = () => Array.from(document.querySelectorAll('[data-stem]'));
 
 /**
+ * Smoothstep: zero rate of change at both ends, unity in the middle.
+ *
+ * Every gesture path below is written as a function of `smooth(t)` rather than
+ * `t`, and `drag` is then given a linear clock so the shaping is applied
+ * exactly once. That is what stops a sweep arriving at its own end at full
+ * speed: `sin(pi * t)` is at its fastest as it lands, which reads as the hand
+ * being yanked off the control. `sin(pi * smooth(t))` traces the identical
+ * path and reaches the same peak speed - about 3.11 against pi, because the
+ * two factors peak at different moments - but starts and stops at rest.
+ *
+ * Easing the clock instead, which is what `animate` does when `linear` is off,
+ * warps the turn as well as the ends and makes the sweep lurch through its
+ * middle. The shaping belongs in the path, where it knows what it is shaping.
+ */
+const smooth = (t: number) => t * t * (3 - 2 * t);
+
+/**
  * A sweep along a track, out and back, from wherever the handle happens to be.
  *
  * The obvious version - swing symmetrically about the start and clamp to the
@@ -156,7 +183,7 @@ function sweepFrom(lo: number, hi: number, start: number, fraction = 0.55) {
   const after = hi - start;
   const dir = after >= before ? 1 : -1;
   const reach = Math.min(dir > 0 ? after : before, (hi - lo) * fraction);
-  return (t: number) => start + dir * reach * Math.sin(t * Math.PI);
+  return (t: number) => start + dir * reach * Math.sin(smooth(t) * Math.PI);
 }
 
 /**
@@ -200,8 +227,6 @@ function fieldPoint(hueDeg: number, satFraction: number, f: FieldState): Point |
   return hexClientPoint(CENTER_X + dist * Math.cos(rad), CENTER_Y - dist * Math.sin(rad));
 }
 
-/** Smooth in and out, for a path whose own shape is already the interesting part. */
-const smooth = (t: number) => t * t * (3 - 2 * t);
 
 export const STEPS: DemoStep[] = [
   {
@@ -246,10 +271,13 @@ export const STEPS: DemoStep[] = [
 
       // Out through the dark and back up to the top edge. Both terms vanish at
       // t=1, so it finishes exactly on the landing colour however it started.
-      await d.drag(area, (t) => pt(
-        clamp(f.s + (LANDING.s - f.s) * t + 30 * Math.sin(t * PI * 2), 2, 98),
-        clamp(f.b + (LANDING.b - f.b) * t - 42 * Math.sin(t * PI), 4, 100),
-      ), DWELL.dragBox, true);
+      await d.drag(area, (t) => {
+        const u = smooth(t);
+        return pt(
+          clamp(f.s + (LANDING.s - f.s) * u + 30 * Math.sin(u * PI * 2), 2, 98),
+          clamp(f.b + (LANDING.b - f.b) * u - 42 * Math.sin(u * PI), 4, 100),
+        );
+      }, DWELL.dragBox, true);
       await d.wait(DWELL.betweenSteps);
 
       // The hue strip. Absolute mapping on clientY, so pressing at the marker's
@@ -262,17 +290,37 @@ export const STEPS: DemoStep[] = [
         const br = bar.getBoundingClientRect();
         const x = br.left + br.width / 2;
         const h0 = host.field().h;
-        // The strip wraps, so the value is right whatever number goes in; the
-        // wrap here is for the ghost, which would otherwise walk off the end.
-        const y = (hue: number) => br.top + ((((hue % 360) + 360) % 360) / 360) * br.height;
-        // Shortest way round to the landing hue, so a step entered on its own
-        // still finishes where the script says it does.
-        const delta = ((((LANDING.h - h0) % 360) + 540) % 360) - 180;
+        const y = (hue: number) => br.top + (hue / 360) * br.height;
+
+        /*
+         * The strip loops; the ghost must not.
+         *
+         * Wrapping the hue into 0-360 to find a height is right for the value
+         * and wrong for the hand: the moment the sweep crossed an end the
+         * cursor jumped the length of the control, which is not a thing a
+         * pointer does. So the path is chosen to stay on the strip instead -
+         * out to whichever end has the room, then back to the landing hue.
+         *
+         * One reversal, not two. Both ends fit only when the start and the
+         * target are near the middle, and a sweep that turns twice in two and
+         * a half seconds reads as fidgeting rather than as showing a range.
+         */
+        const pad = 6;
+        const lo = Math.min(h0, LANDING.h);
+        const hi = Math.max(h0, LANDING.h);
+        const room = { up: 360 - pad - hi, down: lo - pad };
+        const peak = room.up >= room.down ? hi + room.up : lo - room.down;
+
         await d.moveTo(() => ({ x, y: y(h0) }), DWELL.move);
-        // 140 rather than 180: from the landing hue that is 76 to 356, which
-        // covers most of the strip without crossing either end.
+        // Time split by distance, so the speed is even across the turn, and
+        // smoothed within each leg, so it comes to rest before reversing.
+        const legs = [Math.abs(peak - h0), Math.abs(LANDING.h - peak)];
+        const split = legs[0] / (legs[0] + legs[1] || 1);
         await d.drag(bar, (t) => ({
-          x, y: y(h0 + delta * t + 140 * Math.sin(t * PI * 2)),
+          x,
+          y: y(t < split
+            ? h0 + (peak - h0) * smooth(split ? t / split : 1)
+            : peak + (LANDING.h - peak) * smooth(split < 1 ? (t - split) / (1 - split) : 1)),
         }), DWELL.dragHue, true);
       }
       await d.wait(DWELL.afterAction);
@@ -337,10 +385,11 @@ export const STEPS: DemoStep[] = [
       const s0 = clamp(f.s / 100, 0.12, 0.92);
       const s1 = LANDING.s / 100;
       await d.drag(tip, (t) => {
+        const u = smooth(t);
         // The wobble decays to nothing, so the last stretch is a clean
         // approach and the gesture lands exactly on the colour it meant to.
-        const sat = clamp(s0 + (s1 - s0) * t + 0.2 * Math.sin(t * PI * 3) * (1 - t), 0.1, 0.92);
-        return fieldPoint(f.h + turn * smooth(t), sat, f) ?? c;
+        const sat = clamp(s0 + (s1 - s0) * u + 0.2 * Math.sin(u * PI * 3) * (1 - u), 0.1, 0.92);
+        return fieldPoint(f.h + turn * u, sat, f) ?? c;
       }, DWELL.dragTip, true);
       await d.wait(DWELL.afterAction);
     },

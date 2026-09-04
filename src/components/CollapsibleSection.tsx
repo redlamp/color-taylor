@@ -157,6 +157,28 @@ export default function CollapsibleSection({ id, title, level = 'h3', defaultOpe
       window.removeEventListener(DEMO_RESTORE, onRestore);
     };
   }, [id]);
+
+  /*
+   * "Default Settings" puts every section back to how a first visit finds it.
+   *
+   * Which sections are open is show/hide state like any other, and the reset
+   * already returns the slider banks, the blend mode and the colour itself. It
+   * is not persisted - OPEN_STATE is module scope on purpose, so closing a
+   * section once does not close it forever - but it does outlive the component,
+   * which is exactly why the reset has to reach in and clear it rather than
+   * just re-rendering.
+   */
+  useEffect(() => {
+    const onReset = () => {
+      restore.current = null;
+      if (id !== undefined) OPEN_STATE.delete(id);
+      setSettling(true);
+      setOpen(defaultOpen);
+    };
+    window.addEventListener('color-taylor:reset-all', onReset);
+    return () => window.removeEventListener('color-taylor:reset-all', onReset);
+  }, [id, defaultOpen]);
+
   const Tag = level;
   const flush = variant === 'flush';
   // aria-controls and aria-labelledby need ids on both ends. Only wired up when
