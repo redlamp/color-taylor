@@ -26,6 +26,7 @@ import ColorHexagon from './ColorHexagon';
 import { HEX_PANEL_WIDTH } from './hex/hexConstants';
 import { AboutPanel } from './AboutPanel';
 import type { DemoHost } from '@/demo/steps';
+import { openDemoSections, restoreDemoSections } from '@/utils/demoSections';
 
 /*
  * The self-running demo, lazy like the deck: it is a few hundred lines that
@@ -511,6 +512,10 @@ export default function ColorPicker() {
     setDemoFrom(from);
     takeOverFromAnimation();
     demoSnapshot.current = { hsb: { ...hsbRef.current }, rgb: { ...rgb }, groups, blend };
+    // Ask any section the script works in to open, before the overlay mounts,
+    // so the 200ms collapse has run by the time the first beat measures
+    // anything. A section that was already open is not touched.
+    openDemoSections();
     setDemoOpen(true);
   }, [takeOverFromAnimation, hsbRef, rgb, groups, blend]);
   const restoreDemo = useCallback(() => {
@@ -519,6 +524,7 @@ export default function ColorPicker() {
     // caption, and "Start exploring" then asks a second time.
     if (!snap) return;
     demoSnapshot.current = null;
+    restoreDemoSections();
     setGroups(snap.groups);
     setBlend(snap.blend);
     /*
@@ -550,8 +556,9 @@ export default function ColorPicker() {
    * the runner reads it through a ref of its own.
    */
   const demoHost = useMemo<DemoHost>(() => ({
-    showDefaultSliders: () => setGroups(DEFAULT_GROUPS),
-    setBlend: (on: boolean) => setBlend(on),
+    // Only when there is nothing at all to light up; otherwise the user's own
+    // arrangement is what the demo runs against. See DemoHost.
+    ensureSliders: () => setGroups((g) => (g.length ? g : DEFAULT_GROUPS)),
     field: () => {
       const { h, s, b } = hsbRef.current;
       const c = hsbToRgb(h, s, b);

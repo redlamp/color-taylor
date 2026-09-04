@@ -241,10 +241,10 @@ test.describe('Picker demo', () => {
   });
 
   /**
-   * Steps 1 and 2 aim at one chosen colour - LANDING in steps.ts - from three
-   * directions: the hexagon by angle and radius, the colour box by saturation
-   * and brightness, the hue strip by height. The default colour is that
-   * colour, so this has to start somewhere else to see any of it happen.
+   * Steps 1 and 2 aim at one chosen colour - LANDING in steps.ts - from two
+   * directions: the colour box by saturation and brightness with the hue strip
+   * by height, then the hexagon by angle and radius. The default colour is
+   * that colour, so this has to start somewhere else to see any of it happen.
    *
    * It asserts the arrival rather than the path. Every gesture that lands is
    * written so its wobble term vanishes at t=1, and that is the property worth
@@ -254,13 +254,93 @@ test.describe('Picker demo', () => {
   test('the script lands on the colour it aims at', async ({ page }) => {
     await seeded(page);
     expect(await hsb(page)).toBe('34/88/42');
+    await page.locator('#demo-button').click();
+    await expect.poll(() => hsb(page), { timeout: 15000, intervals: [50] }).toBe('216/69/100');
+  });
+
+  /**
+   * Why the colour editor goes first.
+   *
+   * The hexagon's cross-section is a hexagon of radius b/100, so at b=0 it is
+   * a point: every position on the field maps to the centre, and the lap that
+   * is the whole of that step happens inside no pixels at all. The colour box
+   * has no such problem - x and y are saturation and brightness directly - so
+   * opening there means the hexagon is always handed a colour at full
+   * brightness and always has a full-size field to work on.
+   *
+   * The radius is sampled rather than read once, because the property is that
+   * the lap has a size, not that any one frame does.
+   */
+  test('a black start still gets a full lap of the hexagon', async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem('color-taylor-hsb', JSON.stringify({ h: 34, s: 88, b: 0 }));
+    });
+    await page.goto(FAST);
+    await page.locator('#rgb-dot-green').waitFor();
+    expect(await hsb(page)).toBe('34/88/0');
 
     await page.locator('#demo-button').click();
-    // The hexagon sets hue and saturation and holds the brightness it began
-    // with, so this is step one arriving, not step two.
-    await expect.poll(() => hsb(page), { timeout: 15000, intervals: [50] }).toBe('216/69/42');
-    // The colour box and the hue strip, which bring brightness with them.
+    // Step one gets there from black exactly as it would from anything else.
     await expect.poll(() => hsb(page), { timeout: 15000, intervals: [50] }).toBe('216/69/100');
+
+    // Then step two laps it. Before the swap this radius was zero throughout.
+    let widest = 0;
+    for (let i = 0; i < 24; i++) {
+      await page.waitForTimeout(50);
+      widest = Math.max(widest, await page.evaluate(() => {
+        const dots = document.querySelectorAll('[data-joint]');
+        const svg = document.querySelector('#hex-svg');
+        if (!dots.length || !svg) return 0;
+        const r = dots[dots.length - 1].getBoundingClientRect();
+        const s = svg.getBoundingClientRect();
+        // CENTER_X/CENTER_Y over the viewBox, which the wrapper pins to the
+        // element's aspect ratio.
+        return Math.hypot(
+          r.left + r.width / 2 - (s.left + (s.width * 260) / 590),
+          r.top + r.height / 2 - (s.top + (s.height * 270) / 568),
+        );
+      }));
+    }
+    expect(widest).toBeGreaterThan(60);
+  });
+
+  /**
+   * The demo runs against the user's own arrangement of slider banks. It used
+   * to force the default pair and hand the arrangement back afterwards, which
+   * flickered HSL off and on again for anyone who had all three showing.
+   */
+  test('it leaves the slider banks as it found them', async ({ page }) => {
+    const hsl = page.getByRole('button', { name: 'HSL', exact: true });
+    await hsl.click();
+    await expect(hsl).toHaveAttribute('aria-pressed', 'true');
+
+    await page.locator('#demo-button').click();
+    await expect(panel(page)).toBeVisible();
+    await page.waitForTimeout(600);
+    await expect(hsl).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  /**
+   * A collapsed section keeps its children mounted - it has to, or there is no
+   * height to animate - so the demo's "a missing target skips its step" guard
+   * never fires on one. Left alone, the script drove controls inside a clipped
+   * zero-height row: the colour landed correctly and the ghost traced a
+   * careful pattern over a closed panel. So it asks, and puts them back.
+   */
+  test('it opens a section the user had closed, and closes it again', async ({ page }) => {
+    // The row the section animates, whose height is 0 while collapsed.
+    const row = page.locator('#color-editor-group-content').locator('..');
+    const height = async () => (await row.boundingBox())?.height ?? -1;
+
+    await page.locator('h2', { hasText: /^Color Editor$/ }).click();
+    await expect.poll(height).toBe(0);
+
+    await page.locator('#demo-button').click();
+    await expect.poll(height, { timeout: 5000 }).toBeGreaterThan(100);
+
+    await primary(page).click();
+    await expect(panel(page)).toHaveCount(0);
+    await expect.poll(height, { timeout: 5000 }).toBe(0);
   });
 
   /**

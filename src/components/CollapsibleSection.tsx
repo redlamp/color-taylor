@@ -1,4 +1,5 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { DEMO_OPEN, DEMO_RESTORE, addressedTo } from '@/utils/demoSections';
 import { ChevronRight } from 'lucide-react';
 
 type Level = 'h2' | 'h3';
@@ -114,6 +115,48 @@ export default function CollapsibleSection({ id, title, level = 'h3', defaultOpe
       return next;
     });
   };
+
+  /*
+   * The demo opens the sections it works in, and puts them back afterwards.
+   *
+   * It has to ask rather than simply find them closed and skip: the children
+   * stay mounted while collapsed, so a closed section looks exactly like an
+   * open one to a querySelector and the script would drive controls nobody
+   * can see. See utils/demoSections.
+   *
+   * `restore` holds what to go back to and is null when the demo has not
+   * touched this section, so a section that was already open is left alone on
+   * the way in *and* on the way out. The open flag is mirrored into a ref
+   * because the listener is registered once and would otherwise close over the
+   * state it saw at mount.
+   */
+  const openRef = useRef(open);
+  useEffect(() => { openRef.current = open; }, [open]);
+  const restore = useRef<boolean | null>(null);
+  useEffect(() => {
+    if (id === undefined) return;
+    const onOpen = (e: Event) => {
+      if (!addressedTo(e, id) || openRef.current) return;
+      restore.current = false;
+      OPEN_STATE.set(id, true);
+      setSettling(true);
+      setOpen(true);
+    };
+    const onRestore = () => {
+      if (restore.current === null) return;
+      const back = restore.current;
+      restore.current = null;
+      OPEN_STATE.set(id, back);
+      setSettling(true);
+      setOpen(back);
+    };
+    window.addEventListener(DEMO_OPEN, onOpen);
+    window.addEventListener(DEMO_RESTORE, onRestore);
+    return () => {
+      window.removeEventListener(DEMO_OPEN, onOpen);
+      window.removeEventListener(DEMO_RESTORE, onRestore);
+    };
+  }, [id]);
   const Tag = level;
   const flush = variant === 'flush';
   // aria-controls and aria-labelledby need ids on both ends. Only wired up when

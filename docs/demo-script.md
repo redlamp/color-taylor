@@ -28,8 +28,8 @@ step has, and where a longer line could go without changing a single timing.
 
 | # | Line | Runs | Words | Room |
 |---|---|---:|---:|---:|
-| 1 | Play with the handles to see how each one maps to a color channel. | 9.9s | 14 | ~25 |
-| 2 | Work with the tools that feel most familiar to you. | 8.3s | 10 | ~21 |
+| 1 | Work with the tools that feel most familiar to you. | 8.3s | 10 | ~21 |
+| 2 | Play with the handles to see how each one maps to a color channel. | 9.9s | 14 | ~25 |
 | 3 | Move one value and everything it affects lights up across the app. | 8.1s | 12 | ~20 |
 | 4 | Press this button to toggle between Source and Mixed color sliders. | 5.5s | 11 | ~14 |
 | — | Have fun! | 4.4s | 2 | — |
@@ -64,15 +64,37 @@ sweeps that hand the colour back where they found it, so the demo sits on that
 colour from the end of step 2 until the sign-off puts the user's own back.
 
 It is `LANDING` in `src/demo/steps.ts`, and it is one constant because the three
-surfaces reach it from different directions: the hexagon by angle and radius,
-the colour box by saturation and brightness, the hue strip by height. A demo
+surfaces reach it from different directions: the colour box by saturation and
+brightness, the hue strip by height, the hexagon by angle and radius. A demo
 that stops wherever its last gesture happened to end reads as a recording of
 somebody fiddling.
+
+**The order is load-bearing.** The colour box is the only one of the three whose
+mapping cannot degenerate — x and y are saturation and brightness directly, with
+no cross-section to collapse and no angle that is undefined at the centre. The
+hexagon's field is a hexagon of radius `b/100`, which at `b=0` is a point: every
+position maps to the middle, and step 2's lap would happen inside no pixels at
+all. Opening on the colour editor means the hexagon is always handed a colour at
+full brightness. From a black start the lap's radius measures 109–171px; it
+would be zero the other way round.
 
 Landing on a *chosen* colour is why `DemoHost` has a `field()` reader. A gesture
 on the hexagon or the box is a position rather than a delta, so a step that
 means to end somewhere has to know where it is starting from. It is the only
 thing the demo reads rather than works.
+
+## What the demo takes over, and what it leaves alone
+
+The rule is that the user's tool comes back exactly as they left it, so the demo
+borrows as little as it can.
+
+| | |
+|---|---|
+| **The colour** | Borrowed. Snapshotted at the start and tweened back at the end or on a skip, including the exact RGB where it differs from what HSB would derive — `hsbToRgb(rgbToHsb(rgb))` changes 86.4% of 8-bit colours, so a value typed as `R=137` would not survive the round trip. |
+| **Collapsed sections** | Opened, if closed, and closed again afterwards. It has to ask rather than notice: a collapsed section keeps its children mounted so its height can animate, so it looks exactly like an open one to a `querySelector`. Left alone, the script drove controls inside a clipped zero-height row — the colour landed correctly and the ghost traced a careful pattern over a closed panel. `utils/demoSections.ts`, two window events, the same shape as `color-taylor:reset-all`. |
+| **Slider banks** | Left alone. It used to force RGB + HSB and hand the arrangement back, which flickered HSL off and on again for anyone showing all three. Nothing in the script targets a particular bank any more. The one exception is a user with every bank closed, where the step about what lights up would have nothing to light. |
+| **Blend** | Left alone. Step 4 presses the toggle an even number of times, so it demonstrates the same thing from either state and gives it back either way. Still restored, because a skip part way through would leave it flipped. |
+| **Scroll position** | Not restored. Each step scrolls its target clear of the panel, and the page is left wherever the last one put it. |
 
 ## The pacing dial
 
@@ -117,11 +139,43 @@ Four more live beside them, and are named in the beats below:
 
 ---
 
-## Step 1 — The chain · 9.9s
+## Step 1 — The colour editor · 8.3s
+
+> **Work with the tools that feel most familiar to you.**
+
+Narration: `public/demo/01-color-box.mp3`
+
+The demo opens here on purpose. This is the control every other tool has, so
+the first thing that moves is a thing the user already knows — and it is the one
+gesture that works identically from *any* starting colour, which is what makes
+black and white ordinary rather than a special case. See below.
+
+The box first, then the hue strip beside it — saturation and brightness alone
+never leave the one hue, and the pair is what makes it a picker.
+
+| Beat | ms | What happens |
+|---|---:|---|
+| `moveFar` | 680 | Across to the colour box, pressing exactly where the handle already is. |
+| `beforeAction` | 400 | A moment to read the caption. |
+| `dragBox` | 2800 | Out through the dark and back up to the top edge, landing on **s69, b100**. |
+| `betweenSteps` | 400 | |
+| `move` | 520 | To the **hue strip**, at the marker's own height so nothing jumps. |
+| `dragHue` | 2600 | A full period of a sine: 140° above the hue and 140° below it, ending on **h216**. |
+| `afterAction` | 950 | |
+
+140 rather than 180 because the strip wraps: overshooting either end is harmless
+to the value but walks the ghost off the control.
+
+## Step 2 — The chain · 9.9s
 
 > **Play with the handles to see how each one maps to a color channel.**
 
-Narration: `public/demo/01-handles.mp3`
+Narration: `public/demo/02-handles.mp3`
+
+It comes second because it is the unfamiliar one, and because step 1 hands it a
+colour at full brightness — the hexagon's cross-section is a hexagon of radius
+`b/100`, so a dark starting colour would collapse the whole field toward a point
+and the lap below would happen inside a few pixels.
 
 Three stops rather than all six. Visiting every stem and joint in order made the
 same point three times; a tooltip names its channel whether or not you have seen
@@ -143,28 +197,6 @@ adjusted, and a full turn looks like a hue wheel, which is what it is.
 Brightness is untouched for the whole gesture — the mapping freezes its bound at
 pointer-down and every point on the path stays inside it — so hue and saturation
 are the only things moving.
-
-## Step 2 — The colour editor · 8.3s
-
-> **Work with the tools that feel most familiar to you.**
-
-Narration: `public/demo/02-color-box.mp3`
-
-The box first, then the hue strip beside it — saturation and brightness alone
-never leave the one hue, and the pair is what makes it a picker.
-
-| Beat | ms | What happens |
-|---|---:|---|
-| `moveFar` | 680 | Across to the colour box, pressing exactly where the handle already is. |
-| `beforeAction` | 400 | A moment to read the caption. |
-| `dragBox` | 2800 | Out through the dark and back up to the top edge, landing on **s69, b100**. |
-| `betweenSteps` | 400 | |
-| `move` | 520 | To the **hue strip**, at the marker's own height so nothing jumps. |
-| `dragHue` | 2600 | A full period of a sine: 140° above the hue and 140° below it, ending on **h216**. |
-| `afterAction` | 950 | |
-
-140 rather than 180 because the strip wraps: overshooting either end is harmless
-to the value but walks the ghost off the control.
 
 ## Step 3 — What one value moves · 8.1s
 
@@ -248,8 +280,8 @@ the length. A recording shorter than the step changes nothing.
 
 | Step | File | Words to fill the current timing |
 |---|---|---:|
-| 1 | `01-handles.mp3` | ~9.9s |
-| 2 | `02-color-box.mp3` | ~8.3s |
+| 1 | `01-color-box.mp3` | ~8.3s |
+| 2 | `02-handles.mp3` | ~9.9s |
 | 3 | `03-impact.mp3` | ~8.1s |
 | 4 | `04-blend.mp3` | ~5.5s |
 

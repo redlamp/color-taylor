@@ -73,9 +73,17 @@ export interface FieldState {
 }
 
 export interface DemoHost {
-  /** The demo shows the RGB chain against the HSB sliders, so it sets both. */
-  showDefaultSliders(): void;
-  setBlend(on: boolean): void;
+  /**
+   * Put the slider banks back only if there are none.
+   *
+   * This used to force the default pair and hand the user's arrangement back
+   * afterwards, which flickered HSL off and on again for anyone who had all
+   * three showing. Nothing in the script targets a particular bank any more -
+   * the one step that dragged a slider is gone - so the demo has no business
+   * having an opinion. The single exception is a user with every bank closed,
+   * where the step about what lights up would have nothing to light.
+   */
+  ensureSliders(): void;
   /**
    * Where the colour is now. Read, never written - the script still works the
    * real controls, and this only tells it where to aim them. A gesture on the
@@ -197,74 +205,21 @@ const smooth = (t: number) => t * t * (3 - 2 * t);
 
 export const STEPS: DemoStep[] = [
   {
-    caption: 'Play with the handles to see how each one maps to a color channel.',
-    audio: '01-handles.mp3',
-    duration: (DWELL.move + DWELL.hoverStem) + 2 * (DWELL.move + DWELL.hoverJoint)
-      + DWELL.move + DWELL.dragTip + DWELL.afterAction,
-    /**
-     * The chain. Three stops, not all six: a stem, the joint two along, and
-     * the tip. Visiting every one in order made the point three times and took
-     * nine seconds doing it - the tooltips name a channel the same whether or
-     * not you have seen its neighbour, and by the third stop the pattern is
-     * established rather than being demonstrated. Then the tip, the one handle
-     * that is the selection rather than an explanation of it.
-     */
-    async run({ d, host }) {
-      const dots = joints();
-      const legs = stems();
-      if (!dots.length || !legs.length) return;
-      const tip = dots[dots.length - 1];
-      await d.bring(tip);
-
-      // Positional rather than by channel: the chain's order changes with the
-      // vector mode, and a missing one should be skipped, not thrown over.
-      const tour: Array<[Element | undefined, number]> = [
-        [legs[0], DWELL.hoverStem],
-        [dots[1], DWELL.hoverJoint],
-        [tip, DWELL.hoverJoint],
-      ];
-      for (const [target, dwell] of tour) {
-        if (target) await hoverBriefly(d, target, dwell);
-      }
-
-      // Then the tip goes all the way round.
-      //
-      // It used to nudge 56px and come back, which moved the readouts without
-      // ever saying what the field is: a short arc near one hue looks like a
-      // colour being adjusted, and a full turn looks like a hue wheel, which
-      // is what it is. Brightness is held for the whole gesture - the mapping
-      // freezes its bound at pointer-down and every point on this path stays
-      // inside it - so the only things moving are hue and saturation.
-      await d.bring(tip);
-      const c = centerOf(tip);
-      await d.moveTo(() => c, DWELL.move);
-
-      // Read once and held: this is the cross-section the whole sweep is on.
-      const f = host.field();
-      // One full turn, plus however far round the landing hue is from here, so
-      // it arrives there however the colour started.
-      const turn = 360 + ((((LANDING.h - f.h) % 360) + 360) % 360);
-      const s0 = clamp(f.s / 100, 0.12, 0.92);
-      const s1 = LANDING.s / 100;
-      await d.drag(tip, (t) => {
-        // The wobble decays to nothing, so the last stretch is a clean
-        // approach and the gesture lands exactly on the colour it meant to.
-        const sat = clamp(s0 + (s1 - s0) * t + 0.2 * Math.sin(t * PI * 3) * (1 - t), 0.1, 0.92);
-        return fieldPoint(f.h + turn * smooth(t), sat, f) ?? c;
-      }, DWELL.dragTip, true);
-      await d.wait(DWELL.afterAction);
-    },
-  },
-
-  {
     caption: 'Work with the tools that feel most familiar to you.',
-    audio: '02-color-box.mp3',
+    audio: '01-color-box.mp3',
     duration: DWELL.moveFar + DWELL.beforeAction + DWELL.dragBox
       + DWELL.betweenSteps + DWELL.move + DWELL.dragHue + DWELL.afterAction,
     /**
-     * The colour editor: the box most people reach for first, and then the hue
-     * strip beside it, because saturation and brightness alone never leave the
-     * one hue and the pair is what makes it a picker.
+     * The colour editor, and the demo opens here on purpose: it is the control
+     * every other tool has, so the first thing that moves is a thing the user
+     * already knows. It is also the one gesture that works identically from
+     * any starting colour - the box maps x and y straight onto saturation and
+     * brightness, with no cross-section to collapse and no angle to be
+     * undefined at the centre - so black and white are ordinary here.
+     *
+     * The box first, then the hue strip beside it, because saturation and
+     * brightness alone never leave the one hue and the pair is what makes it a
+     * picker.
      *
      * Both are worked by the track rather than the handle. Reaching for a 10px
      * marker is what a person does because they have to; watching a cursor hunt
@@ -320,6 +275,73 @@ export const STEPS: DemoStep[] = [
           x, y: y(h0 + delta * t + 140 * Math.sin(t * PI * 2)),
         }), DWELL.dragHue, true);
       }
+      await d.wait(DWELL.afterAction);
+    },
+  },
+
+  {
+    caption: 'Play with the handles to see how each one maps to a color channel.',
+    audio: '02-handles.mp3',
+    duration: (DWELL.move + DWELL.hoverStem) + 2 * (DWELL.move + DWELL.hoverJoint)
+      + DWELL.move + DWELL.dragTip + DWELL.afterAction,
+    /**
+     * The chain, and the hexagon it lives on - second, because it is the
+     * unfamiliar one. The colour editor before it also hands this step a
+     * colour at full brightness, which matters more than it sounds: the
+     * hexagon's cross-section is a hexagon of radius b/100, so at a dark
+     * starting colour the whole field collapses toward a point and the lap
+     * below would happen inside a few pixels. From b=100 it is always the
+     * full field.
+     *
+     * Three stops, not all six: a stem, the joint two along, and the tip. Visiting every one in order made the point three times and took
+     * nine seconds doing it - the tooltips name a channel the same whether or
+     * not you have seen its neighbour, and by the third stop the pattern is
+     * established rather than being demonstrated. Then the tip, the one handle
+     * that is the selection rather than an explanation of it.
+     */
+    async run({ d, host }) {
+      const dots = joints();
+      const legs = stems();
+      if (!dots.length || !legs.length) return;
+      const tip = dots[dots.length - 1];
+      await d.bring(tip);
+
+      // Positional rather than by channel: the chain's order changes with the
+      // vector mode, and a missing one should be skipped, not thrown over.
+      const tour: Array<[Element | undefined, number]> = [
+        [legs[0], DWELL.hoverStem],
+        [dots[1], DWELL.hoverJoint],
+        [tip, DWELL.hoverJoint],
+      ];
+      for (const [target, dwell] of tour) {
+        if (target) await hoverBriefly(d, target, dwell);
+      }
+
+      // Then the tip goes all the way round.
+      //
+      // It used to nudge 56px and come back, which moved the readouts without
+      // ever saying what the field is: a short arc near one hue looks like a
+      // colour being adjusted, and a full turn looks like a hue wheel, which
+      // is what it is. Brightness is held for the whole gesture - the mapping
+      // freezes its bound at pointer-down and every point on this path stays
+      // inside it - so the only things moving are hue and saturation.
+      await d.bring(tip);
+      const c = centerOf(tip);
+      await d.moveTo(() => c, DWELL.move);
+
+      // Read once and held: this is the cross-section the whole sweep is on.
+      const f = host.field();
+      // One full turn, plus however far round the landing hue is from here, so
+      // it arrives there however the colour started.
+      const turn = 360 + ((((LANDING.h - f.h) % 360) + 360) % 360);
+      const s0 = clamp(f.s / 100, 0.12, 0.92);
+      const s1 = LANDING.s / 100;
+      await d.drag(tip, (t) => {
+        // The wobble decays to nothing, so the last stretch is a clean
+        // approach and the gesture lands exactly on the colour it meant to.
+        const sat = clamp(s0 + (s1 - s0) * t + 0.2 * Math.sin(t * PI * 3) * (1 - t), 0.1, 0.92);
+        return fieldPoint(f.h + turn * smooth(t), sat, f) ?? c;
+      }, DWELL.dragTip, true);
       await d.wait(DWELL.afterAction);
     },
   },
@@ -401,10 +423,15 @@ export const STEPS: DemoStep[] = [
   },
 ];
 
-/** Stage the controls the script assumes, before the first step. */
+/**
+ * Stage the controls the script assumes, before the first step.
+ *
+ * Deliberately almost nothing. Blend is left wherever the user had it: step
+ * four presses the toggle an even number of times, so it demonstrates the same
+ * thing from either state and gives it back either way.
+ */
 export async function openingPose(ctx: StepContext): Promise<void> {
-  ctx.host.showDefaultSliders();
-  ctx.host.setBlend(true);
+  ctx.host.ensureSliders();
   await ctx.d.wait(DWELL.betweenSteps);
 }
 

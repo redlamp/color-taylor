@@ -12,6 +12,7 @@ import NAMED_COLORS from '../utils/namedColors';
 import { HANDLE, ringRadius } from '../utils/handleStyle';
 import { readSwatch, writeSwatch, SWATCHES_READY } from '../utils/swatchStore';
 import { HSB_TWEEN_MS } from '../utils/colorTween';
+import { DEMO_OPEN, DEMO_RESTORE, HEXAGON_SECTION, addressedTo } from '../utils/demoSections';
 import { toneController } from '../utils/toneControllerLazy';
 import useUiSounds from '../hooks/useUiSounds';
 import {
@@ -546,6 +547,36 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     setHexSettling(true);
     setHexOpen((o) => !o);
   };
+
+  /*
+   * The demo opens this panel if the user had it closed, and closes it again
+   * afterwards. Same contract as CollapsibleSection's, spelled out separately
+   * because this card collapses on its own hexOpen rather than through one.
+   */
+  const hexOpenRef = useRef(hexOpen);
+  useEffect(() => { hexOpenRef.current = hexOpen; }, [hexOpen]);
+  const hexDemoRestore = useRef<boolean | null>(null);
+  useEffect(() => {
+    const onOpen = (e: Event) => {
+      if (!addressedTo(e, HEXAGON_SECTION) || hexOpenRef.current) return;
+      hexDemoRestore.current = false;
+      setHexSettling(true);
+      setHexOpen(true);
+    };
+    const onRestore = () => {
+      if (hexDemoRestore.current === null) return;
+      const back = hexDemoRestore.current;
+      hexDemoRestore.current = null;
+      setHexSettling(true);
+      setHexOpen(back);
+    };
+    window.addEventListener(DEMO_OPEN, onOpen);
+    window.addEventListener(DEMO_RESTORE, onRestore);
+    return () => {
+      window.removeEventListener(DEMO_OPEN, onOpen);
+      window.removeEventListener(DEMO_RESTORE, onRestore);
+    };
+  }, []);
   const [vectorMode] = useState<ChannelOrder>('rgb');
   const [initialHex] = useState(() => rgbToHex(rgb.r, rgb.g, rgb.b));
   const [recentColors, setRecentColors] = useState<Swatch[]>(() => parseRecent(readSwatch(RECENT_KEY)));
