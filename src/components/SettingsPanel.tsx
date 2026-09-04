@@ -25,6 +25,7 @@
  * is the only shape, which is why the drag went: a panel anchored to an edge
  * has nowhere to be dragged to.
  */
+import { useLayoutEffect, useState, type CSSProperties } from 'react';
 import { Info, RotateCcw, X } from 'lucide-react';
 import { Dialog as DialogPrimitive } from '@base-ui/react/dialog';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
@@ -57,6 +58,31 @@ export function SettingsPanel({
   const audioEnabled = settings.audioEnabled;
   const { reset: resetTheme } = useTheme();
 
+  /*
+   * Hang the rail from the row the content starts on.
+   *
+   * A fixed inset cannot be level with anything here: the header sits at 44px,
+   * 77px or 107px from the top depending on how the title row and the plugin
+   * banner wrap. The hexagon card is where the answer is - it is the first
+   * thing in the app's own column and it moves with all of that.
+   *
+   * Out through a custom property so the media query stays in CSS; below `sm`
+   * the rail is welded to the top edge and this does not apply. A layout effect
+   * rather than an effect, so the measurement lands in the paint the panel
+   * opens in instead of starting at the top and hopping down.
+   */
+  const [top, setTop] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    if (!open) return;
+    const measure = () => {
+      const card = document.querySelector('#color-hexagon')?.getBoundingClientRect().top;
+      if (card !== undefined) setTop(Math.max(8, Math.round(card)));
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [open]);
+
   const resetAll = () => {
     resetSynth();
     resetTheme();
@@ -74,12 +100,38 @@ export function SettingsPanel({
         */}
         <DialogPrimitive.Backdrop className="fixed inset-0 isolate z-50 bg-black/20 duration-200 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0" />
         <DialogPrimitive.Popup
+          /*
+           * Edge to edge on a phone, a detached rail on a desktop.
+           *
+           * A sidebar either way - it hangs from the top right, it is not a
+           * menu that drops out of its button - but on a wider window it stands
+           * off the edges instead of being welded to them, and stops where its
+           * contents stop. The border goes from one side to all four and the
+           * corners round, because at that point it is a panel sitting on the
+           * app rather than a wall built into it.
+           *
+           * `bottom-auto` is what lets it size to its contents; the cap keeps
+           * the same 1rem inset at the foot, so a long list stops level with
+           * where the rail would have ended rather than running off the screen.
+           * It is measured from the top the rail is actually hanging from,
+           * which is not a constant - see the layout effect above.
+           *
+           * Below `sm` it stays welded: there is no room to give away on a
+           * phone, and an inset rail there is a rail with less rail in it.
+           */
           className={
             'fixed top-0 right-0 bottom-0 z-50 flex w-[min(88vw,380px)] flex-col ' +
             'border-l border-border bg-background shadow-xl outline-none duration-200 ' +
+            'sm:top-(--menu-top) sm:right-4 sm:bottom-auto ' +
+            'sm:max-h-[calc(100dvh-var(--menu-top)-1rem)] ' +
+            'sm:rounded-xl sm:border ' +
             'data-open:animate-in data-open:slide-in-from-right ' +
             'data-closed:animate-out data-closed:slide-out-to-right'
           }
+          // 16px is the frame before the measurement, and the layout effect
+          // beats the paint - so in practice it is the fallback for a host with
+          // no hexagon on the page.
+          style={{ '--menu-top': `${top ?? 16}px` } as CSSProperties}
         >
           <div className="flex items-center justify-between border-b border-border px-3 py-2">
             <DialogPrimitive.Title className="text-base font-semibold">Menu</DialogPrimitive.Title>
@@ -91,7 +143,16 @@ export function SettingsPanel({
             </DialogPrimitive.Close>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-3 pb-3">
+          {/* `flex-1` fills the rail on a phone; `sm:flex-initial` lets the
+              panel size to this instead. `min-h-0` is what allows it to shrink
+              under the cap above rather than pushing the panel past it - without
+              it the overflow never engages and the reset walks off screen.
+
+              `pb-6` rather than `pb-3`: with the panel sized to its contents the
+              divider now sits directly under the last switch, and a reset button
+              is not something to put within a thumb's width of the thing above
+              it. */}
+          <div className="min-h-0 flex-1 sm:flex-initial overflow-y-auto px-3 pb-6">
             {/* First in the sheet, not last. It is the way in to what the tool
                 is, so it belongs where someone opening the menu looks first -
                 the reset at the foot is the way out. */}

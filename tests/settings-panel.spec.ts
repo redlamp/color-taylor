@@ -120,6 +120,71 @@ test.describe('Settings sheet', () => {
     await expect.poll(height('recent-colors'), { timeout: 4000 }).toBe(0);
   });
 
+  /**
+   * Edge to edge on a phone, a detached rail on a desktop that hangs from the
+   * row the content starts on and stops where its contents stop.
+   *
+   * The top has to be measured: the header sits at 44px, 77px or 107px from the
+   * top depending on how the title row and the plugin banner wrap, so no fixed
+   * inset is level with anything. What is worth pinning is not the height -
+   * that is a layout detail - but that it is level with the app, that it caps
+   * rather than running off the bottom, and that the reset stays reachable when
+   * it does.
+   */
+  test('the menu stands off the edges and sizes to its contents', async ({ page }) => {
+    const box = async () => {
+      await page.waitForTimeout(300);
+      return page.evaluate(() => {
+        const pop = document.querySelector('[role="dialog"]')!;
+        const r = pop.getBoundingClientRect();
+        const body = pop.children[1];
+        const foot = pop.lastElementChild!.getBoundingClientRect();
+        return {
+          top: Math.round(r.top),
+          right: Math.round(window.innerWidth - r.right),
+          bottom: Math.round(window.innerHeight - r.bottom),
+          height: Math.round(r.height),
+          viewport: window.innerHeight,
+          scrolls: body.scrollHeight > body.clientHeight + 1,
+          resetOnScreen: foot.bottom <= window.innerHeight + 1,
+        };
+      });
+    };
+
+    await menuButton(page).click();
+    const desktop = await box();
+    expect(desktop.right).toBe(16);
+
+    // Level with the first card, at two widths that wrap the header differently.
+    for (const [w, h] of [[1400, 1000], [1100, 900]]) {
+      await page.setViewportSize({ width: w, height: h });
+      await page.waitForTimeout(250);
+      const level = await page.evaluate(() => {
+        const top = (sel: string) => Math.round(document.querySelector(sel)!.getBoundingClientRect().top);
+        return { panel: top('[role="dialog"]'), card: top('#color-hexagon') };
+      });
+      expect(level.panel, `${w}x${h}`).toBe(level.card);
+    }
+    await page.setViewportSize({ width: 1400, height: 1000 });
+    await page.waitForTimeout(250);
+    // Sized to its contents rather than to the window, and clear of the foot.
+    expect(desktop.height).toBeLessThan(desktop.viewport * 0.6);
+    expect(desktop.bottom).toBeGreaterThan(16);
+    expect(desktop.scrolls).toBe(false);
+
+    // Too short for the contents: it caps at the same inset the rail used to
+    // end on, the list scrolls, and the reset is still reachable.
+    await page.setViewportSize({ width: 1400, height: 380 });
+    const short = await box();
+    expect(short.bottom).toBe(16);
+    expect(short.scrolls).toBe(true);
+    expect(short.resetOnScreen).toBe(true);
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    const phone = await box();
+    expect({ top: phone.top, right: phone.right, bottom: phone.bottom }).toEqual({ top: 0, right: 0, bottom: 0 });
+  });
+
   test('the audio section is always there; its controls arrive with the feature', async ({ page }) => {
     await menuButton(page).click();
     // The section holds the switch that brings the feature into existence, so
