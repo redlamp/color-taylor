@@ -38,6 +38,7 @@ export default function SaturationHandle({ hue, saturation, swatchSaturation, br
       id="sat-handle"
       className="absolute z-10 -translate-x-1/2 flex flex-col items-center cursor-pointer select-none touch-none"
       style={{ left: `${(x / extent) * 100}%`, top: `${(y / svgHeight) * 100}%` }}
+      data-hold="sat"
       onPointerDown={onMouseDown}
     >
       {/* Up-pointing arrow */}

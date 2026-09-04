@@ -3,10 +3,15 @@ import { createContext, useContext, useState, useEffect, useRef, useCallback, ty
 const ThemeContext = createContext({ isDark: false, toggle: () => {}, setDark: () => {}, restore: () => {}, reset: () => {} });
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
+  /*
+   * Dark is the default, not the system's preference. This is a colour tool:
+   * a light surround shifts how every swatch in it reads, and the app is built
+   * and judged dark. A stored choice still wins, and always did.
+   */
   const [isDark, setIsDark] = useState(() => {
     const saved = localStorage.getItem('color-taylor-theme');
     if (saved !== null) return saved === 'dark';
-    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    return true;
   });
 
   // Saved theme before presentation override
@@ -38,11 +43,13 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Reset theme to system preference, clear stored value
+  // Reset to the default, which is dark - "reset all settings" has to land on
+  // the same theme a first visit does, or the two disagree about what default
+  // means. Clears the stored value on the way so nothing outlives the reset.
   const reset = useCallback(() => {
     try { localStorage.removeItem('color-taylor-theme'); } catch { /* localStorage unavailable */ }
     savedTheme.current = null;
-    setIsDark(window.matchMedia('(prefers-color-scheme: dark)').matches);
+    setIsDark(true);
   }, []);
 
   return (

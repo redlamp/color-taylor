@@ -12,6 +12,7 @@ import NAMED_COLORS from '../utils/namedColors';
 import { HANDLE, ringRadius } from '../utils/handleStyle';
 import { readSwatch, writeSwatch, SWATCHES_READY } from '../utils/swatchStore';
 import { HSB_TWEEN_MS } from '../utils/colorTween';
+import { DEMO_OPEN, DEMO_RESTORE, HEXAGON_SECTION, addressedTo } from '../utils/demoSections';
 import { toneController } from '../utils/toneControllerLazy';
 import useUiSounds from '../hooks/useUiSounds';
 import {
@@ -25,6 +26,7 @@ import HexCanvas from './hex/HexCanvas';
 import BrightnessBar from './hex/BrightnessBar';
 import ColorLabels from './hex/ColorLabels';
 import HueHandle from './hex/HueHandle';
+import { HIGHLIGHT_IN, HIGHLIGHT_OUT, CALLOUT_LINE } from '../utils/highlight';
 import BrightnessHandle from './hex/BrightnessHandle';
 import BrightnessMarkers from './hex/BrightnessMarkers';
 import SaturationBar from './hex/SaturationBar';
@@ -189,12 +191,6 @@ const DEFAULT_RECENT = ['#ff0000', '#ffff00', '#00ff00', '#00ffff', '#0000ff', '
  * their own slider, and the three drifted apart the first time they were
  * written out by hand.
  */
-const CALLOUT_LINE = {
-  stroke: '#fff',
-  strokeLinecap: 'round' as const,
-  style: { filter: 'drop-shadow(0 0 2px rgba(0,0,0,0.9))' },
-};
-
 /**
  * How the two shapes each slider explains look at rest.
  *
@@ -204,8 +200,31 @@ const CALLOUT_LINE = {
  * an omitted prop clears the filter, a `style: undefined` would not read as
  * clearly.
  */
-const HIGHLIGHT_IN = 'transition-opacity duration-150 ease-out motion-reduce:transition-none';
-const HIGHLIGHT_OUT = 'transition-opacity duration-500 ease-out motion-reduce:transition-none';
+
+/**
+ * Where each stem's channel tooltip sits: a fixed side per channel, at a
+ * fixed gap from the stem's midpoint, never flipped. Red below, green to the
+ * north-east, blue to the north-west - each the side away from the rest of
+ * the chain in the default order, and a fixed side rather than a computed one
+ * because a tooltip that changes sides as the chain moves is harder to read
+ * than one that leaves the hexagon.
+ */
+const TIP_SIDE: Record<Channel, { x: number; y: number }> = {
+  r: { x: 0, y: 1 },
+  g: { x: Math.sqrt(3) / 2, y: -0.5 },
+  b: { x: -Math.sqrt(3) / 2, y: -0.5 },
+};
+const TIP_GAP = 28;
+const TIP_LABEL: Record<Channel, string> = { r: 'RED', g: 'GREEN', b: 'BLUE' };
+/**
+ * The tooltip's fill: Tailwind's 600 step of each hue (red-600, green-600,
+ * blue-600), the lightest step Tailwind itself puts white text on. Dial the
+ * intensity by moving all three to another step together - 500 is brighter,
+ * 700 deeper - rather than by nudging one. Slightly open, so the stem it
+ * labels shows through the edge of the pill.
+ */
+const TIP_FILL: Record<Channel, string> = { r: '#e7000b', g: '#00a63e', b: '#155dfc' };
+const TIP_FILL_OPACITY = 0.9;
 
 const QUIET_LIMIT_HEX = {
   stroke: 'rgba(128,128,128,0.5)',
@@ -377,6 +396,26 @@ interface ColorHexagonProps {
   /** Start Recent and Saved closed - they cost a lot of height in a panel. */
   collapsedSections?: boolean;
   /**
+   * Whether a settled colour joins the recent palette. Off while the demo
+   * runs: it moves through a dozen colours a person never chose, and the
+   * demo's whole promise is that it leaves the picker as it found it.
+   */
+  recordRecent?: boolean;
+  /**
+   * Channels whose stem and joint light as "changing", from the host's
+   * useImpact: every channel whose value moved plus every channel the held
+   * stem or joint drives. Empty or absent draws nothing.
+   */
+  impactChannels?: ReadonlySet<Channel>;
+  /** Hue is moving from a control that is not the badge. */
+  hueBadgeLit?: boolean;
+  /** A saturation slider is held, so the hue line fills like the sat bar does. */
+  hueFillLit?: boolean;
+  /** Another control is moving the brightness / lightness bar's value. */
+  blBarLit?: boolean;
+  /** Another control is moving the saturation bar's value. */
+  satBarLit?: boolean;
+  /**
    * Shape of the Recent/Saved sections. 'flush' drops the card and gives them
    * the Figma sidebar look: a full-bleed rule above each, content inset by the
    * host's padding. See CollapsibleSection.
@@ -394,6 +433,20 @@ interface ColorHexagonProps {
    * Let the wheel over the hexagon drive brightness/lightness. On a page that
    * is the natural gesture; in a panel that scrolls, it steals the wheel from
    * the panel, so a host with its own scroll turns it off.
+   */
+  /**
+   * Let the wheel over the field change brightness (or lightness).
+   *
+   * Off everywhere. The deck and the plugin turned it off because they own
+   * their own scrolling, and the picker followed once it turned out to be a
+   * liability rather than a shortcut: a wheel over the field is a scroll
+   * gesture on a trackpad and in device emulation, so the one place on the
+   * page you most want to look at while scrolling past is the one place that
+   * eats the scroll and changes your colour instead.
+   *
+   * Turning it off also gives the browser its scrolling fast path back over
+   * the hexagon - the listener has to be non-passive to preventDefault, and a
+   * non-passive wheel listener costs that whether or not it fires.
    */
   wheelAdjusts?: boolean;
   /**
@@ -481,7 +534,7 @@ interface HoveredMarker {
   name: string;
 }
 
-export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, onHoverHtmlColor, muted, bare, headerLeft, belowStage, collapsedSections, sectionVariant = 'card', alpha = 100, onAlphaRestore, wheelAdjusts = true, blBar = true, stemRange = null, satBar = true, swatchSections = true, blModeTabs = true, vertexLabels = true, blMarkers = true, hueIndicator = true, shapeMix = 1, chainReveal = 1 }: ColorHexagonProps) {
+export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, onHoverHtmlColor, muted, bare, headerLeft, belowStage, collapsedSections, recordRecent = true, impactChannels, hueBadgeLit = false, hueFillLit = false, blBarLit = false, satBarLit = false, sectionVariant = 'card', alpha = 100, onAlphaRestore, wheelAdjusts = false, blBar = true, stemRange = null, satBar = true, swatchSections = true, blModeTabs = true, vertexLabels = true, blMarkers = true, hueIndicator = true, shapeMix = 1, chainReveal = 1 }: ColorHexagonProps) {
   const flushSections = sectionVariant === 'flush';
   // Horizontal extent of the SVG coordinate space. Without the bar the hexagon
   // is the whole picture, so the 50px reserved to its right goes away - and the
@@ -508,6 +561,36 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     setHexSettling(true);
     setHexOpen((o) => !o);
   };
+
+  /*
+   * The demo opens this panel if the user had it closed, and closes it again
+   * afterwards. Same contract as CollapsibleSection's, spelled out separately
+   * because this card collapses on its own hexOpen rather than through one.
+   */
+  const hexOpenRef = useRef(hexOpen);
+  useEffect(() => { hexOpenRef.current = hexOpen; }, [hexOpen]);
+  const hexDemoRestore = useRef<boolean | null>(null);
+  useEffect(() => {
+    const onOpen = (e: Event) => {
+      if (!addressedTo(e, HEXAGON_SECTION) || hexOpenRef.current) return;
+      hexDemoRestore.current = false;
+      setHexSettling(true);
+      setHexOpen(true);
+    };
+    const onRestore = () => {
+      if (hexDemoRestore.current === null) return;
+      const back = hexDemoRestore.current;
+      hexDemoRestore.current = null;
+      setHexSettling(true);
+      setHexOpen(back);
+    };
+    window.addEventListener(DEMO_OPEN, onOpen);
+    window.addEventListener(DEMO_RESTORE, onRestore);
+    return () => {
+      window.removeEventListener(DEMO_OPEN, onOpen);
+      window.removeEventListener(DEMO_RESTORE, onRestore);
+    };
+  }, []);
   const [vectorMode] = useState<ChannelOrder>('rgb');
   const [initialHex] = useState(() => rgbToHex(rgb.r, rgb.g, rgb.b));
   const [recentColors, setRecentColors] = useState<Swatch[]>(() => parseRecent(readSwatch(RECENT_KEY)));
@@ -626,6 +709,11 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     const onReset = () => {
       setRecentColors([]);
       setSavedSlots(defaultSaved());
+      // The panel's own show/hide state, which the reset returns along with
+      // the sections inside it. See CollapsibleSection's own listener.
+      hexDemoRestore.current = null;
+      setHexSettling(true);
+      setHexOpen(true);
     };
     window.addEventListener('color-taylor:reset-all', onReset);
     return () => window.removeEventListener('color-taylor:reset-all', onReset);
@@ -908,11 +996,16 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   // Separate from hoveredDot: a segment and the handle at its end are different
   // targets, and highlighting one should not light up the other.
   const [hoveredLeg, setHoveredLeg] = useState<number | null>(null);
+  // State, not the draggingDot ref: the channel tooltips fade while a stem or
+  // joint is being dragged, and a fade is a render.
+  const [dotDragging, setDotDragging] = useState(false);
   // SVG user units per rendered pixel. The hexagon and its legs scale with the
   // viewBox, but the handles should stay the same physical size, so their radii
   // and strokes are multiplied by this.
   const [uiScale, setUiScale] = useState(1);
   /*
+   * A drag on the field itself, as opposed to on a handle.
+   *
    * Zero-value stems and handles used to be hidden while this was true, so a
    * channel at 0 popped out of existence for the length of a drag and back
    * afterwards. It made the chain change shape under the cursor, and it was the
@@ -920,10 +1013,11 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
    * a zero channel feel like a special case rather than a joint that happens to
    * coincide with the one before it.
    *
-   * Kept because the flag itself is still set and cleared; nothing reads it
-   * now, but it is the hook for a drag-time treatment if one is ever wanted.
+   * The flag was kept anyway, as the hook for a drag-time treatment if one was
+   * ever wanted. This is that: the channel tooltips are suppressed while it is
+   * set, because a drag across the field pulls the chain along under the cursor
+   * and crosses its own stems on the way.
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above
   const [isHexDragging, setIsHexDragging] = useState(false);
   const [hoveredMarker, setHoveredMarker] = useState<HoveredMarker | null>(null);
 
@@ -1047,7 +1141,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   // "This control is what's changing right now" - by pointer or by the tween a
   // click on its track started. Everything the control highlights reads this.
   const blActive = isBLDragging || blTweening;
-  const satActive = isSatDragging || satTweening;
+  const satActive = isSatDragging || satTweening || hueFillLit;
   const showHueLine = hueIndicator && (saturation > 0 || satActive);
 
   // Named color markers on hex
@@ -1114,6 +1208,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   // to avoid restarting the timer when the recent list updates.
   useEffect(() => {
     if (addRecentTimer.current) clearTimeout(addRecentTimer.current);
+    if (!recordRecent) return;
     addRecentTimer.current = setTimeout(() => {
       if (skipNextRecent.current) {
         skipNextRecent.current = false;
@@ -1143,7 +1238,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     };
     // Opacity is half of a swatch's identity now, so a change to it has to
     // restart the debounce or a new opacity would never be recorded.
-  }, [currentHex, alpha]);
+  }, [currentHex, alpha, recordRecent]);
 
   const addToRecent = useCallback((hex: string) => {
     const a = alphaRef.current;
@@ -1356,7 +1451,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
 
   // Global mouse listeners
   useEffect(() => {
-    const clearAll = () => {
+    const clearAll = (at?: { clientX: number; clientY: number }) => {
       draggingHue.current = false;
       draggingDot.current = null;
       draggingFree.current = false;
@@ -1368,7 +1463,17 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       blPointerDown.current = null;
       satPointerDown.current = null;
       dragOrigin.current = null;
-      setHoveredDot(null);
+      // Hover is re-read from whatever is under the release point rather than
+      // cleared: pointerenter does not fire again for an element the pointer
+      // never left, so after a drag on a joint the tooltip would stay away
+      // until the pointer went out and came back. The tooltips are only
+      // suppressed for the drag itself.
+      const under = at ? document.elementFromPoint(at.clientX, at.clientY)?.closest<Element>('[data-stem],[data-joint]') : null;
+      const stem = under?.getAttribute('data-stem');
+      const joint = under?.getAttribute('data-joint');
+      setHoveredLeg(stem !== null && stem !== undefined ? Number(stem) : null);
+      setHoveredDot(joint !== null && joint !== undefined ? Number(joint) : null);
+      setDotDragging(false);
       setIsHexDragging(false);
       cancelHoldTone();
       if (toneActiveRef.current) {
@@ -1507,7 +1612,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           if (val !== null) animateSatToValue(val);
         }
       }
-      clearAll();
+      clearAll(e);
     };
     const onPointerLeave = () => clearAll();
     window.addEventListener('pointermove', onPointerMove);
@@ -1562,6 +1667,8 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     e.preventDefault();
     e.stopPropagation();
     setHoveredDot(dotIndex);
+    if (relative) setHoveredLeg(dotIndex - 1);
+    setDotDragging(true);
     const channel = order[dotIndex - 1];
     const { x, y } = getSvgCoords(e);
     let prev = { x: CENTER_X, y: CENTER_Y };
@@ -1641,6 +1748,9 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   return (
     <div
       id="color-hexagon"
+      // The demo frames whichever of these it is working in, rather than
+      // centring one small target and leaving the card's top off screen.
+      data-demo-section=""
       // Built by joining whole strings, not by interpolating into one. Tailwind
       // scans raw source text: `...max-w-full${cond}` makes the extractor read
       // `max-w-full${cond` as the candidate, so the utility is never generated
@@ -1686,14 +1796,17 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
         )}
         {bare && <div className="flex-1 min-w-0">{headerLeft}</div>}
         {/*
-          No caption under these tabs. It used to read "Luminance", which is a
+          The caption under these tabs used to read "Luminance", which is a
           photometric quantity neither axis computes - B is max(R,G,B) and L is
           (max+min)/2, both unweighted and both over gamma-encoded values. Blue
           and yellow land on the same spot of the bar and differ 13x in actual
-          luminance. The bar names the live axis itself now.
+          luminance. The bar names the live axis itself, so that caption went.
+
+          What is there now says what the tabs *are*, not what they compute,
+          which is a claim that cannot be wrong the way the old one was.
         */}
         {hexOpen && blModeTabs && (
-          <div className="flex items-start gap-2" onClick={(e) => e.stopPropagation()}>
+          <div className="flex flex-col items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
             <Tabs value={blMode} onValueChange={onBlModeChange}>
               <TabsList>
                 <Tooltip>
@@ -1710,6 +1823,19 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                 </Tooltip>
               </TabsList>
             </Tabs>
+            {/* Names what the tabs are for rather than what they compute. The
+                caption that used to sit here read "Luminance", which was a
+                claim about the axis and a false one; this is a claim about the
+                control, which is the thing that needed saying - in a `bare`
+                host most of all, where there is no "Hexagon" heading beside it
+                and the tabs otherwise float unexplained.
+
+                Centred under the tabs and at the same size as the plugin's own
+                "Selected: n", which is the same shape - a caption naming the
+                control above it. */}
+            <span className="select-none text-[10px] text-muted-foreground">
+              Hex Mode
+            </span>
           </div>
         )}
       </div>
@@ -1764,22 +1890,42 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       {/* mb-1 rather than m-4's mb-4 while the saturation bar is on: the value
           pill ends 2 units off the stage's bottom edge, so a full margin under
           it reads as a gap between the control and Recent. The 12px freed goes
-          to `grow`, and with the box bottom-pinned that lands above the
-          hexagon, where there is slack to spare. */}
-      <div id="hex-stage" className={`w-full relative grow ${satBar ? 'mx-4 mt-4 mb-1' : 'm-4'}`} style={{ maxWidth: EXTENT, aspectRatio: `${EXTENT} / ${stageHeight}` }}>
+          to `grow`, which lands below the saturation bar now that the box is
+          top-pinned.
+
+          The stage is an inline-size container so the box below can take its
+          crop in cqw: the crop is a fixed share of the width, and a percentage
+          `top` would resolve against the stage's height, which grows. */}
+      <div id="hex-stage" className={`w-full relative grow ${satBar ? 'mx-4 mt-4 mb-1' : 'm-4'}`} style={{ maxWidth: EXTENT, aspectRatio: `${EXTENT} / ${stageHeight}`, containerType: 'inline-size' }}>
       {/* Centred while the content is symmetric about CENTER_Y. With the
           saturation bar on it hangs well below, so the box is pinned to the
-          stage's bottom instead and the whole crop is taken off the top - the
-          same 40 units DISPLAY_HEIGHT has always taken, which is the amount the
-          hue badge is known to survive. */}
+          stage's top instead, shifted up by the crop - the same 40 units
+          DISPLAY_HEIGHT has always taken, which is the amount the hue badge is
+          known to survive. Top rather than bottom so that when the card grows
+          the hexagon and its bars stay put and the slack collects underneath. */}
       <div
-        className={`absolute left-0 w-full ${satBar ? 'bottom-0' : 'top-1/2 -translate-y-1/2'}`}
-        style={{ aspectRatio: `${EXTENT} / ${svgHeight}` }}
+        className={`absolute left-0 w-full ${satBar ? '' : 'top-1/2 -translate-y-1/2'}`}
+        style={{
+          aspectRatio: `${EXTENT} / ${svgHeight}`,
+          top: satBar ? `calc(${((svgHeight - stageHeight) / EXTENT) * -100}cqw)` : undefined,
+        }}
       >
         <HexCanvas brightness={brightness} lightness={hsl?.l ?? 50} blMode={blMode} colorSpace={colorSpace} extent={EXTENT} svgHeight={svgHeight} shapeMix={shapeMix} />
         <svg
           id="hex-svg"
           ref={svgRef}
+          /*
+           * The field is a hex hold like the handles on it.
+           *
+           * `holdKeyOf` walks up to the nearest [data-hold], so everything with
+           * its own tag - the stems, the joints, both bars, the hue handle -
+           * still wins; this only catches a press on the field itself, which
+           * used to read as 'other' and light the whole chain. Clicking the
+           * field moves the chain as directly as dragging a handle does, so it
+           * is the same case: the thing that moved under your hand is its own
+           * feedback, and the halos are for showing what it did elsewhere.
+           */
+          data-hold="hex:field"
           viewBox={`0 0 ${EXTENT} ${svgHeight}`}
           preserveAspectRatio="xMidYMid meet"
           role="img"
@@ -1920,6 +2066,8 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                   strokeWidth={12}
                   strokeLinecap="round"
                   className="cursor-pointer touch-none"
+                  data-hold={`hex:${ch}`}
+                  data-stem={i}
                   onPointerEnter={() => {
                     if (draggingDot.current || draggingFree.current) return;
                     setHoveredLeg(i);
@@ -1987,16 +2135,26 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             // an explanation that is not on screen. White is what every picker
             // marks a selection with, and it takes on the channel's color as
             // the stems that justify it arrive.
+            //
+            // The tip is a size up from the joints - it is the selection, they
+            // are the explanation - but it carries its channel's colour like
+            // them; the highlight colour is what a drag shows.
             const baseRing = isTip ? mixHex('#ffffff', CHANNEL_COLOR[ch], chainReveal) : CHANNEL_COLOR[ch];
             const hoverRing = lift(baseRing);
             // Thickens outward on hover, same 1.5x the stems use.
             const ringW = isHighlighted ? HANDLE.ring * HANDLE.hoverScale : HANDLE.ring;
+            const ringR = ringRadius(ringW) + (isTip ? 2 : 0);
+            // Every channel up to and including this joint moves when it is
+            // dragged; the halo lights when the host says its own channel is.
+            const drives = order.slice(0, i).join('');
 
             return (
               <g
                 key={i}
                 opacity={dotOpacity}
                 className={isDraggable ? 'cursor-pointer touch-none' : ''}
+                data-hold={`hex:${drives}`}
+                data-joint={i}
                 // Through pxUnits like every other stroke here: a CSS filter on
                 // an SVG element measures in user space, so the shadow scaled
                 // with the panel - about 1.3px of blur when narrow and 3.8px
@@ -2009,19 +2167,127 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
               >
                 <circle
                   id={`rgb-dot-${dotNames[i]}`}
-                  cx={p.x} cy={p.y} r={ringRadius(ringW) * k}
+                  cx={p.x} cy={p.y} r={ringR * k}
                   fill={dotColors[i]}
                   stroke={isHighlighted ? hoverRing : baseRing}
                   strokeWidth={ringW * k}
                 />
                 {/* The tint inside the ring, matching the slider handles. */}
                 <circle
-                  cx={p.x} cy={p.y} r={(ringRadius(ringW) + ringW / 2 - 0.5) * k}
+                  cx={p.x} cy={p.y} r={(ringR + ringW / 2 - 0.5) * k}
                   fill="none" stroke={HANDLE.inner} strokeWidth={k}
                 />
               </g>
             );
           })}
+
+          {/* Channel tooltips, one per stem, shown for the stem under the
+              pointer or for every stem the hovered joint drives. Anchored to
+              the stem's midpoint on the channel's fixed side; drawn at a
+              constant px size through k like the handles. */}
+          {points.slice(1).map((p, i) => {
+            const ch = order[i];
+            const prev = points[i];
+            const shown = hoveredLeg !== null ? hoveredLeg === i : hoveredDot !== null && i < hoveredDot;
+            if (chainReveal < 1) return null;
+            // Mounted whether or not it is showing, and crossfaded - the same
+            // shape the halos use, and for the same reason: a pill that is
+            // only in the DOM while hovered has nothing to ease in from, so it
+            // popped where the halo around it eased.
+            /*
+             * Hidden while anything on the field is being dragged, not only a
+             * handle. A drag across the field pulls the chain along under the
+             * cursor, so it crosses its own stems and used to raise their
+             * tooltips as it went - a gesture that is not asking what a stem
+             * is, answered anyway, over the thing it is moving.
+             */
+            const on = shown && !dotDragging && !isHexDragging;
+            const k = uiScale;
+            const side = TIP_SIDE[ch];
+            const cx = (prev.x + p.x) / 2 + side.x * TIP_GAP * k;
+            const cy = (prev.y + p.y) / 2 + side.y * TIP_GAP * k;
+            const label = TIP_LABEL[ch];
+            const w = (label.length * 7 + 16) * k;
+            const h = 20 * k;
+            return (
+              // Named on hover, quiet while moving: the tooltips fade out for
+              // the drag so the halos are what the eye follows.
+              <g
+                key={`tip-${ch}`}
+                id={`stem-tip-${ch}`}
+                // In on the halos' timing; out on the drag fade's, which is
+                // slower on purpose so the tooltips clear the way for a drag
+                // without snatching themselves off the screen.
+                className={`pointer-events-none select-none ${on ? HIGHLIGHT_IN : 'transition-opacity duration-300 ease-out motion-reduce:transition-none'}`}
+                opacity={on ? 1 : 0}
+                style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.35))', userSelect: 'none' }}
+              >
+                <rect x={cx - w / 2} y={cy - h / 2} width={w} height={h} rx={h / 2} fill={TIP_FILL[ch]} fillOpacity={TIP_FILL_OPACITY} />
+                <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central" fill="#fff" fontSize={11 * k} fontWeight={600} letterSpacing={0.5 * k} style={{ fontFamily: 'var(--sans)' }}>
+                  {label}
+                </text>
+              </g>
+            );
+          })}
+
+          {/* The impact layer, drawn after the joints so it sits above their
+              drop shadows - inside the stem and joint groups the shadows of
+              the joints fell across the halos. A lit stem is redrawn here as a
+              white halo with the channel colour back on top, trimmed at each
+              end to the joint's keyline so nothing crosses a core; a lit joint
+              gets its keyline flush outside the ring. Hover state is repeated
+              so the redraw matches the stem it covers. */}
+          <g className="pointer-events-none" opacity={chainReveal}>
+            {points.slice(1).map((p, i) => {
+              const ch = order[i];
+              const prev = points[i];
+              const on = impactChannels?.has(ch) ?? false;
+              const k = uiScale;
+              const dx = p.x - prev.x, dy = p.y - prev.y, len = Math.hypot(dx, dy);
+              // Resting ring geometry: the hover thickening is outward and
+              // small, so the trim is taken at rest and the overlap on hover
+              // is under the joint's own keyline.
+              const outer = (j: number) => (ringRadius(HANDLE.ring) + HANDLE.ring / 2 + (j === points.length - 1 ? 2 : 0) + 2.5) * k;
+              const t0 = i === 0 ? 4 * k : outer(i);
+              const t1 = outer(i + 1);
+              if (len <= t0 + t1) return null;
+              const ux = dx / len, uy = dy / len;
+              const x1 = prev.x + ux * t0, y1 = prev.y + uy * t0, x2 = p.x - ux * t1, y2 = p.y - uy * t1;
+              const stemPx = stemRange
+                ? Math.min(stemRange[1], Math.max(stemRange[0], stemRange[1] / uiScale))
+                : 2 / uiScale;
+              const stemUnits = stemPx * uiScale;
+              const isHighlighted = hoveredLeg === i;
+              return (
+                <g key={`impact-stem-${ch}`} id={`impact-stem-${ch}`} opacity={on ? 1 : 0} className={on ? HIGHLIGHT_IN : HIGHLIGHT_OUT}>
+                  <line x1={x1} y1={y1} x2={x2} y2={y2} {...CALLOUT_LINE} strokeLinecap="butt" strokeWidth={stemUnits + pxUnits(4)} />
+                  <line
+                    x1={x1} y1={y1} x2={x2} y2={y2}
+                    stroke={isHighlighted ? lift(CHANNEL_COLOR[ch]) : CHANNEL_COLOR[ch]}
+                    strokeWidth={isHighlighted ? stemUnits * 1.5 : stemUnits}
+                    strokeLinecap="butt"
+                  />
+                </g>
+              );
+            })}
+            {points.slice(1).map((p, i) => {
+              const ch = order[i];
+              const on = impactChannels?.has(ch) ?? false;
+              const k = uiScale;
+              const isTip = i === points.length - 2;
+              const ringW = hoveredDot === i + 1 ? HANDLE.ring * HANDLE.hoverScale : HANDLE.ring;
+              const ringR = ringRadius(ringW) + (isTip ? 2 : 0);
+              return (
+                <circle
+                  key={`impact-joint-${ch}`}
+                  cx={p.x} cy={p.y} r={(ringR + ringW / 2 + 1.25) * k}
+                  fill="none" {...CALLOUT_LINE} strokeWidth={2.5 * k}
+                  opacity={on ? 1 : 0}
+                  className={on ? HIGHLIGHT_IN : HIGHLIGHT_OUT}
+                />
+              );
+            })}
+          </g>
 
           {/* Hover preview dot for named color match */}
           {hoverDot && (
@@ -2043,6 +2309,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
               hue={hue} saturation={saturation} brightness={brightness} hsl={hsl}
               blMode={blMode} blPointerDownRef={blPointerDown} onArrowDragStart={startBLDrag}
               animateBLToValue={animateBLToValue} colorSpace={colorSpace}
+              lit={blBarLit}
             />
           )}
 
@@ -2052,6 +2319,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
               blMode={blMode} lightness={hsl?.l ?? 50}
               satPointerDownRef={satPointerDown} onArrowDragStart={startSatDrag}
               animateSatToValue={animateSatToValue} colorSpace={colorSpace}
+              lit={satBarLit}
             />
           )}
         </svg>
@@ -2086,7 +2354,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             </div>
           );
         })()}
-        {showHueLine && <HueHandle hue={hue} hueLabel={hueLabel} extent={EXTENT} svgHeight={svgHeight} onMouseDown={handleHueDragStart} />}
+        {showHueLine && <HueHandle hue={hue} hueLabel={hueLabel} extent={EXTENT} svgHeight={svgHeight} onMouseDown={handleHueDragStart} lit={hueBadgeLit} />}
         {blBar && blMarkers && <BrightnessMarkers blMode={blMode} svgHeight={svgHeight} onPick={animateBLToValue} />}
         {blBar && blMarkers && (
           <BrightnessHandle

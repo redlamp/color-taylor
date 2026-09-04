@@ -9,7 +9,7 @@
  * role="switch" with no aria-label and no htmlFor'd label reads as an unnamed
  * control. Both are fixed here once.
  */
-import type { ReactNode } from 'react';
+import { useId, type ReactNode } from 'react';
 import { Label } from '@/components/ui/label';
 
 type SwitchSize = 'sm' | 'md';
@@ -32,12 +32,15 @@ interface SettingsSwitchProps {
   /** Optional glyph inside the knob. The theme row uses it to show which way it is set. */
   knob?: ReactNode;
   size?: SwitchSize;
+  /** Set by SwitchRow so its label can point at this. */
+  id?: string;
 }
 
-export function SettingsSwitch({ checked, onToggle, ariaLabel, knob, size = 'md' }: SettingsSwitchProps) {
+export function SettingsSwitch({ checked, onToggle, ariaLabel, knob, size = 'md', id }: SettingsSwitchProps) {
   return (
     <button
       type="button"
+      id={id}
       role="switch"
       aria-checked={checked}
       onClick={onToggle}
@@ -83,13 +86,27 @@ interface SwitchRowProps extends SettingsSwitchProps {
 
 /** Label on the left, switch on the right - the panel's standard row. */
 export function SwitchRow({ label, ...props }: SwitchRowProps) {
+  /*
+   * The label drives the switch, so the words are a hit target too - a 36px
+   * track at the far end of the row is a small thing to ask someone to aim at,
+   * and on a phone it is the only thing in the row worth aiming at.
+   *
+   * `htmlFor` rather than an onClick, because `button` is a labelable element:
+   * the browser forwards the activation itself, which brings the focus and the
+   * keyboard behaviour with it. `aria-label` still wins for the accessible
+   * name, so the switch is announced as what it does rather than as the row it
+   * sits in.
+   */
+  const id = useId();
   return (
     // No mt-0.5 on the switch - that nudged it down to line up with the first
     // line of a two-line row. Every row is a single line now, so the row
     // centres them instead.
     <div className="flex items-center justify-between gap-3">
-      <Label className="text-sm text-muted-foreground">{label}</Label>
-      <SettingsSwitch {...props} />
+      <Label htmlFor={id} className="cursor-pointer select-none text-base text-muted-foreground">
+        {label}
+      </Label>
+      <SettingsSwitch id={id} {...props} />
     </div>
   );
 }

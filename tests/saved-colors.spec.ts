@@ -1,4 +1,5 @@
 import { test, expect, type ConsoleMessage } from '@playwright/test';
+import { openSections } from './open-sections';
 
 // Order produced by hue sort with sat/brightness ascending tiebreakers.
 // All neutrals (s=0) precede saturated colors at h=0; within neutrals,
@@ -37,12 +38,14 @@ test.describe('Saved colors row', () => {
       }
     });
     await page.goto('/');
+    await openSections(page);
     await page.locator('#saved-colors [data-saved-idx="0"]').waitFor();
     expect(violations).toEqual([]);
   });
 
   test('hue sort puts neutrals before saturated colors at h=0', async ({ page }) => {
     await page.goto('/');
+    await openSections(page);
     const section = page.locator('#saved-colors');
     await section.locator('[data-saved-idx="0"]').waitFor();
 
@@ -70,6 +73,7 @@ test.describe('Saved colors row', () => {
 
   test('drag-drop swaps two saved slots', async ({ page }) => {
     await page.goto('/');
+    await openSections(page);
     const section = page.locator('#saved-colors');
     const slot0 = section.locator('[data-saved-idx="0"]');
     const slot1 = section.locator('[data-saved-idx="1"]');
@@ -102,6 +106,7 @@ test.describe('Recent colors row', () => {
 
   test('debounce adds a new color to recent after 1s', async ({ page }) => {
     await page.goto('/');
+    await openSections(page);
     const hexInput = page.getByLabel('Hex color value');
     await hexInput.waitFor();
 

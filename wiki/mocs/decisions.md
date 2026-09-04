@@ -24,6 +24,7 @@ Every `notes/decision-*.md`, newest first. Each note records what was decided, w
 - [[decision-color-editor-is-the-panel]] — the SB box is the right column's subject, not a section in it; "Sliders" was one level too low
 - [[decision-both-columns-absorb-slack]] — both columns stretch unconditionally because each owns a permanent absorber; how a 10px caption broke the old arrangement
 - [[decision-link-preview-card]] — the shared link's preview card is the Figma thumbnail; why the Open Graph URLs cannot use `%BASE_URL%`
+- [[decision-demo-caption-in-the-header]] — the self-running demo's caption is one panel in the header, not a bubble at the target; a bubble covers the very neighbours the caption points at
 
 ## Shared app + plugin
 
@@ -36,6 +37,8 @@ Every `notes/decision-*.md`, newest first. Each note records what was decided, w
 - [[decision-hsl-gesture-origin]] — an HSL gesture holds what it started from; both hosts write through one `writeHslChannel`
 - [[decision-intro-renders-the-real-picker]] — the deck shows the app's components, not a lookalike; the same rule as the plugin, third surface
 - [[decision-keyboard-scheme]] — letters turn the wheel, arrows move the bars, Tab moves between cards; why the letters live on the hexagon's own listener. #84
+
+- [[decision-demo-lands-on-one-colour]] — every gesture ends on one chosen colour, and the colour editor opens because the hexagon's mapping degenerates at b=0 and the box's cannot
 
 ## Build and CI
 

@@ -82,6 +82,14 @@
    */
   --border: oklch(0.145 0 0 / 0.07);
   --input: oklch(0.145 0 0 / 0.11);
+  /* The "this is changing" keylines; read by src/utils/highlight.ts
+     (--highlight is taken). Two of them: the sliders sit on the panel, so
+     theirs follows the theme - a dark grey here, where the panel is light.
+     The hexagon's sits on the colour field, which is the same in both themes,
+     so it is set once and .dark leaves it alone. The tight dark drop shadow
+     under both stays the same in both themes. */
+  --highlight-line: rgba(51, 51, 51, 0.8);
+  --highlight-hex: rgba(238, 238, 238, 0.8);
 
   /*
    * The inner-section surface, one step off --card. It steps *down* in light and
@@ -129,6 +137,8 @@
   /* dL 0.050, the same apparent weight as the light theme's 7%. See the note there. */
   --border: oklch(1 0 0 / 0.061);
   --input: oklch(1 0 0 / 0.13);
+  /* #eee at 0.8: pure white shouted. */
+  --highlight-line: rgba(238, 238, 238, 0.8);
   --surface-inset: oklch(0.3 0 0);
 
   --highlight: inset 0 1px 0 oklch(1 0 0 / 0.07);
@@ -139,6 +149,41 @@
 
 body {
   margin: 0;
+}
+
+/*
+ * The menu rail's width, in one place because two things need to agree on it:
+ * the rail itself, and the room the app gives up when the rail is pinned open.
+ * `min()` takes the smaller, so this is 380px at every width from 432px up -
+ * the vw term only bites on a phone, where the rail is edge to edge anyway.
+ */
+:root {
+  --menu-rail: min(88vw, 380px);
+}
+
+/*
+ * Make room for a pinned menu rather than letting it sit over the tool.
+ *
+ * `#app-stage` is what centres the picker, so narrowing it by the rail's
+ * footprint moves the content left and leaves the gap exactly where the rail
+ * is - as opposed to padding the picker itself, which would push the content
+ * a further 200px left of where it needs to be.
+ *
+ * Only from `sm`: below it the rail covers the screen and there is nothing to
+ * move out of its way.
+ */
+@media (min-width: 40rem) {
+  html[data-menu-pinned] #app-stage {
+    padding-right: calc(var(--menu-rail) + 2rem);
+  }
+}
+
+#app-stage {
+  transition: padding-right 200ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #app-stage { transition: none; }
 }
 
 h1, h2 {
@@ -401,12 +446,110 @@ h1, h2 {
   .color-fx .panel-frame::before { transition: none; }
 }
 
+/*
+ * The hairline the app wears when it is speaking rather than being operated:
+ * the welcome panel and the demo's caption panel, and nothing else. The
+ * chain's three channels, in the tooltip fills rather than the stems'
+ * full-strength primaries, which at 1px on a card edge read as noise. Twice as
+ * wide as the box and drifting across it, slowly enough to be noticed rather
+ * than watched - these panels are meant to be read, not looked at.
+ *
+ * Two surfaces make it a motif. Putting it on ordinary chrome as well would
+ * make it wallpaper, and it would stop meaning anything.
+ *
+ * Masked rather than nested. The obvious build - a padded outer box holding
+ * an inner one - needs the inner radius to be the outer's minus the border,
+ * and `rounded-xl` here is `--radius * 1.4`, so any number written into the
+ * markup is wrong the moment --radius moves. It was: the inner corner sat too
+ * square and squeezed the ring away at all four corners. Masking the ring out
+ * of a single box takes its radius from `inherit` and cannot drift.
+ */
+@layer components {
+  /*
+   * In @layer components so a positioning utility on the callsite still wins.
+   * Unlayered, this `relative` beat the `fixed` on the welcome panel - which
+   * dropped a portalled dialog into the document flow, below everything, and
+   * gave the page a scrollbar it should never have had.
+   */
+  .speaks {
+    position: relative;
+  }
+}
+
+.speaks::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  background: linear-gradient(100deg, #e7000b, #00a63e, #155dfc, #e7000b);
+  background-size: 220% 100%;
+  animation: speaks-drift 14s linear infinite;
+  /* Two layers, the inner one subtracted: what is left is the 1px frame. */
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+@keyframes speaks-drift {
+  to { background-position: 220% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .speaks::before { animation: none; }
+}
+
+/*
+ * The keyframes for the plugin link's arrow. Only the keyframes: whether it is
+ * running is decided in PluginBanner.tsx, as an inline style.
+ *
+ * That split is deliberate. A `:hover` rule here is the obvious way to write
+ * this, and it was written that way twice - but a stale stylesheet then keeps
+ * serving an older version of the rule while the component code hot-reloads
+ * fine, so the arrow moves at rest and freezes on hover with nothing in the
+ * source to explain it. An inline `animation` wins over any class rule, stale
+ * or not, so the component's idea of the truth is the one on screen.
+ */
+@keyframes plugin-arrow-nudge {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(3px, -3px); }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
   body {
     @apply bg-background text-foreground;
+  }
+
+  /*
+   * The two panels you drag on do not hand out text selections.
+   *
+   * Every surface in the hexagon and the colour editor is a control, and a
+   * gesture that begins a hair beside one - on a channel label, on a heading,
+   * in the gap between two sliders - used to run off dragging a highlight
+   * behind it. From the R label that selected "R G B H S B". A drag that
+   * starts *on* a control was always fine, because those handlers
+   * preventDefault before the browser begins a selection, which is why
+   * `select-none` on the controls themselves could never fix this: the
+   * selection lands on whatever the drag passes over, not on where it started.
+   *
+   * Scoped to the two panels rather than to the page. The title, the equations
+   * panel and everything else are ordinary text and stay copyable; the only
+   * things worth copying inside these two are the readouts, and those are all
+   * real inputs.
+   */
+  #color-hexagon,
+  #picker-layout {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  :is(#color-hexagon, #picker-layout) :is(input, textarea) {
+    -webkit-user-select: text;
+    user-select: text;
   }
   html {
     /* Also on html, not just body. body's background propagates to the canvas

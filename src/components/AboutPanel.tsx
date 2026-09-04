@@ -1,0 +1,117 @@
+/**
+ * The first thing a new visitor sees, and the About panel afterwards.
+ *
+ * One sentence and two ways out. It is not a tour and it is not a settings
+ * screen: the tour is behind "Watch the demo", and everything else is the
+ * picker, which is already on screen behind the scrim.
+ *
+ * Dismissing is deliberately loose - the panel, the scrim, Escape, and both
+ * buttons all close it. Nothing here is a decision, so nothing here should
+ * need aiming at. The one thing that is not just a dismissal is the demo,
+ * which closes this and starts the tour.
+ */
+
+import { Dialog as DialogPrimitive } from '@base-ui/react/dialog';
+import { Play } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+
+export interface AboutPanelProps {
+  open: boolean;
+  onClose: () => void;
+  /** Close and hand over to the self-running demo. */
+  onWatchDemo: () => void;
+}
+
+export function AboutPanel({ open, onClose, onWatchDemo }: AboutPanelProps) {
+  return (
+    <DialogPrimitive.Root open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
+      <DialogPrimitive.Portal>
+        {/* Darker than the settings sheet's. That one is there to be looked
+            past while you judge a colour; this one is the thing being read. */}
+        {/* A little blur, unlike the settings sheet, which has none on purpose
+            because you judge a colour against the app while toggling things
+            behind it. Nothing behind this one is being judged. Small on
+            purpose: the picker being recognisable behind the invitation is
+            part of the invitation. */}
+        <DialogPrimitive.Backdrop className="fixed inset-0 isolate z-50 bg-black/45 backdrop-blur-[6px] duration-200 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0" />
+        <DialogPrimitive.Popup
+          // The whole card closes on click. The buttons below still do their
+          // own work first; this is the catch-all for everywhere else.
+          data-testid="about-panel"
+          onClick={onClose}
+          className={
+            // `speaks` is the drifting channel hairline the demo's caption
+            // panel wears. These two are the only surfaces where the app is
+            // talking rather than being used, which is what the ornament means.
+            'speaks fixed top-1/2 left-1/2 z-50 w-[min(92vw,560px)] -translate-x-1/2 -translate-y-1/2 ' +
+            // Asymmetric on purpose: the credit is a footnote, and the room a
+            // title needs above it is not the room a footnote needs below.
+            'cursor-pointer rounded-2xl bg-card px-8 pt-11 pb-7 text-center ' +
+            'shadow-2xl outline-none duration-200 ' +
+            'data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 ' +
+            'data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95'
+          }
+        >
+          {/* The emoji sit outside .wordmark on purpose: that class paints the
+              glyphs with a background clipped to the text, so anything inside
+              it loses its own colour. Same reason as the header's title. */}
+          {/* Wide enough to hold this on one line: the wordmark breaking off
+              its emoji reads as a layout fault rather than as a title. */}
+          <DialogPrimitive.Title className="text-3xl font-semibold whitespace-nowrap sm:text-5xl">
+            <span className="wordmark">Color Taylor</span>{' '}
+            <span className="whitespace-nowrap">🎨🧵</span>
+          </DialogPrimitive.Title>
+
+          {/* Two lines, and the break is the point: the first is the
+              invitation, the second is what to look for while you take it. */}
+          <DialogPrimitive.Description className="mx-auto mt-6 text-2xl leading-snug text-muted-foreground">
+            {/* Non-breaking, so "modes," never lands alone on its own line
+                when the card narrows. */}
+            Play with different color{' '}modes,
+            <br />
+            {/* The whole clause leans; only the verb is lit. */}
+            <em>
+              <span className="text-foreground">see</span> how they move together!
+            </em>
+          </DialogPrimitive.Description>
+
+          {/* A grid, so the two are the same width whatever their labels are:
+              one column on a phone, where they stack, and two equal ones from
+              `sm` up. Capped and centred so they do not stretch the width of
+              the card on a desktop. */}
+          <div className="mx-auto mt-9 grid max-w-[26rem] gap-3 sm:grid-cols-2">
+            <Button
+              variant="secondary"
+              size="2xl"
+              className="w-full"
+              onClick={(e) => { e.stopPropagation(); onWatchDemo(); }}
+            >
+              <Play className="size-6" />
+              Watch Demo
+            </Button>
+            <Button size="2xl" className="w-full" onClick={(e) => { e.stopPropagation(); onClose(); }}>
+              Get Started
+            </Button>
+          </div>
+
+          {/* The link keeps the click to itself: everything else on this card
+              dismisses it, and a panel that vanishes as a new tab opens behind
+              it is a confusing way to leave. https rather than http - the site
+              redirects, so this is the same destination without the hop. */}
+          <p className="mt-10 text-base text-muted-foreground">
+            Made by{' '}
+            <a
+              href="https://redlamp.org"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="cursor-pointer text-foreground underline underline-offset-4 hover:no-underline"
+            >
+              Taylor Wright
+            </a>
+          </p>
+        </DialogPrimitive.Popup>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
+  );
+}
