@@ -185,6 +185,87 @@ test.describe('Settings sheet', () => {
     expect({ top: phone.top, right: phone.right, bottom: phone.bottom }).toEqual({ top: 0, right: 0, bottom: 0 });
   });
 
+  /**
+   * The header is a handle, and it slides the rail up and down its own edge.
+   *
+   * Vertical only - a sidebar that can be put in the middle of the screen is a
+   * floating window with extra steps, and that is what this panel was before
+   * decision-settings-sheet. What the sliding is for is height: the cap on the
+   * rail's height is measured from wherever it hangs, so moving it up is how a
+   * long list gets more room.
+   *
+   * The old drag's worst fault was that its position went stale on resize, so
+   * that is asserted too.
+   */
+  test('the header slides the rail up and down, and only that', async ({ page }) => {
+    const at = () => page.evaluate(() => {
+      const pop = document.querySelector('[role="dialog"]')!;
+      const r = pop.getBoundingClientRect();
+      const foot = pop.lastElementChild!.getBoundingClientRect();
+      return {
+        top: Math.round(r.top),
+        right: Math.round(window.innerWidth - r.right),
+        resetOnScreen: foot.bottom <= window.innerHeight + 1,
+      };
+    });
+    const slide = async (dy: number) => {
+      const h = await page.evaluate(() => {
+        const r = document.querySelector('[role="dialog"]')!.children[0].getBoundingClientRect();
+        return { x: Math.round(r.left + 40), y: Math.round(r.top + r.height / 2) };
+      });
+      await page.mouse.move(h.x, h.y);
+      await page.mouse.down();
+      // Sideways as well as down, to prove the sideways half is ignored.
+      for (let i = 1; i <= 15; i++) await page.mouse.move(h.x - i * 20, h.y + (dy / 15) * i);
+      await page.mouse.up();
+      await page.waitForTimeout(120);
+    };
+
+    await menuButton(page).click();
+    // It slides in from the right; measuring before that lands reads a panel
+    // that is still off the edge.
+    await page.waitForTimeout(400);
+    const opened = await at();
+    await slide(250);
+    const moved = await at();
+    expect(moved.top).toBe(opened.top + 250);
+    expect(moved.right).toBe(opened.right);
+
+    // Where you put it is where it is next time.
+    await page.keyboard.press('Escape');
+    await menuButton(page).click();
+    await page.waitForTimeout(300);
+    expect((await at()).top).toBe(moved.top);
+
+    // Slid at the foot it shrinks rather than leaving; the reset stays reachable.
+    await slide(2000);
+    expect((await at()).resetOnScreen).toBe(true);
+
+    // And a smaller window brings it back rather than leaving it out of reach.
+    await page.setViewportSize({ width: 700, height: 480 });
+    await page.waitForTimeout(300);
+    const shrunk = await at();
+    expect(shrunk.top).toBeLessThanOrEqual(480 - 160);
+    expect(shrunk.resetOnScreen).toBe(true);
+  });
+
+  /**
+   * Display is four switches and always worth seeing. Audio is a switch that,
+   * once on, unfolds into the synth controls - which is most of the rail's
+   * height and none of what somebody opening the menu is usually after.
+   */
+  test('the Audio section starts collapsed and Display does not', async ({ page }) => {
+    await menuButton(page).click();
+    await expect(sheet(page).getByRole('button', { name: 'Display' })).toHaveAttribute('aria-expanded', 'true');
+    const audio = sheet(page).getByRole('button', { name: 'Audio' });
+    await expect(audio).toHaveAttribute('aria-expanded', 'false');
+
+    // Still a section, not a dead label.
+    await audio.click();
+    await expect(audio).toHaveAttribute('aria-expanded', 'true');
+    await expect(sheet(page).getByText('Enable audio')).toBeVisible();
+  });
+
   test('the audio section is always there; its controls arrive with the feature', async ({ page }) => {
     await menuButton(page).click();
     // The section holds the switch that brings the feature into existence, so
@@ -193,6 +274,9 @@ test.describe('Settings sheet', () => {
     await expect(sheet(page).getByRole('button', { name: 'Audio', exact: true })).toBeVisible();
     await expect(sheet(page).getByRole('switch', { name: 'Toggle color synth' })).toHaveCount(0);
 
+    // The section starts collapsed - it is most of the rail's height once the
+    // synth controls unfold, and none of what a menu is usually opened for.
+    await sheet(page).getByRole('button', { name: 'Audio', exact: true }).click();
     await sheet(page).getByRole('switch', { name: 'Toggle audio features' }).click();
 
     // Named switches: the Audio copies used to be bare role="switch" buttons

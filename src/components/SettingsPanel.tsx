@@ -21,11 +21,17 @@
  *
  * base-ui's Dialog supplies portal, backdrop, focus trap, focus restore,
  * Escape and click-outside, so all of the above is deleted rather than fixed.
- * The sheet shape is the same one the panel already used below `md` - now it
- * is the only shape, which is why the drag went: a panel anchored to an edge
- * has nowhere to be dragged to.
+ *
+ * It is a detached rail above `sm` now, and the header slides it up and down
+ * its own edge - so one of those defects is worth naming again rather than
+ * being left as history. The old drag went stale on resize because the
+ * position lived in an inline style guarded by a render-time `window.innerWidth`
+ * read. This one is state, and every path that sets it goes through the same
+ * clamp, including the resize listener. Vertical only: a sidebar that can be
+ * put in the middle of the screen is a floating window with extra steps, and
+ * that is the thing the survey below was about.
  */
-import { useLayoutEffect, useState, type CSSProperties } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
 import { Info, RotateCcw, X } from 'lucide-react';
 import { Dialog as DialogPrimitive } from '@base-ui/react/dialog';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
@@ -72,16 +78,75 @@ export function SettingsPanel({
    * opens in instead of starting at the top and hopping down.
    */
   const [top, setTop] = useState<number | null>(null);
+  /*
+   * Whether the user has put the rail somewhere. Once they have, the
+   * measurement stops overruling them - but a resize still clamps, because a
+   * position that was on screen at one size is not necessarily on screen at
+   * the next. That staleness was one of the defects that retired the original
+   * drag; it is the reason this clamps rather than simply remembering.
+   */
+  const moved = useRef(false);
+  /*
+   * Never above the viewport, and never so far down that what is left is not a
+   * panel. The cap on its height is measured from wherever it hangs, so sliding
+   * it towards the foot shrinks it - 160px leaves the header, the reset and a
+   * scrap of list between them, which is the least that still reads as the
+   * thing you were using.
+   */
+  const clamp = useCallback((next: number) =>
+    Math.min(Math.max(8, next), Math.max(8, window.innerHeight - 160)), []);
+
   useLayoutEffect(() => {
     if (!open) return;
-    const measure = () => {
+    const place = () => {
       const card = document.querySelector('#color-hexagon')?.getBoundingClientRect().top;
-      if (card !== undefined) setTop(Math.max(8, Math.round(card)));
+      setTop((prev) => clamp(moved.current && prev !== null
+        ? prev
+        : (card === undefined ? 16 : Math.round(card))));
     };
-    measure();
-    window.addEventListener('resize', measure);
-    return () => window.removeEventListener('resize', measure);
-  }, [open]);
+    place();
+    window.addEventListener('resize', place);
+    return () => window.removeEventListener('resize', place);
+  }, [open, clamp]);
+
+  /*
+   * The header is the handle, and it slides the rail up and down its own edge.
+   *
+   * Vertical only: it is a sidebar, and one that can be put in the middle of
+   * the screen is a floating window with extra steps. What the sliding is for
+   * is height - the cap is measured from wherever the rail hangs, so moving it
+   * up is how you give a long list more room.
+   *
+   * Only above `sm`: below it the rail is welded to all four edges and there is
+   * nowhere to slide to. Pointer capture rather than window listeners, so the
+   * drag survives the pointer leaving the header and ends by itself if the
+   * browser takes the pointer away.
+   */
+  const [dragging, setDragging] = useState(false);
+  const grab = useRef<{ y: number; top: number } | null>(null);
+  const onHandleDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (!window.matchMedia('(min-width: 40rem)').matches) return;
+    // The close button is in this row and is not a handle.
+    if ((e.target as HTMLElement).closest('button')) return;
+    const box = e.currentTarget.parentElement?.getBoundingClientRect();
+    if (!box) return;
+    grab.current = { y: e.clientY, top: box.top };
+    moved.current = true;
+    setDragging(true);
+    e.currentTarget.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  };
+  const onHandleMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const from = grab.current;
+    if (!from) return;
+    setTop(clamp(from.top + (e.clientY - from.y)));
+  };
+  const endDrag = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (!grab.current) return;
+    grab.current = null;
+    setDragging(false);
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+  };
 
   const resetAll = () => {
     resetSynth();
@@ -131,10 +196,27 @@ export function SettingsPanel({
           // 16px is the frame before the measurement, and the layout effect
           // beats the paint - so in practice it is the fallback for a host with
           // no hexagon on the page.
-          style={{ '--menu-top': `${top ?? 16}px` } as CSSProperties}
+          style={{
+            '--menu-top': `${top ?? 16}px`,
+            // Nothing should animate under the pointer while it is being
+            // dragged; the open/close transition is the only one wanted here.
+            ...(dragging ? { transitionDuration: '0ms' } : {}),
+          } as CSSProperties}
         >
-          <div className="flex items-center justify-between border-b border-border px-3 py-2">
-            <DialogPrimitive.Title className="text-base font-semibold">Menu</DialogPrimitive.Title>
+          {/* The header doubles as the handle. `touch-none` so a drag on a
+              touchscreen moves the rail instead of scrolling the page behind
+              it, and the grab cursors only above `sm`, where it can move. */}
+          <div
+            onPointerDown={onHandleDown}
+            onPointerMove={onHandleMove}
+            onPointerUp={endDrag}
+            onPointerCancel={endDrag}
+            className={
+              'flex shrink-0 touch-none items-center justify-between border-b border-border px-3 py-2 ' +
+              (dragging ? 'sm:cursor-grabbing' : 'sm:cursor-grab')
+            }
+          >
+            <DialogPrimitive.Title className="select-none text-base font-semibold">Menu</DialogPrimitive.Title>
             <DialogPrimitive.Close
               aria-label="Close menu"
               className="cursor-pointer select-none rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -165,7 +247,11 @@ export function SettingsPanel({
               About Color Taylor
             </Button>
 
-            <Accordion multiple defaultValue={['display', 'audio']}>
+            {/* Audio starts closed. Display is four switches and always worth
+                seeing; Audio is a switch that, once on, unfolds into the synth
+                controls - which is most of the rail's height and none of what
+                somebody opening the menu is usually after. */}
+            <Accordion multiple defaultValue={['display']}>
               <AccordionItem value="display">
                 <AccordionTrigger>Display</AccordionTrigger>
                 <AccordionContent keepMounted>
@@ -212,7 +298,9 @@ export function SettingsPanel({
             <IntegrationNews />
           </div>
 
-          <div className="border-t border-border px-3 py-2">
+          {/* `shrink-0` on both ends: the cap on the panel's height shrinks as
+              it is dragged down the screen, and the body is what should give. */}
+          <div className="shrink-0 border-t border-border px-3 py-2">
             <Button variant="secondary" size="sm" onClick={resetAll} className="w-full text-base">
               <RotateCcw className="size-4" />
               Default Settings
