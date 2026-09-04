@@ -17,6 +17,36 @@ is reading time and stays as it is.
 
 ---
 
+## The lines
+
+All of it side by side, for reading the copy against the clock without chasing
+it down the page. "Room" is roughly how many words fit at a conversational
+150 wpm — the gap between that and the line's own length is how much air the
+step has, and where a longer line could go without changing a single timing.
+
+| # | Line | Runs | Words | Room |
+|---|---|---:|---:|---:|
+| 1 | Play with the handles to see how each one maps to a color channel. | 10.1s | 14 | ~25 |
+| 2 | Work with the tools that feel most familiar to you. | 8.9s | 10 | ~22 |
+| 3 | Keep an eye open for how your changes impact other parts of the tool. | 6.8s | 14 | ~17 |
+| 4 | Move one value and everything it changes lights up with it. | 8.7s | 11 | ~22 |
+| 5 | Press this button to toggle between Source and Mixed color sliders. | 6.9s | 11 | ~17 |
+| — | Have fun! | 8.1s | 2 | — |
+| | **Total** | **49.5s** | | |
+
+Three things worth knowing before you rewrite any of them:
+
+- **The line does not set the timing.** Each step runs for as long as its
+  choreography takes, and the caption sits there for all of it. Making a line
+  shorter does not make its step shorter; it just leaves the panel quieter for
+  longer. To change a step's length, change its beats — the tables below say
+  which.
+- **Step 3 is the tightest.** Fourteen words in 6.8s, against step 1's fourteen
+  in 10.1s. It is the one line that has to be read while a slider is sweeping.
+- **The sign-off's 8.1s is mostly not reading time.** It covers the walk home,
+  the colour tweening back, the exit and then a five-second hold — "Have fun!"
+  only needs to survive the last of it.
+
 ## The pacing dial
 
 Every duration in the script is one of these, in the `DWELL` block at the top of
