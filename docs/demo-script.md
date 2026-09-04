@@ -31,7 +31,7 @@ step has, and where a longer line could go without changing a single timing.
 | 1 | Work with the tools that feel most familiar to you. | 8.3s | 10 | ~21 |
 | 2 | Move one value and everything it affects lights up across the app. | 8.1s | 12 | ~20 |
 | 3 | Press this button to toggle between Source and Mixed color sliders. | 5.5s | 11 | ~14 |
-| 4 | Play with the handles to see how each one maps to a color channel. | 9.9s | 14 | ~25 |
+| 4 | Play with the Hex handles to see how each one maps to a color channel. | 9.9s | 15 | ~25 |
 | — | Have fun! | 4.4s | 2 | — |
 | | **Total** | **36.1s** | | |
 
@@ -45,7 +45,9 @@ Four things worth knowing before you rewrite any of them:
 - **Every line has to fit two rendered lines.** The panel lays all of them out
   in one cell and holds the height of the tallest, so a caption that wraps to
   three makes the panel taller for the whole demo, not just its own step. At the
-  header's width that is about 66 characters; all four are 51–67 today.
+  header's width that is about 70 characters, which all four are inside. A
+  phone is narrower and takes the two longest to three lines regardless; the
+  panel is 90px on a desktop and 161px there.
 - **Step 3 is the tightest, and it is now tight enough to matter.** Eleven
   words in 5.5s leaves about three words of headroom. If a recorded line runs
   long the step stretches to fit it rather than clipping, but the choreography
@@ -238,7 +240,7 @@ Narration: `public/demo/03-blend.mp3`
 
 ## Step 4 — The chain · 9.9s
 
-> **Play with the handles to see how each one maps to a color channel.**
+> **Play with the Hex handles to see how each one maps to a color channel.**
 
 Narration: `public/demo/04-handles.mp3`
 

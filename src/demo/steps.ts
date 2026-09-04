@@ -421,7 +421,7 @@ export const STEPS: DemoStep[] = [
     },
   },
   {
-    caption: 'Play with the handles to see how each one maps to a color channel.',
+    caption: 'Play with the Hex handles to see how each one maps to a color channel.',
     audio: '04-handles.mp3',
     duration: (DWELL.move + DWELL.hoverStem) + 2 * (DWELL.move + DWELL.hoverJoint)
       + DWELL.move + DWELL.dragTip + DWELL.afterAction,
