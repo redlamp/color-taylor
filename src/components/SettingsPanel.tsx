@@ -25,6 +25,7 @@
  * is the only shape, which is why the drag went: a panel anchored to an edge
  * has nowhere to be dragged to.
  */
+import { useLayoutEffect, useState, type CSSProperties } from 'react';
 import { Info, RotateCcw, X } from 'lucide-react';
 import { Dialog as DialogPrimitive } from '@base-ui/react/dialog';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
@@ -56,6 +57,42 @@ export function SettingsPanel({
   const { reset: resetSynth, settings, setAudioEnabled } = useSettings();
   const audioEnabled = settings.audioEnabled;
   const { reset: resetTheme } = useTheme();
+
+  /*
+   * Line the panel up with the tool rather than with the corner of the window.
+   *
+   * A fixed inset cannot do it: the header sits at 44px, 77px or 107px
+   * depending on how the title row and the plugin banner wrap, so the panel was
+   * hanging above the cards at some widths and level with them at none. The
+   * cards are always exactly where the answer is - the hexagon's top is the row
+   * the content starts on, and the colour editor's right edge is the gutter the
+   * menu button already lines up with.
+   *
+   * The hexagon for the top and the editor for the right, not one card for
+   * both: at the narrow end the two stack, and the editor's top is then most of
+   * a page down.
+   *
+   * Out through custom properties so the media query stays in CSS - below `sm`
+   * this is a full-height rail and neither value applies. A layout effect
+   * rather than an effect, so the measurement lands in the same paint the panel
+   * opens in and it does not start at the corner and hop.
+   */
+  const [anchor, setAnchor] = useState<{ top: number; right: number } | null>(null);
+  useLayoutEffect(() => {
+    if (!open) return;
+    const measure = () => {
+      const top = document.querySelector('#color-hexagon')?.getBoundingClientRect().top;
+      const right = document.querySelector('#picker-layout')?.getBoundingClientRect().right;
+      if (top === undefined || right === undefined) return;
+      setAnchor({
+        top: Math.max(8, Math.round(top)),
+        right: Math.max(8, Math.round(window.innerWidth - right)),
+      });
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [open]);
 
   const resetAll = () => {
     resetSynth();
@@ -92,11 +129,19 @@ export function SettingsPanel({
           className={
             'fixed top-0 right-0 bottom-0 z-50 flex w-[min(88vw,380px)] flex-col ' +
             'border-l border-border bg-background shadow-xl outline-none duration-200 ' +
-            'sm:top-3 sm:right-3 sm:bottom-auto sm:max-h-[calc(100dvh-1.5rem)] ' +
+            'sm:top-(--menu-top) sm:right-(--menu-right) sm:bottom-auto ' +
+            'sm:max-h-[calc(100dvh-var(--menu-top)-0.75rem)] ' +
             'sm:rounded-xl sm:border ' +
             'data-open:animate-in data-open:slide-in-from-right ' +
             'data-closed:animate-out data-closed:slide-out-to-right'
           }
+          // 12px is only ever the value for the frame before the measurement,
+          // and the layout effect above beats the paint - so in practice it is
+          // the fallback for a host with neither card on the page.
+          style={{
+            '--menu-top': `${anchor?.top ?? 12}px`,
+            '--menu-right': `${anchor?.right ?? 12}px`,
+          } as CSSProperties}
         >
           <div className="flex items-center justify-between border-b border-border px-3 py-2">
             <DialogPrimitive.Title className="text-base font-semibold">Menu</DialogPrimitive.Title>
