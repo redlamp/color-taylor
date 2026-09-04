@@ -44,7 +44,9 @@ export function AboutPanel({ open, onClose, onWatchDemo }: AboutPanelProps) {
             // panel wears. These two are the only surfaces where the app is
             // talking rather than being used, which is what the ornament means.
             'speaks fixed top-1/2 left-1/2 z-50 w-[min(92vw,560px)] -translate-x-1/2 -translate-y-1/2 ' +
-            'cursor-pointer rounded-2xl bg-card px-8 py-11 text-center ' +
+            // Asymmetric on purpose: the credit is a footnote, and the room a
+            // title needs above it is not the room a footnote needs below.
+            'cursor-pointer rounded-2xl bg-card px-8 pt-11 pb-7 text-center ' +
             'shadow-2xl outline-none duration-200 ' +
             'data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 ' +
             'data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95'
