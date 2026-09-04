@@ -193,14 +193,19 @@ test.describe('Picker demo', () => {
   });
 
   test('the tick for the step being played fills as it runs', async ({ page }) => {
+    // Three rather than eight: at eight a step is about a second, and the two
+    // reads below can then fall either side of a step boundary.
+    await page.goto('/?demospeed=3');
+    await page.locator('#rgb-dot-green').waitFor();
     await page.locator('#demo-button').click();
     const head = page.getByTestId('demo-playhead');
     const fill = async () => Number(
       /scaleX\(([\d.]+)\)/.exec(await head.evaluate((el) => el.style.transform))?.[1] ?? 0,
     );
 
-    // Slow enough to catch it mid-step: at demospeed=8 a step is under a
-    // second and the playhead would be at either end by the time this looks.
+    // Slow enough that the two reads land inside one step. At demospeed=8 a
+    // step is about a second, so a 250ms gap can straddle a boundary - and the
+    // playhead is whichever tick is *now* playing, which has just reset to 0.
     await expect.poll(fill, { timeout: 4000 }).toBeGreaterThan(0.05);
     const early = await fill();
     await page.waitForTimeout(250);

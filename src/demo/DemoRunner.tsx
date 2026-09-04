@@ -162,6 +162,17 @@ export default function DemoRunner({ from = null, onRestore, onExit, host }: Dem
   /** The ghost's own exit, which runs before the panel's. */
   const [ghostLeaving, setGhostLeaving] = useState(false);
   /*
+   * The ghost fades in as it arrives, the way it fades out as it goes.
+   *
+   * It starts parked below the bottom of the screen and travels up into the
+   * first target, so without this it slides in at full strength - a cursor
+   * that is suddenly simply there. Cleared on the first frame it actually
+   * moves rather than on mount: the opening pose waits before anything
+   * travels, and a fade spent while the thing is still off screen is a fade
+   * nobody sees.
+   */
+  const [ghostEntering, setGhostEntering] = useState(true);
+  /*
    * The playhead's clock. Written when a step starts and read every frame, so
    * the fill in the current tick is driven straight to the DOM and no part of
    * this component re-renders for it.
@@ -218,6 +229,7 @@ export default function DemoRunner({ from = null, onRestore, onExit, host }: Dem
     let tilt = 0;
     let tiltV = 0;
     let pressed = false;
+    let moving = false;
     let raf = 0;
 
     let ring: { x: number; y: number; start: number } | null = null;
@@ -297,6 +309,10 @@ export default function DemoRunner({ from = null, onRestore, onExit, host }: Dem
     const frame = () => {
       const dx = target.x - shown.x;
       const dy = target.y - shown.y;
+      if (!moving && (dx !== 0 || dy !== 0)) {
+        moving = true;
+        setGhostEntering(false);
+      }
       shown = target;
       /*
        * Smoothed px-per-frame. The path is already eased, so the position
@@ -651,7 +667,7 @@ export default function DemoRunner({ from = null, onRestore, onExit, host }: Dem
           marginTop: -hot.y,
           transformOrigin: `${hot.x}px ${hot.y}px`,
           filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.45))',
-          opacity: ghostLeaving ? 0 : 1,
+          opacity: ghostLeaving || ghostEntering ? 0 : 1,
           transitionDuration: `${EXIT_MS}ms`,
         }}
       >
