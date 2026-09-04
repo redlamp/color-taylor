@@ -53,10 +53,23 @@ test.describe('Welcome panel', () => {
     await expect(panel(page)).toHaveCount(0);
   });
 
-  test('Escape and the scrim dismiss it too', async ({ page }) => {
+  test('Escape dismisses it', async ({ page }) => {
     await firstVisit(page);
     await page.goto('/');
+    // Wait for it before pressing: without this the key can land before the
+    // dialog is listening, and the assertion then passes or fails on timing
+    // rather than on Escape doing anything.
+    await expect(panel(page)).toBeVisible();
     await page.keyboard.press('Escape');
+    await expect(panel(page)).toHaveCount(0);
+  });
+
+  test('a click on the scrim dismisses it', async ({ page }) => {
+    await firstVisit(page);
+    await page.goto('/');
+    await expect(panel(page)).toBeVisible();
+    // Outside the card, which on a 1280-wide viewport is well clear of it.
+    await page.mouse.click(60, 60);
     await expect(panel(page)).toHaveCount(0);
   });
 
