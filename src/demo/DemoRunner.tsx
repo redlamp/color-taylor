@@ -28,7 +28,7 @@
  * on the app.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronLeft, ChevronRight, Volume2, VolumeX } from 'lucide-react';
 import DemoCursor, { CURSOR_BOX, cursorKind, hotspotOf, type CursorKind } from './DemoCursor';
@@ -142,6 +142,29 @@ export default function DemoRunner({ from = null, onRestore, onExit, host }: Dem
    */
   const playhead = useRef<{ index: number; start: number; ms: number } | null>(null);
   const tickFills = useRef<(HTMLElement | null)[]>([]);
+
+  /*
+   * Put every tick back where the render says it should be, whenever the step
+   * changes.
+   *
+   * The fills are written two ways: React sets `scaleX(i < index ? 1 : 0)` as
+   * a style prop, and the frame loop above writes the playing one straight to
+   * the DOM. Going forward those agree - the tick just finished goes from 0 to
+   * 1 in the prop, so React writes over whatever the loop left. Going *back*
+   * they do not: the tick being left was already `i < index === false`, so its
+   * prop is scaleX(0) before and after, React sees no change and writes
+   * nothing, and the half-filled bar the loop last wrote stays on screen.
+   *
+   * A layout effect rather than an ordinary one, so the correction lands in
+   * the same paint as the index change instead of a frame later. The tick now
+   * playing is zeroed here too and the loop refills it on its next frame,
+   * which is where it should be starting from anyway.
+   */
+  useLayoutEffect(() => {
+    tickFills.current.forEach((fill, i) => {
+      if (fill) fill.style.transform = `scaleX(${i < index ? 1 : 0})`;
+    });
+  }, [index]);
 
   const skip = useCallback(() => {
     driverRef.current?.stop();

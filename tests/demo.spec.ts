@@ -212,6 +212,35 @@ test.describe('Picker demo', () => {
   });
 
   /**
+   * The fills are written two ways - a style prop from the render and a direct
+   * DOM write from the frame loop - and going back is where they used to
+   * disagree. The tick being left was already "not yet played" as far as the
+   * prop was concerned, so React saw no change, wrote nothing, and the
+   * half-filled bar the loop had left stayed on screen behind a dimmed tick.
+   */
+  test('going back empties the tick it just left', async ({ page }) => {
+    await page.locator('#demo-button').click();
+    const scale = async (i: number) => Number(
+      /scaleX\(([\d.]+)\)/.exec(
+        await page.locator(`[data-testid="demo-ticks"] > span`).nth(i)
+          .locator('i').evaluate((el) => (el as HTMLElement).style.transform),
+      )?.[1] ?? -1,
+    );
+
+    await page.getByRole('button', { name: 'Next step' }).click();
+    // Something on the second tick worth leaving behind.
+    await expect.poll(() => scale(1), { timeout: 5000 }).toBeGreaterThan(0.05);
+
+    await page.getByRole('button', { name: 'Previous step' }).click();
+    await expect.poll(() => scale(1), { timeout: 2000 }).toBe(0);
+    // And it stays empty - nothing is still driving it.
+    await page.waitForTimeout(250);
+    expect(await scale(1)).toBe(0);
+    // The step it came back to runs again from the start rather than resuming.
+    expect(await scale(0)).toBeLessThan(0.9);
+  });
+
+  /**
    * Steps 1 and 2 aim at one chosen colour - LANDING in steps.ts - from three
    * directions: the hexagon by angle and radius, the colour box by saturation
    * and brightness, the hue strip by height. The default colour is that
