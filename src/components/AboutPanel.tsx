@@ -62,22 +62,27 @@ export function AboutPanel({ open, onClose, onWatchDemo }: AboutPanelProps) {
 
           {/* Two lines, and the break is the point: the first is the
               invitation, the second is what to look for while you take it. */}
-          <DialogPrimitive.Description className="mx-auto mt-6 text-xl leading-snug text-balance text-muted-foreground sm:text-2xl">
-            Have fun with different color modes
+          <DialogPrimitive.Description className="mx-auto mt-6 text-2xl leading-snug text-muted-foreground">
+            Have fun with different color modes,
             <br />
             <em className="text-foreground">see</em> how they move together
           </DialogPrimitive.Description>
 
-          <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
+          {/* A grid, so the two are the same width whatever their labels are:
+              one column on a phone, where they stack, and two equal ones from
+              `sm` up. Capped and centred so they do not stretch the width of
+              the card on a desktop. */}
+          <div className="mx-auto mt-9 grid max-w-[26rem] gap-3 sm:grid-cols-2">
             <Button
               variant="secondary"
               size="2xl"
+              className="w-full"
               onClick={(e) => { e.stopPropagation(); onWatchDemo(); }}
             >
               <Play className="size-6" />
               Watch Demo
             </Button>
-            <Button size="2xl" onClick={(e) => { e.stopPropagation(); onClose(); }}>
+            <Button size="2xl" className="w-full" onClick={(e) => { e.stopPropagation(); onClose(); }}>
               Get Started
             </Button>
           </div>
