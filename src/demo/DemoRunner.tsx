@@ -375,7 +375,7 @@ export default function DemoRunner({ onRestore, onExit, host }: DemoRunnerProps)
         ref={captionRef}
         data-demo-chrome=""
         data-testid="demo-bar"
-        className={`demo-panel pointer-events-auto fixed rounded-xl bg-card/95 shadow-xl backdrop-blur-sm transition-opacity ${leaving ? 'opacity-0' : 'opacity-100'}`}
+        className={`speaks pointer-events-auto fixed rounded-xl bg-card/95 shadow-xl backdrop-blur-sm transition-opacity ${leaving ? 'opacity-0' : 'opacity-100'}`}
         style={{ left: 0, top: -400, transitionDuration: `${SIGN_OFF_FADE_MS}ms` }}
       >
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">

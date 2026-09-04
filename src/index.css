@@ -412,11 +412,15 @@ h1, h2 {
 }
 
 /*
- * The demo panel's hairline: the chain's three channels, in the tooltip fills
- * rather than the stems' full-strength primaries, which at 1px on a card edge
- * read as noise. Twice as wide as the box and drifting across it, slowly
- * enough to be noticed rather than watched - the panel is meant to be read,
- * not looked at. src/demo/DemoRunner.tsx.
+ * The hairline the app wears when it is speaking rather than being operated:
+ * the welcome panel and the demo's caption panel, and nothing else. The
+ * chain's three channels, in the tooltip fills rather than the stems'
+ * full-strength primaries, which at 1px on a card edge read as noise. Twice as
+ * wide as the box and drifting across it, slowly enough to be noticed rather
+ * than watched - these panels are meant to be read, not looked at.
+ *
+ * Two surfaces make it a motif. Putting it on ordinary chrome as well would
+ * make it wallpaper, and it would stop meaning anything.
  *
  * Masked rather than nested. The obvious build - a padded outer box holding
  * an inner one - needs the inner radius to be the outer's minus the border,
@@ -425,11 +429,11 @@ h1, h2 {
  * square and squeezed the ring away at all four corners. Masking the ring out
  * of a single box takes its radius from `inherit` and cannot drift.
  */
-.demo-panel {
+.speaks {
   position: relative;
 }
 
-.demo-panel::before {
+.speaks::before {
   content: "";
   position: absolute;
   inset: 0;
@@ -437,7 +441,7 @@ h1, h2 {
   border-radius: inherit;
   background: linear-gradient(100deg, #e7000b, #00a63e, #155dfc, #e7000b);
   background-size: 220% 100%;
-  animation: demo-panel-drift 14s linear infinite;
+  animation: speaks-drift 14s linear infinite;
   /* Two layers, the inner one subtracted: what is left is the 1px frame. */
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
@@ -446,12 +450,12 @@ h1, h2 {
   pointer-events: none;
 }
 
-@keyframes demo-panel-drift {
+@keyframes speaks-drift {
   to { background-position: 220% 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .demo-panel::before { animation: none; }
+  .speaks::before { animation: none; }
 }
 
 /*
