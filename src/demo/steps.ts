@@ -457,7 +457,11 @@ export const STEPS: DemoStep[] = [
     async run({ d }) {
       const toggle = el('#blend-toggle');
       if (!toggle) return;
-      await d.bring(toggle);
+      // Framed rather than merely visible: what this step is about is the
+      // slider tracks changing under the button, so the card has to be the
+      // shot. On a phone the button alone is often already on screen after the
+      // previous step, and without this the view stays wherever that left it.
+      await d.bring(toggle, true);
       await d.moveTo(() => centerOf(toggle), DWELL.moveFar);
       await d.wait(DWELL.beforeAction);
 

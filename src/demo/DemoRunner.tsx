@@ -437,6 +437,10 @@ export default function DemoRunner({ from = null, onRestore, onExit, host }: Dem
           // Still restores the sections, the banks and the blend.
           restoreRef.current();
         }
+        // The whole tool back in view before the ghost goes. After the walk
+        // home this is a no-op on a desktop and the difference between a
+        // goodbye and a screenful of sliders on a phone.
+        await d.toTop();
         setGhostLeaving(true);
         await exitPose(ctx);
 

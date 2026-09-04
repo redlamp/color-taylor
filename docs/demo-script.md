@@ -94,7 +94,7 @@ borrows as little as it can.
 | **Collapsed sections** | Opened, if closed, and closed again afterwards. It has to ask rather than notice: a collapsed section keeps its children mounted so its height can animate, so it looks exactly like an open one to a `querySelector`. Left alone, the script drove controls inside a clipped zero-height row — the colour landed correctly and the ghost traced a careful pattern over a closed panel. `utils/demoSections.ts`, two window events, the same shape as `color-taylor:reset-all`. |
 | **Slider banks** | Left alone. It used to force RGB + HSB and hand the arrangement back, which flickered HSL off and on again for anyone showing all three. Nothing in the script targets a particular bank any more. The one exception is a user with every bank closed, where the step about what lights up would have nothing to light. |
 | **Blend** | Left alone. Step 4 presses the toggle an even number of times, so it demonstrates the same thing from either state and gives it back either way. Still restored, because a skip part way through would leave it flipped. |
-| **Scroll position** | Not restored. Each step scrolls its target clear of the panel, and the page is left wherever the last one put it. |
+| **Scroll position** | Not restored, but the last beat returns to the top of the page rather than leaving you wherever the script finished. On a desktop window that fits the tool it is a no-op; on a phone it is the difference between ending on the app and ending on six sliders. |
 
 "Default Settings" goes further than the demo does: it also returns every
 section to open or closed as a first visit finds it, which the demo deliberately
@@ -277,6 +277,7 @@ last tick sitting empty for nearly three seconds under a finished line.
 | ↳ `moveFar` | 680 | Home to the hexagon's tip — **only if the colour is going to move**. The demo lands on the app's default, so for a visitor who had not changed theirs the restore is a no-op and the walk is a cursor crossing the tool to watch nothing happen. `DemoHost.restoreMovesColour` is asked before the trip rather than after it. |
 | ↳ — | — | The colour, the slider groups, blend and any section it opened all go back to what the demo found. |
 | ↳ `HSB_TWEEN_MS` + 120 | 1120 | Skipped with the walk. Otherwise the ghost **rides the tip** while the colour tweens home, so the ending reads as the cursor putting the colour back rather than the colour leaving on its own. |
+| ↳ — | — | The page rises to the top, so the last thing on screen is the tool — its title and its menu — rather than whatever the script was last working. |
 | ↳ `EXIT_MS` | 900 | Walks off through whichever edge the panel is not on, fading as it goes. |
 | `SIGN_OFF_FADE_MS` | 350 | The panel fades out and the demo takes itself down. |
 
@@ -312,6 +313,12 @@ the length. A recording shorter than the step changes nothing.
   than for a fixed time. On a desktop window big enough for the whole tool this
   never happens; on a phone it happens most steps, and adds roughly half a
   second each.
+
+  Step 4 asks for it whether or not it needs it — `bring(el, true)`. Its subject
+  is the slider tracks changing under the button, so the card has to be the shot
+  and not just the button, and left to itself `bring` returns the moment its
+  target is on screen. That makes how the step looks a consequence of wherever
+  step 3 happened to stop, which is not a thing to leave to chance.
 - **Back and Next.** A step interrupted part way is abandoned at its next
   pause, so its remaining beats are simply not spent.
 - **Reduced motion.** `prefers-reduced-motion` removes the arcs and the cursor's

@@ -398,6 +398,47 @@ test.describe('Picker demo', () => {
   });
 
   /**
+   * Two things a phone needs that a desktop window does not.
+   *
+   * Step four's subject is the slider tracks changing under the button, so the
+   * card has to be the shot and not just the button - and `bring` returns early
+   * the moment its target is already on screen, which leaves how the step looks
+   * to wherever the previous one happened to stop.
+   *
+   * And the script ends deep in the page, on whatever it last worked. The demo
+   * is over by then, so what should be on screen is the tool.
+   */
+  test('on a phone it frames the colour editor, and ends at the top of the app', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 664 });
+    await page.goto(FAST);
+    await page.locator('#rgb-dot-green').waitFor();
+    await page.locator('#demo-button').click();
+
+    // Ticks light up to and including the step being played.
+    await expect(litTicks(page)).toHaveCount(4, { timeout: 20000 });
+    await expect.poll(() => page.evaluate(() => {
+      const card = document.querySelector('#color-editor-group-content');
+      const toggle = document.querySelector('#blend-toggle');
+      const chrome = document.querySelector('[data-demo-chrome]');
+      if (!card || !toggle || !chrome) return null;
+      const c = card.getBoundingClientRect();
+      const t = toggle.getBoundingClientRect();
+      const p = chrome.getBoundingClientRect();
+      return {
+        cardHeaderInShot: c.top >= 0 && c.top < p.top,
+        toggleClearOfPanel: t.top >= 0 && t.bottom <= p.top,
+      };
+    }), { timeout: 8000 }).toEqual({ cardHeaderInShot: true, toggleClearOfPanel: true });
+
+    // Well down the page by then, which is what makes the ending worth fixing.
+    expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(100);
+
+    await expect(panel(page)).toHaveCount(0, { timeout: 25000 });
+    expect(await page.evaluate(() => window.scrollY)).toBe(0);
+    await expect(page.locator('h1').first()).toBeInViewport();
+  });
+
+  /**
    * The panel is opaque and the demo is a thing you watch, so the one must
    * never sit on top of the other. On a phone the header wraps, the panel
    * drops to the foot of the screen, and `bring` scrolls each target into

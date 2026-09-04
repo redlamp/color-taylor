@@ -368,11 +368,17 @@ export class Driver {
    * panel leaves, not merely inside the window. A no-op when it is already
    * there, so a step can ask before every beat without the page hopping about.
    */
-  async bring(el: Element): Promise<void> {
+  async bring(el: Element, always = false): Promise<void> {
     this.guard();
     const band = this.clearBand();
     const r = el.getBoundingClientRect();
-    if (r.top >= band.top && r.bottom <= band.bottom) return;
+    // `always` asks for the framing whether or not the target is already
+    // visible. A step whose point is the card rather than the control wants
+    // that: left to itself this returns early the moment the control happens
+    // to be on screen, so how the step looks is decided by wherever the
+    // previous one left the page. Cheap when it is already right - the scroll
+    // destination comes out the same and the wait resolves on the first frame.
+    if (!always && r.top >= band.top && r.bottom <= band.bottom) return;
     const delta = this.scrollDelta(el, r, band);
     const max = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
     const destination = Math.max(0, Math.min(window.scrollY + delta, max));
@@ -401,6 +407,21 @@ export class Driver {
     const framed = s.top - band.top;
     const lands = { top: r.top - framed, bottom: r.bottom - framed };
     return lands.top >= band.top && lands.bottom <= band.bottom ? framed : centre;
+  }
+
+  /**
+   * Back to the top of the page, for the last beat.
+   *
+   * On a phone the script ends deep in the page, looking at whatever it was
+   * last working. The demo is over by then and what should be on screen is the
+   * tool - its title, its menu - rather than the six sliders it happened to
+   * finish on.
+   */
+  async toTop(): Promise<void> {
+    this.guard();
+    if (window.scrollY === 0) return;
+    window.scrollTo({ top: 0, behavior: this.opts.reduced ? 'auto' : 'smooth' });
+    await this.scrollReaches(0);
   }
 
   /**
