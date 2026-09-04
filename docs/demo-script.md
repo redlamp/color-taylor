@@ -1,7 +1,7 @@
 # The Picker Demo: Script and Timing
 
 The self-running demo behind the `?` button, beat by beat, as it actually runs.
-Five steps and a sign-off, **49.5 seconds** end to end.
+Four steps and a sign-off, **45.7 seconds** end to end.
 
 Everything here is generated from the code, not written alongside it. If you
 change a number in this document, change it in the file named beside it — the
@@ -26,26 +26,47 @@ step has, and where a longer line could go without changing a single timing.
 
 | # | Line | Runs | Words | Room |
 |---|---|---:|---:|---:|
-| 1 | Play with the handles to see how each one maps to a color channel. | 10.1s | 14 | ~25 |
+| 1 | Play with the handles to see how each one maps to a color channel. | 11.7s | 14 | ~29 |
 | 2 | Work with the tools that feel most familiar to you. | 8.9s | 10 | ~22 |
-| 3 | Keep an eye open for how your changes impact other parts of the tool. | 6.8s | 14 | ~17 |
-| 4 | Move one value and everything it changes lights up with it. | 8.7s | 11 | ~22 |
-| 5 | Press this button to toggle between Source and Mixed color sliders. | 6.9s | 11 | ~17 |
-| — | Have fun! | 8.1s | 2 | — |
-| | **Total** | **49.5s** | | |
+| 3 | Move one value and everything it affects lights up across the app. | 12.8s | 12 | ~32 |
+| 4 | Press this button to toggle between Source and Mixed color sliders. | 6.9s | 11 | ~17 |
+| — | Have fun! | 5.4s | 2 | — |
+| | **Total** | **45.7s** | | |
 
-Three things worth knowing before you rewrite any of them:
+Four things worth knowing before you rewrite any of them:
 
 - **The line does not set the timing.** Each step runs for as long as its
   choreography takes, and the caption sits there for all of it. Making a line
   shorter does not make its step shorter; it just leaves the panel quieter for
   longer. To change a step's length, change its beats — the tables below say
   which.
-- **Step 3 is the tightest.** Fourteen words in 6.8s, against step 1's fourteen
-  in 10.1s. It is the one line that has to be read while a slider is sweeping.
-- **The sign-off's 8.1s is mostly not reading time.** It covers the walk home,
-  the colour tweening back, the exit and then a five-second hold — "Have fun!"
-  only needs to survive the last of it.
+- **Every line has to fit two rendered lines.** The panel lays all of them out
+  in one cell and holds the height of the tallest, so a caption that wraps to
+  three makes the panel taller for the whole demo, not just its own step. At the
+  header's width that is about 66 characters; all four are 51–67 today.
+- **Step 4 is the tightest.** Eleven words in 6.9s. Step 3 is the loosest, at
+  twelve words across three separate gestures.
+- **The sign-off's 5.4s is not all reading time.** The walk home, the colour
+  tweening back and the exit all happen *inside* the five-second hold rather
+  than before it, so "Have fun!" is on screen for the whole of it.
+
+## The landing colour
+
+Steps 1 and 2 both finish on **h216, s69** — and step 2 on **b100** as well,
+which together are the app's own default colour. Step 3's gestures are all
+sweeps that hand the colour back where they found it, so the demo sits on that
+colour from the end of step 2 until the sign-off puts the user's own back.
+
+It is `LANDING` in `src/demo/steps.ts`, and it is one constant because the three
+surfaces reach it from different directions: the hexagon by angle and radius,
+the colour box by saturation and brightness, the hue strip by height. A demo
+that stops wherever its last gesture happened to end reads as a recording of
+somebody fiddling.
+
+Landing on a *chosen* colour is why `DemoHost` has a `field()` reader. A gesture
+on the hexagon or the box is a position rather than a delta, so a step that
+means to end somewhere has to know where it is starting from. It is the only
+thing the demo reads rather than works.
 
 ## The pacing dial
 
@@ -61,18 +82,24 @@ Every duration in the script is one of these, in the `DWELL` block at the top of
 | `beforeAction` | 600 | After arriving, before the hand starts working |
 | `afterAction` | 1300 | After a drag lets go, while the highlights are still lit |
 | `betweenSteps` | 400 | Between two actions inside one step |
-| `dragTip` | 2200 | The hexagon's tip handle |
+| `dragTip` | 3800 | The hexagon's tip handle, once round the field |
 | `dragBox` | 2800 | The colour box |
 | `dragHue` | 2600 | The colour editor's hue strip |
 | `dragBar` | 2600 | Each of the hexagon's two bars |
-| `dragSlider` | 4200 | The H slider in the bank |
+| `dragSlider` | 3000 | The H slider in the bank |
 | `blendHold` | 1300 | How long each blend state is held up for inspection |
 
-Every one of those sweeps goes out and back along its track, toward whichever
-end has the room. It used to swing symmetrically about the handle and clamp to
-the smaller side, which collapses to nothing at an end of a track — exactly
-where the brightness handle sits by default, so that gesture moved a few pixels
-and looked broken. `sweepFrom` in `steps.ts` is the shared version.
+Sweeps that are only meant to show a range go out and back along their track,
+toward whichever end has the room. They used to swing symmetrically about the
+handle and clamp to the smaller side, which collapses to nothing at an end of a
+track — exactly where the brightness handle sits at the landing colour, so that
+gesture moved a few pixels and looked broken. `sweepFrom` in `steps.ts` is the
+shared version.
+
+The gestures that have to *arrive* somewhere — the tip, the box, the hue strip —
+are written in their control's own units instead, with every wobble term
+multiplied by something that vanishes at t=1. That is what makes the landing
+exact rather than approximate.
 
 Four more live beside them, and are named in the beats below:
 
@@ -81,11 +108,11 @@ Four more live beside them, and are named in the beats below:
 | `CLICK_MS` | 110 | `src/demo/drive.ts` — how long a press is held before it becomes a click |
 | `HSB_TWEEN_MS` | 1000 | `utils/colorTween.ts` — the colour's own tween, which the ghost rides home |
 | `EXIT_MS` | 900 | `steps.ts` — the ghost's walk off the screen |
-| `SIGN_OFF_MS` | 5000 | `steps.ts` — how long "Have fun!" stands before the panel leaves |
+| `SIGN_OFF_MS` | 5000 | `steps.ts` — how long "Have fun!" stands, the goodbye included |
 
 ---
 
-## Step 1 — The chain · 10.1s
+## Step 1 — The chain · 11.7s
 
 > **Play with the handles to see how each one maps to a color channel.**
 
@@ -102,8 +129,15 @@ its neighbour.
 | move + `hoverStem` | 520 + 900 | To the **blue stem**. BLUE. |
 | move + `hoverJoint` | 520 + 1100 | To the **tip**. All three. |
 | move | 520 | Back onto the tip to take hold of it. |
-| `dragTip` | 2200 | A short arc. The sliders, bars and hue badge light as it moves; the chain stays quiet, because the chain is what is being held. |
+| `dragTip` | 3800 | **Once round the field**, plus however far the landing hue is from where it started — so it arrives on h216, s69 whatever colour the user was on. |
 | `afterAction` | 1300 | Let go and watch the highlights fade. |
+
+The tour used to be a 56px nudge and back. That moved the readouts without ever
+saying what the field *is*: a short arc near one hue looks like a colour being
+adjusted, and a full turn looks like a hue wheel, which is what it is.
+Brightness is untouched for the whole gesture — the mapping freezes its bound at
+pointer-down and every point on the path stays inside it — so hue and saturation
+are the only things moving.
 
 ## Step 2 — The colour editor · 8.9s
 
@@ -116,52 +150,49 @@ never leave the one hue, and the pair is what makes it a picker.
 
 | Beat | ms | What happens |
 |---|---:|---|
-| `moveFar` | 680 | Across to the colour box. |
+| `moveFar` | 680 | Across to the colour box, pressing exactly where the handle already is. |
 | `beforeAction` | 600 | A moment to read the caption. |
-| `dragBox` | 2800 | A curve through the box, inset so it never clamps on an edge. |
+| `dragBox` | 2800 | Out through the dark and back up to the top edge, landing on **s69, b100**. |
 | `betweenSteps` | 400 | |
 | `move` | 520 | To the **hue strip**, at the marker's own height so nothing jumps. |
-| `dragHue` | 2600 | Up and back down. |
+| `dragHue` | 2600 | A full period of a sine: 140° above the hue and 140° below it, ending on **h216**. |
 | `afterAction` | 1300 | |
 
-## Step 3 — A slider · 6.8s
+140 rather than 180 because the strip wraps: overshooting either end is harmless
+to the value but walks the ghost off the control.
 
-> **Keep an eye open for how your changes impact other parts of the tool.**
+## Step 3 — What one value moves · 12.8s
+
+> **Move one value and everything it affects lights up across the app.**
 
 Narration: `public/demo/03-impact.mp3`
+
+This was two steps — "keep an eye open for the impact", then "here it is" — and
+they read as the same point made twice, with a pause in the middle of one idea.
+Three controls in one breath instead, because the argument is that it happens
+*wherever* you work, and one control cannot say that.
 
 | Beat | ms | What happens |
 |---|---:|---|
 | `moveFar` | 680 | To the **H slider** in the bank. |
 | `beforeAction` | 600 | |
-| `dragSlider` | 4200 | Out and back, about 120° each way. The longest single gesture in the demo, because it is the one with the most to watch. |
-| `afterAction` | 1300 | |
-
-## Step 4 — What one value moves · 8.7s
-
-> **Move one value and everything it changes lights up with it.**
-
-Narration: `public/demo/04-bars.mp3`
-
-Step 3 asks them to watch; this is the demonstration. The bars belong to the
-hexagon rather than the bank, so the sliders lighting up are unmistakably
-somewhere else — nothing on screen is the control being held.
-
-| Beat | ms | What happens |
-|---|---:|---|
-| `moveFar` | 680 | To the hexagon's **Saturation bar**. |
-| `beforeAction` | 600 | |
+| `dragSlider` | 3000 | Out and back, about 120° each way. |
+| `betweenSteps` | 400 | |
+| `moveFar` | 680 | To the hexagon's **Saturation bar** — not in the bank, so the sliders lighting up are unmistakably somewhere else. |
 | `dragBar` | 2600 | A slow sweep. Most of the RGB and HSL readouts light at once. |
 | `betweenSteps` | 400 | |
 | `move` | 520 | To the **Brightness bar**. |
 | `dragBar` | 2600 | The same, vertically. |
 | `afterAction` | 1300 | |
 
-## Step 5 — Source and mixed · 6.9s
+Every gesture here returns the colour to where it found it, which is what lets
+the landing colour survive the step.
+
+## Step 4 — Source and mixed · 6.9s
 
 > **Press this button to toggle between Source and Mixed color sliders.**
 
-Narration: `public/demo/05-blend.mp3`
+Narration: `public/demo/04-blend.mp3`
 
 | Beat | ms | What happens |
 |---|---:|---|
@@ -169,18 +200,26 @@ Narration: `public/demo/05-blend.mp3`
 | `beforeAction` | 600 | |
 | 4 × (`CLICK_MS` + `blendHold`) | 4 × 110 + 3 × 1300 + 1300 | Four presses, each leaving a ring, ending where it started. |
 
-## Sign-off · 8.1s
+## Sign-off · 5.4s
 
 > **Have fun!**
 
+The caption reads the step index, so "Have fun!" goes up the moment the last
+step ends. The five seconds start there too, and the goodbye happens inside them
+rather than before them — it used to run the walk home first, which left the
+last tick sitting empty for nearly three seconds under a finished line.
+
 | Beat | ms | What happens |
 |---|---:|---|
-| `moveFar` | 680 | Home to the hexagon's tip. |
-| — | — | The colour, the slider groups and blend all go back to what the demo found. |
-| `HSB_TWEEN_MS` + 120 | 1120 | The ghost **rides the tip** while the colour tweens home, so the ending reads as the cursor putting the colour back rather than the colour leaving on its own. |
-| `EXIT_MS` | 900 | Walks off through whichever edge the panel is not on, fading as it goes. |
-| `SIGN_OFF_MS` | 5000 | "Have fun!" stands, the last tick running down as a timer. |
+| `SIGN_OFF_MS` | 5000 | "Have fun!" stands, the last tick running down as a timer. Everything below happens inside it. |
+| ↳ `moveFar` | 680 | Home to the hexagon's tip. |
+| ↳ — | — | The colour, the slider groups and blend all go back to what the demo found. |
+| ↳ `HSB_TWEEN_MS` + 120 | 1120 | The ghost **rides the tip** while the colour tweens home, so the ending reads as the cursor putting the colour back rather than the colour leaving on its own. |
+| ↳ `EXIT_MS` | 900 | Walks off through whichever edge the panel is not on, fading as it goes. |
 | `SIGN_OFF_FADE_MS` | 350 | The panel fades out and the demo takes itself down. |
+
+The goodbye adds up to 2.7s, so the panel stands still and quiet for the last
+2.3 of the five.
 
 ---
 
@@ -197,11 +236,10 @@ the length. A recording shorter than the step changes nothing.
 
 | Step | File | Words to fill the current timing |
 |---|---|---:|
-| 1 | `01-handles.mp3` | ~10.1s |
+| 1 | `01-handles.mp3` | ~11.7s |
 | 2 | `02-color-box.mp3` | ~8.9s |
-| 3 | `03-impact.mp3` | ~6.8s |
-| 4 | `04-bars.mp3` | ~8.7s |
-| 5 | `05-blend.mp3` | ~6.9s |
+| 3 | `03-impact.mp3` | ~12.8s |
+| 4 | `04-blend.mp3` | ~6.9s |
 
 ## Things the timings cannot predict
 
@@ -213,4 +251,4 @@ the length. A recording shorter than the step changes nothing.
 - **Back and Next.** A step interrupted part way is abandoned at its next
   pause, so its remaining beats are simply not spent.
 - **Reduced motion.** `prefers-reduced-motion` removes the arcs and the cursor's
-  lean; moves become near-instant, which takes roughly 3.5s off the total.
+  lean; moves become near-instant, which takes roughly 3s off the total.

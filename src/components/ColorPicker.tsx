@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useMemo, useEffect, Suspense, lazy } from 'react';
-import { hsbToRgb, rgbToHsb, rgbToHex, type HSB, type HSL, type RGB } from '../utils/colorConversions';
+import { hsbToRgb, rgbToHsb, rgbToHsl, rgbToHex, type HSB, type HSL, type RGB } from '../utils/colorConversions';
 import type { ColorSpace } from '../utils/sliderGradients';
 import type { HslOrigin } from '../utils/hslWrite';
 import { HSB_TWEEN_MS } from '../utils/colorTween';
@@ -541,10 +541,23 @@ export default function ColorPicker() {
       setRgb(exact);
     };
   }, [setRgb]);
+  /*
+   * `field` is the one thing the demo reads rather than works. A gesture on
+   * the hexagon or the colour box is a position, not a delta, so a step that
+   * means to land on a chosen colour has to know the one it is starting from.
+   * HSB comes through its ref so it is live to the frame; the B/L mode is a
+   * dependency instead, because a host rebuilt on a mode change is cheap and
+   * the runner reads it through a ref of its own.
+   */
   const demoHost = useMemo<DemoHost>(() => ({
     showDefaultSliders: () => setGroups(DEFAULT_GROUPS),
     setBlend: (on: boolean) => setBlend(on),
-  }), []);
+    field: () => {
+      const { h, s, b } = hsbRef.current;
+      const c = hsbToRgb(h, s, b);
+      return { h, s, b, l: rgbToHsl(c.r, c.g, c.b).l, blMode };
+    },
+  }), [hsbRef, blMode]);
 
   const handleRgbChange = useCallback((channel: 'r' | 'g' | 'b', value: number) => {
     takeOverFromAnimation();

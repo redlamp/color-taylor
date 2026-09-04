@@ -16,6 +16,23 @@ import { test, expect, type Page } from '@playwright/test';
 const FAST = '/?demospeed=8';
 
 /**
+ * A colour to start from that is not the one the script lands on.
+ *
+ * The app's default colour *is* the demo's landing colour - steps 1 and 2 aim
+ * at it, and step 3's sweeps hand it back - so a test that opens on the
+ * default and then asks whether the demo moved the colour is asking nothing.
+ * Anything else works; this is the one the landing test also uses.
+ */
+const SEEDED = { h: 34, s: 88, b: 42 };
+async function seeded(page: Page) {
+  await page.addInitScript((hsb) => {
+    localStorage.setItem('color-taylor-hsb', JSON.stringify(hsb));
+  }, SEEDED);
+  await page.goto(FAST);
+  await page.locator('#rgb-dot-green').waitFor();
+}
+
+/**
  * How many choreographed steps there are, read from the panel rather than
  * written down: there is one tick per step plus one for the sign-off, and the
  * script gains and loses steps as the demo is tuned.
@@ -41,6 +58,16 @@ async function rgb(page: Page): Promise<string> {
   const ids = ['#slider-rgb-r-track', '#slider-rgb-g-track', '#slider-rgb-b-track'];
   const vals = await Promise.all(ids.map((id) => page.locator(id).getAttribute('aria-valuenow')));
   return vals.join(',');
+}
+
+/** Hue off the strip, saturation and brightness off the colour box's label. */
+async function hsb(page: Page): Promise<string> {
+  return await page.evaluate(() => {
+    const h = document.querySelector('#hue-bar-wrapper')?.getAttribute('aria-valuenow');
+    const sb = document.querySelector('#sb-area')?.getAttribute('aria-valuetext') ?? '';
+    const [, s, b] = /Saturation (\d+)%, Brightness (\d+)%/.exec(sb) ?? [];
+    return `${h}/${s}/${b}`;
+  });
 }
 
 const panel = (page: Page) => page.getByTestId('demo-bar');
@@ -75,6 +102,7 @@ test.describe('Picker demo', () => {
   });
 
   test('the colour it borrowed comes back when it finishes', async ({ page }) => {
+    await seeded(page);
     const before = await rgb(page);
     await page.locator('#demo-button').click();
     await expect(primaryLabel(page)).toHaveText('Start exploring', { timeout: 25000 });
@@ -83,9 +111,12 @@ test.describe('Picker demo', () => {
   });
 
   test('skipping restores the colour and takes the overlay down', async ({ page }) => {
+    await seeded(page);
     const before = await rgb(page);
     await page.locator('#demo-button').click();
-    // Far enough in that the demo has moved the colour off where it started.
+    // Far enough in that the demo has moved the colour off where it started -
+    // which is only true because the page opened somewhere the script is not
+    // heading. See SEEDED.
     await expect(litTicks(page)).toHaveCount(3, { timeout: 15000 });
     expect(await rgb(page)).not.toBe(before);
 
@@ -164,6 +195,7 @@ test.describe('Picker demo', () => {
   });
 
   test('the sign-off takes itself down, and hands the colour back on the way', async ({ page }) => {
+    await seeded(page);
     const before = await rgb(page);
     await page.locator('#demo-button').click();
     for (let i = await stepCount(page); i > 0; i--) {
@@ -177,6 +209,29 @@ test.describe('Picker demo', () => {
     await expect(panel(page)).toBeVisible();
     await expect(panel(page)).toHaveCount(0, { timeout: 9000 });
     await expect.poll(() => rgb(page), { timeout: 4000 }).toBe(before);
+  });
+
+  /**
+   * Steps 1 and 2 aim at one chosen colour - LANDING in steps.ts - from three
+   * directions: the hexagon by angle and radius, the colour box by saturation
+   * and brightness, the hue strip by height. The default colour is that
+   * colour, so this has to start somewhere else to see any of it happen.
+   *
+   * It asserts the arrival rather than the path. Every gesture that lands is
+   * written so its wobble term vanishes at t=1, and that is the property worth
+   * keeping: it is what stops the demo finishing wherever its last frame
+   * happened to fall.
+   */
+  test('the script lands on the colour it aims at', async ({ page }) => {
+    await seeded(page);
+    expect(await hsb(page)).toBe('34/88/42');
+
+    await page.locator('#demo-button').click();
+    // The hexagon sets hue and saturation and holds the brightness it began
+    // with, so this is step one arriving, not step two.
+    await expect.poll(() => hsb(page), { timeout: 15000, intervals: [50] }).toBe('216/69/42');
+    // The colour box and the hue strip, which bring brightness with them.
+    await expect.poll(() => hsb(page), { timeout: 15000, intervals: [50] }).toBe('216/69/100');
   });
 
   /**

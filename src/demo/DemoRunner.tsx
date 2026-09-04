@@ -340,7 +340,25 @@ export default function DemoRunner({ from = null, onRestore, onExit, host }: Dem
         await openingPose(ctx);
       }
       if (index >= STEPS.length) {
-        playhead.current = null;
+        /*
+         * The sign-off's clock starts with the sign-off, not after it.
+         *
+         * "Have fun!" goes up the moment this branch is entered - the caption
+         * reads the index, not the choreography - so running the walk home
+         * first and only then starting the five seconds left the last tick
+         * sitting empty for nearly three seconds while a finished line stood
+         * on screen. The hold and the goodbye are the same span now: the ghost
+         * takes the colour home inside it, and the tick counts the whole thing
+         * down. Both are cancellable, so Back or Skip still takes it apart.
+         */
+        playhead.current = { index: STEPS.length, start: performance.now(), ms: SIGN_OFF_MS };
+        // Real seconds however fast the rest ran; `?demospeed` does not shorten
+        // the time it takes to read a line.
+        const hold = d.linger(SIGN_OFF_MS);
+        // Not the throw that matters - the awaits below reject first and the
+        // caller handles it - but an abort would otherwise be reported twice.
+        hold.catch(() => {});
+
         // Home first, so the colour tweens back under the ghost rather than
         // somewhere it is not looking; then off the bottom of the screen,
         // fading as it goes, rather than blinking out where it stood.
@@ -351,11 +369,10 @@ export default function DemoRunner({ from = null, onRestore, onExit, host }: Dem
         await carryHome(ctx);
         setGhostLeaving(true);
         await exitPose(ctx);
+
         // The demo is over; it should not sit on the screen waiting to be
-        // dismissed. Through the driver so Back or Skip cancels it, and
-        // through `linger` so it is five seconds however fast the rest ran.
-        playhead.current = { index: STEPS.length, start: performance.now(), ms: SIGN_OFF_MS };
-        await d.linger(SIGN_OFF_MS);
+        // dismissed.
+        await hold;
         setLeaving(true);
         await d.linger(SIGN_OFF_FADE_MS);
         exitRef.current();

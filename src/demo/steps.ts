@@ -16,6 +16,9 @@
 
 import { CLICK_MS, centerOf, type Driver, type Point } from './drive';
 import { HSB_TWEEN_MS } from '../utils/colorTween';
+import {
+  CENTER_X, CENTER_Y, PI, RADIUS, blLimitScale, hexEdgeDist, type BLMode,
+} from '../components/hex/hexConstants';
 
 /**
  * The pacing, in milliseconds, gathered here because it is the thing most
@@ -42,19 +45,39 @@ const DWELL = {
    * them: the hand knows where it is going and the eye does not, and every
    * one of these is asking somebody to watch three other things move.
    */
-  dragTip: 2200,
+  dragTip: 3800,
   dragBox: 2800,
   dragHue: 2600,
   dragBar: 2600,
-  dragSlider: 4200,
+  dragSlider: 3000,
   /** Blend: how long each state is held up for inspection. */
   blendHold: 1300,
 } as const;
+
+/**
+ * The colour as the app holds it, plus the two things the hexagon's mapping
+ * needs to turn a colour back into a point on the field.
+ */
+export interface FieldState {
+  h: number;
+  s: number;
+  b: number;
+  /** HSL lightness, which is what bounds the cross-section in lightness mode. */
+  l: number;
+  blMode: BLMode;
+}
 
 export interface DemoHost {
   /** The demo shows the RGB chain against the HSB sliders, so it sets both. */
   showDefaultSliders(): void;
   setBlend(on: boolean): void;
+  /**
+   * Where the colour is now. Read, never written - the script still works the
+   * real controls, and this only tells it where to aim them. A gesture on the
+   * hexagon is a position, so a step that means to land on a particular colour
+   * has to know the one it is starting from.
+   */
+  field(): FieldState;
 }
 
 export interface StepContext {
@@ -102,11 +125,6 @@ const el = (selector: string) => document.querySelector(selector);
 const joints = () => Array.from(document.querySelectorAll('[data-joint]'));
 const stems = () => Array.from(document.querySelectorAll('[data-stem]'));
 
-/** The deepest app element under a point. The demo's own chrome does not hit-test. */
-const at = (p: Point) => document.elementFromPoint(p.x, p.y);
-
-const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
-
 /**
  * A sweep along a track, out and back, from wherever the handle happens to be.
  *
@@ -124,6 +142,50 @@ function sweepFrom(lo: number, hi: number, start: number, fraction = 0.55) {
   return (t: number) => start + dir * reach * Math.sin(t * Math.PI);
 }
 
+/**
+ * Where the demo means to leave the colour.
+ *
+ * A demo that wanders and stops wherever the last gesture happened to end
+ * looks like a recording of somebody fiddling. Landing every time on one
+ * chosen colour makes the same script read as a thing that was composed - and
+ * the hexagon, the colour box and the hue strip all arrive at it from
+ * different directions, which is quietly the argument the demo is making.
+ */
+export const LANDING = { h: 216, s: 69, b: 100 } as const;
+
+const clamp = (v: number, lo: number, hi: number) => (v < lo ? lo : v > hi ? hi : v);
+
+/** A point in the hexagon's user space, in client coordinates. */
+function hexClientPoint(svgX: number, svgY: number): Point | null {
+  const svg = el('#hex-svg');
+  const box = svg?.getAttribute('viewBox')?.split(/\s+/).map(Number);
+  if (!svg || !box || box.length < 4) return null;
+  const r = svg.getBoundingClientRect();
+  if (!r.width || !r.height) return null;
+  // The wrapper pins the element's aspect ratio to the viewBox's, so this is
+  // the exact inverse of the component's own getSvgCoords.
+  return { x: r.left + (svgX / box[2]) * r.width, y: r.top + (svgY / box[3]) * r.height };
+}
+
+/**
+ * Where to put the pointer to select a hue and a saturation on the field.
+ *
+ * The inverse of `hsbFromField`, which reads angle as hue and radius as chroma:
+ * the handle sits at (s/100) x the cross-section's own edge, and the bound on
+ * that cross-section is the one thing that differs between the two B/L modes.
+ * `f` is read once and held for the whole gesture, the same way the component
+ * freezes its drag origin - so the sweep stays on one cross-section instead of
+ * chasing a bound that its own movement is changing.
+ */
+function fieldPoint(hueDeg: number, satFraction: number, f: FieldState): Point | null {
+  const rad = (hueDeg * PI) / 180;
+  const dist = satFraction * blLimitScale(f.blMode, f.b, f.l) * hexEdgeDist(rad, RADIUS);
+  return hexClientPoint(CENTER_X + dist * Math.cos(rad), CENTER_Y - dist * Math.sin(rad));
+}
+
+/** Smooth in and out, for a path whose own shape is already the interesting part. */
+const smooth = (t: number) => t * t * (3 - 2 * t);
+
 export const STEPS: DemoStep[] = [
   {
     caption: 'Play with the handles to see how each one maps to a color channel.',
@@ -138,7 +200,7 @@ export const STEPS: DemoStep[] = [
      * of the tip, the one handle that is the selection rather than an
      * explanation of it.
      */
-    async run({ d }) {
+    async run({ d, host }) {
       const dots = joints();
       const legs = stems();
       if (!dots.length || !legs.length) return;
@@ -157,16 +219,31 @@ export const STEPS: DemoStep[] = [
         if (target) await hoverBriefly(d, target, dwell);
       }
 
-      // A short arc, ending somewhere new: the sliders, bars and badge light
-      // as it moves, and the chain stays quiet because the chain is held.
+      // Then the tip goes all the way round.
+      //
+      // It used to nudge 56px and come back, which moved the readouts without
+      // ever saying what the field is: a short arc near one hue looks like a
+      // colour being adjusted, and a full turn looks like a hue wheel, which
+      // is what it is. Brightness is held for the whole gesture - the mapping
+      // freezes its bound at pointer-down and every point on this path stays
+      // inside it - so the only things moving are hue and saturation.
       await d.bring(tip);
       const c = centerOf(tip);
-      const reach = Math.min(56, window.innerWidth * 0.06);
       await d.moveTo(() => c, DWELL.move);
-      await d.drag(tip, (t) => ({
-        x: c.x + reach * Math.sin(t * Math.PI * 0.85),
-        y: c.y - reach * 0.75 * t,
-      }), DWELL.dragTip);
+
+      // Read once and held: this is the cross-section the whole sweep is on.
+      const f = host.field();
+      // One full turn, plus however far round the landing hue is from here, so
+      // it arrives there however the colour started.
+      const turn = 360 + ((((LANDING.h - f.h) % 360) + 360) % 360);
+      const s0 = clamp(f.s / 100, 0.12, 0.92);
+      const s1 = LANDING.s / 100;
+      await d.drag(tip, (t) => {
+        // The wobble decays to nothing, so the last stretch is a clean
+        // approach and the gesture lands exactly on the colour it meant to.
+        const sat = clamp(s0 + (s1 - s0) * t + 0.2 * Math.sin(t * PI * 3) * (1 - t), 0.1, 0.92);
+        return fieldPoint(f.h + turn * smooth(t), sat, f) ?? c;
+      }, DWELL.dragTip, true);
       await d.wait(DWELL.afterAction);
     },
   },
@@ -185,106 +262,117 @@ export const STEPS: DemoStep[] = [
      * marker is what a person does because they have to; watching a cursor hunt
      * for one teaches nothing, and a near miss looks like a bug.
      */
-    async run({ d }) {
+    async run({ d, host }) {
+      const area = el('#sb-area');
       const wrapper = el('#sb-wrapper');
-      if (!wrapper) return;
+      if (!area || !wrapper) return;
       await d.bring(wrapper);
 
-      const r = wrapper.getBoundingClientRect();
-      // Inset so the path never leaves the box and clamps against an edge.
-      const inset = 18;
-      const box = (fx: number, fy: number): Point => ({
-        x: lerp(r.left + inset, r.right - inset, fx),
-        y: lerp(r.top + inset, r.bottom - inset, fy),
+      // In the box's own units rather than fractions of a rectangle: the
+      // gesture is meant to end on a colour, and saying so in saturation and
+      // brightness is the only way to be sure it does.
+      const r = area.getBoundingClientRect();
+      const pt = (sat: number, bri: number): Point => ({
+        x: r.left + (sat / 100) * r.width,
+        y: r.top + (1 - bri / 100) * r.height,
       });
-      const start = box(0.3, 0.35);
+      const f = host.field();
+      const start = pt(f.s, f.b);
       await d.moveTo(() => start, DWELL.moveFar);
       await d.wait(DWELL.beforeAction);
 
-      const target = at(start);
-      if (target) {
-        await d.drag(target, (t) => box(
-          0.3 + 0.45 * Math.sin(t * Math.PI * 0.9),
-          0.35 + 0.4 * Math.sin(t * Math.PI * 1.6),
-        ), DWELL.dragBox, true);
-      }
+      // Out through the dark and back up to the top edge. Both terms vanish at
+      // t=1, so it finishes exactly on the landing colour however it started.
+      await d.drag(area, (t) => pt(
+        clamp(f.s + (LANDING.s - f.s) * t + 30 * Math.sin(t * PI * 2), 2, 98),
+        clamp(f.b + (LANDING.b - f.b) * t - 42 * Math.sin(t * PI), 4, 100),
+      ), DWELL.dragBox, true);
       await d.wait(DWELL.betweenSteps);
 
       // The hue strip. Absolute mapping on clientY, so pressing at the marker's
       // own height changes nothing on contact and the sweep starts from where
-      // the colour already is.
+      // the colour already is - and a full period of a sine takes it above and
+      // below that hue and hands it back where it began.
       const bar = el('#hue-bar');
-      const marker = el('#hue-bar-arrow');
       if (bar) {
         await d.bring(bar);
         const br = bar.getBoundingClientRect();
         const x = br.left + br.width / 2;
-        const y0 = marker ? centerOf(marker).y : br.top + br.height / 2;
-        const pad = 8;
-        const at = sweepFrom(br.top + pad, br.bottom - pad, y0);
-        await d.moveTo(() => ({ x, y: y0 }), DWELL.move);
-        await d.drag(bar, (t) => ({ x, y: at(t) }), DWELL.dragHue, true);
+        const h0 = host.field().h;
+        // The strip wraps, so the value is right whatever number goes in; the
+        // wrap here is for the ghost, which would otherwise walk off the end.
+        const y = (hue: number) => br.top + ((((hue % 360) + 360) % 360) / 360) * br.height;
+        // Shortest way round to the landing hue, so a step entered on its own
+        // still finishes where the script says it does.
+        const delta = ((((LANDING.h - h0) % 360) + 540) % 360) - 180;
+        await d.moveTo(() => ({ x, y: y(h0) }), DWELL.move);
+        // 140 rather than 180: from the landing hue that is 76 to 356, which
+        // covers most of the strip without crossing either end.
+        await d.drag(bar, (t) => ({
+          x, y: y(h0 + delta * t + 140 * Math.sin(t * PI * 2)),
+        }), DWELL.dragHue, true);
       }
       await d.wait(DWELL.afterAction);
     },
   },
 
   {
-    caption: 'Keep an eye open for how your changes impact other parts of the tool.',
+    caption: 'Move one value and everything it affects lights up across the app.',
     audio: '03-impact.mp3',
-    duration: DWELL.moveFar + DWELL.beforeAction + DWELL.dragSlider + DWELL.afterAction,
-    /**
-     * A slider, so the rest of the tool can answer.
-     *
-     * The ghost rides the track, not the arrow. Reaching for a 10px handle is
-     * what a person does because they have to; watching a cursor hunt for one
-     * teaches nothing, and the arrow is small enough that a near miss looks
-     * like a bug. Pressing the track is the same gesture with nothing to aim
-     * at - and `updateValue` seeds the same accumulator the handle would, so
-     * the wrapping drag that follows behaves identically.
-     *
-     * It presses at the handle's own x so the value does not jump on contact,
-     * and rides the track's centre line rather than the arrow's, which sits
-     * below it.
-     */
-    async run({ d }) {
-      const arrow = el('#slider-hsb-h-arrow');
-      const track = el('#slider-hsb-h-track');
-      if (!arrow || !track) return;
-      await d.bring(track);
-
-      const rect = track.getBoundingClientRect();
-      const from = { x: centerOf(arrow).x, y: rect.top + rect.height / 2 };
-      await d.moveTo(() => from, DWELL.moveFar);
-      await d.wait(DWELL.beforeAction);
-
-      // A wrapping slider tracks movement, so how far the hue turns is how far
-      // the ghost travels: a third of the track each way is about 120 degrees,
-      // out and back. Clamped to the room actually on either side, so the
-      // sweep stays on the track wherever the handle happens to start.
-      const pad = 10;
-      const at = sweepFrom(rect.left + pad, rect.right - pad, from.x, 0.45);
-      await d.drag(track, (t) => ({ x: at(t), y: from.y }), DWELL.dragSlider, true);
-      await d.wait(DWELL.afterAction);
-    },
-  },
-
-  {
-    caption: 'Move one value and everything it changes lights up with it.',
-    audio: '04-bars.mp3',
-    duration: DWELL.moveFar + DWELL.beforeAction + DWELL.dragBar
+    duration: DWELL.moveFar + DWELL.beforeAction + DWELL.dragSlider
+      + DWELL.betweenSteps + DWELL.moveFar + DWELL.dragBar
       + DWELL.betweenSteps + DWELL.move + DWELL.dragBar + DWELL.afterAction,
     /**
-     * The claim step three asks them to watch for, made twice on the two bars
-     * that touch the most readouts. Saturation and brightness each reach the
-     * whole of RGB and half of HSL, so a slow sweep of either lights most of
-     * the panel at once - which is the picker's argument in one gesture.
+     * The claim and its demonstration, which used to be two steps.
      *
-     * The bars are the hexagon's own, not the bank's, so the sliders lighting
-     * up are unmistakably somewhere else: nothing here is the control being
-     * held, and the rule is that a control never lights itself.
+     * They were split into "watch for the impact" and "here it is", and read
+     * as the same point made twice: the caption on the second said what the
+     * first had already said, and the pause between them was a pause in the
+     * middle of one idea. Three controls in one breath instead - a slider in
+     * the bank, then the hexagon's two bars - because the argument is that it
+     * happens *wherever* you work, and one control cannot say that.
+     *
+     * Every gesture here is a sweep that hands the colour back where it found
+     * it, so the landing colour survives the step.
      */
     async run({ d }) {
+      /*
+       * The H slider first, and the ghost rides the track, not the arrow.
+       * Reaching for a 10px handle is what a person does because they have
+       * to; watching a cursor hunt for one teaches nothing, and a near miss
+       * looks like a bug. Pressing the track is the same gesture with nothing
+       * to aim at - and `updateValue` seeds the same accumulator the handle
+       * would, so the wrapping drag that follows behaves identically.
+       *
+       * It presses at the handle's own x so the value does not jump on
+       * contact, and rides the track's centre line rather than the arrow's,
+       * which sits below it.
+       */
+      const arrow = el('#slider-hsb-h-arrow');
+      const track = el('#slider-hsb-h-track');
+      if (arrow && track) {
+        await d.bring(track);
+        const rect = track.getBoundingClientRect();
+        const from = { x: centerOf(arrow).x, y: rect.top + rect.height / 2 };
+        await d.moveTo(() => from, DWELL.moveFar);
+        await d.wait(DWELL.beforeAction);
+
+        // A wrapping slider tracks movement, so how far the hue turns is how
+        // far the ghost travels: a third of the track each way is about 120
+        // degrees, out and back. Clamped to the room actually on either side,
+        // so the sweep stays on the track wherever the handle starts.
+        const pad = 10;
+        const sweep = sweepFrom(rect.left + pad, rect.right - pad, from.x, 0.45);
+        await d.drag(track, (t) => ({ x: sweep(t), y: from.y }), DWELL.dragSlider, true);
+        await d.wait(DWELL.betweenSteps);
+      }
+
+      /*
+       * Then the hexagon's own bars, which is where the point lands: they are
+       * not in the bank, so the sliders lighting up are unmistakably somewhere
+       * else. Saturation and brightness each reach the whole of RGB and half
+       * of HSL, so a slow sweep of either lights most of the panel at once.
+       */
       const sat = el('#sat-bar');
       const bl = el('#bl-bar');
       if (sat) {
@@ -292,10 +380,9 @@ export const STEPS: DemoStep[] = [
         const r = sat.getBoundingClientRect();
         const y = r.top + r.height / 2;
         const from = { x: centerOf(el('#sat-bar-arrow') ?? sat).x, y };
-        const at = sweepFrom(r.left + 4, r.right - 4, from.x);
+        const sweep = sweepFrom(r.left + 4, r.right - 4, from.x);
         await d.moveTo(() => from, DWELL.moveFar);
-        await d.wait(DWELL.beforeAction);
-        await d.drag(sat, (t) => ({ x: at(t), y }), DWELL.dragBar, true);
+        await d.drag(sat, (t) => ({ x: sweep(t), y }), DWELL.dragBar, true);
         await d.wait(DWELL.betweenSteps);
       }
       if (bl) {
@@ -303,12 +390,12 @@ export const STEPS: DemoStep[] = [
         const r = bl.getBoundingClientRect();
         const x = r.left + r.width / 2;
         const from = { x, y: centerOf(el('#bl-bar-arrow') ?? bl).y };
-        // Brightness starts pinned at the top for the default colour, so this
-        // is the one that has to sweep away from an end rather than about a
-        // middle - which is what sweepFrom exists for.
-        const at = sweepFrom(r.top + 4, r.bottom - 4, from.y);
+        // Brightness sits pinned at the top of its bar at the landing colour,
+        // so this is the one that has to sweep away from an end rather than
+        // about a middle - which is what sweepFrom exists for.
+        const sweep = sweepFrom(r.top + 4, r.bottom - 4, from.y);
         await d.moveTo(() => from, DWELL.move);
-        await d.drag(bl, (t) => ({ x, y: at(t) }), DWELL.dragBar, true);
+        await d.drag(bl, (t) => ({ x, y: sweep(t) }), DWELL.dragBar, true);
       }
       await d.wait(DWELL.afterAction);
     },
@@ -316,7 +403,7 @@ export const STEPS: DemoStep[] = [
 
   {
     caption: 'Press this button to toggle between Source and Mixed color sliders.',
-    audio: '05-blend.mp3',
+    audio: '04-blend.mp3',
     duration: DWELL.moveFar + DWELL.beforeAction + 4 * CLICK_MS + 3 * DWELL.blendHold + DWELL.afterAction,
     /** Blend on and off, which is a claim about the sliders you can only see. */
     async run({ d }) {
