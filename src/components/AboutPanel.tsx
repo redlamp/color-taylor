@@ -63,9 +63,14 @@ export function AboutPanel({ open, onClose, onWatchDemo }: AboutPanelProps) {
           {/* Two lines, and the break is the point: the first is the
               invitation, the second is what to look for while you take it. */}
           <DialogPrimitive.Description className="mx-auto mt-6 text-2xl leading-snug text-muted-foreground">
-            Have fun with different color modes,
+            {/* Non-breaking, so "modes," never lands alone on its own line
+                when the card narrows. */}
+            Have fun with different color{' '}modes,
             <br />
-            <em className="text-foreground">see</em> how they move together
+            {/* The whole clause leans; only the verb is lit. */}
+            <em>
+              <span className="text-foreground">see</span> how they move together!
+            </em>
           </DialogPrimitive.Description>
 
           {/* A grid, so the two are the same width whatever their labels are:

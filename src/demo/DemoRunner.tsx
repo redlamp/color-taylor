@@ -401,7 +401,7 @@ export default function DemoRunner({ onRestore, onExit, host }: DemoRunnerProps)
             column is only as wide as the button row and the text gets the
             difference.
           */}
-          <div className="flex shrink-0 flex-col items-stretch gap-2">
+          <div className="flex shrink-0 flex-col items-stretch gap-2 max-sm:w-full">
             <span className="flex gap-1" data-testid="demo-ticks" aria-hidden="true">
               {/*
                 One track per step, and a longer one on the end for the
@@ -436,7 +436,10 @@ export default function DemoRunner({ onRestore, onExit, host }: DemoRunnerProps)
                 );
               })}
             </span>
-            <div className="flex items-center gap-1.5">
+            {/* Where the controls have a row to themselves - a phone, where
+                the panel is a band the width of the tool - they take all of
+                it rather than huddling at one end of it. */}
+            <div className="flex items-center gap-1.5 max-sm:w-full">
               {NARRATION_READY && (
                 <button
                   type="button"
@@ -452,7 +455,7 @@ export default function DemoRunner({ onRestore, onExit, host }: DemoRunnerProps)
               type="button"
               onClick={() => step(-1)}
               disabled={index === 0}
-              className="ctl-quiet-icon disabled:opacity-35"
+              className="ctl-quiet-icon disabled:opacity-35 max-sm:w-auto max-sm:flex-1"
               aria-label="Previous step"
             >
               <ChevronLeft className="size-4" />
@@ -461,7 +464,7 @@ export default function DemoRunner({ onRestore, onExit, host }: DemoRunnerProps)
               type="button"
               onClick={() => step(1)}
               disabled={done}
-              className="ctl-quiet-icon disabled:opacity-35"
+              className="ctl-quiet-icon disabled:opacity-35 max-sm:w-auto max-sm:flex-1"
               aria-label="Next step"
             >
               <ChevronRight className="size-4" />
@@ -470,7 +473,7 @@ export default function DemoRunner({ onRestore, onExit, host }: DemoRunnerProps)
               type="button"
               data-testid="demo-primary"
               onClick={skip}
-              className={`ml-1 grid place-items-center whitespace-nowrap rounded-md border px-3 py-1.5 text-sm ${done
+              className={`ml-1 grid place-items-center whitespace-nowrap rounded-md border px-3 py-1.5 text-sm max-sm:flex-1 ${done
                 ? 'border-transparent bg-primary font-medium text-primary-foreground'
                 : 'border-input bg-muted text-foreground'}`}
             >
