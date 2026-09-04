@@ -120,68 +120,6 @@ test.describe('Settings sheet', () => {
     await expect.poll(height('recent-colors'), { timeout: 4000 }).toBe(0);
   });
 
-  /**
-   * A full-height rail on a phone, a panel in the corner on a desktop. The
-   * contents are about 400px including the header and the reset, so a rail
-   * spanning a 1000px window was 600px of nothing with a border down one side.
-   *
-   * What matters is that it sizes to its contents and that the reset stays
-   * reachable when they outgrow the window - the height itself is a layout
-   * detail, but "you cannot get to the button" is a bug.
-   */
-  test('the menu is snug on a desktop and a full rail on a phone', async ({ page }) => {
-    const box = async () => {
-      await menuButton(page).click();
-      await page.waitForTimeout(350);
-      const b = await sheet(page).boundingBox();
-      const foot = await sheet(page).getByRole('button', { name: /default settings/i }).boundingBox();
-      return { h: Math.round(b?.height ?? 0), viewport: page.viewportSize()!.height, footBottom: Math.round(foot?.y ?? 0) + Math.round(foot?.height ?? 0) };
-    };
-
-    const desktop = await box();
-    expect(desktop.h).toBeLessThan(desktop.viewport * 0.6);
-    expect(desktop.footBottom).toBeLessThanOrEqual(desktop.viewport);
-
-    /*
-     * Lined up with the tool, not with the corner of the window. A fixed inset
-     * cannot do it - the header sits at 44px, 77px or 107px depending on how
-     * the title row and the plugin banner wrap - so this is measured from the
-     * cards on open. The hexagon gives the top and the colour editor the right,
-     * because at the narrow end the two stack and the editor's top is then most
-     * of a page down. Checked at two widths that wrap differently.
-     */
-    for (const [w, h] of [[1400, 1000], [1100, 900]]) {
-      await page.setViewportSize({ width: w, height: h });
-      await page.waitForTimeout(250);
-      const lined = await page.evaluate(() => {
-        const edge = (sel: string) => document.querySelector(sel)!.getBoundingClientRect();
-        const pop = edge('[role="dialog"]');
-        return {
-          top: Math.round(pop.top) === Math.round(edge('#color-hexagon').top),
-          right: Math.round(pop.right) === Math.round(edge('#picker-layout').right),
-        };
-      });
-      expect(lined, `${w}x${h}`).toEqual({ top: true, right: true });
-    }
-
-    // Short enough that the contents cannot fit: it caps, and the reset is
-    // still on screen because the list above it scrolls instead.
-    await page.setViewportSize({ width: 1400, height: 380 });
-    await page.waitForTimeout(250);
-    const short = await page.evaluate(() => {
-      const pop = document.querySelector('[role="dialog"]');
-      const r = pop!.getBoundingClientRect();
-      const body = pop!.children[1];
-      return { bottom: Math.round(r.bottom), scrolls: body.scrollHeight > body.clientHeight + 1 };
-    });
-    expect(short.bottom).toBeLessThanOrEqual(380);
-    expect(short.scrolls).toBe(true);
-
-    await page.setViewportSize({ width: 390, height: 844 });
-    await page.waitForTimeout(250);
-    expect(Math.round((await sheet(page).boundingBox())!.height)).toBe(844);
-  });
-
   test('the audio section is always there; its controls arrive with the feature', async ({ page }) => {
     await menuButton(page).click();
     // The section holds the switch that brings the feature into existence, so

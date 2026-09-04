@@ -25,7 +25,6 @@
  * is the only shape, which is why the drag went: a panel anchored to an edge
  * has nowhere to be dragged to.
  */
-import { useLayoutEffect, useState, type CSSProperties } from 'react';
 import { Info, RotateCcw, X } from 'lucide-react';
 import { Dialog as DialogPrimitive } from '@base-ui/react/dialog';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
@@ -58,42 +57,6 @@ export function SettingsPanel({
   const audioEnabled = settings.audioEnabled;
   const { reset: resetTheme } = useTheme();
 
-  /*
-   * Line the panel up with the tool rather than with the corner of the window.
-   *
-   * A fixed inset cannot do it: the header sits at 44px, 77px or 107px
-   * depending on how the title row and the plugin banner wrap, so the panel was
-   * hanging above the cards at some widths and level with them at none. The
-   * cards are always exactly where the answer is - the hexagon's top is the row
-   * the content starts on, and the colour editor's right edge is the gutter the
-   * menu button already lines up with.
-   *
-   * The hexagon for the top and the editor for the right, not one card for
-   * both: at the narrow end the two stack, and the editor's top is then most of
-   * a page down.
-   *
-   * Out through custom properties so the media query stays in CSS - below `sm`
-   * this is a full-height rail and neither value applies. A layout effect
-   * rather than an effect, so the measurement lands in the same paint the panel
-   * opens in and it does not start at the corner and hop.
-   */
-  const [anchor, setAnchor] = useState<{ top: number; right: number } | null>(null);
-  useLayoutEffect(() => {
-    if (!open) return;
-    const measure = () => {
-      const top = document.querySelector('#color-hexagon')?.getBoundingClientRect().top;
-      const right = document.querySelector('#picker-layout')?.getBoundingClientRect().right;
-      if (top === undefined || right === undefined) return;
-      setAnchor({
-        top: Math.max(8, Math.round(top)),
-        right: Math.max(8, Math.round(window.innerWidth - right)),
-      });
-    };
-    measure();
-    window.addEventListener('resize', measure);
-    return () => window.removeEventListener('resize', measure);
-  }, [open]);
-
   const resetAll = () => {
     resetSynth();
     resetTheme();
@@ -111,37 +74,12 @@ export function SettingsPanel({
         */}
         <DialogPrimitive.Backdrop className="fixed inset-0 isolate z-50 bg-black/20 duration-200 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0" />
         <DialogPrimitive.Popup
-          /*
-           * A full-height rail on a phone, a panel in the corner on a desktop.
-           *
-           * The contents are about 400px tall including the header and the
-           * reset, so a rail spanning a 1000px window is 600px of nothing with
-           * a border down one side of it. On a phone that is the right shape -
-           * there is no corner to sit in and the contents nearly fill the
-           * screen anyway - so the rail stays below `sm` and only the wider
-           * case changes.
-           *
-           * `bottom-auto` is what actually lets it size to its contents; the
-           * cap keeps it on screen when the audio settings are switched on and
-           * the list grows, and the body below scrolls at that point rather
-           * than the panel running off the bottom.
-           */
           className={
             'fixed top-0 right-0 bottom-0 z-50 flex w-[min(88vw,380px)] flex-col ' +
             'border-l border-border bg-background shadow-xl outline-none duration-200 ' +
-            'sm:top-(--menu-top) sm:right-(--menu-right) sm:bottom-auto ' +
-            'sm:max-h-[calc(100dvh-var(--menu-top)-0.75rem)] ' +
-            'sm:rounded-xl sm:border ' +
             'data-open:animate-in data-open:slide-in-from-right ' +
             'data-closed:animate-out data-closed:slide-out-to-right'
           }
-          // 12px is only ever the value for the frame before the measurement,
-          // and the layout effect above beats the paint - so in practice it is
-          // the fallback for a host with neither card on the page.
-          style={{
-            '--menu-top': `${anchor?.top ?? 12}px`,
-            '--menu-right': `${anchor?.right ?? 12}px`,
-          } as CSSProperties}
         >
           <div className="flex items-center justify-between border-b border-border px-3 py-2">
             <DialogPrimitive.Title className="text-base font-semibold">Menu</DialogPrimitive.Title>
@@ -153,11 +91,7 @@ export function SettingsPanel({
             </DialogPrimitive.Close>
           </div>
 
-          {/* `flex-1` fills the rail; `sm:flex-initial` lets the panel size to
-              this instead. `min-h-0` is what allows it to shrink under the
-              cap above rather than pushing the panel past it - without it the
-              overflow never engages and the reset button walks off screen. */}
-          <div className="min-h-0 flex-1 sm:flex-initial overflow-y-auto px-3 pb-3">
+          <div className="flex-1 overflow-y-auto px-3 pb-3">
             {/* First in the sheet, not last. It is the way in to what the tool
                 is, so it belongs where someone opening the menu looks first -
                 the reset at the foot is the way out. */}
