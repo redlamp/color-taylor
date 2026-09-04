@@ -249,10 +249,19 @@ function PluginApp() {
   // Live-apply. No button: picking a color *is* the action - but only picking.
   const isHsl = blMode === 'lightness';
 
-  // Opens on what the panel showed before this control existed: one HS* block
-  // plus alpha. Which of HSB/HSL follows the Bright/Light switch, so the
-  // sliders agree with the hexagon on first paint.
-  const [groups, setGroups] = useState<SliderGroup[]>(() => [isHsl ? 'HSL' : 'HSB', 'A']);
+  /*
+   * RGB, one HS* block and alpha.
+   *
+   * It used to open on the HS* block and alpha alone - what the panel showed
+   * before the group toggles existed. RGB belongs there too: it is the model
+   * the hexagon is built on, half the plugin's job is reading a value out to
+   * paste somewhere else, and the chain on the field has no numbers of its own.
+   *
+   * Which of HSB/HSL is still the Bright/Light switch's, so the sliders agree
+   * with the hexagon on first paint; the switch opens on brightness, so this
+   * opens on RGB, HSB, A.
+   */
+  const [groups, setGroups] = useState<SliderGroup[]>(() => ['RGB', isHsl ? 'HSL' : 'HSB', 'A']);
 
   /**
    * Whether the R/G/B tracks show the color they would actually produce, or a
