@@ -1793,14 +1793,17 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
         )}
         {bare && <div className="flex-1 min-w-0">{headerLeft}</div>}
         {/*
-          No caption under these tabs. It used to read "Luminance", which is a
+          The caption under these tabs used to read "Luminance", which is a
           photometric quantity neither axis computes - B is max(R,G,B) and L is
           (max+min)/2, both unweighted and both over gamma-encoded values. Blue
           and yellow land on the same spot of the bar and differ 13x in actual
-          luminance. The bar names the live axis itself now.
+          luminance. The bar names the live axis itself, so that caption went.
+
+          What is there now says what the tabs *are*, not what they compute,
+          which is a claim that cannot be wrong the way the old one was.
         */}
         {hexOpen && blModeTabs && (
-          <div className="flex items-start gap-2" onClick={(e) => e.stopPropagation()}>
+          <div className="flex flex-col items-end gap-0.5" onClick={(e) => e.stopPropagation()}>
             <Tabs value={blMode} onValueChange={onBlModeChange}>
               <TabsList>
                 <Tooltip>
@@ -1817,6 +1820,15 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                 </Tooltip>
               </TabsList>
             </Tabs>
+            {/* Names what the tabs are for rather than what they compute. The
+                caption that used to sit here read "Luminance", which was a
+                claim about the axis and a false one; this is a claim about the
+                control, which is the thing that needed saying - in a `bare`
+                host most of all, where there is no "Hexagon" heading beside it
+                and the tabs otherwise float unexplained. */}
+            <span className="select-none pr-0.5 text-[11px] leading-none text-muted-foreground">
+              Hex Mode
+            </span>
           </div>
         )}
       </div>
