@@ -96,7 +96,7 @@ type BlMode = 'brightness' | 'lightness';
 type SliderGroup = 'RGB' | 'HSB' | 'HSL';
 const SLIDER_GROUPS: SliderGroup[] = ['RGB', 'HSB', 'HSL'];
 /**
- * Where the bank starts and where "Reset all settings" returns it: RGB and
+ * Where the bank starts and where "Default Settings" returns it: RGB and
  * HSB showing, flat colours. Named once so the two cannot disagree.
  */
 const DEFAULT_GROUPS: SliderGroup[] = ['RGB', 'HSB'];
@@ -136,7 +136,7 @@ const ANIM_CYCLE_DUR = COLOR_KEYFRAMES.length * ANIM_STEP_DUR;
  *
  * Held as HSB because HSB is canonical here (see the root CLAUDE.md); it
  * converts back to exactly rgb(79, 149, 255), so nothing is lost round-tripping
- * it. Named rather than inlined because "Reset all settings" returns here too,
+ * it. Named rather than inlined because "Default Settings" returns here too,
  * and two copies of the starting colour would be one too many.
  */
 const DEFAULT_HSB: HSB = { h: 216, s: 69, b: 100 };
@@ -449,7 +449,7 @@ export default function ColorPicker() {
   }, [hsb]);
 
   /*
-   * "Reset all settings" returns the colour to DEFAULT_HSB.
+   * "Default Settings" returns the colour to DEFAULT_HSB.
    *
    * Same event SettingsPanel dispatches for the swatches and the plugin
    * banner. It tweens rather than snapping, because every other way the colour
@@ -823,7 +823,7 @@ export default function ColorPicker() {
                 <button
                   className="ctl-quiet-icon"
                   onClick={() => setSettingsOpen(o => !o)}
-                  aria-label="Open settings"
+                  aria-label="Open menu"
                   // aria-haspopup, not aria-expanded: the panel is a modal
                   // dialog now rather than a disclosure region, and it is
                   // portalled out of this button's subtree.
@@ -836,7 +836,7 @@ export default function ColorPicker() {
                 </button>
               }
             />
-            <TooltipContent>Settings</TooltipContent>
+            <TooltipContent>Menu</TooltipContent>
           </Tooltip>
         </div>
       </div>

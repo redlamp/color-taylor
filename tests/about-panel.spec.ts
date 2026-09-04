@@ -34,7 +34,7 @@ test.describe('Welcome panel', () => {
     await expect(panel(page)).toBeVisible();
     await expect(panel(page)).toContainText('move together');
 
-    await panel(page).getByRole('button', { name: 'Get started' }).click();
+    await panel(page).getByRole('button', { name: 'Get Started' }).click();
     await expect(panel(page)).toHaveCount(0);
 
     // Remembered: the key outlives the reload, and nothing greets them twice.
@@ -63,7 +63,7 @@ test.describe('Welcome panel', () => {
   test('"Watch the demo" hands over to the demo', async ({ page }) => {
     await firstVisit(page);
     await page.goto('/?demospeed=8');
-    await panel(page).getByRole('button', { name: 'Watch the demo' }).click();
+    await panel(page).getByRole('button', { name: 'Watch Demo' }).click();
     await expect(panel(page)).toHaveCount(0);
     await expect(page.getByTestId('demo-bar')).toBeVisible();
   });
@@ -72,7 +72,7 @@ test.describe('Welcome panel', () => {
     await page.goto('/');
     await expect(panel(page)).toHaveCount(0);
 
-    await page.getByRole('button', { name: 'Open settings' }).click();
+    await page.getByRole('button', { name: 'Open menu' }).click();
     await page.getByRole('button', { name: /about color taylor/i }).click();
     await expect(panel(page)).toBeVisible();
     await expect(panel(page)).toContainText('Color Taylor');
@@ -82,8 +82,8 @@ test.describe('Welcome panel', () => {
     // A reset forgets that the welcome has been seen, but does not put it back
     // on screen - somebody in the settings sheet did not ask to be greeted.
     // The next visit is.
-    await page.getByRole('button', { name: 'Open settings' }).click();
-    await page.getByRole('button', { name: /reset all settings/i }).click();
+    await page.getByRole('button', { name: 'Open menu' }).click();
+    await page.getByRole('button', { name: /default settings/i }).click();
     await expect(panel(page)).toHaveCount(0);
 
     await page.reload();

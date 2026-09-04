@@ -82,9 +82,9 @@ export function SettingsPanel({
           }
         >
           <div className="flex items-center justify-between border-b border-border px-3 py-2">
-            <DialogPrimitive.Title className="text-base font-semibold">Settings</DialogPrimitive.Title>
+            <DialogPrimitive.Title className="text-base font-semibold">Menu</DialogPrimitive.Title>
             <DialogPrimitive.Close
-              aria-label="Close settings"
+              aria-label="Close menu"
               className="cursor-pointer select-none rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
             >
               <X className="size-4" />
@@ -96,9 +96,9 @@ export function SettingsPanel({
                 is, so it belongs where someone opening the menu looks first -
                 the reset at the foot is the way out. */}
             <Button
-              variant="ghost"
+              variant="secondary"
               onClick={onAbout}
-              className="mt-2 mb-1 w-full justify-start text-base"
+              className="mt-2 mb-3 w-full text-base"
             >
               <Info className="size-4" />
               About Color Taylor
@@ -154,7 +154,7 @@ export function SettingsPanel({
           <div className="border-t border-border px-3 py-2">
             <Button variant="secondary" size="sm" onClick={resetAll} className="w-full text-base">
               <RotateCcw className="size-4" />
-              Reset all settings
+              Default Settings
             </Button>
           </div>
         </DialogPrimitive.Popup>

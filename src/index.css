@@ -429,8 +429,16 @@ h1, h2 {
  * square and squeezed the ring away at all four corners. Masking the ring out
  * of a single box takes its radius from `inherit` and cannot drift.
  */
-.speaks {
-  position: relative;
+@layer components {
+  /*
+   * In @layer components so a positioning utility on the callsite still wins.
+   * Unlayered, this `relative` beat the `fixed` on the welcome panel - which
+   * dropped a portalled dialog into the document flow, below everything, and
+   * gave the page a scrollbar it should never have had.
+   */
+  .speaks {
+    position: relative;
+  }
 }
 
 .speaks::before {

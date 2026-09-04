@@ -71,13 +71,14 @@ export function AboutPanel({ open, onClose, onWatchDemo }: AboutPanelProps) {
           <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
             <Button
               variant="secondary"
+              size="xl"
               onClick={(e) => { e.stopPropagation(); onWatchDemo(); }}
             >
-              <Play className="size-4" />
-              Watch the demo
+              <Play className="size-5" />
+              Watch Demo
             </Button>
-            <Button onClick={(e) => { e.stopPropagation(); onClose(); }}>
-              Get started
+            <Button size="xl" onClick={(e) => { e.stopPropagation(); onClose(); }}>
+              Get Started
             </Button>
           </div>
         </DialogPrimitive.Popup>

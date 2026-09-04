@@ -11,8 +11,8 @@ import { openSections } from './open-sections';
  * a future shell swap that silently drops one should fail here.
  */
 
-const gear = (page: import('@playwright/test').Page) =>
-  page.getByRole('button', { name: 'Open settings' });
+const menuButton = (page: import('@playwright/test').Page) =>
+  page.getByRole('button', { name: 'Open menu' });
 
 const sheet = (page: import('@playwright/test').Page) =>
   page.getByRole('dialog');
@@ -20,20 +20,20 @@ const sheet = (page: import('@playwright/test').Page) =>
 test.describe('Settings sheet', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await gear(page).waitFor();
+    await menuButton(page).waitFor();
     await openSections(page, ['hex-group']);
   });
 
-  test('opens from the gear and is a named dialog', async ({ page }) => {
+  test('opens from the menu button and is a named dialog', async ({ page }) => {
     await expect(sheet(page)).toBeHidden();
-    await gear(page).click();
+    await menuButton(page).click();
     await expect(sheet(page)).toBeVisible();
     // The <h2> is the dialog's accessible name, not just decoration.
-    await expect(sheet(page)).toHaveAccessibleName(/settings/i);
+    await expect(sheet(page)).toHaveAccessibleName(/menu/i);
   });
 
   test('Escape closes it', async ({ page }) => {
-    await gear(page).click();
+    await menuButton(page).click();
     await expect(sheet(page)).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(sheet(page)).toBeHidden();
@@ -43,20 +43,20 @@ test.describe('Settings sheet', () => {
     // The old panel only dismissed on outside-click below the md breakpoint;
     // on desktop there was no way out but the X or Escape.
     await page.setViewportSize({ width: 1280, height: 900 });
-    await gear(page).click();
+    await menuButton(page).click();
     await expect(sheet(page)).toBeVisible();
     // Far left, clear of the sheet on the right edge.
     await page.mouse.click(40, 500);
     await expect(sheet(page)).toBeHidden();
   });
 
-  test('focus moves into the sheet and returns to the gear on close', async ({ page }) => {
-    await gear(page).click();
+  test('focus moves into the sheet and returns to the menu button on close', async ({ page }) => {
+    await menuButton(page).click();
     await expect(sheet(page)).toBeVisible();
     await expect(sheet(page).locator(':focus')).toHaveCount(1);
     await page.keyboard.press('Escape');
     await expect(sheet(page)).toBeHidden();
-    await expect(gear(page)).toBeFocused();
+    await expect(menuButton(page)).toBeFocused();
   });
 
   test('its controls are not reachable by keyboard while closed', async ({ page }) => {
@@ -67,14 +67,14 @@ test.describe('Settings sheet', () => {
   });
 
   test('the theme switch inside works', async ({ page }) => {
-    await gear(page).click();
+    await menuButton(page).click();
     const themeSwitch = sheet(page).getByRole('switch', { name: 'Toggle theme' });
     const before = await themeSwitch.getAttribute('aria-checked');
     await themeSwitch.click();
     await expect(themeSwitch).not.toHaveAttribute('aria-checked', before ?? '');
   });
 
-  test('"Reset all settings" returns the colour to the default', async ({ page }) => {
+  test('"Default Settings" returns the colour to the default', async ({ page }) => {
     const hexInput = page.locator('input[value^="#"]').first();
     await expect(hexInput).toHaveValue('#4F95FF');
 
@@ -83,15 +83,15 @@ test.describe('Settings sheet', () => {
     await hexInput.press('Enter');
     await expect(hexInput).toHaveValue('#FF0000');
 
-    await gear(page).click();
-    await sheet(page).getByRole('button', { name: /reset all settings/i }).click();
+    await menuButton(page).click();
+    await sheet(page).getByRole('button', { name: /default settings/i }).click();
 
     // Tweened, not snapped, so allow it to arrive.
     await expect(hexInput).toHaveValue('#4F95FF', { timeout: 4000 });
   });
 
   test('the audio section is always there; its controls arrive with the feature', async ({ page }) => {
-    await gear(page).click();
+    await menuButton(page).click();
     // The section holds the switch that brings the feature into existence, so
     // it cannot be conditional on the feature - it used to be, which put that
     // switch under Display and left no Audio heading to look under.
@@ -109,13 +109,13 @@ test.describe('Settings sheet', () => {
   test('the frame rate meter switch shows the meter, and reset-all clears it', async ({ page }) => {
     await expect(page.locator('#fps-meter')).toHaveCount(0);
 
-    await gear(page).click();
+    await menuButton(page).click();
     await sheet(page).getByRole('switch', { name: 'Toggle frame rate meter' }).click();
     await expect(page.locator('#fps-meter')).toBeVisible();
 
     // Lives inside the settings object, so the existing reset owns it. A new
     // localStorage key without a reset listener would survive this.
-    await sheet(page).getByRole('button', { name: /reset all settings/i }).click();
+    await sheet(page).getByRole('button', { name: /default settings/i }).click();
     await expect(page.locator('#fps-meter')).toHaveCount(0);
   });
 
@@ -141,7 +141,7 @@ test.describe('Settings sheet', () => {
     await expect.poll(opacityOf, { timeout: 1000 }).toBe('1');
     await page.mouse.up();
 
-    await gear(page).click();
+    await menuButton(page).click();
     await sheet(page).getByRole('switch', { name: 'Toggle interaction highlights' }).click();
     await page.keyboard.press('Escape');
     await expect(sheet(page)).toBeHidden();
@@ -151,8 +151,8 @@ test.describe('Settings sheet', () => {
     expect(await opacityOf()).toBe('0');
     await page.mouse.up();
 
-    await gear(page).click();
-    await sheet(page).getByRole('button', { name: /reset all settings/i }).click();
+    await menuButton(page).click();
+    await sheet(page).getByRole('button', { name: /default settings/i }).click();
     await page.keyboard.press('Escape');
     await expect(sheet(page)).toBeHidden();
 
