@@ -1,8 +1,8 @@
 # Presentation
 
-Loaded only when working under `src/presentation/`. Moved out of the root `CLAUDE.md` because presentation work is occasional and this was costing every session that never touched it.
+Loaded only when working under `src/presentation/`.
 
-`slides.ts` is a declarative slide array. `PresentationStage` dispatches on `slide.type` (`'static'` versus anything else), `props.mode` and `props.visiblePanels` — there is no component registry and no per-slide component to name. Every slide used to carry a `component:` string that nothing read, naming files that no longer exist; both the field and the files are gone.
+`slides.ts` is a declarative slide array. `PresentationStage` dispatches on `slide.type` (`'static'` versus anything else), `props.mode` and `props.visiblePanels` — there is no component registry and no per-slide component to name.
 
 What actually decides how a slide looks is `props`: `mode` selects an `AnimatedGrid` layout for the static history panels, and `visiblePanels` gates the cards on the interactive ones (`rgb-sliders`, `hsb-sliders`, `hsb-circle`, `equations`, `color-taylor-app`). `lockedChannels` and `initialHsb` constrain the picker; note `initialHsb` only applies when arriving from a static slide.
 

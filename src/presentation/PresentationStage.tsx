@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
-import { hsbToRgb, rgbToHsb, rgbToHex, rgbToHsl, getContrastTextColor, type HSB, type RGB } from '../utils/colorConversions';
+import { hsbToRgb, rgbToHsb, rgbToHex, getContrastTextColor, type HSB, type RGB } from '../utils/colorConversions';
 import type { Slide } from './slides';
 import {
   hueGradient, saturationGradient, brightnessGradient,
@@ -12,8 +12,8 @@ import EquationsPanel from '../components/EquationsPanel';
 import ColorHexagon from '../components/ColorHexagon';
 import { RADIUS as HEX_RADIUS, CENTER_X as HEX_CENTER_X, DISPLAY_HEIGHT as HEX_STAGE_H } from '../components/hex/hexConstants';
 import DiscBrightnessBar, { BAR_CHROME } from './DiscBrightnessBar';
-import { writeHslChannel } from '../utils/hslWrite';
-import { HSB_TWEEN_MS, hsbAtProgress, easeInOutQuad } from '../utils/colorTween';
+import { useColorState } from '../hooks/useColorState';
+import { HSB_TWEEN_MS, easeInOutQuad } from '../utils/colorTween';
 import ColorPicker from '../components/ColorPicker';
 
 /** The panel shapes a slide can ask for. Named so the exit-mode ref can hold
@@ -42,19 +42,6 @@ const RED_KEYFRAMES = [
 ];
 
 export default function PresentationStage({ slide, slideIndex, animPaused = false }: { slide: Slide; slideIndex: number; animPaused?: boolean }) {
-  // ── Color state (persists across all slides) ──────────────────────
-  const [hsb, setHsb] = useState<HSB>({ h: 0, s: 100, b: 100 });
-  const hsbRef = useRef(hsb);
-  useEffect(() => { hsbRef.current = hsb; }, [hsb]);
-  const rgbOverride = useRef<RGB | null>(null);
-
-  const rgbFromHsb = useMemo(() => hsbToRgb(hsb.h, hsb.s, hsb.b), [hsb.h, hsb.s, hsb.b]);
-  // HSB-canonical + RGB-override-ref pattern (see CLAUDE.md). Intentional read.
-   
-  const rgb = rgbOverride.current || rgbFromHsb;
-  const hex = useMemo(() => rgbToHex(rgb.r, rgb.g, rgb.b), [rgb.r, rgb.g, rgb.b]);
-  const hsl = useMemo(() => rgbToHsl(rgb.r, rgb.g, rgb.b), [rgb.r, rgb.g, rgb.b]);
-
   // ── User interaction pause for RGB animation ───────────────────────
   const userInteracting = useRef(false);
   const userResumeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -68,21 +55,17 @@ export default function PresentationStage({ slide, slideIndex, animPaused = fals
     }, RESUME_DELAY);
   }, []);
 
-  const setHsbClear = useCallback((valOrFn: HSB | ((prev: HSB) => HSB)) => {
-    signalUserInteraction();
-    rgbOverride.current = null;
-    setHsb(valOrFn);
-  }, [signalUserInteraction]);
-
-  const handleRgbChange = useCallback((channel: 'r' | 'g' | 'b', value: number) => {
-    signalUserInteraction();
-    setHsb((prev) => {
-      const cur = rgbOverride.current || hsbToRgb(prev.h, prev.s, prev.b);
-      const next = { ...cur, [channel]: value };
-      rgbOverride.current = next;
-      return rgbToHsb(next.r, next.g, next.b);
-    });
-  }, [signalUserInteraction]);
+  // ── Color state (persists across all slides) ──────────────────────
+  // The app's own hook - decision-hsb-canonical-rgb-override implemented once.
+  // Before this the deck carried its own copy, and that copy re-derived the
+  // HSL gesture origin on every write, which is the drift hslWrite.ts warns
+  // against; it went unnoticed because nobody drags the deck's HSL sliders.
+  const {
+    hsb, setHsb, rgb, hsl, hsbRef, rgbOverride,
+    setHsbClear, setRgbChannel: handleRgbChange, setHslChannel: onHslChange,
+    animateToHsb: tweenTo,
+  } = useColorState({ initial: { h: 0, s: 100, b: 100 }, onEdit: signalUserInteraction });
+  const hex = useMemo(() => rgbToHex(rgb.r, rgb.g, rgb.b), [rgb.r, rgb.g, rgb.b]);
 
   /**
    * The handlers ColorHexagon expects, on top of the ones the deck already had.
@@ -92,37 +75,11 @@ export default function PresentationStage({ slide, slideIndex, animPaused = fals
    * controls. Same rAF tween the app and the plugin use, from utils/colorTween,
    * so the deck's letters feel like the app's rather than snapping.
    */
-  const hexAnimRaf = useRef<number | null>(null);
   const onAnimateToHsb = useCallback((target: Partial<HSB>) => {
     signalUserInteraction();
-    if (hexAnimRaf.current) cancelAnimationFrame(hexAnimRaf.current);
-    const from = { ...hsbRef.current };
-    const to = { ...from, ...target };
-    let start: number | null = null;
-    const tick = (ts: number) => {
-      if (start === null) start = ts;
-      const progress = Math.min((ts - start) / HSB_TWEEN_MS, 1);
-      rgbOverride.current = null;
-      setHsb(hsbAtProgress(from, to, progress));
-      if (progress < 1) hexAnimRaf.current = requestAnimationFrame(tick);
-      else hexAnimRaf.current = null;
-    };
-    hexAnimRaf.current = requestAnimationFrame(tick);
-  }, [signalUserInteraction]);
-  useEffect(() => () => { if (hexAnimRaf.current) cancelAnimationFrame(hexAnimRaf.current); }, []);
+    tweenTo({ ...hsbRef.current, ...target });
+  }, [signalUserInteraction, tweenTo, hsbRef]);
 
-  const onHslChange = useCallback((channel: 'h' | 's' | 'l', value: number) => {
-    signalUserInteraction();
-    setHsb((prev) => {
-      const currentRgb = rgbOverride.current || hsbToRgb(prev.h, prev.s, prev.b);
-      const cur = rgbToHsl(currentRgb.r, currentRgb.g, currentRgb.b);
-      const { rgb: nextRgb, hsb: nextHsb } = writeHslChannel(channel, value, {
-        h: prev.h, s: cur.s, l: cur.l,
-      });
-      rgbOverride.current = nextRgb;
-      return nextHsb;
-    });
-  }, [signalUserInteraction]);
 
   // ── Slide classification ──────────────────────────────────────────
   const isStatic = slide.type === 'static';
@@ -159,7 +116,7 @@ export default function PresentationStage({ slide, slideIndex, animPaused = fals
     } else {
       prevWasStatic.current = isStatic;
     }
-  }, [slideIndex, slide.props?.initialHsb, isStatic]);
+  }, [slideIndex, slide.props?.initialHsb, isStatic, rgbOverride, setHsb]);
 
   // ── Track previous panel mode for gradient transitions ─────────────
   const panelMode = (isStatic ? slide.props?.mode || 'bw' : 'swatch') as PanelMode;
@@ -382,7 +339,7 @@ export default function PresentationStage({ slide, slideIndex, animPaused = fals
     return () => {
       if (rgbAnimRaf.current) cancelAnimationFrame(rgbAnimRaf.current);
     };
-  }, [rgbAnimActive, animPaused, slideIndex, slide.props?.lockedChannels]);
+  }, [rgbAnimActive, animPaused, slideIndex, slide.props?.lockedChannels, hsbRef, rgbOverride, setHsb]);
 
   // ── Derived values (must be above early returns to keep hook order stable) ──
   const enterColor = useMemo(() => {
@@ -791,7 +748,7 @@ export default function PresentationStage({ slide, slideIndex, animPaused = fals
 
           Mounted the way the Figma plugin mounts it: bare, with its own bars
           off, so what shows is the field, the stems and the handles and nothing
-          else. wheelAdjusts is off because the deck scrolls.
+          else. The wheel does not adjust the field in any host now.
         */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
         <div style={{
@@ -818,7 +775,6 @@ export default function PresentationStage({ slide, slideIndex, animPaused = fals
             sectionVariant="flush"
             blBar={false}
             satBar={false}
-            wheelAdjusts={false}
             stemRange={[2, 4]}
             swatchSections={false}
             blModeTabs={false}

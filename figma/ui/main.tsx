@@ -26,7 +26,6 @@ import { createRoot } from 'react-dom/client';
 import {
   hsbToRgb,
   rgbToHsb,
-  rgbToHsl,
   hslToRgb,
   rgbToHex,
   hexToRgb,
@@ -48,12 +47,12 @@ import {
   blueChannelGradient,
   type ColorSpace,
 } from '../../src/utils/sliderGradients';
-import { HSB_TWEEN_MS, easeInOutQuad, hsbAtProgress } from '../../src/utils/colorTween';
-import { writeHslChannel, type HslOrigin } from '../../src/utils/hslWrite';
+import { HSB_TWEEN_MS, easeInOutQuad } from '../../src/utils/colorTween';
+import { useColorState } from '../../src/hooks/useColorState';
 import ColorSlider from '../../src/components/ColorSlider';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import BlendIcon from './lite/BlendIcon';
+import BlendIcon from '../../src/components/BlendIcon';
 import { Ban, Brush, PaintBucket } from 'lucide-react';
 import ColorHexagon from '../../src/components/ColorHexagon';
 // The bridge protocol, shared with code.js - the one place the two halves of
@@ -202,89 +201,67 @@ function ScrollIndicator() {
 function PluginApp() {
   // #4F95FF, matching the app's default and the branding. Only ever seen with
   // nothing selected - any selection seeds the picker from its own fill.
-  const [hsb, setHsb] = useState<HSB>({ h: 216, s: 69, b: 100 });
   const [blMode, setBlMode] = useState<'brightness' | 'lightness'>('brightness');
   const [colorSpace, setColorSpace] = useState<ColorSpace>('srgb');
   const [selectionCount, setSelectionCount] = useState(0);
   const [alpha, setAlpha] = useState(100);
   const [target, setTarget] = useState<PaintTarget>('fill');
 
-  // hsbToRgb(rgbToHsb(rgb)) is lossy at low saturation/brightness, so an exact
-  // RGB coming from outside (a selection, a hex field) is stashed here and read
-  // in preference to the derived value. Same contract as ColorPicker: any
-  // HSB-driven interaction must null it first or stale RGB leaks through.
-  const rgbOverride = useRef<RGB | null>(null);
-  // The hex we just adopted *from* a selection. Without this, selecting a layer
-  // seeds the picker from its fill, which changes `hex`, which fires the
-  // live-apply effect and repaints the layer with the color it already had -
-  // a wasted write and a junk undo entry.
-  // Set by the picker's own change handlers. Painting keys off this rather than
-  // off the color changing, because the color also changes when we seed from
-  // a selection - and applying then meant that selecting or pasting a layer
-  // silently repainted it with whatever was already in the picker.
+  /*
+   * The colour state is the app's own hook - decision-hsb-canonical-rgb-override
+   * implemented once rather than mirrored here. What the plugin adds on top:
+   * every user-driven write flags userEditRef so the live-apply effect can tell
+   * a pick from a seed, and a click-to-animate tweens alpha on the same clock
+   * as the colour and closes Figma's undo group when it lands.
+   */
   const userEditRef = useRef(false);
+  const alphaTween = useRef<{ from: number; to: number } | null>(null);
+  const {
+    hsb, setHsb, rgb, hsl,
+    rgbOverride,
+    setHsbClear, setRgbChannel, setHslChannel, animateToHsb: tweenTo, cancelTween,
+  } = useColorState({
+    initial: { h: 216, s: 69, b: 100 },
+    onEdit: () => { userEditRef.current = true; },
+    onTweenFrame: (_next, t) => {
+      userEditRef.current = true;
+      // Same clock and same easing as the colour, so the two arrive together.
+      const a = alphaTween.current;
+      if (a) setAlpha(Math.round(a.from + (a.to - a.from) * easeInOutQuad(t)));
+    },
+    onTweenEnd: () => {
+      alphaTween.current = null;
+      // Close the undo group here too: on click-to-animate the pointerup
+      // commit already fired before the tween wrote anything.
+      post({ type: 'commit' });
+    },
+  });
+  // Painting keys off userEditRef rather than off the colour changing, because
+  // the colour also changes when we seed from a selection - and applying then
+  // meant that selecting or pasting a layer silently repainted it with
+  // whatever was already in the picker.
   // Read inside the apply effect so switching target does not itself trigger a
   // paint - that is a mode change, and it re-seeds from the new target instead.
   const targetRef = useRef<PaintTarget>('fill');
 
-  const rgbFromHsb = useMemo(() => hsbToRgb(hsb.h, hsb.s, hsb.b), [hsb.h, hsb.s, hsb.b]);
-  // Reading rgbOverride.current during render is intentional - same pattern as
-  // ColorPicker ("HSB is canonical, RGB has an override ref" in CLAUDE.md).
-  // eslint-disable-next-line react-hooks/refs
-  const rgb = rgbOverride.current || rgbFromHsb;
-  /**
-   * What the live HSL gesture asked for, shown in place of the derived value.
-   *
-   * The colour is 8-bit, so re-deriving HSL from it lands a point or two either
-   * side of what was set - and re-deriving every frame turns that into visible
-   * stutter in the two fields you are *not* dragging. Freezing the write is not
-   * enough on its own; the readout has to hold too, or the number jitters while
-   * the colour underneath it is perfectly steady.
-   *
-   * Only ever set while a gesture is in flight, and only by that gesture, so it
-   * cannot disagree with the colour. Cleared at both ends of a pointer press
-   * alongside the origin it belongs to.
-   */
-  const [hslIntent, setHslIntent] = useState<HSL | null>(null);
-  const derivedHsl = useMemo(() => rgbToHsl(rgb.r, rgb.g, rgb.b), [rgb.r, rgb.g, rgb.b]);
-  /**
-   * Kept for as long as it still describes the colour on screen.
-   *
-   * The check is the whole safety argument: an intent is only shown while
-   * converting it reproduces the current RGB exactly. Anything else that sets a
-   * colour - the hex field, an RGB slider, a swatch, a tween - moves the colour
-   * out from under it and it stops being used, with no invalidation to remember
-   * to write. Nothing can drift apart.
-   *
-   * Holding it past the gesture is what lets a saturation set at L=0 or L=100
-   * come back when lightness leaves the end. CSS Color 4 calls saturation there
-   * *powerless* rather than unavailable - the value still exists, it just stops
-   * affecting the colour - and this is what that looks like in a picker. The
-   * first version of this cleared on release and the field snapped to 0, which
-   * read as a control refusing to move.
-   *
-   * It also removes what looked like a rounding settle on release. Both triples
-   * convert to the same RGB, so neither is more correct than the other, and the
-   * one the user actually set is the better thing to show.
-   */
-  const hsl = useMemo(() => {
-    if (hslIntent) {
-      const c = hslToRgb(hslIntent.h, hslIntent.s, hslIntent.l);
-      if (c.r === rgb.r && c.g === rgb.g && c.b === rgb.b) return hslIntent;
-    }
-    return derivedHsl;
-  }, [hslIntent, derivedHsl, rgb.r, rgb.g, rgb.b]);
-  const hslRef = useRef(hsl);
-  useEffect(() => { hslRef.current = hsl; }, [hsl]);
   const hex = useMemo(() => rgbToHex(rgb.r, rgb.g, rgb.b), [rgb.r, rgb.g, rgb.b]);
 
   // Live-apply. No button: picking a color *is* the action - but only picking.
   const isHsl = blMode === 'lightness';
 
-  // Opens on what the panel showed before this control existed: one HS* block
-  // plus alpha. Which of HSB/HSL follows the Bright/Light switch, so the
-  // sliders agree with the hexagon on first paint.
-  const [groups, setGroups] = useState<SliderGroup[]>(() => [isHsl ? 'HSL' : 'HSB', 'A']);
+  /*
+   * RGB, one HS* block and alpha.
+   *
+   * It used to open on the HS* block and alpha alone - what the panel showed
+   * before the group toggles existed. RGB belongs there too: it is the model
+   * the hexagon is built on, half the plugin's job is reading a value out to
+   * paste somewhere else, and the chain on the field has no numbers of its own.
+   *
+   * Which of HSB/HSL is still the Bright/Light switch's, so the sliders agree
+   * with the hexagon on first paint; the switch opens on brightness, so this
+   * opens on RGB, HSB, A.
+   */
+  const [groups, setGroups] = useState<SliderGroup[]>(() => ['RGB', isHsl ? 'HSL' : 'HSB', 'A']);
 
   /**
    * Whether the R/G/B tracks show the color they would actually produce, or a
@@ -420,10 +397,9 @@ function PluginApp() {
           if (next) {
             // Snap. A tween left running from a marker click would keep writing
             // its own frames over the incoming value and read as stutter.
-            if (animRef.current !== null) {
-              cancelAnimationFrame(animRef.current);
-              animRef.current = null;
-            }
+            cancelTween();
+            // Through the raw setter on purpose: a seed is not a user edit,
+            // and the typed writers would flag it as one.
             rgbOverride.current = next;
             setAlpha(Math.round((msg.opacity ?? 1) * 100));
             setHsb(rgbToHsb(next.r, next.g, next.b));
@@ -480,7 +456,8 @@ function PluginApp() {
       if (frame) cancelAnimationFrame(frame);
       if (pumpId !== null) cancelAnimationFrame(pumpId);
     };
-  }, []);
+    // Hook-provided refs and setters are stable; listed to satisfy exhaustive-deps.
+  }, [cancelTween, rgbOverride, setHsb]);
 
   const onAlphaChange = useCallback((v: number) => {
     userEditRef.current = true;
@@ -500,109 +477,28 @@ function PluginApp() {
     pendingAlpha.current = v;
   }, []);
 
-  const onHsbChange = useCallback((next: Partial<HSB>) => {
-    userEditRef.current = true;
-    rgbOverride.current = null;
-    setHsb((prev) => ({ ...prev, ...next }));
-  }, []);
-
-  const onHueChange = useCallback((h: number) => {
-    userEditRef.current = true;
-    rgbOverride.current = null;
-    setHsb((prev) => ({ ...prev, h }));
-  }, []);
-
-  const onRgbChange = useCallback((channel: 'r' | 'g' | 'b', value: number) => {
-    userEditRef.current = true;
-    setHsb((prev) => {
-      const current = rgbOverride.current || hsbToRgb(prev.h, prev.s, prev.b);
-      const next = { ...current, [channel]: value };
-      rgbOverride.current = next;
-      return rgbToHsb(next.r, next.g, next.b);
-    });
-  }, []);
+  const onHsbChange = useCallback((next: Partial<HSB>) => setHsbClear((prev) => ({ ...prev, ...next })), [setHsbClear]);
+  const onHueChange = useCallback((h: number) => setHsbClear((prev) => ({ ...prev, h })), [setHsbClear]);
+  const onRgbChange = setRgbChannel;
 
   // Clicking the 100/50/0 bar markers or a vertex letter goes through
   // onAnimateToHsb. Without it ColorHexagon early-returns and those are dead
   // controls. Duration, easing, hue wrap and rounding come from
   // utils/colorTween - the same module ColorPicker's animateToHsb uses - so
   // the plugin cannot drift from the app's feel.
-  const animRef = useRef<number | null>(null);
   const onAnimateToHsb = useCallback((target: HSB) => {
     userEditRef.current = true;
-    if (animRef.current !== null) cancelAnimationFrame(animRef.current);
-    rgbOverride.current = null;
     const alphaTo = pendingAlpha.current;
     pendingAlpha.current = null;
-    // Captured through setState rather than a ref, the same way the color's
+    // Captured through setState rather than a ref, the same way the colour's
     // own start value is: React holds the current alpha, and reading it back
     // here cannot go stale.
-    let alphaFrom = 0;
-    if (alphaTo !== null) setAlpha((cur) => { alphaFrom = cur; return cur; });
-    setHsb((from) => {
-      const start = performance.now();
-      const step = (now: number) => {
-        const t = Math.min(1, (now - start) / HSB_TWEEN_MS);
-        userEditRef.current = true;
-        setHsb(hsbAtProgress(from, target, t));
-        // Same clock and same easing as the color, so the two arrive together.
-        if (alphaTo !== null) {
-          setAlpha(Math.round(alphaFrom + (alphaTo - alphaFrom) * easeInOutQuad(t)));
-        }
-        if (t < 1) {
-          animRef.current = requestAnimationFrame(step);
-        } else {
-          animRef.current = null;
-          // Close the undo group here too: on click-to-animate the pointerup
-          // commit already fired before the tween wrote anything.
-          post({ type: 'commit' });
-        }
-      };
-      animRef.current = requestAnimationFrame(step);
-      return from;
-    });
-  }, []);
+    if (alphaTo !== null) setAlpha((cur) => { alphaTween.current = { from: cur, to: alphaTo }; return cur; });
+    else alphaTween.current = null;
+    tweenTo(target);
+  }, [tweenTo]);
 
-  useEffect(() => () => {
-    if (animRef.current !== null) cancelAnimationFrame(animRef.current);
-  }, []);
-
-  /**
-   * The H and S an HSL gesture began from. See utils/hslWrite - the panel needs
-   * this for exactly the reasons the app does, and used to carry its own copy
-   * of the conversion that lacked it.
-   */
-  const hslOrigin = useRef<HslOrigin | null>(null);
-  useEffect(() => {
-    const clear = () => { hslOrigin.current = null; };
-    window.addEventListener('pointerdown', clear);
-    window.addEventListener('pointerup', clear);
-    return () => {
-      window.removeEventListener('pointerdown', clear);
-      window.removeEventListener('pointerup', clear);
-    };
-  }, []);
-
-  const onHslChange = useCallback((channel: 'h' | 's' | 'l', value: number) => {
-    userEditRef.current = true;
-    setHsb((prev) => {
-      if (!hslOrigin.current) {
-        // Straight off what is on screen, so a remembered saturation carries
-        // into the new gesture. Hue falls back to HSB only when the displayed
-        // colour is achromatic and so has none of its own to give.
-        const shown = hslRef.current;
-        hslOrigin.current = {
-          h: shown.s <= 0 ? prev.h : shown.h,
-          s: shown.s,
-          l: shown.l,
-        };
-      }
-      const { rgb, hsb, hsl: intent } = writeHslChannel(channel, value, hslOrigin.current);
-      rgbOverride.current = rgb;
-      setHslIntent(intent);
-      return hsb;
-    });
-  }, []);
+  const onHslChange = setHslChannel;
 
   return (
     <>
@@ -627,7 +523,6 @@ function PluginApp() {
         sectionVariant="flush"
         alpha={alpha}
         onAlphaRestore={onAlphaRestore}
-        wheelAdjusts={false}
         blBar={false}
         satBar={false}
         stemRange={[2, 4]}

@@ -2,6 +2,7 @@ import { useEffect, Suspense, lazy } from 'react'
 import ErrorBoundary from './components/ErrorBoundary'
 import ColorPicker from './components/ColorPicker'
 import PluginBanner from './components/PluginBanner'
+import FpsMeter from './components/FpsMeter'
 import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ThemeProvider, useTheme } from './hooks/useTheme'
@@ -39,6 +40,9 @@ function AppInner() {
 
   return (
     <>
+      {/* Diagnostic only, on with ?fps in the URL. Above the route switch so it
+          reads the deck as well as the picker. */}
+      <FpsMeter />
       {/* Background layer that tweens between app and presentation colors */}
       <div
         className="fixed inset-0"
@@ -53,12 +57,14 @@ function AppInner() {
         </Suspense>
       ) : (
         <div className="relative min-h-svh flex flex-col">
-          {/* A sibling above the centring row rather than a child of it, so it
-              displaces the picker instead of overlaying it and the picker still
-              centres in whatever height is left. Living at app level also keeps
-              it off the presentation route entirely. */}
+          {/* Fixed to the top of the viewport rather than sitting in the flow:
+              it costs the picker no vertical room, so dismissing it does not
+              move the tool. Living at app level keeps it off the presentation
+              route entirely. */}
           <PluginBanner />
-          <div className="flex flex-1 items-center justify-center p-5">
+          {/* Named because the pinned menu narrows it - see the
+              `[data-menu-pinned]` rule in index.css. */}
+          <div id="app-stage" className="flex flex-1 items-center justify-center p-5">
             <ColorPicker />
             <Toaster position="top-center" />
           </div>

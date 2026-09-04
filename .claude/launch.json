@@ -21,6 +21,20 @@
       ],
       "port": 4173,
       "url": "http://localhost:4173"
+    },
+    {
+      "name": "color-taylor-mobile",
+      "runtimeExecutable": "bunx",
+      "runtimeArgs": [
+        "vite",
+        "preview",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "4174"
+      ],
+      "port": 4174,
+      "url": "http://localhost:4174"
     }
   ]
 }

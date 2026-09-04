@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { openSections } from './open-sections';
 
 /**
  * Which swatches read as selected.
@@ -14,7 +15,9 @@ import { test, expect, type Page } from '@playwright/test';
  */
 
 function clearStorage() {
-  try { localStorage.clear(); } catch { /* ignore */ }
+  try { localStorage.clear();
+    // The welcome panel is modal and would eat the first click of a test.
+    localStorage.setItem('color-taylor-about-seen', '1'); } catch { /* ignore */ }
 }
 
 /** The swatches currently showing the white selection ring, as `index:hex`. */
@@ -37,6 +40,7 @@ test.describe('Swatch selection ring', () => {
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(clearStorage);
     await page.goto('/');
+    await openSections(page);
     await page.locator('#saved-colors [data-saved-idx="0"]').waitFor();
   });
 
@@ -97,6 +101,7 @@ test.describe('Saved sort modes', () => {
    */
   test('the app cycle omits alpha', async ({ page }) => {
     await page.goto('/');
+    await openSections(page);
     const sort = page.locator('#saved-colors button[data-sort-mode]');
     await sort.waitFor();
 

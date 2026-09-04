@@ -1,0 +1,455 @@
+<!--
+  What happens to the RGB vector chain when the hexagon becomes a circle.
+  Open it directly - no build step, no dev server, nothing vendored.
+
+  Faithful to the real geometry: DIRS at 0/120/240, the same hexEdgeDist, the
+  same chroma model and cross-section. It also copies ColorPicker's canonical
+  state pattern - HSB in state, exact RGB stashed in an override - because the
+  round trip is lossy and this prototype has RGB sliders too. It is not
+  ColorHexagon running, so the handle styling and the field's antialiasing are
+  approximations of it.
+
+  The Oklch group is a third way in. Its chroma is absolute, so most (L, C, H)
+  triples are not sRGB colours; those are gamut-mapped by reducing chroma, the
+  way CSS Color 4 does, and the group says so when it happens. The values the
+  user set are held as intent while that group is driving, mirroring the
+  app's hslIntent, so the sliders do not fight the hand that moves them.
+
+  See wiki/notes/rgb-stems-must-curve-in-circle-space.md and
+  wiki/notes/srgb-gamut-is-not-star-shaped-in-oklab.md.
+
+  autocomplete="off" on every control is load-bearing: without it a browser
+  restores the slider positions on reload, so the page reopens in whatever
+  state it was last left in rather than at the colour chosen to show the
+  bowing clearly.
+-->
+<title>RGB Stems In Circle Space</title>
+<style>
+  :root {
+    --ground: #0C1418; --panel: #16232A; --rule: #2C3F49;
+    --ink: #E8EDEF; --ink-2: #B6C6CD; --muted: #8195A0;
+    --accent: #3FD8D8; --warn: #F2B94B;
+    --r: #FF4444; --g: #44DD44; --b: #6688FF;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--ground); color: var(--ink);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 15px; line-height: 1.55; -webkit-font-smoothing: antialiased;
+    min-height: 100vh; padding: clamp(1rem, 3vw, 2rem);
+  }
+  .eyebrow { font-family: ui-monospace, Menlo, monospace; font-size: 0.6875rem;
+             text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); }
+  h1 { font-size: clamp(1.5rem, 3.5vw, 2rem); font-weight: 800; letter-spacing: -0.02em;
+       margin: 0.35rem 0 0.3rem; text-wrap: balance; }
+  p { margin: 0; }
+  .shell { max-width: 66rem; margin: 0 auto; display: flex; flex-direction: column; gap: 1.1rem; }
+  .lede { color: var(--ink-2); max-width: 46rem; }
+
+  .rig { display: grid; grid-template-columns: 1fr; gap: 0;
+         border: 1px solid var(--rule); border-radius: 5px; overflow: hidden; background: var(--panel); }
+  @media (min-width: 54rem) { .rig { grid-template-columns: 1fr 17rem; } }
+  #view { display: block; width: 100%; aspect-ratio: 1; }
+  .side { border-top: 1px solid var(--rule); padding: 1.15rem;
+          display: flex; flex-direction: column; gap: 1rem; }
+  @media (min-width: 54rem) { .side { border-top: 0; border-left: 1px solid var(--rule); } }
+
+  .group { display: flex; flex-direction: column; gap: 0.7rem;
+           border-top: 1px solid var(--rule); padding-top: 0.9rem; }
+  .group:first-child { border-top: 0; padding-top: 0; }
+  .group > .eyebrow { margin-bottom: -0.2rem; }
+
+  .field { display: flex; flex-direction: column; gap: 0.35rem; }
+  .field-head { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+  .field-head span:first-child { font-size: 0.8125rem; color: var(--ink-2); }
+  .val { font-family: ui-monospace, Menlo, monospace; font-size: 0.8125rem; color: var(--accent);
+         font-variant-numeric: tabular-nums; }
+  input[type="range"] { width: 100%; accent-color: var(--accent); }
+  input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  #cr { accent-color: var(--r); } #cg { accent-color: var(--g); } #cb { accent-color: var(--b); }
+  #crO { color: var(--r); } #cgO { color: var(--g); } #cbO { color: var(--b); }
+
+  .swatch { height: 2rem; border-radius: 3px; border: 1px solid var(--rule);
+            display: flex; align-items: center; justify-content: center;
+            font-family: ui-monospace, Menlo, monospace; font-size: 0.75rem; letter-spacing: 0.06em; }
+  .viewnote { font-size: 0.75rem; color: var(--muted); min-height: 1.2em; }
+  .viewnote.warn { color: var(--warn); }
+  .viewnote b { color: var(--ink-2); font-weight: 650; }
+  .check { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8125rem;
+           color: var(--ink-2); cursor: pointer; }
+  .check input { accent-color: var(--accent); }
+
+  .legend { display: flex; gap: 0.9rem; flex-wrap: wrap; font-size: 0.75rem; color: var(--muted); }
+  .legend i { display: inline-block; width: 0.55rem; height: 0.55rem; border-radius: 2px; margin-right: 0.3rem; }
+  .foot { display: grid; gap: 0.75rem; grid-template-columns: 1fr; max-width: 52rem; }
+  @media (min-width: 40rem) { .foot { grid-template-columns: 1fr 1fr; } }
+  .foot div { font-size: 0.8125rem; color: var(--ink-2); }
+  .foot b { color: var(--ink); display: block; font-weight: 650; }
+  code { font-family: ui-monospace, Menlo, monospace; font-size: 0.9em; color: var(--accent); }
+</style>
+
+<div class="shell">
+  <div>
+    <span class="eyebrow">Colour Taylor &middot; geometry</span>
+    <h1>The RGB stems in circle space</h1>
+    <p class="lede">The hexagon is a <em>linear</em> projection of the RGB cube, which is the only reason three straight legs at 120&deg; add up to the colour. The circle is not. Drag <b>Shape</b> to 0 and watch what a straight line has to become.</p>
+  </div>
+
+  <div class="rig">
+    <canvas id="view" width="640" height="640"></canvas>
+    <div class="side">
+
+      <div class="group">
+        <div class="field">
+          <div class="field-head"><span>Shape</span><span class="val" id="mixO">circle</span></div>
+          <input type="range" autocomplete="off" id="mix" min="0" max="100" step="1" value="0">
+        </div>
+      </div>
+
+      <div class="group">
+        <span class="eyebrow">HSB</span>
+        <div class="field">
+          <div class="field-head"><span>Hue</span><span class="val" id="hueO">205&deg;</span></div>
+          <input type="range" autocomplete="off" id="hue" min="0" max="359" step="1" value="205">
+        </div>
+        <div class="field">
+          <div class="field-head"><span>Saturation</span><span class="val" id="satO">88</span></div>
+          <input type="range" autocomplete="off" id="sat" min="0" max="100" step="1" value="88">
+        </div>
+        <div class="field">
+          <div class="field-head"><span>Brightness</span><span class="val" id="briO">92</span></div>
+          <input type="range" autocomplete="off" id="bri" min="0" max="100" step="1" value="92">
+        </div>
+      </div>
+
+      <div class="group">
+        <span class="eyebrow">RGB</span>
+        <div class="field">
+          <div class="field-head"><span>Red</span><span class="val" id="crO">28</span></div>
+          <input type="range" autocomplete="off" id="cr" min="0" max="255" step="1" value="28">
+        </div>
+        <div class="field">
+          <div class="field-head"><span>Green</span><span class="val" id="cgO">149</span></div>
+          <input type="range" autocomplete="off" id="cg" min="0" max="255" step="1" value="149">
+        </div>
+        <div class="field">
+          <div class="field-head"><span>Blue</span><span class="val" id="cbO">235</span></div>
+          <input type="range" autocomplete="off" id="cb" min="0" max="255" step="1" value="235">
+        </div>
+        <div class="swatch" id="sw">#1C95EB</div>
+      </div>
+
+      <div class="group">
+        <span class="eyebrow">Oklch</span>
+        <div class="field">
+          <div class="field-head"><span>Lightness</span><span class="val" id="olO">0.000</span></div>
+          <input type="range" autocomplete="off" id="ol" min="0" max="1" step="0.005" value="0.5">
+        </div>
+        <div class="field">
+          <div class="field-head"><span>Chroma</span><span class="val" id="ocO">0.000</span></div>
+          <input type="range" autocomplete="off" id="oc" min="0" max="0.37" step="0.002" value="0">
+        </div>
+        <div class="field">
+          <div class="field-head"><span>Hue</span><span class="val" id="ohO">0&deg;</span></div>
+          <input type="range" autocomplete="off" id="oh" min="0" max="359" step="1" value="0">
+        </div>
+        <div class="viewnote" id="okNote"></div>
+      </div>
+
+      <div class="group">
+        <label class="check"><input type="checkbox" autocomplete="off" id="chord"> Overlay straight chords</label>
+        <div class="legend">
+          <span><i style="background:#ff0000"></i>red leg</span>
+          <span><i style="background:#00ff00"></i>green leg</span>
+          <span><i style="background:#0000ff"></i>blue leg</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="foot">
+    <div><b>Why they bend</b>Hexagon to circle is a radial stretch of <code>R / hexEdge(&theta;)</code> &mdash; exactly 1 at the vertices, 1.155 at the edge midpoints. Angle-dependent, so not affine, so the sum of the warped vectors is not the warp of the sum. Warping the joints and letting the legs curve is the only option that keeps each leg meaning &ldquo;add this much of this channel&rdquo;.</div>
+    <div><b>The first leg never bends</b>It runs from the centre along a channel axis, and all three axes point at vertices, where the stretch is exactly 1. So the chain starts honest and accumulates distortion. The chords are the cheap version: visually close, but the points along one do not correspond to intermediate channel values, so hovering or dragging a leg would lie.</div>
+    <div><b>The RGB sliders drive the chain directly</b>Each leg <em>is</em> its channel's value, so dragging Red lengthens the red leg and nothing else moves &mdash; in the hexagon. In the circle the later joints shift anyway, because they sit at angles whose stretch changed.</div>
+    <div><b>Why HSB stays canonical here</b>Same reason as <code>ColorPicker.tsx</code>: <code>hsbToRgb(rgbToHsb(rgb))</code> is lossy at low saturation and brightness, so typing an exact R and then dragging would lose it. The exact RGB is stashed in an override and the HSB sliders clear it.</div>
+    <div><b>Oklch is a different kind of axis</b>Its lightness is perceptual, so holding L and turning the hue keeps the colour <em>looking</em> equally bright &mdash; which HSB cannot do, because B means &ldquo;how far to this hue's ceiling&rdquo; and the ceilings differ. Its hue zero is not red: red sits at 29&deg;, blue at 264&deg;, so the two hue sliders never agree and never should.</div>
+    <div><b>Most Oklch triples are not sRGB colours</b>Chroma is absolute, and at any lightness the reachable chroma depends on hue &mdash; cyan tops out at 0.155, magenta at 0.322. Out-of-gamut values are mapped by reducing chroma at fixed L and H, the way CSS Color 4 does, and the group says so. The sliders hold what you set, not what survived; the field shows what survived.</div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var PI = Math.PI, R = 220, CX = 320, CY = 320, SCALE = R / 255;
+  var DIRS = { r: 0, g: 120, b: 240 };
+  var CH = { r: "#ff0000", g: "#00ff00", b: "#0000ff" };
+  var ORDER = ["r", "g", "b"];
+
+  function hexEdge(a) {
+    var t = ((a % (PI / 3)) + PI / 3) % (PI / 3);
+    return R * Math.cos(PI / 6) / Math.cos(t - PI / 6);
+  }
+  function shapeEdge(a, mix) { return R + (hexEdge(a) - R) * mix; }
+
+  // A point carries a chroma fraction, d / hexEdge, that has to survive the
+  // reshaping - so the same fraction is re-measured against the new edge.
+  function warp(p, mix) {
+    var dx = p.x - CX, dy = CY - p.y, d = Math.hypot(dx, dy);
+    if (d < 1e-6) return { x: CX, y: CY };
+    var a = Math.atan2(dy, dx);
+    var f = shapeEdge(a, mix) / hexEdge(a);
+    return { x: CX + dx * f, y: CY - dy * f };
+  }
+
+  function hsbToRgb(h, s, v) {
+    s /= 100; v /= 100;
+    var c = v * s, x = c * (1 - Math.abs(((h / 60) % 2) - 1)), m = v - c;
+    var i = Math.floor(h / 60) % 6, r = 0, g = 0, b = 0;
+    if (i === 0) { r = c; g = x; } else if (i === 1) { r = x; g = c; }
+    else if (i === 2) { g = c; b = x; } else if (i === 3) { g = x; b = c; }
+    else if (i === 4) { r = x; b = c; } else { r = c; b = x; }
+    return { r: Math.round((r + m) * 255), g: Math.round((g + m) * 255), b: Math.round((b + m) * 255) };
+  }
+  function rgbToHsb(r, g, b) {
+    r /= 255; g /= 255; b /= 255;
+    var mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn, h = 0;
+    if (d !== 0) {
+      if (mx === r) h = 60 * (((g - b) / d) % 6);
+      else if (mx === g) h = 60 * ((b - r) / d + 2);
+      else h = 60 * ((r - g) / d + 4);
+    }
+    if (h < 0) h += 360;
+    return { h: Math.round(h), s: Math.round(mx === 0 ? 0 : (d / mx) * 100), b: Math.round(mx * 100) };
+  }
+
+  // ── Oklab / Oklch ────────────────────────────────────────────────────
+  function lin(c) { return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }
+  function enc(c) { return c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055; }
+  function rgbToOklch(c) {
+    var r = lin(c.r / 255), g = lin(c.g / 255), b = lin(c.b / 255);
+    var l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
+    var m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
+    var s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+    var L = 0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s;
+    var A = 1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s;
+    var B = 0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s;
+    var H = Math.atan2(B, A) * 180 / PI; if (H < 0) H += 360;
+    return { L: L, C: Math.hypot(A, B), H: H };
+  }
+  function oklabToLinear(L, a, b) {
+    var l_ = L + 0.3963377774 * a + 0.2158037573 * b;
+    var m_ = L - 0.1055613458 * a - 0.0638541728 * b;
+    var s_ = L - 0.0894841775 * a - 1.2914855480 * b;
+    var l = l_ * l_ * l_, m = m_ * m_ * m_, s = s_ * s_ * s_;
+    return [ 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+            -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+            -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s];
+  }
+  function inGamut(v) {
+    for (var i = 0; i < 3; i++) if (v[i] < -1e-5 || v[i] > 1 + 1e-5) return false;
+    return true;
+  }
+  /*
+   * Oklch -> sRGB with gamut mapping by chroma reduction at fixed L and H,
+   * which is what CSS Color 4 does. The requested C is tried first, verbatim:
+   * the sRGB gamut is not star-shaped in Oklab, so a search from zero can stop
+   * short of a value that is itself perfectly in gamut (blue's own corner is
+   * the known case). Testing the exact request before searching handles that.
+   */
+  function oklchToRgb(L, C, H) {
+    var a_ = Math.cos(H * PI / 180), b_ = Math.sin(H * PI / 180);
+    var v = oklabToLinear(L, C * a_, C * b_), used = C, clamped = false;
+    if (!inGamut(v)) {
+      clamped = true;
+      var lo = 0, hi = C;
+      for (var k = 0; k < 26; k++) {
+        var mid = (lo + hi) / 2;
+        if (inGamut(oklabToLinear(L, mid * a_, mid * b_))) lo = mid; else hi = mid;
+      }
+      used = lo; v = oklabToLinear(L, used * a_, used * b_);
+    }
+    var px = function (x) { return Math.round(Math.max(0, Math.min(1, enc(Math.max(0, Math.min(1, x))))) * 255); };
+    return { rgb: { r: px(v[0]), g: px(v[1]), b: px(v[2]) }, C: used, clamped: clamped };
+  }
+
+  function hex2(n) { return n.toString(16).padStart(2, "0").toUpperCase(); }
+  function css(c) { return "rgb(" + c.r + "," + c.g + "," + c.b + ")"; }
+
+  /*
+   * HSB is canonical and the exact RGB lives in an override, exactly as
+   * ColorPicker.tsx documents. The round trip loses information at low
+   * saturation and brightness, so an RGB the user typed has to be held
+   * verbatim; any HSB-driven interaction clears it first or stale RGB leaks.
+   *
+   * oklchIntent is the same idea for the third panel: the (L, C, H) the user
+   * actually set, shown on its sliders even when gamut mapping had to reduce
+   * the chroma, so the slider does not snap away from the hand moving it.
+   * Cleared the moment another panel drives.
+   */
+  var hsb = { h: 205, s: 88, b: 92 };
+  var rgbOverride = null;
+  var oklchIntent = null;
+  var lastOkHue = 0;
+  function currentRgb() { return rgbOverride || hsbToRgb(hsb.h, hsb.s, hsb.b); }
+
+  var el = {};
+  ["mix", "hue", "sat", "bri", "cr", "cg", "cb", "ol", "oc", "oh", "chord",
+   "mixO", "hueO", "satO", "briO", "crO", "cgO", "cbO", "olO", "ocO", "ohO", "okNote", "sw"]
+    .forEach(function (id) { el[id] = document.getElementById(id); });
+
+  var cv = document.getElementById("view"), ctx = cv.getContext("2d"), N = cv.width;
+
+  function field(mix, bri) {
+    var img = ctx.createImageData(N, N), d = img.data;
+    for (var y = 0; y < N; y++) for (var x = 0; x < N; x++) {
+      var dx = x - CX, dy = CY - y, dist = Math.hypot(dx, dy), o = (y * N + x) * 4;
+      var a = Math.atan2(dy, dx), edge = shapeEdge(a, mix);
+      if (dist > edge) { d[o + 3] = 0; continue; }
+      var h = (a * 180 / PI + 360) % 360, limit = edge * (bri / 100), c, al;
+      if (dist <= limit) { c = hsbToRgb(h, limit > 0 ? (dist / limit) * 100 : 0, bri); al = 255; }
+      else { c = hsbToRgb(h, 100, (dist / edge) * 100); al = 82; }
+      d[o] = c.r; d[o + 1] = c.g; d[o + 2] = c.b; d[o + 3] = al;
+    }
+    ctx.putImageData(img, 0, 0);
+  }
+
+  function outline(mix, r, style, dash) {
+    ctx.setLineDash(dash || []);
+    ctx.beginPath();
+    for (var i = 0; i <= 144; i++) {
+      var a = i / 144 * 2 * PI, e = shapeEdge(a, mix) * (r / R);
+      var X = CX + e * Math.cos(a), Y = CY - e * Math.sin(a);
+      if (i === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
+    }
+    ctx.closePath(); ctx.strokeStyle = style; ctx.lineWidth = 2; ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  function render() {
+    var mix = +el.mix.value / 100;
+    var bri = hsb.b;
+    var showChord = el.chord.checked;
+    var val = currentRgb();
+
+    // Every control reads from state, so the panels cannot drift apart.
+    el.mixO.textContent = mix === 0 ? "circle" : mix === 1 ? "hexagon" : mix.toFixed(2);
+    el.hue.value = hsb.h; el.hueO.textContent = hsb.h + "°";
+    el.sat.value = hsb.s; el.satO.textContent = hsb.s;
+    el.bri.value = hsb.b; el.briO.textContent = hsb.b;
+    el.cr.value = val.r; el.crO.textContent = val.r;
+    el.cg.value = val.g; el.cgO.textContent = val.g;
+    el.cb.value = val.b; el.cbO.textContent = val.b;
+    var hexStr = "#" + hex2(val.r) + hex2(val.g) + hex2(val.b);
+    el.sw.textContent = hexStr;
+    el.sw.style.background = hexStr;
+    el.sw.style.color = (val.r * 299 + val.g * 587 + val.b * 114) / 1000 > 130 ? "#0B1417" : "#E8EDEF";
+
+    // Oklch shows intent while it is driving, and the derived value otherwise.
+    // A grey has no hue, so the last one the slider held is kept rather than
+    // letting the readout snap to zero.
+    var ok = oklchIntent || rgbToOklch(val);
+    if (!oklchIntent && ok.C < 0.002) ok.H = lastOkHue; else lastOkHue = ok.H;
+    el.ol.value = ok.L; el.olO.textContent = ok.L.toFixed(3);
+    el.oc.value = ok.C; el.ocO.textContent = ok.C.toFixed(3);
+    el.oh.value = Math.round(ok.H); el.ohO.textContent = Math.round(ok.H) + "°";
+    if (oklchIntent) {
+      var m = oklchToRgb(ok.L, ok.C, ok.H);
+      if (m.clamped) {
+        el.okNote.className = "viewnote warn";
+        el.okNote.innerHTML = "Outside sRGB at this L and H &mdash; showing <b>C " + m.C.toFixed(3) + "</b>";
+      } else { el.okNote.className = "viewnote"; el.okNote.textContent = "In gamut."; }
+    } else { el.okNote.className = "viewnote"; el.okNote.textContent = ""; }
+
+    // Built in hexagon space, where the projection is linear and the three
+    // channel vectors genuinely add.
+    var pts = [{ x: CX, y: CY }];
+    ORDER.forEach(function (ch) {
+      var a = DIRS[ch] * PI / 180, p = pts[pts.length - 1], L = val[ch] * SCALE;
+      pts.push({ x: p.x + L * Math.cos(a), y: p.y - L * Math.sin(a) });
+    });
+
+    ctx.clearRect(0, 0, N, N);
+    field(mix, bri);
+    outline(mix, R, "rgba(255,255,255,0.35)");
+    if (bri < 100) outline(mix, R * bri / 100, "rgba(255,255,255,0.5)", [5, 5]);
+
+    ORDER.forEach(function (ch, i) {
+      var A = pts[i], B = pts[i + 1];
+      ctx.beginPath();
+      for (var k = 0; k <= 48; k++) {
+        var t = k / 48;
+        var q = warp({ x: A.x + (B.x - A.x) * t, y: A.y + (B.y - A.y) * t }, mix);
+        if (k === 0) ctx.moveTo(q.x, q.y); else ctx.lineTo(q.x, q.y);
+      }
+      ctx.strokeStyle = CH[ch]; ctx.lineWidth = 5; ctx.lineCap = "round"; ctx.stroke();
+    });
+
+    if (showChord) {
+      ctx.setLineDash([7, 7]); ctx.lineWidth = 2.5;
+      ctx.strokeStyle = "rgba(255,255,255,0.95)";
+      ctx.beginPath();
+      pts.forEach(function (p, i) {
+        var q = warp(p, mix);
+        if (i === 0) ctx.moveTo(q.x, q.y); else ctx.lineTo(q.x, q.y);
+      });
+      ctx.stroke(); ctx.setLineDash([]);
+    }
+
+    // Ring is the channel the handle belongs to; fill is the field beneath it.
+    pts.forEach(function (p, i) {
+      var q = warp(p, mix);
+      if (i === 0) {
+        ctx.beginPath(); ctx.arc(q.x, q.y, 5, 0, 2 * PI);
+        ctx.fillStyle = "#ff0000"; ctx.fill(); return;
+      }
+      var dx = q.x - CX, dy = CY - q.y, dist = Math.hypot(dx, dy), a = Math.atan2(dy, dx);
+      var edge = shapeEdge(a, mix), limit = edge * (bri / 100);
+      var h = (a * 180 / PI + 360) % 360;
+      var under = dist <= limit
+        ? hsbToRgb(h, limit > 0 ? (dist / limit) * 100 : 0, bri)
+        : hsbToRgb(h, 100, (dist / edge) * 100);
+      ctx.save();
+      ctx.shadowColor = "rgba(0,0,0,0.45)"; ctx.shadowBlur = 6; ctx.shadowOffsetY = 2;
+      ctx.beginPath(); ctx.arc(q.x, q.y, 11, 0, 2 * PI);
+      ctx.fillStyle = css(under); ctx.fill();
+      ctx.lineWidth = 4; ctx.strokeStyle = CH[ORDER[i - 1]]; ctx.stroke();
+      ctx.restore();
+    });
+  }
+
+  // HSB drives: clear the overrides first, or stale values leak through.
+  ["hue", "sat", "bri"].forEach(function (id) {
+    el[id].addEventListener("input", function () {
+      rgbOverride = null; oklchIntent = null;
+      hsb = { h: +el.hue.value, s: +el.sat.value, b: +el.bri.value };
+      render();
+    });
+  });
+
+  // RGB drives: hold the exact value, and derive HSB from it rather than the
+  // other way round, so the number the user set is the number that survives.
+  ["cr", "cg", "cb"].forEach(function (id) {
+    el[id].addEventListener("input", function () {
+      oklchIntent = null;
+      rgbOverride = { r: +el.cr.value, g: +el.cg.value, b: +el.cb.value };
+      hsb = rgbToHsb(rgbOverride.r, rgbOverride.g, rgbOverride.b);
+      render();
+    });
+  });
+
+  // Oklch drives: hold what was asked for, show what survived the gamut.
+  ["ol", "oc", "oh"].forEach(function (id) {
+    el[id].addEventListener("input", function () {
+      oklchIntent = { L: +el.ol.value, C: +el.oc.value, H: +el.oh.value };
+      var m = oklchToRgb(oklchIntent.L, oklchIntent.C, oklchIntent.H);
+      rgbOverride = m.rgb;
+      hsb = rgbToHsb(m.rgb.r, m.rgb.g, m.rgb.b);
+      render();
+    });
+  });
+
+  el.mix.addEventListener("input", render);
+  el.chord.addEventListener("input", render);
+  render();
+})();
+</script>

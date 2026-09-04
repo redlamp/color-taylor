@@ -2,6 +2,7 @@ import { hsbToRgb, rgbToHex, linearToSrgb } from '../../utils/colorConversions';
 import type { ColorSpace } from '../../utils/sliderGradients';
 import type { HSL } from '../../utils/colorConversions';
 import { BL_BAR_X, BL_BAR_TOP, BL_BAR_HEIGHT, BL_BAR_WIDTH, BL_ARROW_SIZE, SIZE } from './hexConstants';
+import { CALLOUT_LINE, HIGHLIGHT_IN, HIGHLIGHT_OUT } from '../../utils/highlight';
 import type { MutableRefObject } from 'react';
 import type { PointerDownState } from './hexConstants';
 
@@ -33,9 +34,14 @@ interface BrightnessBarProps {
   onArrowDragStart: () => void;
   animateBLToValue: (v: number) => void;
   colorSpace: ColorSpace;
+  /**
+   * Another control is moving this bar's value. Draws the hexagon's keyline
+   * round the track; the host decides when from useImpact.
+   */
+  lit?: boolean;
 }
 
-export default function BrightnessBar({ hue, saturation, brightness, hsl, blMode, blPointerDownRef, onArrowDragStart, animateBLToValue, colorSpace }: BrightnessBarProps) {
+export default function BrightnessBar({ hue, saturation, brightness, hsl, blMode, blPointerDownRef, onArrowDragStart, animateBLToValue, colorSpace, lit = false }: BrightnessBarProps) {
   const blValue = blMode === 'brightness' ? brightness : (hsl?.l ?? 50);
   const arrowY = BL_BAR_TOP + (1 - blValue / 100) * BL_BAR_HEIGHT;
 
@@ -67,6 +73,7 @@ export default function BrightnessBar({ hue, saturation, brightness, hsl, blMode
         stroke="rgba(255,255,255,0.1)"
         strokeWidth={1}
         className="cursor-pointer touch-none"
+        data-hold="bl"
         onPointerDown={(e) => {
           e.stopPropagation();
           blPointerDownRef.current = {
@@ -77,10 +84,18 @@ export default function BrightnessBar({ hue, saturation, brightness, hsl, blMode
           };
         }}
       />
+      {/* The impact keyline, on the track's edge, always mounted for the fade. */}
+      <rect
+        x={BL_BAR_X} y={BL_BAR_TOP} width={BL_BAR_WIDTH} height={BL_BAR_HEIGHT}
+        fill="none" {...CALLOUT_LINE} strokeWidth={2.5}
+        opacity={lit ? 1 : 0}
+        className={`pointer-events-none ${lit ? HIGHLIGHT_IN : HIGHLIGHT_OUT}`}
+      />
       <polygon
         id="bl-bar-arrow"
         points={`${BL_BAR_X - 2},${arrowY} ${BL_BAR_X - BL_ARROW_SIZE - 2},${arrowY - 5} ${BL_BAR_X - BL_ARROW_SIZE - 2},${arrowY + 5}`}
         fill="var(--foreground)"
+        data-hold="bl"
         className="cursor-pointer"
         onMouseDown={(e) => {
           e.preventDefault();

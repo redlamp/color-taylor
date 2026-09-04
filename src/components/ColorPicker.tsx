@@ -1,8 +1,8 @@
-import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
-import { hsbToRgb, rgbToHsb, rgbToHex, rgbToHsl, hslToRgb, type HSB, type HSL, type RGB } from '../utils/colorConversions';
+import { useState, useRef, useCallback, useMemo, useEffect, Suspense, lazy } from 'react';
+import { hsbToRgb, rgbToHsb, rgbToHsl, rgbToHex, type HSB, type HSL, type RGB } from '../utils/colorConversions';
 import type { ColorSpace } from '../utils/sliderGradients';
-import { writeHslChannel, type HslOrigin } from '../utils/hslWrite';
-import { HSB_TWEEN_MS, hsbAtProgress } from '../utils/colorTween';
+import type { HslOrigin } from '../utils/hslWrite';
+import { HSB_TWEEN_MS } from '../utils/colorTween';
 import {
   hueGradient,
   saturationGradient,
@@ -17,10 +17,23 @@ import {
   greenChannelGradient,
   blueChannelGradient,
 } from '../utils/sliderGradients';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import BlendIcon from './BlendIcon';
+import { useImpact, holdKeyOf, type Hold } from '@/hooks/useImpact';
+import type { Channel } from './hex/hexConstants';
 import ColorSlider from './ColorSlider';
 import ColorHexagon from './ColorHexagon';
 import { HEX_PANEL_WIDTH } from './hex/hexConstants';
+import { AboutPanel } from './AboutPanel';
+import type { DemoHost } from '@/demo/steps';
+import { openDemoSections, restoreDemoSections } from '@/utils/demoSections';
+
+/*
+ * The self-running demo, lazy like the deck: it is a few hundred lines that
+ * only run when the ? button is pressed, and the picker's first paint should
+ * not carry them. wiki/notes/plan-picker-demo.md.
+ */
+const DemoRunner = lazy(() => import('@/demo/DemoRunner'));
 
 // Top-row layout constants — root max-width and shrink behavior derive from these
 const SLIDERS_PANEL_WIDTH = 420;          // px, target width of the right column on md+
@@ -71,11 +84,35 @@ import { useSettings } from '@/hooks/useSettings';
 import { useTheme } from '@/hooks/useTheme';
 import useColorEffects from '@/hooks/useColorEffects';
 import { toneController } from '@/utils/toneControllerLazy';
-import { Play, Pause, Settings, Music, Slash } from 'lucide-react';
+import { useColorState } from '@/hooks/useColorState';
+import { Play, Pause, Menu, Music, Slash, CircleHelp } from 'lucide-react';
 
-type HslMode = 'hsb' | 'hsl' | 'both';
-type RgbGradientMode = 'channel' | 'mixed';
 type BlMode = 'brightness' | 'lightness';
+/**
+ * The slider blocks, in the order they stack. The same control as the Figma
+ * plugin's, without its alpha row: a multi-select rather than HSB-or-HSL tabs,
+ * because each block reads and writes within its own model and any set of
+ * them stays self-consistent through the shared colour.
+ */
+type SliderGroup = 'RGB' | 'HSB' | 'HSL';
+const SLIDER_GROUPS: SliderGroup[] = ['RGB', 'HSB', 'HSL'];
+/**
+ * Where the bank starts and where "Default Settings" returns it: RGB and
+ * HSB showing, flat colours. Named once so the two cannot disagree.
+ */
+const DEFAULT_GROUPS: SliderGroup[] = ['RGB', 'HSB'];
+const DEFAULT_BLEND = false;
+const GROUP_TIP: Record<SliderGroup, string> = {
+  RGB: 'Red, Green, Blue',
+  HSB: 'Hue, Saturation, Brightness',
+  HSL: 'Hue, Saturation, Lightness',
+};
+/** The toolbar's tooltips read at a glance: a step up from the default size, and bold. */
+const TOOLBAR_TIP_CLASS = 'text-sm font-semibold';
+/** How often the colour cycle re-snapshots its readouts; see playHold. */
+const PLAY_SNAP_MS = 600;
+/** Tailwind for the rule a block draws above itself when it is not first. */
+const BLOCK_CLASS = 'flex flex-col gap-2 [&:not(:first-child)]:mt-3 [&:not(:first-child)]:border-t [&:not(:first-child)]:border-input [&:not(:first-child)]:pt-3';
 
 // Color-cycle animation constants (mirror DEFAULT_RECENT in ColorHexagon)
 const COLOR_KEYFRAMES = [
@@ -100,21 +137,73 @@ const ANIM_CYCLE_DUR = COLOR_KEYFRAMES.length * ANIM_STEP_DUR;
  *
  * Held as HSB because HSB is canonical here (see the root CLAUDE.md); it
  * converts back to exactly rgb(79, 149, 255), so nothing is lost round-tripping
- * it. Named rather than inlined because "Reset all settings" returns here too,
+ * it. Named rather than inlined because "Default Settings" returns here too,
  * and two copies of the starting colour would be one too many.
  */
 const DEFAULT_HSB: HSB = { h: 216, s: 69, b: 100 };
 
 export default function ColorPicker() {
-  const [hsb, setHsb] = useState<HSB>(() => {
+  const [initialHsb] = useState<HSB>(() => {
     try {
       const saved = localStorage.getItem('color-taylor-hsb');
       if (saved) return JSON.parse(saved);
     } catch { /* localStorage unavailable */ }
     return DEFAULT_HSB;
   });
-  const [hslMode, setHslMode] = useState<HslMode>('hsb');
-  const [rgbGradientMode, setRgbGradientMode] = useState<RgbGradientMode>('channel');
+  // pulseTone is declared below, after the audio settings it reads; the hook
+  // reaches it through a ref so the state can be declared up here with the rest.
+  const pulseToneRef = useRef<(next: HSB) => void>(() => {});
+  /*
+   * Run when a tween lands. The demo's restore uses it to put an exact RGB
+   * back: animateToHsb nulls rgbOverride on every frame, so a colour the user
+   * typed as R=137 would come back as whatever hsbToRgb makes of it - which
+   * differs for 86.4% of 8-bit colours. Through a ref because the callback
+   * needs setRgb, which this hook has not returned yet.
+   */
+  const onTweenLandedRef = useRef<() => void>(() => {});
+  const {
+    hsb, setHsb, rgb, hsl,
+    hsbRef, rgbOverride, animRef,
+    setHsbClear, clearOverride, setRgb, setRgbChannel, setHslChannel, animateToHsb: tweenTo, cancelTween,
+  } = useColorState({
+    initial: initialHsb,
+    onEdit: (next) => pulseToneRef.current(next),
+    onTweenStart: (from) => toneController.start(from),
+    onTweenFrame: (next) => toneController.update(next),
+    onTweenEnd: () => {
+      toneController.release();
+      onTweenLandedRef.current();
+    },
+  });
+  const [groups, setGroups] = useState<SliderGroup[]>(DEFAULT_GROUPS);
+  // Blended tracks show the colour a drag would land on; flat ones show the
+  // channel alone.
+  const [blend, setBlend] = useState(DEFAULT_BLEND);
+  // Its tooltip names the state, so it has to survive the press that changes
+  // it; see the Tooltip on #blend-toggle.
+  const [blendTipOpen, setBlendTipOpen] = useState(false);
+  /*
+   * The control under the pointer, for the impact highlights. Set on every
+   * pointerdown in the window from the nearest data-hold tag (or 'other'),
+   * with the readouts as they stood at the press; cleared on release. The
+   * ref carries the latest readouts to the listener, which is registered
+   * once. Its key is what the sliders compare against, so it is read below
+   * as `held`.
+   */
+  const [hold, setHold] = useState<Hold | null>(null);
+  const shownRef = useRef<Record<string, number>>({});
+  /*
+   * The colour cycle counts as a hold too, so the sliders it moves light the
+   * way they would under a drag. Its snapshot is re-taken every PLAY_SNAP_MS
+   * rather than once at the start: a cycle visits every colour, so against a
+   * fixed start everything would be lit within a second. Against a rolling
+   * one, a slider is lit while its value is actually moving. The dip at each
+   * re-snapshot is one frame, well inside the fade. Only the interval writes
+   * this; when the cycle stops the value goes stale and is simply not read.
+   */
+  const [playHold, setPlayHold] = useState<Hold | null>(null);
+  // Declared up here because the hold above reads it; the cycle itself is below.
+  const [colorAnimActive, setColorAnimActive] = useState(false);
   const [blMode, setBlMode] = useState<BlMode>('brightness');
   const [colorSpace, setColorSpace] = useState<ColorSpace>('srgb');
   const [hoverMatchRgb, setHoverMatchRgb] = useState<RGB | null>(null);
@@ -136,6 +225,19 @@ export default function ColorPicker() {
   useEffect(() => {
     try { localStorage.setItem('color-taylor-effects', colorFx ? '1' : '0'); } catch { /* localStorage unavailable */ }
   }, [colorFx]);
+  /*
+   * The impact highlights, on by default and read the same way: "not
+   * explicitly off". They are the picker's argument made visible - drag one
+   * control and the others that moved light up - but they are also motion on
+   * every drag, and someone working rather than learning may want the tool to
+   * hold still.
+   */
+  const [highlights, setHighlights] = useState<boolean>(() => {
+    try { return localStorage.getItem('color-taylor-highlights') !== '0'; } catch { return true; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('color-taylor-highlights', highlights ? '1' : '0'); } catch { /* localStorage unavailable */ }
+  }, [highlights]);
   const { isDark } = useTheme();
   useColorEffects({ enabled: colorFx, hsb, isDark });
   const { settings, updateSynth } = useSettings();
@@ -152,15 +254,32 @@ export default function ColorPicker() {
   useEffect(() => { toneController.setMuted(effectiveMuted); }, [effectiveMuted]);
   const prevSynthEnabledRef = useRef(settings.synth.synthEnabled);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  /*
+   * Tell the page when the menu is pinned open, so the stage can narrow and
+   * leave the rail somewhere to be. An attribute on the root rather than props
+   * threaded up through App: the element that has to move is the one that
+   * centres this component, so it is the parent's layout that changes and not
+   * this one's - the same shape as the theme's `dark` class.
+   */
+  const menuPinned = settingsOpen && settings.keepMenuOpen;
+  useEffect(() => {
+    document.documentElement.toggleAttribute('data-menu-pinned', menuPinned);
+    return () => document.documentElement.removeAttribute('data-menu-pinned');
+  }, [menuPinned]);
   const isPointerDownRef = useRef(false);
   const pulseTone = useCallback((target: HSB) => {
     toneController.pulse(target, isPointerDownRef.current);
   }, []);
+  useEffect(() => { pulseToneRef.current = pulseTone; }, [pulseTone]);
 
   useEffect(() => {
-    const onDown = () => { isPointerDownRef.current = true; };
+    const onDown = (e: PointerEvent) => {
+      isPointerDownRef.current = true;
+      setHold({ key: holdKeyOf(e.target), base: shownRef.current });
+    };
     const onUp = () => {
       isPointerDownRef.current = false;
+      setHold(null);
       toneController.notifyPointerUp();
     };
     window.addEventListener('pointerdown', onDown, { capture: true });
@@ -172,10 +291,30 @@ export default function ColorPicker() {
       window.removeEventListener('pointercancel', onUp, { capture: true } as EventListenerOptions);
     };
   }, []);
-  const animRef = useRef<number | null>(null);
-  const hsbRef = useRef(hsb);
-  useEffect(() => { hsbRef.current = hsb; }, [hsb]);
-  const rgbOverride = useRef<RGB | null>(null);
+  /*
+   * Declared up here rather than beside the rest of the demo's state, because
+   * the undo history below reads it: the demo's colours are not the user's
+   * edits and must not enter the stack.
+   */
+  const [demoOpen, setDemoOpen] = useState(false);
+  /**
+   * Where the demo panel flies in from, when something handed over to it. Null
+   * for the ? button, which has no card to come out of.
+   */
+  const [demoFrom, setDemoFrom] = useState<{ x: number; y: number } | null>(null);
+  /*
+   * The about panel, shown once on a first visit and from Settings after that.
+   * Eleventh localStorage key, and it holds "seen" rather than "show me",
+   * so a browser that cannot store anything simply shows it every time - the
+   * harmless failure of the two.
+   */
+  const [aboutOpen, setAboutOpen] = useState<boolean>(() => {
+    try { return localStorage.getItem('color-taylor-about-seen') !== '1'; } catch { return false; }
+  });
+  const markAboutSeen = useCallback(() => {
+    setAboutOpen(false);
+    try { localStorage.setItem('color-taylor-about-seen', '1'); } catch { /* localStorage unavailable */ }
+  }, []);
 
   // Undo/redo history
   const undoStack = useRef<HSB[]>([]);
@@ -186,6 +325,9 @@ export default function ColorPicker() {
   // Push to undo stack (debounced — only if value changed significantly)
   useEffect(() => {
     if (isUndoRedoing.current) return;
+    // The demo's colours are not the user's edits; undo after it should reach
+    // back past the whole thing to whatever they were doing before.
+    if (demoOpen) return;
     const key = `${hsb.h},${hsb.s},${hsb.b}`;
     if (key === lastPushed.current) return;
     const timeout = setTimeout(() => {
@@ -198,7 +340,7 @@ export default function ColorPicker() {
       lastPushed.current = key;
     }, 500);
     return () => clearTimeout(timeout);
-  }, [hsb.h, hsb.s, hsb.b]);
+  }, [hsb.h, hsb.s, hsb.b, demoOpen]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -285,7 +427,8 @@ export default function ColorPicker() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [animRef, hsbRef, rgbOverride, setHsb]);
+
 
   // Ref-based animation stopper — called from user interaction handlers only
   const colorAnimActiveRef = useRef<boolean | 'stop'>(false);
@@ -307,98 +450,16 @@ export default function ColorPicker() {
    */
   const takeOverFromAnimation = useCallback(() => {
     if (colorAnimActiveRef.current) colorAnimActiveRef.current = 'stop';
-    if (animRef.current) {
-      cancelAnimationFrame(animRef.current);
-      animRef.current = null;
-      isUndoRedoing.current = false;
-    }
-  }, []);
+    if (cancelTween()) isUndoRedoing.current = false;
+  }, [cancelTween]);
 
   const animateToHsb = useCallback((target: HSB) => {
-    rgbOverride.current = null;
-    if (animRef.current) {
-      cancelAnimationFrame(animRef.current);
-      isUndoRedoing.current = false;
-    }
-    const from = { ...hsbRef.current };
-    let start: number | null = null;
-
-    toneController.start(from);
-
-    const tick = (timestamp: number) => {
-      if (start === null) start = timestamp;
-      const elapsed = timestamp - start;
-      const progress = Math.min(elapsed / HSB_TWEEN_MS, 1);
-      // Duration, easing, hue wrap and rounding live in utils/colorTween so the
-      // Figma plugin animates identically.
-      const { h, s, b } = hsbAtProgress(from, target, progress);
-
-      rgbOverride.current = null;
-      setHsb({ h, s, b });
-      toneController.update({ h, s, b });
-
-      if (progress < 1) {
-        animRef.current = requestAnimationFrame(tick);
-      } else {
-        animRef.current = null;
-        toneController.release();
-      }
-    };
-
-    animRef.current = requestAnimationFrame(tick);
-  }, []);
-  const rgbFromHsb = useMemo(() => hsbToRgb(hsb.h, hsb.s, hsb.b), [hsb.h, hsb.s, hsb.b]);
-  // Read of rgbOverride.current during render is intentional — see CLAUDE.md
-  // "HSB is canonical, RGB has an override ref" pattern. Lifting to state would
-  // double-render every slider input. Refs are safe to read during render for
-  // values that don't drive re-renders themselves.
-  // eslint-disable-next-line react-hooks/refs
-  const rgb = rgbOverride.current || rgbFromHsb;
+    // A cancelled undo tween has to release the re-push guard, or the next few
+    // pushes are swallowed. The tween itself lives in useColorState.
+    if (animRef.current !== null) isUndoRedoing.current = false;
+    tweenTo(target);
+  }, [tweenTo, animRef]);
   const hex = useMemo(() => rgbToHex(rgb.r, rgb.g, rgb.b), [rgb.r, rgb.g, rgb.b]);
-  /**
-   * What the live HSL gesture asked for, shown in place of the derived value.
-   *
-   * The colour is 8-bit, so re-deriving HSL from it lands a point or two either
-   * side of what was set - and re-deriving every frame turns that into visible
-   * stutter in the two fields you are *not* dragging. Freezing the write is not
-   * enough on its own; the readout has to hold too, or the number jitters while
-   * the colour underneath it is perfectly steady.
-   *
-   * Only ever set while a gesture is in flight, and only by that gesture, so it
-   * cannot disagree with the colour. Cleared at both ends of a pointer press
-   * alongside the origin it belongs to.
-   */
-  const [hslIntent, setHslIntent] = useState<HSL | null>(null);
-  const derivedHsl = useMemo(() => rgbToHsl(rgb.r, rgb.g, rgb.b), [rgb.r, rgb.g, rgb.b]);
-  /**
-   * Kept for as long as it still describes the colour on screen.
-   *
-   * The check is the whole safety argument: an intent is only shown while
-   * converting it reproduces the current RGB exactly. Anything else that sets a
-   * colour - the hex field, an RGB slider, a swatch, a tween - moves the colour
-   * out from under it and it stops being used, with no invalidation to remember
-   * to write. Nothing can drift apart.
-   *
-   * Holding it past the gesture is what lets a saturation set at L=0 or L=100
-   * come back when lightness leaves the end. CSS Color 4 calls saturation there
-   * *powerless* rather than unavailable - the value still exists, it just stops
-   * affecting the colour - and this is what that looks like in a picker. The
-   * first version of this cleared on release and the field snapped to 0, which
-   * read as a control refusing to move.
-   *
-   * It also removes what looked like a rounding settle on release. Both triples
-   * convert to the same RGB, so neither is more correct than the other, and the
-   * one the user actually set is the better thing to show.
-   */
-  const hsl = useMemo(() => {
-    if (hslIntent) {
-      const c = hslToRgb(hslIntent.h, hslIntent.s, hslIntent.l);
-      if (c.r === rgb.r && c.g === rgb.g && c.b === rgb.b) return hslIntent;
-    }
-    return derivedHsl;
-  }, [hslIntent, derivedHsl, rgb.r, rgb.g, rgb.b]);
-  const hslRef = useRef(hsl);
-  useEffect(() => { hslRef.current = hsl; }, [hsl]);
 
   // Persist HSB to localStorage
   useEffect(() => {
@@ -406,7 +467,7 @@ export default function ColorPicker() {
   }, [hsb]);
 
   /*
-   * "Reset all settings" returns the colour to DEFAULT_HSB.
+   * "Default Settings" returns the colour to DEFAULT_HSB.
    *
    * Same event SettingsPanel dispatches for the swatches and the plugin
    * banner. It tweens rather than snapping, because every other way the colour
@@ -425,66 +486,165 @@ export default function ColorPicker() {
     const onResetAll = () => {
       takeOverFromAnimation();
       animateToHsb(DEFAULT_HSB);
+      setGroups(DEFAULT_GROUPS);
+      setBlend(DEFAULT_BLEND);
+      setHighlights(true);
+      setColorFx(true);
+      /*
+       * Forget that the welcome has been seen, but do not put it back on
+       * screen: a reset is somebody in the settings sheet adjusting the tool,
+       * and answering that with a modal is an interruption they did not ask
+       * for. The next visit is greeted, which is what "as a first visit finds
+       * it" actually means.
+       */
+      try { localStorage.removeItem('color-taylor-about-seen'); } catch { /* localStorage unavailable */ }
     };
     window.addEventListener('color-taylor:reset-all', onResetAll);
     return () => window.removeEventListener('color-taylor:reset-all', onResetAll);
   }, [takeOverFromAnimation, animateToHsb]);
 
+  /*
+   * The self-running demo, behind the ? button.
+   *
+   * It works the real controls with synthetic pointer events, so everything
+   * it shows - the holds, the impact highlights, the channel tooltips, the
+   * tone - is the app's own behaviour rather than a re-staging of it. All
+   * this host owes it is the two settings it wants on stage and the colour it
+   * borrows.
+   *
+   * What it found goes back when it ends or is skipped: the colour through
+   * the same tween an undo uses, the slider groups and blend as they were.
+   * Teaching a setting by silently changing it is a poor trade.
+   */
+  const demoSnapshot = useRef<{
+    hsb: HSB; rgb: RGB; groups: SliderGroup[]; blend: boolean;
+  } | null>(null);
+  const demoExactRgb = useRef<RGB | null>(null);
+  const startDemo = useCallback((from: { x: number; y: number } | null = null) => {
+    setDemoFrom(from);
+    takeOverFromAnimation();
+    demoSnapshot.current = { hsb: { ...hsbRef.current }, rgb: { ...rgb }, groups, blend };
+    // Ask any section the script works in to open, before the overlay mounts,
+    // so the 200ms collapse has run by the time the first beat measures
+    // anything. A section that was already open is not touched.
+    openDemoSections();
+    setDemoOpen(true);
+  }, [takeOverFromAnimation, hsbRef, rgb, groups, blend]);
+  const restoreDemo = useCallback(() => {
+    const snap = demoSnapshot.current;
+    // Null after the first call: the script restores when it reaches the last
+    // caption, and "Start exploring" then asks a second time.
+    if (!snap) return;
+    demoSnapshot.current = null;
+    restoreDemoSections();
+    setGroups(snap.groups);
+    setBlend(snap.blend);
+    /*
+     * The tween restores HSB, and hsbToRgb(rgbToHsb(rgb)) changes 86.4% of
+     * 8-bit colours - so a colour the user typed as R=137 would come back as
+     * something else. Only when the two disagree: a colour that came from the
+     * hexagon has no exact RGB to put back, and forcing one would pin its hue.
+     */
+    const derived = hsbToRgb(snap.hsb.h, snap.hsb.s, snap.hsb.b);
+    const exact = snap.rgb;
+    const drifts = exact.r !== derived.r || exact.g !== derived.g || exact.b !== derived.b;
+    demoExactRgb.current = drifts ? exact : null;
+    animateToHsb(snap.hsb);
+  }, [animateToHsb]);
+  useEffect(() => {
+    onTweenLandedRef.current = () => {
+      const exact = demoExactRgb.current;
+      if (!exact) return;
+      demoExactRgb.current = null;
+      setRgb(exact);
+    };
+  }, [setRgb]);
+  /*
+   * `field` is the one thing the demo reads rather than works. A gesture on
+   * the hexagon or the colour box is a position, not a delta, so a step that
+   * means to land on a chosen colour has to know the one it is starting from.
+   * HSB comes through its ref so it is live to the frame; the B/L mode is a
+   * dependency instead, because a host rebuilt on a mode change is cheap and
+   * the runner reads it through a ref of its own.
+   */
+  const demoHost = useMemo<DemoHost>(() => ({
+    // Only when there is nothing at all to light up; otherwise the user's own
+    // arrangement is what the demo runs against. See DemoHost.
+    ensureSliders: () => setGroups((g) => (g.length ? g : DEFAULT_GROUPS)),
+    field: () => {
+      const { h, s, b } = hsbRef.current;
+      const c = hsbToRgb(h, s, b);
+      return { h, s, b, l: rgbToHsl(c.r, c.g, c.b).l, blMode };
+    },
+    restoreMovesColour: () => {
+      const snap = demoSnapshot.current;
+      if (!snap) return false;
+      // The displayed colour, which is the override where there is one - the
+      // same reading the restore itself puts back.
+      const now = rgbOverride.current ?? hsbToRgb(hsbRef.current.h, hsbRef.current.s, hsbRef.current.b);
+      return now.r !== snap.rgb.r || now.g !== snap.rgb.g || now.b !== snap.rgb.b;
+    },
+  }), [hsbRef, rgbOverride, blMode]);
+
   const handleRgbChange = useCallback((channel: 'r' | 'g' | 'b', value: number) => {
     takeOverFromAnimation();
-    setHsb((prev) => {
-      const currentRgb = rgbOverride.current || hsbToRgb(prev.h, prev.s, prev.b);
-      const newRgb = { ...currentRgb, [channel]: value };
-      rgbOverride.current = newRgb;
-      const next = rgbToHsb(newRgb.r, newRgb.g, newRgb.b);
-      pulseTone(next);
-      return next;
-    });
-  }, [pulseTone, takeOverFromAnimation]);
-
-  /**
-   * The H and S an HSL slider gesture began from - see utils/hslWrite for why a
-   * write needs one. Taken on the first write of a gesture and dropped at both
-   * ends of a pointer press, so a gesture can never inherit a stale one from a
-   * wheel adjust, which has no pointerup of its own.
-   */
-  const hslOrigin = useRef<HslOrigin | null>(null);
-  useEffect(() => {
-    const clear = () => { hslOrigin.current = null; };
-    window.addEventListener('pointerdown', clear);
-    window.addEventListener('pointerup', clear);
-    document.documentElement.addEventListener('pointerleave', clear);
-    return () => {
-      window.removeEventListener('pointerdown', clear);
-      window.removeEventListener('pointerup', clear);
-      document.documentElement.removeEventListener('pointerleave', clear);
-    };
-  }, []);
+    setRgbChannel(channel, value);
+  }, [setRgbChannel, takeOverFromAnimation]);
 
   const handleHslChange = useCallback((channel: 'h' | 's' | 'l', value: number) => {
     takeOverFromAnimation();
-    setHsb((prev) => {
-      if (!hslOrigin.current) {
-        // Straight off what is on screen, so a remembered saturation carries
-        // into the new gesture. Hue falls back to HSB only when the displayed
-        // colour is achromatic and so has none of its own to give.
-        const shown = hslRef.current;
-        hslOrigin.current = {
-          h: shown.s <= 0 ? prev.h : shown.h,
-          s: shown.s,
-          l: shown.l,
-        };
-      }
-      const { rgb, hsb, hsl: intent } = writeHslChannel(channel, value, hslOrigin.current);
-      rgbOverride.current = rgb;
-      setHslIntent(intent);
-      pulseTone(hsb);
-      return hsb;
-    });
-  }, [pulseTone, takeOverFromAnimation]);
+    setHslChannel(channel, value);
+  }, [setHslChannel, takeOverFromAnimation]);
 
-  const showHsb = hslMode === 'hsb' || hslMode === 'both';
-  const showHsl = hslMode === 'hsl' || hslMode === 'both';
+  /*
+   * What each readout shows, as integers, keyed the way the sliders tag
+   * themselves. Rounded because that is the number a slider displays: a hue
+   * that moved by a hundredth of a degree has not moved on any track.
+   */
+  const shown = useMemo(() => ({
+    'rgb-r': rgb.r, 'rgb-g': rgb.g, 'rgb-b': rgb.b,
+    'hsb-h': Math.round(hsb.h), 'hsb-s': Math.round(hsb.s), 'hsb-b': Math.round(hsb.b),
+    'hsl-h': Math.round(hsl.h), 'hsl-s': Math.round(hsl.s), 'hsl-l': Math.round(hsl.l),
+  }), [rgb.r, rgb.g, rgb.b, hsb.h, hsb.s, hsb.b, hsl.h, hsl.s, hsl.l]);
+  useEffect(() => { shownRef.current = shown; }, [shown]);
+  useEffect(() => {
+    if (!colorAnimActive) return;
+    const snap = () => setPlayHold({ key: 'play', base: shownRef.current });
+    const first = setTimeout(snap, 0);
+    const id = setInterval(snap, PLAY_SNAP_MS);
+    return () => { clearTimeout(first); clearInterval(id); };
+  }, [colorAnimActive]);
+  /*
+   * One gate for the whole feature: every highlight in the picker derives from
+   * `lit` and `held`, and both come from here, so a null hold silences the
+   * sliders, the hexagon's halos, the bars, the badge and the hue fill at once
+   * without any of them being told about the setting.
+   */
+  const effectiveHold = highlights ? (hold ?? (colorAnimActive ? playHold : null)) : null;
+  const lit = useImpact(shown, effectiveHold);
+  const held = effectiveHold?.key ?? null;
+  /** A slider lights when its value moved and it is not the one being held. */
+  const sliderLit = (key: string) => lit.has(key) && held !== `sl:${key}`;
+  /*
+   * The hexagon lights by channel, a stem and its joint as one unit, for every
+   * channel that moved - but not while the pointer is on a stem or joint.
+   * The chain moving under the hand is its own feedback there; the halos are
+   * for showing what a slider does to it.
+   */
+  const impactChannels = useMemo(() => {
+    const set = new Set<Channel>();
+    // Nor during the colour cycle: the chain sweeping the field is the show.
+    if (held?.startsWith('hex:') || held === 'play') return set;
+    (['r', 'g', 'b'] as Channel[]).forEach((c) => { if (lit.has(`rgb-${c}`)) set.add(c); });
+    return set;
+  }, [lit, held]);
+  const hueBadgeLit = lit.has('hsb-h') && held !== 'hue';
+  const hueFillLit = held === 'sl:hsb-s' || held === 'sl:hsl-s';
+  // The hexagon's own bars are readouts like the sliders: lit when their value
+  // moved and they are not the thing being held. Which value depends on the
+  // model the bar is showing.
+  const blBarLit = lit.has(blMode === 'lightness' ? 'hsl-l' : 'hsb-b') && held !== 'bl';
+  const satBarLit = lit.has(blMode === 'lightness' ? 'hsl-s' : 'hsb-s') && held !== 'sat';
 
   // Stable per-channel onChange handlers so memoized ColorSlider children
   // can skip re-renders when their channel value hasn't changed.
@@ -492,25 +652,37 @@ export default function ColorPicker() {
   const handleGChange = useCallback((v: number) => handleRgbChange('g', v), [handleRgbChange]);
   const handleBChange = useCallback((v: number) => handleRgbChange('b', v), [handleRgbChange]);
 
-  const handleHsbHChange = useCallback((v: number) => {
-    rgbOverride.current = null;
-    setHsb((prev) => { const next = { ...prev, h: v }; pulseTone(next); return next; });
-  }, [pulseTone]);
-  const handleHsbSChange = useCallback((v: number) => {
-    rgbOverride.current = null;
-    setHsb((prev) => { const next = { ...prev, s: v }; pulseTone(next); return next; });
-  }, [pulseTone]);
-  const handleHsbBChange = useCallback((v: number) => {
-    rgbOverride.current = null;
-    setHsb((prev) => { const next = { ...prev, b: v }; pulseTone(next); return next; });
-  }, [pulseTone]);
+  const handleHsbHChange = useCallback((v: number) => setHsbClear((prev) => ({ ...prev, h: v })), [setHsbClear]);
+  const handleHsbSChange = useCallback((v: number) => setHsbClear((prev) => ({ ...prev, s: v })), [setHsbClear]);
+  const handleHsbBChange = useCallback((v: number) => setHsbClear((prev) => ({ ...prev, b: v })), [setHsbClear]);
+
+  // The hexagon's own writes: no synth pulse, as before - the hexagon's audio is
+  // its own concern and goes through `muted`.
+  const handleHexHueChange = useCallback((h: number) => {
+    takeOverFromAnimation();
+    clearOverride();
+    setHsb((prev) => ({ ...prev, h }));
+  }, [takeOverFromAnimation, clearOverride, setHsb]);
+  const handleHexHsbChange = useCallback((next: Partial<HSB>) => {
+    takeOverFromAnimation();
+    clearOverride();
+    setHsb((prev) => ({ ...prev, ...next }));
+  }, [takeOverFromAnimation, clearOverride, setHsb]);
+  const handleHexInput = useCallback((parsed: RGB) => {
+    takeOverFromAnimation();
+    clearOverride();
+    const next = rgbToHsb(parsed.r, parsed.g, parsed.b);
+    pulseTone(next);
+    setHsb(next);
+  }, [takeOverFromAnimation, clearOverride, setHsb, pulseTone]);
+  const handleSbBoxChange = useCallback((s: number, b: number) => setHsbClear((prev) => ({ ...prev, s, b })), [setHsbClear]);
+  const handleHSliderChange = useCallback((h: number) => setHsbClear((prev) => ({ ...prev, h })), [setHsbClear]);
 
   const handleHslHChange = useCallback((v: number) => handleHslChange('h', v), [handleHslChange]);
   const handleHslSChange = useCallback((v: number) => handleHslChange('s', v), [handleHslChange]);
   const handleHslLChange = useCallback((v: number) => handleHslChange('l', v), [handleHslChange]);
 
   // ── Color cycle animation (same as presentation intro) ────────────
-  const [colorAnimActive, setColorAnimActive] = useState(false);
   const colorAnimActiveStateRef = useRef(colorAnimActive);
   useEffect(() => { colorAnimActiveStateRef.current = colorAnimActive; }, [colorAnimActive]);
   useEffect(() => {
@@ -520,7 +692,8 @@ export default function ColorPicker() {
     if (!wasOn && nowOn && colorAnimActiveStateRef.current && !toneController.isActive()) {
       toneController.start(hsbRef.current);
     }
-  }, [settings.synth.synthEnabled]);
+  }, [settings.synth.synthEnabled, hsbRef]);
+
   const colorAnimRaf = useRef<number | null>(null);
   useEffect(() => { colorAnimActiveRef.current = colorAnimActive; }, [colorAnimActive]);
 
@@ -587,7 +760,8 @@ export default function ColorPicker() {
       if (colorAnimRaf.current) cancelAnimationFrame(colorAnimRaf.current);
       toneController.release();
     };
-  }, [colorAnimActive]);
+  }, [colorAnimActive, hsbRef, rgbOverride, setHsb]);
+
 
   return (
     <div id="color-picker-root" className="mx-auto w-full px-0.5 py-1 sm:p-6" style={{ maxWidth: TOP_ROW_MAX_WIDTH }}>
@@ -603,7 +777,7 @@ export default function ColorPicker() {
         device, or a dev build where VITE_INTRO_ENABLED adds a fourth control,
         simply falls back to two rows on its own.
       */}
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+      <div id="picker-header" className="flex flex-wrap items-center justify-between gap-2 mb-4">
         {/* The emoji sit outside .wordmark on purpose: that class paints the
             glyphs with a background clipped to the text, so anything inside it
             loses its own colour - the palette and thread would come out as
@@ -611,7 +785,10 @@ export default function ColorPicker() {
         <h1 id="color-picker-title" className="text-2xl font-semibold">
           <span className="wordmark">Color Taylor</span> 🎨🧵
         </h1>
-        <div className="flex items-center justify-end gap-2">
+        {/* Tagged because the demo's caption sits in the gap between this and
+            the title when the header has one, and drops below the header when
+            it wraps. src/demo/DemoRunner.tsx. */}
+        <div id="picker-tools" className="flex items-center justify-end gap-2">
           {/* The button only. The route itself is always live - see
               useHashRoute - so /intro can be shared while the deck is still
               too rough to advertise on the picker. */}
@@ -670,6 +847,25 @@ export default function ColorPicker() {
               />
             </>
           )}
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <button
+                  id="demo-button"
+                  className="ctl-quiet-icon"
+                  onClick={() => startDemo()}
+                  aria-label="Show the demo"
+                >
+                  <CircleHelp className="size-4" />
+                </button>
+              }
+            />
+            <TooltipContent>Demo</TooltipContent>
+          </Tooltip>
+          {/* Play, Demo, Theme, Menu. The two that do something to the
+              colour lead, then the two that are about the app itself - and
+              the audio controls stay beside Play, which is what makes them
+              audible. */}
           <ThemeToggle />
           <Tooltip>
             <TooltipTrigger
@@ -677,17 +873,20 @@ export default function ColorPicker() {
                 <button
                   className="ctl-quiet-icon"
                   onClick={() => setSettingsOpen(o => !o)}
-                  aria-label="Open settings"
+                  aria-label="Open menu"
                   // aria-haspopup, not aria-expanded: the panel is a modal
                   // dialog now rather than a disclosure region, and it is
                   // portalled out of this button's subtree.
                   aria-haspopup="dialog"
                 >
-                  <Settings className="size-4" />
+                  {/* A menu, not a gear: the sheet is where everything that
+                      is not the picker lives - About included - and a gear
+                      promises only preferences. */}
+                  <Menu className="size-4" />
                 </button>
               }
             />
-            <TooltipContent>Settings</TooltipContent>
+            <TooltipContent>Menu</TooltipContent>
           </Tooltip>
         </div>
       </div>
@@ -724,9 +923,9 @@ export default function ColorPicker() {
             brightness={hsb.b}
             saturation={hsb.s}
             hsl={hsl}
-            onHueChange={(h) => { takeOverFromAnimation(); rgbOverride.current = null; setHsb((prev) => ({ ...prev, h })); }}
+            onHueChange={handleHexHueChange}
             onRgbChange={handleRgbChange}
-            onHsbChange={(newHsb) => { takeOverFromAnimation(); rgbOverride.current = null; setHsb((prev) => ({ ...prev, ...newHsb })); }}
+            onHsbChange={handleHexHsbChange}
             onHslChange={handleHslChange}
             onAnimateToHsb={(target) => { if (colorAnimActiveRef.current) colorAnimActiveRef.current = 'stop'; animateToHsb(target); }}
             blMode={blMode}
@@ -737,6 +936,13 @@ export default function ColorPicker() {
             showHtmlOnHex={showHtmlOnHex}
             onHoverHtmlColor={setHoveredHtmlColor}
             muted={effectiveMuted}
+            collapsedSections
+            recordRecent={!demoOpen}
+            impactChannels={impactChannels}
+            hueBadgeLit={hueBadgeLit}
+            hueFillLit={hueFillLit}
+            blBarLit={blBarLit}
+            satBarLit={satBarLit}
           />
 
         {/* Right column: Controls. Width comes from the grid track now, so this
@@ -747,7 +953,11 @@ export default function ColorPicker() {
             the hexagon's: it shrinks when this column would be the taller one,
             grows when it would be shorter. The grid gives this element a
             definite height to divide up, which is what makes the chain resolve. */}
-        <div id="picker-layout" className="panel-frame flex flex-col border border-border rounded-lg p-2.5">
+        <div
+          id="picker-layout"
+          data-demo-section=""
+          className="panel-frame flex flex-col border border-border rounded-lg p-2.5"
+        >
         {/* Named for the whole panel rather than for one of its parts. It was
             "Sliders", which undersold it: two of the four things below are
             slider banks, but the SB box, the hex field and the colour-name
@@ -785,7 +995,12 @@ export default function ColorPicker() {
             stays for the case where something above it grows. */}
         <div
           id="sb-wrapper"
-          className="flex flex-1 min-h-24 gap-3 min-w-0 overflow-hidden"
+          // No overflow clip. The SB box's handle is meant to hang over the
+          // top edge when brightness is at 100 - it marks a point, and half a
+          // ring reads as a rendering fault rather than as "as bright as it
+          // goes". Nothing else in here overflows: min-w-0 is what keeps the
+          // flex children honest, and it is still on.
+          className="flex flex-1 min-h-24 gap-3 min-w-0"
           // Overrides flex-1's `flex-basis: 0%`. Inline because the value is a
           // layout constant shared with the note above, not a magic number.
           style={{ flexBasis: SB_BOX_DEFAULT_HEIGHT }}
@@ -795,149 +1010,185 @@ export default function ColorPicker() {
             hue={hsb.h}
             saturation={hsb.s}
             brightness={hsb.b}
-            onChange={(s, b) => { rgbOverride.current = null; setHsb((prev) => { const next = { ...prev, s, b }; pulseTone(next); return next; }); }}
+            onChange={handleSbBoxChange}
           />
           <HSlider
             hue={hsb.h}
-            onChange={(h) => { rgbOverride.current = null; setHsb((prev) => { const next = { ...prev, h }; pulseTone(next); return next; }); }}
+            onChange={handleHSliderChange}
           />
         </div>
 
-        {/* RGB sliders */}
-        <CollapsibleSection
-          id="rgb-group"
-          title="RGB"
-          headerRight={
-            <Tabs value={rgbGradientMode} onValueChange={setRgbGradientMode}>
-              <TabsList>
-                <TabsTrigger value="channel" className="w-16">Channel</TabsTrigger>
-                <TabsTrigger value="mixed" className="w-16">Mixed</TabsTrigger>
-              </TabsList>
-            </Tabs>
-          }
-        >
-          <div className="flex flex-col gap-2">
-            <ColorSlider
-              label="R"
-              group='rgb'
-              value={rgb.r}
-              max={255}
-              gradient={rgbGradientMode === 'mixed' ? redGradient(rgb.g, rgb.b) : redChannelGradient}
-              onChange={handleRChange}
-            />
-            <ColorSlider
-              label="G"
-              group='rgb'
-              value={rgb.g}
-              max={255}
-              gradient={rgbGradientMode === 'mixed' ? greenGradient(rgb.r, rgb.b) : greenChannelGradient}
-              onChange={handleGChange}
-            />
-            <ColorSlider
-              label="B"
-              group='rgb'
-              value={rgb.b}
-              max={255}
-              gradient={rgbGradientMode === 'mixed' ? blueGradient(rgb.r, rgb.g) : blueChannelGradient}
-              onChange={handleBChange}
-            />
+        {/* The slider banks, one flat block of the panel rather than two cards:
+            the models are the same colour read three ways, and a card each made
+            them look like three tools. The toolbar is the plugin's: which
+            blocks show, and whether tracks blend. */}
+        <div className="flex flex-col gap-3" id="slider-banks">
+          <div className="flex items-center justify-between gap-2">
+            <ToggleGroup
+              multiple
+              value={groups}
+              onValueChange={(v) => setGroups(SLIDER_GROUPS.filter((g) => (v as SliderGroup[]).includes(g)))}
+              aria-label="Slider groups"
+            >
+              {SLIDER_GROUPS.map((g) => (
+                <Tooltip key={g}>
+                  <TooltipTrigger render={<ToggleGroupItem value={g} className="w-12">{g}</ToggleGroupItem>} />
+                  <TooltipContent className={TOOLBAR_TIP_CLASS}>{GROUP_TIP[g]}</TooltipContent>
+                </Tooltip>
+              ))}
+            </ToggleGroup>
+            <ToggleGroup
+              multiple
+              value={blend ? ['blend'] : []}
+              onValueChange={(v) => setBlend(v.length > 0)}
+            >
+              {/*
+                Controlled, unlike every other tooltip here, because this one
+                describes a state the trigger changes. base-ui closes a tooltip
+                when its trigger is pressed and will not reopen while the
+                pointer has not left - so clicking swapped the label to one
+                nobody could see without moving away and coming back. Only the
+                pointer leaving or focus going closes it now; the press cannot.
+              */}
+              <Tooltip
+                open={blendTipOpen}
+                onOpenChange={(next) => { if (next) setBlendTipOpen(true); }}
+              >
+                <TooltipTrigger
+                  render={
+                    <ToggleGroupItem
+                      value="blend"
+                      className="px-2"
+                      id="blend-toggle"
+                      onPointerEnter={() => setBlendTipOpen(true)}
+                      onPointerLeave={() => setBlendTipOpen(false)}
+                      onFocus={() => setBlendTipOpen(true)}
+                      onBlur={() => setBlendTipOpen(false)}
+                      // The label is the action, the tooltip below is the
+                      // state: blend off draws each channel's own ramp, which
+                      // is the source colour, and blend on draws the colour a
+                      // drag would land on, which is the mix.
+                      aria-label={blend ? 'Show source colors' : 'Show mixed colors'}
+                    >
+                      <BlendIcon filled={blend} />
+                    </ToggleGroupItem>
+                  }
+                />
+                <TooltipContent className={TOOLBAR_TIP_CLASS}>{blend ? 'Mixed Colors' : 'Source Colors'}</TooltipContent>
+              </Tooltip>
+            </ToggleGroup>
           </div>
-        </CollapsibleSection>
 
-        {/* HSB / HSL section with tabs */}
-        <CollapsibleSection
-          id="hsb-hsl-group"
-          title="HSB / HSL"
-          headerRight={
-            <Tabs value={hslMode} onValueChange={setHslMode}>
-              <TabsList>
-                <TabsTrigger value="hsb" className="w-12">HSB</TabsTrigger>
-                <TabsTrigger value="hsl" className="w-12">HSL</TabsTrigger>
-                <TabsTrigger value="both" className="w-12">Both</TabsTrigger>
-              </TabsList>
-            </Tabs>
-          }
-        >
-          <div className="flex flex-col gap-3">
-            {/* Labelled groups: the section header says "HSB / HSL", so without
-                these a screen reader hits two "Saturation channel" sliders in a
-                row holding different values with nothing to tell them apart. */}
-            {showHsb && (
-              <div className="flex flex-col gap-2" role="group" aria-label="HSB">
-                {hslMode === 'both' && (
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">HSB</span>
-                )}
+          {/* A rule between blocks, drawn by the block below: the blocks are
+              conditional, and :first-child already knows which is on top. */}
+          <div className="flex flex-col">
+            {groups.includes('RGB') && (
+              <div className={BLOCK_CLASS} role="group" aria-label="RGB">
+                <ColorSlider
+                  label="R"
+                  group='rgb'
+                  value={rgb.r}
+                  max={255}
+                  gradient={blend ? redGradient(rgb.g, rgb.b) : redChannelGradient}
+                  onChange={handleRChange}
+                  lit={sliderLit('rgb-r')}
+                />
+                <ColorSlider
+                  label="G"
+                  group='rgb'
+                  value={rgb.g}
+                  max={255}
+                  gradient={blend ? greenGradient(rgb.r, rgb.b) : greenChannelGradient}
+                  onChange={handleGChange}
+                  lit={sliderLit('rgb-g')}
+                />
+                <ColorSlider
+                  label="B"
+                  group='rgb'
+                  value={rgb.b}
+                  max={255}
+                  gradient={blend ? blueGradient(rgb.r, rgb.g) : blueChannelGradient}
+                  onChange={handleBChange}
+                  lit={sliderLit('rgb-b')}
+                />
+              </div>
+            )}
+            {groups.includes('HSB') && (
+              <div className={BLOCK_CLASS} role="group" aria-label="HSB">
                 <ColorSlider
                   label="H"
                   group='hsb'
                   value={hsb.h}
                   max={360}
                   wrap
-                  gradient={hueGradient(hsb.s, hsb.b, colorSpace)}
+                  gradient={hueGradient(blend ? hsb.s : 100, blend ? hsb.b : 100, colorSpace)}
                   onChange={handleHsbHChange}
+                  lit={sliderLit('hsb-h')}
                 />
                 <ColorSlider
                   label="S"
                   group='hsb'
                   value={hsb.s}
                   max={100}
-                  gradient={saturationGradient(hsb.h, hsb.b, colorSpace)}
+                  gradient={saturationGradient(hsb.h, blend ? hsb.b : 100, colorSpace)}
                   onChange={handleHsbSChange}
+                  lit={sliderLit('hsb-s')}
                 />
                 <ColorSlider
                   label="B"
                   group='hsb'
                   value={hsb.b}
                   max={100}
-                  gradient={brightnessGradient(hsb.h, hsb.s, colorSpace)}
+                  gradient={brightnessGradient(hsb.h, blend ? hsb.s : 0, colorSpace)}
                   onChange={handleHsbBChange}
+                  lit={sliderLit('hsb-b')}
                 />
               </div>
             )}
-            {showHsl && (
-              <div className="flex flex-col gap-2" role="group" aria-label="HSL">
-                {hslMode === 'both' && (
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">HSL</span>
-                )}
+            {groups.includes('HSL') && (
+              <div className={BLOCK_CLASS} role="group" aria-label="HSL">
                 <ColorSlider
                   label="H"
                   group='hsl'
                   value={hsl.h}
                   max={360}
                   wrap
-                  gradient={hslHueGradient(hsl.s, hsl.l, colorSpace)}
+                  gradient={hslHueGradient(blend ? hsl.s : 100, blend ? hsl.l : 50, colorSpace)}
                   onChange={handleHslHChange}
+                  lit={sliderLit('hsl-h')}
                 />
                 <ColorSlider
                   label="S"
                   group='hsl'
                   value={hsl.s}
                   max={100}
-                  gradient={hslSaturationGradient(hsl.h, hsl.l, colorSpace)}
+                  gradient={hslSaturationGradient(hsl.h, blend ? hsl.l : 50, colorSpace)}
                   onChange={handleHslSChange}
+                  lit={sliderLit('hsl-s')}
                 />
                 <ColorSlider
                   label="L"
                   group='hsl'
                   value={hsl.l}
                   max={100}
-                  gradient={lightnessGradient(hsl.h, hsl.s, colorSpace)}
+                  gradient={lightnessGradient(hsl.h, blend ? hsl.s : 0, colorSpace)}
                   onChange={handleHslLChange}
+                  lit={sliderLit('hsl-l')}
                 />
               </div>
             )}
           </div>
-        </CollapsibleSection>
+        </div>
 
         {/* Hex & HTML Colors */}
-        <CollapsibleSection id="hex-group" title="Hex and HTML Colors">
+        <CollapsibleSection id="hex-group" title="Hex and HTML Colors" defaultOpen={false}>
           <div className="flex flex-col gap-3">
             <div className="flex gap-3 items-stretch">
               <PreviewSwatch hex={hex} />
               <div className="flex-1 min-w-0">
                 <HexInput
                   hex={hex}
-                  onChange={(parsed) => { takeOverFromAnimation(); rgbOverride.current = null; const next = rgbToHsb(parsed.r, parsed.g, parsed.b); pulseTone(next); setHsb(next); }}
+                  onChange={handleHexInput}
                 />
               </div>
             </div>
@@ -972,13 +1223,37 @@ export default function ColorPicker() {
 
       {/* Learn section — hidden for now */}
       </div>
+      {demoOpen && (
+        <Suspense fallback={null}>
+          <DemoRunner
+            from={demoFrom}
+            host={demoHost}
+            onRestore={restoreDemo}
+            onExit={() => setDemoOpen(false)}
+          />
+        </Suspense>
+      )}
+      <AboutPanel
+        open={aboutOpen}
+        onClose={markAboutSeen}
+        onWatchDemo={() => {
+          // The panel flies out of the card the press was on, so the two read
+          // as one thing rather than as a swap.
+          const card = document.querySelector('[data-testid="about-panel"]')?.getBoundingClientRect();
+          markAboutSeen();
+          startDemo(card ? { x: card.left + card.width / 2, y: card.top + card.height / 2 } : null);
+        }}
+      />
       <SettingsPanel
         open={settingsOpen}
+        onAbout={() => { setSettingsOpen(false); setAboutOpen(true); }}
         onClose={() => setSettingsOpen(false)}
         muted={effectiveMuted}
         onToggleMute={() => setMuted(m => !m)}
         colorFx={colorFx}
         onToggleColorFx={() => setColorFx(v => !v)}
+        highlights={highlights}
+        onToggleHighlights={() => setHighlights(v => !v)}
       />
     </div>
   );

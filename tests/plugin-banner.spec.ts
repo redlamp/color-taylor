@@ -37,13 +37,13 @@ test.describe('Plugin banner', () => {
     await expect(link).toHaveAttribute('rel', /noopener/);
   });
 
-  test('"Reset all settings" brings it back after a dismissal', async ({ page }) => {
+  test('"Default Settings" brings it back after a dismissal', async ({ page }) => {
     await page.goto('/');
     await banner(page).getByRole('button', { name: 'Dismiss' }).click();
     await expect(banner(page)).toBeHidden();
 
-    await page.getByRole('button', { name: 'Open settings' }).click();
-    await page.getByRole('dialog').getByRole('button', { name: /reset all settings/i }).click();
+    await page.getByRole('button', { name: 'Open menu' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: /default settings/i }).click();
 
     // Dismissing is a preference like any other; a reset that restores the
     // theme and swatches but leaves this hidden would be lying about scope.
@@ -51,6 +51,11 @@ test.describe('Plugin banner', () => {
 
     // And the reset has to clear the stored flag too, not just the in-memory
     // state - otherwise it reappears now and vanishes again on reload.
+    // The reset also forgets that the welcome panel has been seen, and while a
+    // modal is open the rest of the page is hidden from the accessibility tree
+    // - which is where `banner` looks. Put that one key back so the reload is
+    // about the banner's own flag, which is what this test is for.
+    await page.evaluate(() => localStorage.setItem('color-taylor-about-seen', '1'));
     await page.reload();
     await expect(banner(page)).toBeVisible();
   });
@@ -64,7 +69,7 @@ test.describe('Plugin banner', () => {
     // was spending a scarce row on something nobody opened the app to read.
     await expect(banner(page)).toBeHidden();
 
-    await page.getByRole('button', { name: 'Open settings' }).click();
+    await page.getByRole('button', { name: 'Open menu' }).click();
     const news = page.getByRole('dialog').getByRole('region', { name: 'Color Taylor plugin' });
     await expect(news).toBeVisible();
 
@@ -87,7 +92,7 @@ test.describe('Plugin banner', () => {
     await page.goto('/');
     await expect(banner(page)).toBeVisible();
 
-    await page.getByRole('button', { name: 'Open settings' }).click();
+    await page.getByRole('button', { name: 'Open menu' }).click();
     // Both surfaces visible at once would be the same news twice on one screen.
     await expect(
       page.getByRole('dialog').getByRole('region', { name: 'Color Taylor plugin' }),

@@ -36,6 +36,10 @@ function readDismissed(): boolean {
 
 export default function PluginBanner() {
   const [dismissed, setDismissed] = useState(readDismissed);
+  /** The arrow moves only while the pointer or focus is on the link. */
+  const [nudging, setNudging] = useState(false);
+  const [reducedMotion] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const item = primaryIntegration();
 
   /*
@@ -94,13 +98,21 @@ export default function PluginBanner() {
    * (settings/IntegrationNews), where it costs the picker no vertical room at
    * all. One shape, one breakpoint, no `sm:contents` trick to maintain.
    */
+  /*
+   * Floating, not in the flow. It used to be a sibling above the centring row
+   * so it displaced the picker rather than covering it - which meant the whole
+   * tool jumped up the moment anyone dismissed it, and jumped again on the
+   * next visit. A notice about something else should not be able to move the
+   * thing you came for. The row keeps its padding so the pill sits clear of
+   * the top edge, and only the pill itself takes a pointer.
+   */
   return (
-    <div className="hidden justify-center p-3 sm:flex">
+    <div className="pointer-events-none fixed inset-x-0 top-0 z-40 hidden justify-center p-3 sm:flex">
       <div
         role="region"
         aria-label="Color Taylor plugin"
         className={
-          'relative flex items-center gap-2 rounded-full border border-border ' +
+          'pointer-events-auto relative flex items-center gap-2 rounded-full border border-border ' +
           'bg-card/95 py-1.5 pr-1.5 pl-3.5 shadow-lg supports-backdrop-filter:backdrop-blur-sm'
         }
       >
@@ -130,9 +142,28 @@ export default function PluginBanner() {
             href={item.href}
             target="_blank"
             rel="noopener noreferrer"
+            onPointerEnter={() => setNudging(true)}
+            onPointerLeave={() => setNudging(false)}
+            onFocus={() => setNudging(true)}
+            onBlur={() => setNudging(false)}
           >
             Get the plugin
-            <ArrowUpRight className="size-3.5" aria-hidden="true" />
+            {/* Nudges along its own diagonal - up and to the right, the way it
+                already points and the way the link goes - while the pointer is
+                on the button, and rests otherwise. Inline rather than a hover
+                rule in the stylesheet: see the keyframes in index.css for why
+                the decision lives here. `none` is explicit, so nothing in a
+                stylesheet can start it. */}
+            <ArrowUpRight
+              className="size-3.5"
+              aria-hidden="true"
+              style={{
+                animation: nudging && !reducedMotion
+                  ? 'plugin-arrow-nudge 1.6s ease-in-out infinite'
+                  : 'none',
+                transition: reducedMotion ? 'none' : 'transform 200ms ease-out',
+              }}
+            />
             <span className="sr-only">
               on the {item.platform} Community (opens in a new tab)
             </span>

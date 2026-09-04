@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { openSections } from './open-sections';
 
 /**
  * Direct input must beat an animation that is already running.
@@ -15,13 +16,16 @@ import { test, expect } from '@playwright/test';
  */
 
 function clearStorage() {
-  try { localStorage.clear(); } catch { /* ignore */ }
+  try { localStorage.clear();
+    // The welcome panel is modal and would eat the first click of a test.
+    localStorage.setItem('color-taylor-about-seen', '1'); } catch { /* ignore */ }
 }
 
 test.describe('Input during a tween', () => {
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(clearStorage);
     await page.goto('/');
+    await openSections(page);
     await page.locator('#saved-colors [data-saved-idx="0"]').waitFor();
   });
 

@@ -100,3 +100,32 @@ workaround should now be unnecessary - the panel is portalled - but removing
 it is a separate change with its own verification, so it stays until then.
 
 Related: [[decision-audio-off-by-default]], [[decision-border-color-effects]]
+
+## Amended 2026-09-04: the rail slides again
+
+The sheet is no longer welded to the edges. Above `sm` it is a detached rail:
+inset from the right, hanging level with the top of the hexagon card, and sized
+to its contents rather than to the window — the contents are about 400px, so a
+full-height sheet in a 1000px window was 600px of nothing with a border down one
+side of it. Below `sm` nothing changed; there is no room to give away on a phone.
+
+With that, the header is a handle again and the rail slides up and down its own
+edge. **Vertical only**, which is the part that matters: the survey above was
+about a panel that could go anywhere, and "not attached to anything" was the
+first thing wrong with it. A rail that stays on its edge keeps the association
+with the button that opened it; what the sliding is for is height, because the
+cap on the rail's height is measured from wherever it hangs, so moving it up is
+how you give the synth controls more room.
+
+Of the seven defects in the table, six were consequences of hand-rolling the
+dialog and remain deleted — the Dialog still supplies portal, backdrop, focus
+trap, focus restore, Escape and click-outside. The seventh was the drag position
+going stale on resize, and that one is addressed rather than avoided: the
+position is state, and every path that sets it, the resize listener included,
+goes through one clamp. Dragged to the foot of a 1000px window the rail is 144px
+tall with its header and reset button both still on screen; shrink the window to
+480px and it moves back up rather than going out of reach.
+
+Audio is collapsed by default as part of the same change. It is the section that
+unfolds into the synth controls, which is most of the rail's height and none of
+what a menu is usually opened for.

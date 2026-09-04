@@ -1,0 +1,8 @@
+{
+  "cookies": [],
+  "origins": [
+    { "origin": "http://localhost:5173", "localStorage": [{ "name": "color-taylor-about-seen", "value": "1" }] },
+    { "origin": "http://localhost:4173", "localStorage": [{ "name": "color-taylor-about-seen", "value": "1" }] },
+    { "origin": "http://localhost:4174", "localStorage": [{ "name": "color-taylor-about-seen", "value": "1" }] }
+  ]
+}

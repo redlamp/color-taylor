@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Minus, Plus } from 'lucide-react';
 import useDrag from '../hooks/useDrag';
 import { HANDLE_SIZE, HANDLE_SHADOW } from '../utils/handleStyle';
+import { HIGHLIGHT_IN, HIGHLIGHT_OUT, CALLOUT_BOX_SHADOW } from '../utils/highlight';
 
 /**
  * Spoken names, keyed `${group}-${label}`.
@@ -64,9 +65,15 @@ interface ColorSliderProps {
    * the readout entirely. Defaults to hideStepper's meaning.
    */
   stepper?: 'full' | 'value' | 'none';
+  /**
+   * Another control is moving this value. Draws the shared keyline on the
+   * track edge; the host decides when from useImpact. The slider never lights
+   * for its own drag - that is the pointer's job.
+   */
+  lit?: boolean;
 }
 
-function ColorSlider({ label, group, value, max, gradient, suffix, wrap, onChange, hideStepper, handle = 'triangle', handleFill, round, stepper }: ColorSliderProps) {
+function ColorSlider({ label, group, value, max, gradient, suffix, wrap, onChange, hideStepper, handle = 'triangle', handleFill, round, stepper, lit = false }: ColorSliderProps) {
   const stepperMode = stepper ?? (hideStepper ? 'none' : 'full');
   const trackRef = useRef<HTMLDivElement | null>(null);
 
@@ -137,11 +144,16 @@ function ColorSlider({ label, group, value, max, gradient, suffix, wrap, onChang
    * not capped by the edge of the screen - Figma's plugin iframe may not carry
    * `allow="pointer-lock"`, so treat it as a bonus and carry on without it.
    */
-  const beginRelative = useCallback((clientX: number) => {
+  const beginRelative = useCallback((clientX: number, trusted = true) => {
     accum.current = value;
     lastX.current = clientX;
     locked.current = false;
-    if (wrap) {
+    // Not for a synthetic press. A dispatched pointerdown arrives on a page
+    // that already has the sticky activation pointer lock asks for, so the
+    // lock would be granted: the real cursor would vanish, and `advance`
+    // would then read a movementX that a synthetic event does not carry.
+    // An untrusted press keeps the clientX path.
+    if (wrap && trusted) {
       const el = trackRef.current;
       try {
         const req = el?.requestPointerLock?.({ unadjustedMovement: true } as PointerLockOptions);
@@ -213,6 +225,7 @@ function ColorSlider({ label, group, value, max, gradient, suffix, wrap, onChang
           aria-valuemin={0}
           aria-valuemax={max}
           aria-valuenow={value}
+          data-hold={`sl:${channel}`}
           className={`h-4 w-full cursor-pointer select-none touch-none ${round ? 'rounded-full' : 'rounded'}`}
           style={{ background: gradient, boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.1)' }}
           onPointerDown={(e) => {
@@ -222,9 +235,19 @@ function ColorSlider({ label, group, value, max, gradient, suffix, wrap, onChang
             startDrag();
           }}
         />
+        {/* The impact keyline, on the track's own edge with no gap - a gap
+            read as a dark ring between track and line. Always mounted so the
+            fade out has something to fade. */}
+        <div
+          id={`${sliderId}-keyline`}
+          aria-hidden="true"
+          className={`pointer-events-none absolute inset-0 h-4 ${round ? 'rounded-full' : 'rounded'} ${lit ? HIGHLIGHT_IN : HIGHLIGHT_OUT}`}
+          style={{ boxShadow: CALLOUT_BOX_SHADOW, opacity: lit ? 1 : 0 }}
+        />
         {handle === 'ring' ? (
           <div
             id={`${sliderId}-handle`}
+            data-hold={`sl:${channel}`}
             className="absolute top-2 -translate-x-1/2 -translate-y-1/2 cursor-pointer touch-none rounded-full"
             style={{
               left: `calc(${inset}px + ${value / max} * (100% - ${inset * 2}px))`,
@@ -237,17 +260,18 @@ function ColorSlider({ label, group, value, max, gradient, suffix, wrap, onChang
             }}
             onPointerDown={(e) => {
               e.preventDefault();
-              beginRelative(e.clientX);
+              beginRelative(e.clientX, e.isTrusted);
             }}
           />
         ) : (
           <div
             id={`${sliderId}-arrow`}
+            data-hold={`sl:${channel}`}
             className="absolute top-4 -translate-x-1/2 cursor-pointer px-1 py-0.5 touch-none"
             style={{ left: `${pct}%` }}
             onPointerDown={(e) => {
               e.preventDefault();
-              beginRelative(e.clientX);
+              beginRelative(e.clientX, e.isTrusted);
             }}
           >
             <div
@@ -267,7 +291,9 @@ function ColorSlider({ label, group, value, max, gradient, suffix, wrap, onChang
       {/* h-8, the app's one control height. This was h-6 while the segmented
           controls beside it were h-8, so a row mixed two sizes. Widths grow with
           it to keep the plus/minus targets from going narrow and tall. */}
-      {stepperMode !== 'none' && <div id={`${sliderId}-stepper`} className="flex items-center h-8 shrink-0">
+      {/* Tagged like the track: a drag on the number field is still this
+          slider being held, and a control never lights itself. */}
+      {stepperMode !== 'none' && <div id={`${sliderId}-stepper`} data-hold={`sl:${channel}`} className="flex items-center h-8 shrink-0">
         <div className={`flex items-center border border-input rounded-md overflow-hidden h-8 ${stepperMode === 'value' ? 'w-[52px]' : 'w-[92px]'}`}>
           {stepperMode === 'full' && (
             <Button

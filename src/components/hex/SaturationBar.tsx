@@ -1,3 +1,4 @@
+import { CALLOUT_LINE, HIGHLIGHT_IN, HIGHLIGHT_OUT } from '../../utils/highlight';
 import { hsbToDisplay, type ColorSpace } from '../../utils/sliderGradients';
 import { hslToRgb, linearToSrgb } from '../../utils/colorConversions';
 import { rgbToHex } from '../../utils/colorConversions';
@@ -33,6 +34,11 @@ interface SaturationBarProps {
   onArrowDragStart: () => void;
   animateSatToValue: (v: number) => void;
   colorSpace: ColorSpace;
+  /**
+   * Another control is moving this bar's value. Draws the hexagon's keyline
+   * round the track; the host decides when from useImpact.
+   */
+  lit?: boolean;
 }
 
 /**
@@ -43,7 +49,7 @@ interface SaturationBarProps {
  * runs between - grey at the current brightness, and full chroma at the current
  * hue - so the two controls agree by construction rather than by eye.
  */
-export default function SaturationBar({ hue, saturation, brightness, blMode, lightness, satPointerDownRef, onArrowDragStart, animateSatToValue, colorSpace }: SaturationBarProps) {
+export default function SaturationBar({ hue, saturation, brightness, blMode, lightness, satPointerDownRef, onArrowDragStart, animateSatToValue, colorSpace, lit = false }: SaturationBarProps) {
   const arrowX = SAT_BAR_LEFT + (saturation / 100) * SAT_BAR_WIDTH;
 
   return (
@@ -68,6 +74,7 @@ export default function SaturationBar({ hue, saturation, brightness, blMode, lig
         stroke="rgba(255,255,255,0.1)"
         strokeWidth={1}
         className="cursor-pointer touch-none"
+        data-hold="sat"
         onPointerDown={(e) => {
           e.stopPropagation();
           satPointerDownRef.current = {
@@ -81,8 +88,16 @@ export default function SaturationBar({ hue, saturation, brightness, blMode, lig
       {/* Points down at the bar from the gap above it, where the connector to
           the vector chain's tip starts. BrightnessBar's arrow points inboard at
           its own bar for the same reason. */}
+      {/* The impact keyline, on the track's edge, always mounted for the fade. */}
+      <rect
+        x={SAT_BAR_LEFT} y={SAT_BAR_TOP} width={SAT_BAR_WIDTH} height={SAT_BAR_HEIGHT}
+        fill="none" {...CALLOUT_LINE} strokeWidth={2.5}
+        opacity={lit ? 1 : 0}
+        className={`pointer-events-none ${lit ? HIGHLIGHT_IN : HIGHLIGHT_OUT}`}
+      />
       <polygon
         id="sat-bar-arrow"
+        data-hold="sat"
         points={`${arrowX},${SAT_BAR_TOP - 2} ${arrowX - 5},${SAT_BAR_TOP - SAT_ARROW_SIZE - 2} ${arrowX + 5},${SAT_BAR_TOP - SAT_ARROW_SIZE - 2}`}
         fill="var(--foreground)"
         className="cursor-pointer"
