@@ -38,6 +38,8 @@ Every `notes/decision-*.md`, newest first. Each note records what was decided, w
 - [[decision-intro-renders-the-real-picker]] — the deck shows the app's components, not a lookalike; the same rule as the plugin, third surface
 - [[decision-keyboard-scheme]] — letters turn the wheel, arrows move the bars, Tab moves between cards; why the letters live on the hexagon's own listener. #84
 
+- [[decision-demo-lands-on-one-colour]] — every gesture ends on one chosen colour, and the colour editor opens because the hexagon's mapping degenerates at b=0 and the box's cannot
+
 ## Build and CI
 
 - [[decision-pin-bun-version-in-ci]] — an exact `bun-version` in both jobs, not `latest`; what bun 1.4 did and did not change, including the lockfile that stayed at v1

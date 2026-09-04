@@ -23,7 +23,7 @@ HSL is derived and written back within its own model — HSL's saturation is not
 - The hexagon's interior field is a fragment shader (`src/components/hex/hexShader.ts`), moved there for performance on 2026-08-02.
 - Handles are a single styled source, `src/utils/handleStyle.ts` — core, ring, hover growth and drop shadow all come from one place so the hexagon and the sliders can't diverge.
 - Constant-width strokes scale with `pxUnits(n) = n * uiScale` so a 2px line stays 2px at any panel size, rather than thinning to sub-pixel.
-- **Impact highlights.** While the pointer holds a control, everything else that moved lights until release. `useImpact` diffs the readouts against a snapshot taken at the press, keyed by `data-hold` tags; the keyline tokens are in `src/utils/highlight.ts` and its two colours in `index.css`. The ground for the self-running demo — [[plan-picker-demo]], built and behind the `?` button; its caption panel is [[decision-demo-caption-in-the-header]].
+- **Impact highlights.** While the pointer holds a control, everything else that moved lights until release. `useImpact` diffs the readouts against a snapshot taken at the press, keyed by `data-hold` tags; the keyline tokens are in `src/utils/highlight.ts` and its two colours in `index.css`. The ground for the self-running demo — [[plan-picker-demo]], built and behind the `?` button; its caption panel is [[decision-demo-caption-in-the-header]] and where its gestures end is [[decision-demo-lands-on-one-colour]].
 
 ## Shared modules worth knowing
 
