@@ -396,11 +396,18 @@ export const STEPS: DemoStep[] = [
     async run({ d }) {
       const toggle = el('#blend-toggle');
       if (!toggle) return;
-      // Framed rather than merely visible: what this step is about is the
-      // slider tracks changing under the button, so the card has to be the
-      // shot. On a phone the button alone is often already on screen after the
-      // previous step, and without this the view stays wherever that left it.
-      await d.bring(toggle, true);
+      /*
+       * The same shot as the step before it, deliberately.
+       *
+       * What this step is about is the slider tracks changing under the
+       * button, which is what step 2 is about too - so it frames the bank
+       * block rather than the card, and the two steps then agree. Framing the
+       * card from its top instead moved the page 112px between two steps that
+       * are looking at the same thing, which on a phone is a hiccup right as
+       * the first press lands. The toggle sits at the top of the block, so
+       * centring the block keeps it comfortably in view.
+       */
+      await d.bring(el('#slider-banks') ?? toggle, true);
       await d.moveTo(() => centerOf(toggle), DWELL.moveFar);
       await d.wait(DWELL.beforeAction);
 

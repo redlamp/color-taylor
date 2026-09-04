@@ -94,6 +94,7 @@ borrows as little as it can.
 | **Collapsed sections** | Opened, if closed, and closed again afterwards. It has to ask rather than notice: a collapsed section keeps its children mounted so its height can animate, so it looks exactly like an open one to a `querySelector`. Left alone, the script drove controls inside a clipped zero-height row — the colour landed correctly and the ghost traced a careful pattern over a closed panel. `utils/demoSections.ts`, two window events, the same shape as `color-taylor:reset-all`. |
 | **Slider banks** | Left alone. It used to force RGB + HSB and hand the arrangement back, which flickered HSL off and on again for anyone showing all three. Nothing in the script targets a particular bank any more. The one exception is a user with every bank closed, where the step about what lights up would have nothing to light. |
 | **Blend** | Left alone. Step 4 presses the toggle an even number of times, so it demonstrates the same thing from either state and gives it back either way. Still restored, because a skip part way through would leave it flipped. |
+| **The wheel** | Off. Nothing in any host lets the wheel over the field change brightness any more: it is a scroll gesture on a trackpad and in device emulation, so the one place on the page you most want to look at while scrolling past was the one place that ate the scroll. Turning it off also gives the browser its scrolling fast path back over the hexagon. |
 | **Scroll position** | Not restored, but the last beat returns to the top of the page rather than leaving you wherever the script finished. On a desktop window that fits the tool it is a no-op; on a phone it is the difference between ending on the app and ending on six sliders. |
 
 "Default Settings" goes further than the demo does: it also returns every
@@ -323,13 +324,20 @@ the length. A recording shorter than the step changes nothing.
   never happens; on a phone it happens most steps, and adds roughly half a
   second each.
 
-  Steps 2 and 3 ask for it whether or not they need it — `bring(el, true)`.
-  Their subject is the slider tracks, so the tracks have to be the shot and not
-  just the control being worked, and left to itself `bring` returns the moment
-  its target is on screen. That makes how a step looks a consequence of wherever
-  the previous one happened to stop, which is not a thing to leave to chance.
-  Step 2 centres the bank block rather than framing the card, because framing
-  from the card's top pushes the last slider under the panel on a phone.
+  Steps 2 and 3 ask for it whether or not they need it — `bring(el, true)` —
+  and they ask for the *same* shot. Both are about the slider tracks, so both
+  centre the bank block rather than framing the card: framing from the card's
+  top pushes the last slider under the panel on a phone, and having the two
+  steps disagree moved the page 112px between them, right as the first press
+  landed.
+
+  `scrollReaches` also settles when the page stops moving, not only when it
+  arrives. A destination can become unreachable mid-flight — the page clamps at
+  its own end, or the document grows or shrinks under a smooth scroll already in
+  progress — and waiting out the full deadline for that costs the step two
+  seconds and then starts it against a page that stopped moving long ago. The
+  guard against the old bug is a "has it moved yet" flag: the frames before the
+  animation begins look exactly like the frames after it ends.
 - **Back and Next.** A step interrupted part way is abandoned at its next
   pause, so its remaining beats are simply not spent.
 - **Reduced motion.** `prefers-reduced-motion` removes the arcs and the cursor's

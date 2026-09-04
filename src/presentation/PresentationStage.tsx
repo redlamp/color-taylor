@@ -748,7 +748,7 @@ export default function PresentationStage({ slide, slideIndex, animPaused = fals
 
           Mounted the way the Figma plugin mounts it: bare, with its own bars
           off, so what shows is the field, the stems and the handles and nothing
-          else. wheelAdjusts is off because the deck scrolls.
+          else. The wheel does not adjust the field in any host now.
         */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
         <div style={{
@@ -775,7 +775,6 @@ export default function PresentationStage({ slide, slideIndex, animPaused = fals
             sectionVariant="flush"
             blBar={false}
             satBar={false}
-            wheelAdjusts={false}
             stemRange={[2, 4]}
             swatchSections={false}
             blModeTabs={false}

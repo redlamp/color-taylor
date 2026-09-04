@@ -413,9 +413,11 @@ test.describe('Picker demo', () => {
    * Two things a phone needs that a desktop window does not.
    *
    * The blend step's subject is the slider tracks changing under the button, so
-   * the card has to be the shot and not just the button - and `bring` returns
-   * early the moment its target is already on screen, which leaves how the step
-   * looks to wherever the previous one happened to stop.
+   * the tracks have to be the shot and not just the button - and `bring`
+   * returns early the moment its target is already on screen, which leaves how
+   * the step looks to wherever the previous one happened to stop. It frames the
+   * bank block, the same way step 2 does, so the two agree and the page does
+   * not move between them.
    *
    * And the script ends deep in the page, on whatever it last worked. The demo
    * is over by then, so what should be on screen is the tool.
@@ -429,18 +431,21 @@ test.describe('Picker demo', () => {
     // Ticks light up to and including the step being played; blend is third.
     await expect(litTicks(page)).toHaveCount(3, { timeout: 20000 });
     await expect.poll(() => page.evaluate(() => {
-      const card = document.querySelector('#color-editor-group-content');
-      const toggle = document.querySelector('#blend-toggle');
       const chrome = document.querySelector('[data-demo-chrome]');
-      if (!card || !toggle || !chrome) return null;
-      const c = card.getBoundingClientRect();
-      const t = toggle.getBoundingClientRect();
+      const toggle = document.querySelector('#blend-toggle');
+      if (!chrome || !toggle) return null;
       const p = chrome.getBoundingClientRect();
-      return {
-        cardHeaderInShot: c.top >= 0 && c.top < p.top,
-        toggleClearOfPanel: t.top >= 0 && t.bottom <= p.top,
+      const clear = (el: Element | null) => {
+        if (!el) return false;
+        const r = el.getBoundingClientRect();
+        return r.top >= 0 && r.bottom <= p.top;
       };
-    }), { timeout: 8000 }).toEqual({ cardHeaderInShot: true, toggleClearOfPanel: true });
+      const tracks = [...document.querySelectorAll('[id^="slider-"][id$="-track"]')];
+      return {
+        toggleClearOfPanel: clear(toggle),
+        everySliderInShot: tracks.length > 0 && tracks.every(clear),
+      };
+    }), { timeout: 8000 }).toEqual({ toggleClearOfPanel: true, everySliderInShot: true });
 
     // Well down the page by then, which is what makes the ending worth fixing.
     expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(100);

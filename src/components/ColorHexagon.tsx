@@ -434,6 +434,20 @@ interface ColorHexagonProps {
    * is the natural gesture; in a panel that scrolls, it steals the wheel from
    * the panel, so a host with its own scroll turns it off.
    */
+  /**
+   * Let the wheel over the field change brightness (or lightness).
+   *
+   * Off everywhere. The deck and the plugin turned it off because they own
+   * their own scrolling, and the picker followed once it turned out to be a
+   * liability rather than a shortcut: a wheel over the field is a scroll
+   * gesture on a trackpad and in device emulation, so the one place on the
+   * page you most want to look at while scrolling past is the one place that
+   * eats the scroll and changes your colour instead.
+   *
+   * Turning it off also gives the browser its scrolling fast path back over
+   * the hexagon - the listener has to be non-passive to preventDefault, and a
+   * non-passive wheel listener costs that whether or not it fires.
+   */
   wheelAdjusts?: boolean;
   /**
    * Draw the vertical brightness bar beside the hexagon. Off lets a host put
@@ -520,7 +534,7 @@ interface HoveredMarker {
   name: string;
 }
 
-export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, onHoverHtmlColor, muted, bare, headerLeft, belowStage, collapsedSections, recordRecent = true, impactChannels, hueBadgeLit = false, hueFillLit = false, blBarLit = false, satBarLit = false, sectionVariant = 'card', alpha = 100, onAlphaRestore, wheelAdjusts = true, blBar = true, stemRange = null, satBar = true, swatchSections = true, blModeTabs = true, vertexLabels = true, blMarkers = true, hueIndicator = true, shapeMix = 1, chainReveal = 1 }: ColorHexagonProps) {
+export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, onHoverHtmlColor, muted, bare, headerLeft, belowStage, collapsedSections, recordRecent = true, impactChannels, hueBadgeLit = false, hueFillLit = false, blBarLit = false, satBarLit = false, sectionVariant = 'card', alpha = 100, onAlphaRestore, wheelAdjusts = false, blBar = true, stemRange = null, satBar = true, swatchSections = true, blModeTabs = true, vertexLabels = true, blMarkers = true, hueIndicator = true, shapeMix = 1, chainReveal = 1 }: ColorHexagonProps) {
   const flushSections = sectionVariant === 'flush';
   // Horizontal extent of the SVG coordinate space. Without the bar the hexagon
   // is the whole picture, so the 50px reserved to its right goes away - and the

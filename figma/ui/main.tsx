@@ -514,7 +514,6 @@ function PluginApp() {
         sectionVariant="flush"
         alpha={alpha}
         onAlphaRestore={onAlphaRestore}
-        wheelAdjusts={false}
         blBar={false}
         satBar={false}
         stemRange={[2, 4]}

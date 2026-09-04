@@ -441,10 +441,30 @@ export class Driver {
     this.guard();
     return new Promise<void>((resolve, reject) => {
       this.pending.add(reject);
-      const deadline = performance.now() + 1500;
+      const deadline = performance.now() + 2000;
+      let last = window.scrollY;
+      let stillFor = 0;
+      /*
+       * Whether the page has moved at all yet, which is the guard that makes
+       * "it has stopped" mean anything. Without it, the frames before the
+       * animation begins look exactly like the frames after it ends - which is
+       * what made an earlier version of this resolve instantly.
+       */
+      let moved = Math.abs(last - destination) <= 1;
       const tick = () => {
         if (this.stopped) return;
-        if (Math.abs(window.scrollY - destination) <= 1 || performance.now() > deadline) {
+        const y = window.scrollY;
+        if (Math.abs(y - last) > 0.5) { moved = true; stillFor = 0; } else { stillFor += 1; }
+        last = y;
+        /*
+         * Arrived, or settled somewhere short of it. The second case is real:
+         * the page can clamp at its own end, and the document can grow or
+         * shrink under a smooth scroll that is already in flight. Waiting out
+         * the full deadline for those costs the step two seconds and then
+         * starts it against a page that stopped moving long ago.
+         */
+        const done = Math.abs(y - destination) <= 1 || (moved && stillFor >= 8);
+        if (done || performance.now() > deadline) {
           this.pending.delete(reject);
           resolve();
           return;
