@@ -1803,7 +1803,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           which is a claim that cannot be wrong the way the old one was.
         */}
         {hexOpen && blModeTabs && (
-          <div className="flex flex-col items-end gap-0.5" onClick={(e) => e.stopPropagation()}>
+          <div className="flex flex-col items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
             <Tabs value={blMode} onValueChange={onBlModeChange}>
               <TabsList>
                 <Tooltip>
@@ -1825,8 +1825,12 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
                 claim about the axis and a false one; this is a claim about the
                 control, which is the thing that needed saying - in a `bare`
                 host most of all, where there is no "Hexagon" heading beside it
-                and the tabs otherwise float unexplained. */}
-            <span className="select-none pr-0.5 text-[11px] leading-none text-muted-foreground">
+                and the tabs otherwise float unexplained.
+
+                Centred under the tabs and at the same size as the plugin's own
+                "Selected: n", which is the same shape - a caption naming the
+                control above it. */}
+            <span className="select-none text-[10px] text-muted-foreground">
               Hex Mode
             </span>
           </div>
