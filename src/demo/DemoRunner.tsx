@@ -69,9 +69,30 @@ const RIPPLE_MS = 480;
 const RIPPLE_FROM = 12;   // px across, at the moment of the press
 const RIPPLE_TO = 58;
 
+/** The handover from the welcome card: how long the panel takes to fly home. */
+const MORPH_MS = 480;
+
+/*
+ * The panel's own scrim, as a shadow rather than a layer.
+ *
+ * A drop shadow alone does nothing here - the app is dark by default, and a
+ * dark shadow on a dark ground is invisible. What works is the second of these
+ * two: a wide, low-alpha shadow with a large *spread*, which paints a soft
+ * dark halo well outside the panel and lifts it off whatever it is over
+ * without dimming the app the way a full-screen scrim would. The first is the
+ * ordinary contact shadow that gives the edge somewhere to sit.
+ */
+const PANEL_SHADOW = '0 10px 28px rgba(0,0,0,0.45), 0 0 90px 44px rgba(0,0,0,0.34)';
+
 const clamp = (v: number, lo: number, hi: number) => (v < lo ? lo : v > hi ? hi : v);
 
 export interface DemoRunnerProps {
+  /**
+   * Where the panel comes in from, if something handed over to the demo. The
+   * welcome card passes its own centre, so the panel travels out of it rather
+   * than appearing somewhere else entirely while the card fades.
+   */
+  from?: Point | null;
   /** Put the colour, the slider groups and blend back the way the demo found them. */
   onRestore: () => void;
   /** Take the overlay down. */
@@ -83,7 +104,7 @@ export interface DemoRunnerProps {
 const CAPTION_MIN_WIDTH = 420;
 const CAPTION_MAX_WIDTH = 720;
 
-export default function DemoRunner({ onRestore, onExit, host }: DemoRunnerProps) {
+export default function DemoRunner({ from = null, onRestore, onExit, host }: DemoRunnerProps) {
   const cursorRef = useRef<HTMLDivElement | null>(null);
   const captionRef = useRef<HTMLDivElement | null>(null);
   const rippleRef = useRef<HTMLDivElement | null>(null);
@@ -150,6 +171,7 @@ export default function DemoRunner({ onRestore, onExit, host }: DemoRunnerProps)
     let raf = 0;
 
     let ring: { x: number; y: number; start: number } | null = null;
+    let entered = false;
 
     const stage: Stage = {
       setCursor(p) { target = p; },
@@ -266,6 +288,27 @@ export default function DemoRunner({ onRestore, onExit, host }: DemoRunnerProps)
         fill.style.transform = `scaleX(${p.toFixed(4)})`;
       }
       placeCaption();
+      /*
+       * The handover, once, on the first frame that has a real position to fly
+       * to. Translate only - the welcome card is 560x318 and this is 670x90,
+       * and scaling between those two would stretch the type for half a second
+       * on the way. The shared card surface and the travel do the work.
+       */
+      if (!entered) {
+        entered = true;
+        const box = captionRef.current;
+        if (box && from && !reduced) {
+          const r = box.getBoundingClientRect();
+          const dx = from.x - (r.left + r.width / 2);
+          const dy = from.y - (r.top + r.height / 2);
+          box.style.transition = 'none';
+          box.style.transform = `translate(${dx}px, ${dy}px)`;
+          requestAnimationFrame(() => {
+            box.style.transition = `transform ${MORPH_MS}ms cubic-bezier(0.2, 0.8, 0.2, 1)`;
+            box.style.transform = 'translate(0px, 0px)';
+          });
+        }
+      }
       raf = requestAnimationFrame(frame);
     };
     raf = requestAnimationFrame(frame);
@@ -277,8 +320,8 @@ export default function DemoRunner({ onRestore, onExit, host }: DemoRunnerProps)
       setTail('');
       driverRef.current?.stop();
     };
-    // Both deps are state read once at mount and never written.
-  }, [kind, reduced]);
+    // All three are read once at mount and never written after it.
+  }, [kind, reduced, from]);
 
   /*
    * The player. Each index runs one step and, if it gets to the end without
@@ -375,8 +418,13 @@ export default function DemoRunner({ onRestore, onExit, host }: DemoRunnerProps)
         ref={captionRef}
         data-demo-chrome=""
         data-testid="demo-bar"
-        className={`speaks pointer-events-auto fixed rounded-xl bg-card/95 shadow-xl backdrop-blur-sm transition-opacity ${leaving ? 'opacity-0' : 'opacity-100'}`}
-        style={{ left: 0, top: -400, transitionDuration: `${SIGN_OFF_FADE_MS}ms` }}
+        className={`speaks pointer-events-auto fixed rounded-xl bg-card/95 backdrop-blur-sm transition-opacity ${leaving ? 'opacity-0' : 'opacity-100'}`}
+        style={{
+          left: 0,
+          top: -400,
+          boxShadow: PANEL_SHADOW,
+          transitionDuration: `${SIGN_OFF_FADE_MS}ms`,
+        }}
       >
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
           <div role="status" aria-live="polite" className="grid min-w-[15rem] flex-1">

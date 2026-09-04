@@ -284,6 +284,11 @@ export default function ColorPicker() {
    * edits and must not enter the stack.
    */
   const [demoOpen, setDemoOpen] = useState(false);
+  /**
+   * Where the demo panel flies in from, when something handed over to it. Null
+   * for the ? button, which has no card to come out of.
+   */
+  const [demoFrom, setDemoFrom] = useState<{ x: number; y: number } | null>(null);
   /*
    * The about panel, shown once on a first visit and from Settings after that.
    * Eleventh localStorage key, and it holds "seen" rather than "show me",
@@ -502,7 +507,8 @@ export default function ColorPicker() {
     hsb: HSB; rgb: RGB; groups: SliderGroup[]; blend: boolean;
   } | null>(null);
   const demoExactRgb = useRef<RGB | null>(null);
-  const startDemo = useCallback(() => {
+  const startDemo = useCallback((from: { x: number; y: number } | null = null) => {
+    setDemoFrom(from);
     takeOverFromAnimation();
     demoSnapshot.current = { hsb: { ...hsbRef.current }, rgb: { ...rgb }, groups, blend };
     setDemoOpen(true);
@@ -808,7 +814,7 @@ export default function ColorPicker() {
                 <button
                   id="demo-button"
                   className="ctl-quiet-icon"
-                  onClick={startDemo}
+                  onClick={() => startDemo()}
                   aria-label="Show the demo"
                 >
                   <CircleHelp className="size-4" />
@@ -1172,6 +1178,7 @@ export default function ColorPicker() {
       {demoOpen && (
         <Suspense fallback={null}>
           <DemoRunner
+            from={demoFrom}
             host={demoHost}
             onRestore={restoreDemo}
             onExit={() => setDemoOpen(false)}
@@ -1181,7 +1188,13 @@ export default function ColorPicker() {
       <AboutPanel
         open={aboutOpen}
         onClose={markAboutSeen}
-        onWatchDemo={() => { markAboutSeen(); startDemo(); }}
+        onWatchDemo={() => {
+          // The panel flies out of the card the press was on, so the two read
+          // as one thing rather than as a swap.
+          const card = document.querySelector('[data-testid="about-panel"]')?.getBoundingClientRect();
+          markAboutSeen();
+          startDemo(card ? { x: card.left + card.width / 2, y: card.top + card.height / 2 } : null);
+        }}
       />
       <SettingsPanel
         open={settingsOpen}

@@ -65,7 +65,7 @@ export function AboutPanel({ open, onClose, onWatchDemo }: AboutPanelProps) {
           <DialogPrimitive.Description className="mx-auto mt-6 text-2xl leading-snug text-muted-foreground">
             {/* Non-breaking, so "modes," never lands alone on its own line
                 when the card narrows. */}
-            Have fun with different color{' '}modes,
+            Play with different color{' '}modes,
             <br />
             {/* The whole clause leans; only the verb is lit. */}
             <em>
