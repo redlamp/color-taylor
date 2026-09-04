@@ -74,9 +74,26 @@ export function SettingsPanel({
         */}
         <DialogPrimitive.Backdrop className="fixed inset-0 isolate z-50 bg-black/20 duration-200 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0" />
         <DialogPrimitive.Popup
+          /*
+           * A full-height rail on a phone, a panel in the corner on a desktop.
+           *
+           * The contents are about 400px tall including the header and the
+           * reset, so a rail spanning a 1000px window is 600px of nothing with
+           * a border down one side of it. On a phone that is the right shape -
+           * there is no corner to sit in and the contents nearly fill the
+           * screen anyway - so the rail stays below `sm` and only the wider
+           * case changes.
+           *
+           * `bottom-auto` is what actually lets it size to its contents; the
+           * cap keeps it on screen when the audio settings are switched on and
+           * the list grows, and the body below scrolls at that point rather
+           * than the panel running off the bottom.
+           */
           className={
             'fixed top-0 right-0 bottom-0 z-50 flex w-[min(88vw,380px)] flex-col ' +
             'border-l border-border bg-background shadow-xl outline-none duration-200 ' +
+            'sm:top-3 sm:right-3 sm:bottom-auto sm:max-h-[calc(100dvh-1.5rem)] ' +
+            'sm:rounded-xl sm:border ' +
             'data-open:animate-in data-open:slide-in-from-right ' +
             'data-closed:animate-out data-closed:slide-out-to-right'
           }
@@ -91,7 +108,11 @@ export function SettingsPanel({
             </DialogPrimitive.Close>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-3 pb-3">
+          {/* `flex-1` fills the rail; `sm:flex-initial` lets the panel size to
+              this instead. `min-h-0` is what allows it to shrink under the
+              cap above rather than pushing the panel past it - without it the
+              overflow never engages and the reset button walks off screen. */}
+          <div className="min-h-0 flex-1 sm:flex-initial overflow-y-auto px-3 pb-3">
             {/* First in the sheet, not last. It is the way in to what the tool
                 is, so it belongs where someone opening the menu looks first -
                 the reset at the foot is the way out. */}
