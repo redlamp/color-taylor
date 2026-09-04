@@ -84,7 +84,7 @@ import { useTheme } from '@/hooks/useTheme';
 import useColorEffects from '@/hooks/useColorEffects';
 import { toneController } from '@/utils/toneControllerLazy';
 import { useColorState } from '@/hooks/useColorState';
-import { Play, Pause, Settings, Music, Slash, CircleHelp } from 'lucide-react';
+import { Play, Pause, Menu, Music, Slash, CircleHelp } from 'lucide-react';
 
 type BlMode = 'brightness' | 'lightness';
 /**
@@ -829,7 +829,10 @@ export default function ColorPicker() {
                   // portalled out of this button's subtree.
                   aria-haspopup="dialog"
                 >
-                  <Settings className="size-4" />
+                  {/* A menu, not a gear: the sheet is where everything that
+                      is not the picker lives - About included - and a gear
+                      promises only preferences. */}
+                  <Menu className="size-4" />
                 </button>
               }
             />

@@ -92,6 +92,18 @@ export function SettingsPanel({
           </div>
 
           <div className="flex-1 overflow-y-auto px-3 pb-3">
+            {/* First in the sheet, not last. It is the way in to what the tool
+                is, so it belongs where someone opening the menu looks first -
+                the reset at the foot is the way out. */}
+            <Button
+              variant="ghost"
+              onClick={onAbout}
+              className="mt-2 mb-1 w-full justify-start text-base"
+            >
+              <Info className="size-4" />
+              About Color Taylor
+            </Button>
+
             <Accordion multiple defaultValue={['display', 'audio']}>
               <AccordionItem value="display">
                 <AccordionTrigger>Display</AccordionTrigger>
@@ -120,7 +132,10 @@ export function SettingsPanel({
                 <AccordionContent keepMounted>
                   <div className="flex flex-col gap-3 px-1">
                     <SwitchRow
-                      label="Audio"
+                      // Not "Audio": it sits under a heading that already says
+                      // that, and the row is the switch that turns the feature
+                      // on rather than a setting within it.
+                      label="Enable audio"
                       checked={audioEnabled}
                       onToggle={() => setAudioEnabled(!audioEnabled)}
                       ariaLabel="Toggle audio features"
@@ -136,12 +151,7 @@ export function SettingsPanel({
             <IntegrationNews />
           </div>
 
-          <div className="border-t border-border px-3 py-2 space-y-2">
-            {/* Above the reset, because it is the friendly one of the two. */}
-            <Button variant="ghost" size="sm" onClick={onAbout} className="w-full text-base">
-              <Info className="size-4" />
-              About Color Taylor
-            </Button>
+          <div className="border-t border-border px-3 py-2">
             <Button variant="secondary" size="sm" onClick={resetAll} className="w-full text-base">
               <RotateCcw className="size-4" />
               Reset all settings
