@@ -1004,6 +1004,8 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   // and strokes are multiplied by this.
   const [uiScale, setUiScale] = useState(1);
   /*
+   * A drag on the field itself, as opposed to on a handle.
+   *
    * Zero-value stems and handles used to be hidden while this was true, so a
    * channel at 0 popped out of existence for the length of a drag and back
    * afterwards. It made the chain change shape under the cursor, and it was the
@@ -1011,10 +1013,11 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
    * a zero channel feel like a special case rather than a joint that happens to
    * coincide with the one before it.
    *
-   * Kept because the flag itself is still set and cleared; nothing reads it
-   * now, but it is the hook for a drag-time treatment if one is ever wanted.
+   * The flag was kept anyway, as the hook for a drag-time treatment if one was
+   * ever wanted. This is that: the channel tooltips are suppressed while it is
+   * set, because a drag across the field pulls the chain along under the cursor
+   * and crosses its own stems on the way.
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- see above
   const [isHexDragging, setIsHexDragging] = useState(false);
   const [hoveredMarker, setHoveredMarker] = useState<HoveredMarker | null>(null);
 
@@ -1911,6 +1914,18 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
         <svg
           id="hex-svg"
           ref={svgRef}
+          /*
+           * The field is a hex hold like the handles on it.
+           *
+           * `holdKeyOf` walks up to the nearest [data-hold], so everything with
+           * its own tag - the stems, the joints, both bars, the hue handle -
+           * still wins; this only catches a press on the field itself, which
+           * used to read as 'other' and light the whole chain. Clicking the
+           * field moves the chain as directly as dragging a handle does, so it
+           * is the same case: the thing that moved under your hand is its own
+           * feedback, and the halos are for showing what it did elsewhere.
+           */
+          data-hold="hex:field"
           viewBox={`0 0 ${EXTENT} ${svgHeight}`}
           preserveAspectRatio="xMidYMid meet"
           role="img"
@@ -2179,7 +2194,14 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             // shape the halos use, and for the same reason: a pill that is
             // only in the DOM while hovered has nothing to ease in from, so it
             // popped where the halo around it eased.
-            const on = shown && !dotDragging;
+            /*
+             * Hidden while anything on the field is being dragged, not only a
+             * handle. A drag across the field pulls the chain along under the
+             * cursor, so it crosses its own stems and used to raise their
+             * tooltips as it went - a gesture that is not asking what a stem
+             * is, answered anyway, over the thing it is moving.
+             */
+            const on = shown && !dotDragging && !isHexDragging;
             const k = uiScale;
             const side = TIP_SIDE[ch];
             const cx = (prev.x + p.x) / 2 + side.x * TIP_GAP * k;
