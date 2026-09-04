@@ -35,11 +35,17 @@ const DWELL = {
   /** The same, across the width of the tool rather than within one panel. */
   moveFar: 680,
   /** After a caption appears, before the hand starts working. */
-  beforeAction: 600,
-  /** After a drag lets go, while the highlights are still lit. */
-  afterAction: 1300,
+  beforeAction: 400,
+  /**
+   * After a drag lets go, while the highlights are still lit.
+   *
+   * The fade is `duration-500` and nothing holds the highlight lit before it
+   * starts, so anything past about 950 here is dead air - and it is spent
+   * three times over the run.
+   */
+  afterAction: 950,
   /** Between one step going quiet and the next starting. */
-  betweenSteps: 400,
+  betweenSteps: 300,
   /**
    * How long each drag itself takes. Longer than felt right while building
    * them: the hand knows where it is going and the eye does not, and every
@@ -49,9 +55,8 @@ const DWELL = {
   dragBox: 2800,
   dragHue: 2600,
   dragBar: 2600,
-  dragSlider: 3000,
   /** Blend: how long each state is held up for inspection. */
-  blendHold: 1300,
+  blendHold: 1000,
 } as const;
 
 /**
@@ -115,8 +120,12 @@ export const SIGN_OFF = 'Have fun!';
  * How long the sign-off stands before the demo takes itself down. Real
  * seconds, not scaled by `?demospeed`: it is time for a person to read one
  * short line, which does not get shorter because the spec is in a hurry.
+ *
+ * Two words needs nowhere near four seconds; what sets this is the goodbye
+ * that now runs inside it - home, the colour tweening back, the walk off -
+ * which takes 2.7 of them.
  */
-export const SIGN_OFF_MS = 5000;
+export const SIGN_OFF_MS = 4000;
 
 /** The fade on the way out, so the panel leaves rather than blinks off. */
 export const SIGN_OFF_FADE_MS = 350;
@@ -190,15 +199,15 @@ export const STEPS: DemoStep[] = [
   {
     caption: 'Play with the handles to see how each one maps to a color channel.',
     audio: '01-handles.mp3',
-    duration: 2 * (DWELL.move + DWELL.hoverStem) + 2 * (DWELL.move + DWELL.hoverJoint)
+    duration: (DWELL.move + DWELL.hoverStem) + 2 * (DWELL.move + DWELL.hoverJoint)
       + DWELL.move + DWELL.dragTip + DWELL.afterAction,
     /**
-     * The chain. Four stops, not all six: the first stem, the joint two along,
-     * the last stem and the tip. Visiting every one in order made the point
-     * three times and took nine seconds doing it - the tooltips name a channel
-     * the same whether or not you have seen its neighbour. Then a short drag
-     * of the tip, the one handle that is the selection rather than an
-     * explanation of it.
+     * The chain. Three stops, not all six: a stem, the joint two along, and
+     * the tip. Visiting every one in order made the point three times and took
+     * nine seconds doing it - the tooltips name a channel the same whether or
+     * not you have seen its neighbour, and by the third stop the pattern is
+     * established rather than being demonstrated. Then the tip, the one handle
+     * that is the selection rather than an explanation of it.
      */
     async run({ d, host }) {
       const dots = joints();
@@ -212,7 +221,6 @@ export const STEPS: DemoStep[] = [
       const tour: Array<[Element | undefined, number]> = [
         [legs[0], DWELL.hoverStem],
         [dots[1], DWELL.hoverJoint],
-        [legs[legs.length - 1], DWELL.hoverStem],
         [tip, DWELL.hoverJoint],
       ];
       for (const [target, dwell] of tour) {
@@ -319,8 +327,7 @@ export const STEPS: DemoStep[] = [
   {
     caption: 'Move one value and everything it affects lights up across the app.',
     audio: '03-impact.mp3',
-    duration: DWELL.moveFar + DWELL.beforeAction + DWELL.dragSlider
-      + DWELL.betweenSteps + DWELL.moveFar + DWELL.dragBar
+    duration: DWELL.moveFar + DWELL.beforeAction + DWELL.dragBar
       + DWELL.betweenSteps + DWELL.move + DWELL.dragBar + DWELL.afterAction,
     /**
      * The claim and its demonstration, which used to be two steps.
@@ -328,51 +335,20 @@ export const STEPS: DemoStep[] = [
      * They were split into "watch for the impact" and "here it is", and read
      * as the same point made twice: the caption on the second said what the
      * first had already said, and the pause between them was a pause in the
-     * middle of one idea. Three controls in one breath instead - a slider in
-     * the bank, then the hexagon's two bars - because the argument is that it
-     * happens *wherever* you work, and one control cannot say that.
+     * middle of one idea.
      *
-     * Every gesture here is a sweep that hands the colour back where it found
-     * it, so the landing colour survives the step.
+     * It worked a slider in the bank first, and that beat is gone. A slider is
+     * the weakest of the three for this step's own argument - it sits among
+     * the readouts that are supposed to be answering it, so "look at what
+     * lights up" competes with the thing being held. The hexagon's two bars
+     * are not in the bank at all, which is what makes the answer unmistakably
+     * somewhere else. Saturation and brightness each reach the whole of RGB
+     * and half of HSL, so a slow sweep of either lights most of the panel.
+     *
+     * Both gestures are sweeps that hand the colour back where they found it,
+     * so the landing colour survives the step.
      */
     async run({ d }) {
-      /*
-       * The H slider first, and the ghost rides the track, not the arrow.
-       * Reaching for a 10px handle is what a person does because they have
-       * to; watching a cursor hunt for one teaches nothing, and a near miss
-       * looks like a bug. Pressing the track is the same gesture with nothing
-       * to aim at - and `updateValue` seeds the same accumulator the handle
-       * would, so the wrapping drag that follows behaves identically.
-       *
-       * It presses at the handle's own x so the value does not jump on
-       * contact, and rides the track's centre line rather than the arrow's,
-       * which sits below it.
-       */
-      const arrow = el('#slider-hsb-h-arrow');
-      const track = el('#slider-hsb-h-track');
-      if (arrow && track) {
-        await d.bring(track);
-        const rect = track.getBoundingClientRect();
-        const from = { x: centerOf(arrow).x, y: rect.top + rect.height / 2 };
-        await d.moveTo(() => from, DWELL.moveFar);
-        await d.wait(DWELL.beforeAction);
-
-        // A wrapping slider tracks movement, so how far the hue turns is how
-        // far the ghost travels: a third of the track each way is about 120
-        // degrees, out and back. Clamped to the room actually on either side,
-        // so the sweep stays on the track wherever the handle starts.
-        const pad = 10;
-        const sweep = sweepFrom(rect.left + pad, rect.right - pad, from.x, 0.45);
-        await d.drag(track, (t) => ({ x: sweep(t), y: from.y }), DWELL.dragSlider, true);
-        await d.wait(DWELL.betweenSteps);
-      }
-
-      /*
-       * Then the hexagon's own bars, which is where the point lands: they are
-       * not in the bank, so the sliders lighting up are unmistakably somewhere
-       * else. Saturation and brightness each reach the whole of RGB and half
-       * of HSL, so a slow sweep of either lights most of the panel at once.
-       */
       const sat = el('#sat-bar');
       const bl = el('#bl-bar');
       if (sat) {
@@ -382,6 +358,7 @@ export const STEPS: DemoStep[] = [
         const from = { x: centerOf(el('#sat-bar-arrow') ?? sat).x, y };
         const sweep = sweepFrom(r.left + 4, r.right - 4, from.x);
         await d.moveTo(() => from, DWELL.moveFar);
+        await d.wait(DWELL.beforeAction);
         await d.drag(sat, (t) => ({ x: sweep(t), y }), DWELL.dragBar, true);
         await d.wait(DWELL.betweenSteps);
       }
