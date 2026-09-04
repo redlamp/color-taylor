@@ -303,9 +303,17 @@ the goodbye rather than into the pause.
 
 ## Narration
 
+**The demo is silent on purpose.** The voice goes into a video instead, where
+there is room to explain rather than to narrate 36 seconds of choreography over
+the top of it. `NARRATION_READY` in `src/demo/steps.ts` stays `false` and the
+speaker button stays hidden.
+
+The plumbing below stays anyway. It costs nothing while the flag is off, the
+lines are written and budgeted, and a demo that can speak is a decision away
+rather than a rebuild away.
+
 Each step names an audio file under `public/demo/`. Nothing goes looking for
-them until `NARRATION_READY` in `src/demo/steps.ts` is set to `true`; until
-then the speaker button is hidden and the demo is silent.
+them until that flag is `true`.
 
 When it is on, **a step waits for both its choreography and its line** before
 moving on. So a recording longer than the timing above simply extends that
