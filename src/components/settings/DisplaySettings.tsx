@@ -8,12 +8,10 @@ interface Props {
   onToggleHighlights: () => void;
   colorFx: boolean;
   onToggleColorFx: () => void;
-  audioEnabled: boolean;
-  onToggleAudio: () => void;
 }
 
 export function DisplaySettings({
-  highlights, onToggleHighlights, colorFx, onToggleColorFx, audioEnabled, onToggleAudio,
+  highlights, onToggleHighlights, colorFx, onToggleColorFx,
 }: Props) {
   const { isDark, toggle } = useTheme();
   const { settings, setFpsMeter } = useSettings();
@@ -54,16 +52,6 @@ export function DisplaySettings({
         checked={settings.fpsMeter}
         onToggle={() => setFpsMeter(!settings.fpsMeter)}
         ariaLabel="Toggle frame rate meter"
-      />
-      {/* The switch that brings the whole audio feature into existence: the synth
-          and volume controls in the header, the Audio settings section, and the
-          interface sounds. It lives here rather than under Audio because Audio
-          does not exist until this is on. */}
-      <SwitchRow
-        label="Audio"
-        checked={audioEnabled}
-        onToggle={onToggleAudio}
-        ariaLabel="Toggle audio features"
       />
     </div>
   );

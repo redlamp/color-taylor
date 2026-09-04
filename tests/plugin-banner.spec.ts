@@ -51,6 +51,11 @@ test.describe('Plugin banner', () => {
 
     // And the reset has to clear the stored flag too, not just the in-memory
     // state - otherwise it reappears now and vanishes again on reload.
+    // The reset also forgets that the welcome panel has been seen, and while a
+    // modal is open the rest of the page is hidden from the accessibility tree
+    // - which is where `banner` looks. Put that one key back so the reload is
+    // about the banner's own flag, which is what this test is for.
+    await page.evaluate(() => localStorage.setItem('color-taylor-about-seen', '1'));
     await page.reload();
     await expect(banner(page)).toBeVisible();
   });

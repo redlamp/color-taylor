@@ -52,7 +52,9 @@ const primaryLabel = (page: Page) => page.getByTestId('demo-primary-label');
 
 test.describe('Picker demo', () => {
   test.beforeEach(async ({ page }) => {
-    await page.addInitScript(() => { try { localStorage.clear(); } catch { /* ignore */ } });
+    await page.addInitScript(() => { try { localStorage.clear();
+    // The welcome panel is modal and would eat the first click of a test.
+    localStorage.setItem('color-taylor-about-seen', '1'); } catch { /* ignore */ } });
     await page.setViewportSize({ width: 1400, height: 1000 });
     await page.goto(FAST);
     await page.locator('#rgb-dot-green').waitFor();

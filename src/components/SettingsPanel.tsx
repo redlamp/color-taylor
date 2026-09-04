@@ -25,13 +25,14 @@
  * is the only shape, which is why the drag went: a panel anchored to an edge
  * has nowhere to be dragged to.
  */
-import { RotateCcw, X } from 'lucide-react';
+import { Info, RotateCcw, X } from 'lucide-react';
 import { Dialog as DialogPrimitive } from '@base-ui/react/dialog';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
 import { AudioSettings } from '@/components/settings/AudioSettings';
 import { DisplaySettings } from '@/components/settings/DisplaySettings';
 import { IntegrationNews } from '@/components/settings/IntegrationNews';
+import { SwitchRow } from '@/components/settings/SettingsSwitch';
 import { useSettings } from '@/hooks/useSettings';
 import { useTheme } from '@/hooks/useTheme';
 
@@ -43,11 +44,14 @@ interface Props {
   colorFx: boolean;
   highlights: boolean;
   onToggleHighlights: () => void;
+  /** Reopen the welcome panel. */
+  onAbout: () => void;
   onToggleColorFx: () => void;
 }
 
 export function SettingsPanel({
   open, onClose, muted, onToggleMute, colorFx, onToggleColorFx, highlights, onToggleHighlights,
+  onAbout,
 }: Props) {
   const { reset: resetSynth, settings, setAudioEnabled } = useSettings();
   const audioEnabled = settings.audioEnabled;
@@ -97,24 +101,34 @@ export function SettingsPanel({
                     highlights={highlights}
                     onToggleHighlights={onToggleHighlights}
                     onToggleColorFx={onToggleColorFx}
-                    audioEnabled={audioEnabled}
-                    onToggleAudio={() => setAudioEnabled(!audioEnabled)}
                   />
                 </AccordionContent>
               </AccordionItem>
-              {/* The Audio section only exists once the feature is switched on -
-                  its own switch lives in Display, which is always there, so there
-                  is somewhere to turn it on from. AudioSettings previews the synth
-                  as you adjust it, so mounting it while the feature is off would
-                  pull the engine in behind the user's back. */}
-              {audioEnabled && (
-                <AccordionItem value="audio">
-                  <AccordionTrigger>Audio</AccordionTrigger>
-                  <AccordionContent keepMounted>
-                    <AudioSettings muted={muted} onToggleMute={onToggleMute} />
-                  </AccordionContent>
-                </AccordionItem>
-              )}
+              {/* Audio is its own section, always present, and the switch that
+                  brings the feature into existence is the first row in it -
+                  which is where anyone looking for it would look. It used to
+                  live under Display, because the section itself only appeared
+                  once the feature was on and the switch needed somewhere to be;
+                  a heading that is missing until you find its switch somewhere
+                  else is a worse trade than an almost-empty section.
+
+                  The controls below it stay conditional: AudioSettings previews
+                  the synth as you adjust it, so mounting it while the feature is
+                  off would pull the engine in behind the user's back. */}
+              <AccordionItem value="audio">
+                <AccordionTrigger>Audio</AccordionTrigger>
+                <AccordionContent keepMounted>
+                  <div className="flex flex-col gap-3 px-1">
+                    <SwitchRow
+                      label="Audio"
+                      checked={audioEnabled}
+                      onToggle={() => setAudioEnabled(!audioEnabled)}
+                      ariaLabel="Toggle audio features"
+                    />
+                  </div>
+                  {audioEnabled && <AudioSettings muted={muted} onToggleMute={onToggleMute} />}
+                </AccordionContent>
+              </AccordionItem>
             </Accordion>
 
             {/* Below the settings, not among them: it is news, not a control,
@@ -122,8 +136,13 @@ export function SettingsPanel({
             <IntegrationNews />
           </div>
 
-          <div className="border-t border-border px-3 py-2">
-            <Button variant="secondary" size="sm" onClick={resetAll} className="w-full">
+          <div className="border-t border-border px-3 py-2 space-y-2">
+            {/* Above the reset, because it is the friendly one of the two. */}
+            <Button variant="ghost" size="sm" onClick={onAbout} className="w-full text-base">
+              <Info className="size-4" />
+              About Color Taylor
+            </Button>
+            <Button variant="secondary" size="sm" onClick={resetAll} className="w-full text-base">
               <RotateCcw className="size-4" />
               Reset all settings
             </Button>

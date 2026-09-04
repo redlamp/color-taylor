@@ -24,6 +24,7 @@ import type { Channel } from './hex/hexConstants';
 import ColorSlider from './ColorSlider';
 import ColorHexagon from './ColorHexagon';
 import { HEX_PANEL_WIDTH } from './hex/hexConstants';
+import { AboutPanel } from './AboutPanel';
 import type { DemoHost } from '@/demo/steps';
 
 /*
@@ -283,6 +284,19 @@ export default function ColorPicker() {
    * edits and must not enter the stack.
    */
   const [demoOpen, setDemoOpen] = useState(false);
+  /*
+   * The about panel, shown once on a first visit and from Settings after that.
+   * Eleventh localStorage key, and it holds "seen" rather than "show me",
+   * so a browser that cannot store anything simply shows it every time - the
+   * harmless failure of the two.
+   */
+  const [aboutOpen, setAboutOpen] = useState<boolean>(() => {
+    try { return localStorage.getItem('color-taylor-about-seen') !== '1'; } catch { return false; }
+  });
+  const markAboutSeen = useCallback(() => {
+    setAboutOpen(false);
+    try { localStorage.setItem('color-taylor-about-seen', '1'); } catch { /* localStorage unavailable */ }
+  }, []);
 
   // Undo/redo history
   const undoStack = useRef<HSB[]>([]);
@@ -458,6 +472,14 @@ export default function ColorPicker() {
       setBlend(DEFAULT_BLEND);
       setHighlights(true);
       setColorFx(true);
+      /*
+       * Forget that the welcome has been seen, but do not put it back on
+       * screen: a reset is somebody in the settings sheet adjusting the tool,
+       * and answering that with a modal is an interruption they did not ask
+       * for. The next visit is greeted, which is what "as a first visit finds
+       * it" actually means.
+       */
+      try { localStorage.removeItem('color-taylor-about-seen'); } catch { /* localStorage unavailable */ }
     };
     window.addEventListener('color-taylor:reset-all', onResetAll);
     return () => window.removeEventListener('color-taylor:reset-all', onResetAll);
@@ -1153,8 +1175,14 @@ export default function ColorPicker() {
           />
         </Suspense>
       )}
+      <AboutPanel
+        open={aboutOpen}
+        onClose={markAboutSeen}
+        onWatchDemo={() => { markAboutSeen(); startDemo(); }}
+      />
       <SettingsPanel
         open={settingsOpen}
+        onAbout={() => { setSettingsOpen(false); setAboutOpen(true); }}
         onClose={() => setSettingsOpen(false)}
         muted={effectiveMuted}
         onToggleMute={() => setMuted(m => !m)}

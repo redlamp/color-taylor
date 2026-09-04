@@ -90,14 +90,19 @@ test.describe('Settings sheet', () => {
     await expect(hexInput).toHaveValue('#4F95FF', { timeout: 4000 });
   });
 
-  test('audio section appears only once audio is enabled, and its switches are named', async ({ page }) => {
+  test('the audio section is always there; its controls arrive with the feature', async ({ page }) => {
     await gear(page).click();
-    await expect(sheet(page).getByRole('button', { name: 'Audio', exact: true })).toHaveCount(0);
+    // The section holds the switch that brings the feature into existence, so
+    // it cannot be conditional on the feature - it used to be, which put that
+    // switch under Display and left no Audio heading to look under.
+    await expect(sheet(page).getByRole('button', { name: 'Audio', exact: true })).toBeVisible();
+    await expect(sheet(page).getByRole('switch', { name: 'Toggle color synth' })).toHaveCount(0);
 
     await sheet(page).getByRole('switch', { name: 'Toggle audio features' }).click();
 
     // Named switches: the Audio copies used to be bare role="switch" buttons
-    // with no accessible name at all.
+    // with no accessible name at all. The synth only mounts once the feature
+    // is on, so that it does not start an AudioContext behind the user.
     await expect(sheet(page).getByRole('switch', { name: 'Toggle color synth' })).toBeVisible();
   });
 

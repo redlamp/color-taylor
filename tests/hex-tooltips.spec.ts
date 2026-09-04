@@ -17,7 +17,9 @@ const tipOpacity = (page: Page, ch: string) =>
 
 test.describe('Hexagon channel tooltips', () => {
   test.beforeEach(async ({ page }) => {
-    await page.addInitScript(() => { try { localStorage.clear(); } catch { /* ignore */ } });
+    await page.addInitScript(() => { try { localStorage.clear();
+    // The welcome panel is modal and would eat the first click of a test.
+    localStorage.setItem('color-taylor-about-seen', '1'); } catch { /* ignore */ } });
     await page.setViewportSize({ width: 1400, height: 1000 });
     await page.goto('/');
     await page.locator('#rgb-dot-green').waitFor();
@@ -65,7 +67,9 @@ test.describe('Hexagon channel tooltips', () => {
 
 test.describe('Impact highlights during the colour cycle', () => {
   test('sliders light as their values move; the chain does not', async ({ page }) => {
-    await page.addInitScript(() => { try { localStorage.clear(); } catch { /* ignore */ } });
+    await page.addInitScript(() => { try { localStorage.clear();
+    // The welcome panel is modal and would eat the first click of a test.
+    localStorage.setItem('color-taylor-about-seen', '1'); } catch { /* ignore */ } });
     await page.setViewportSize({ width: 1400, height: 1000 });
     await page.goto('/');
     await page.getByRole('button', { name: 'Play color animation' }).click();

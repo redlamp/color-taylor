@@ -15,7 +15,9 @@ import { openSections } from './open-sections';
  */
 
 function clearStorage() {
-  try { localStorage.clear(); } catch { /* ignore */ }
+  try { localStorage.clear();
+    // The welcome panel is modal and would eat the first click of a test.
+    localStorage.setItem('color-taylor-about-seen', '1'); } catch { /* ignore */ }
 }
 
 /** The swatches currently showing the white selection ring, as `index:hex`. */

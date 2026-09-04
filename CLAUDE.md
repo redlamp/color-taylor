@@ -24,6 +24,15 @@ Package manager: **bun**. `bun.lock` is the source of truth; no `package-lock.js
 
   That reuse is a trap worth knowing: the suite runs against **whatever dev server is already up**, so a local `.env` override reaches it and a failure can have nothing to do with your change. If a spec fails only on your machine, check `.env.development.local` before reading any further.
 
+  It has a sharper edge than a stray `.env`. A dev server that has lost the file watcher - one left running by another session, say - keeps serving a **stale bundle**, and the suite then passes happily against an app that no longer exists. Set `BASE_URL` to aim it somewhere known instead:
+
+  ```
+  bun run build && bunx vite preview --port 4174
+  BASE_URL=http://localhost:4174 bunx playwright test
+  ```
+
+  With `BASE_URL` set, the config starts no server of its own. Symptom to recognise: a spec for something you just added fails with "element(s) not found" while the same page is plainly correct in a browser.
+
 The `GITHUB_PAGES` env var flips `vite.config.js`'s `base` between `./` (default, works for local file:// preview) and `/color-taylor/` (gh-pages subpath). Don't hardcode either.
 
 `VITE_INTRO_ENABLED` gates **only the Intro button** on the picker. `.env` ships `false`; `.env.development` turns it on for `bun dev`. To flip it for yourself without touching a tracked file, use `.env.development.local` — gitignored via `*.local`, and it wins on Vite's precedence.
@@ -54,7 +63,7 @@ Single-page app with two top-level views routed by URL hash via `src/hooks/useHa
 
 Undo/redo lives in `undoStack`/`redoStack` refs in `ColorPicker.tsx` (debounced 500ms push on HSB change, capped at 50). It tweens to the popped value rather than snapping, and uses an `isUndoRedoing` ref to suppress re-pushes during the tween.
 
-`localStorage` keys, all ten of them:
+`localStorage` keys, all eleven of them:
 
 | Key | Holds | Owner |
 |---|---|---|
@@ -67,6 +76,7 @@ Undo/redo lives in `undoStack`/`redoStack` refs in `ColorPicker.tsx` (debounced 
 | `color-taylor-muted` | mute toggle, `'1'`/`'0'` | `ColorPicker` |
 | `color-taylor-effects` | color-reactive chrome, `'1'`/`'0'`, read as "not explicitly off" | `ColorPicker` |
 | `color-taylor-highlights` | impact highlights, `'1'`/`'0'`, read the same way | `ColorPicker` |
+| `color-taylor-about-seen` | the welcome panel has been shown, `'1'` | `ColorPicker` |
 | `color-taylor-plugin-banner` | banner dismissal | `PluginBanner` |
 
 Reset-all doesn't clear these centrally. `SettingsPanel` broadcasts a `color-taylor:reset-all` window event and each owner clears its own keys, so **a new key needs its owner to listen for that event** or it will survive a reset.
