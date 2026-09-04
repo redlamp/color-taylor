@@ -1695,6 +1695,9 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   return (
     <div
       id="color-hexagon"
+      // The demo frames whichever of these it is working in, rather than
+      // centring one small target and leaving the card's top off screen.
+      data-demo-section=""
       // Built by joining whole strings, not by interpolating into one. Tailwind
       // scans raw source text: `...max-w-full${cond}` makes the extractor read
       // `max-w-full${cond` as the candidate, so the utility is never generated

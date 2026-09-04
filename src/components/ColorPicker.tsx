@@ -909,7 +909,11 @@ export default function ColorPicker() {
             the hexagon's: it shrinks when this column would be the taller one,
             grows when it would be shorter. The grid gives this element a
             definite height to divide up, which is what makes the chain resolve. */}
-        <div id="picker-layout" className="panel-frame flex flex-col border border-border rounded-lg p-2.5">
+        <div
+          id="picker-layout"
+          data-demo-section=""
+          className="panel-frame flex flex-col border border-border rounded-lg p-2.5"
+        >
         {/* Named for the whole panel rather than for one of its parts. It was
             "Sliders", which undersold it: two of the four things below are
             slider banks, but the SB box, the hex field and the colour-name

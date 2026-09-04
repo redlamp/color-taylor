@@ -358,13 +358,34 @@ export class Driver {
     const band = this.clearBand();
     const r = el.getBoundingClientRect();
     if (r.top >= band.top && r.bottom <= band.bottom) return;
-    // Centre it in the band by hand rather than through scrollIntoView, which
-    // centres on the viewport and would leave it under the panel.
-    const delta = r.top + r.height / 2 - (band.top + band.bottom) / 2;
+    const delta = this.scrollDelta(el, r, band);
     const max = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
     const destination = Math.max(0, Math.min(window.scrollY + delta, max));
     window.scrollTo({ top: destination, behavior: this.opts.reduced ? 'auto' : 'smooth' });
     await this.scrollReaches(destination);
+  }
+
+  /**
+   * How far to scroll to put a target where it can be watched.
+   *
+   * Framing the card it belongs to, where there is one: on a phone the demo
+   * moves between two stacked panels, and centring one small control leaves
+   * the top of its card off screen with the tail of the previous one above it.
+   * Landing the card's top at the top of the band is what makes each step read
+   * as "now we are in the colour editor" rather than as a scroll to nowhere.
+   *
+   * The card only wins if the target still ends up inside the band - a panel
+   * taller than the screen cannot be framed and have its last control visible,
+   * and the control is the thing being demonstrated.
+   */
+  private scrollDelta(el: Element, r: DOMRect, band: { top: number; bottom: number }) {
+    const centre = r.top + r.height / 2 - (band.top + band.bottom) / 2;
+    const section = el.closest('[data-demo-section]');
+    if (!section) return centre;
+    const s = section.getBoundingClientRect();
+    const framed = s.top - band.top;
+    const lands = { top: r.top - framed, bottom: r.bottom - framed };
+    return lands.top >= band.top && lands.bottom <= band.bottom ? framed : centre;
   }
 
   /**
