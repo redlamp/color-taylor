@@ -48,6 +48,24 @@ export interface DriverOptions {
 export const CLICK_MS = 110;
 
 /**
+ * A point off the screen, through whichever edge the demo's panel is not on.
+ *
+ * Both ends of the run use it. The ghost used to leave downwards always, which
+ * on a phone - where the panel is a band across the foot - walked it straight
+ * through the thing it was leaving behind; and it used to arrive from below for
+ * the same reason, sliding up over the caption it had just put there.
+ *
+ * Read at the moment it is needed rather than at mount: the panel places itself
+ * on the first frame, so asking earlier gets an answer about a rectangle that
+ * has not been put anywhere yet.
+ */
+export function offscreenEdge(x: number, reach = 160): Point {
+  const p = document.querySelector('[data-demo-chrome]')?.getBoundingClientRect();
+  const panelAtTop = !!p && p.top + p.height / 2 < window.innerHeight / 2;
+  return { x, y: panelAtTop ? window.innerHeight + reach : -reach };
+}
+
+/**
  * Smootherstep, for the travel between one target and the next.
  *
  * This was easeInOutQuad, which lands from 2x its average speed and does the
@@ -274,16 +292,9 @@ export class Driver {
     }
   }
 
-  /**
-   * A point off the screen, through whichever edge the panel is not on. The
-   * ghost used to always leave downwards, which on a phone - where the panel
-   * is a band across the foot - walked it straight through the thing it was
-   * leaving behind.
-   */
+  /** Where to walk off to. See `offscreenEdge`. */
   exitTarget(): Point {
-    const p = document.querySelector('[data-demo-chrome]')?.getBoundingClientRect();
-    const panelAtTop = !!p && p.top + p.height / 2 < window.innerHeight / 2;
-    return { x: this.pos.x, y: panelAtTop ? window.innerHeight + 160 : -160 };
+    return offscreenEdge(this.pos.x);
   }
 
   /** Leave whatever the ghost is over, for when it bows out. */

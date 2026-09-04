@@ -475,7 +475,9 @@ test.describe('Picker demo', () => {
     await expect(panel(page)).toBeVisible();
 
     let samples = 0;
-    let behind = 0;
+    // Counted apart so a failure says which it was: the cursor standing on the
+    // panel, or a channel tooltip drifting under it.
+    const behind = { ghost: 0, tips: 0 };
     for (let i = 0; i < 24; i++) {
       await page.waitForTimeout(120);
       // The ghost leaves before the panel does, and beside eleven other
@@ -499,11 +501,12 @@ test.describe('Picker demo', () => {
       });
       if (!hit) continue;
       samples += 1;
-      if (hit.ghost || hit.tips) behind += 1;
+      if (hit.ghost) behind.ghost += 1;
+      if (hit.tips) behind.tips += 1;
     }
-    // Asserted together so a failure says which half went: `enough` false is a
-    // starved run that sampled almost nothing, `behind` non-zero is the real
-    // thing this is looking for.
-    expect({ enough: samples > 8, behind }).toEqual({ enough: true, behind: 0 });
+    // Asserted together so a failure says which part went: `enough` false is a
+    // starved run that sampled almost nothing, the other two are the real thing
+    // this is looking for.
+    expect({ enough: samples > 8, ...behind }).toEqual({ enough: true, ghost: 0, tips: 0 });
   });
 });

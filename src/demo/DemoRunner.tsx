@@ -32,7 +32,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { createPortal } from 'react-dom';
 import { ChevronLeft, ChevronRight, Volume2, VolumeX } from 'lucide-react';
 import DemoCursor, { CURSOR_BOX, cursorKind, hotspotOf, type CursorKind } from './DemoCursor';
-import { Driver, DemoAborted, type Point, type Stage } from './drive';
+import { Driver, DemoAborted, offscreenEdge, type Point, type Stage } from './drive';
 import {
   STEPS, SIGN_OFF, SIGN_OFF_MS, SIGN_OFF_FADE_MS, EXIT_MS,
   NARRATION_READY, carryHome, closingPose, exitPose, openingPose, type DemoHost,
@@ -365,6 +365,30 @@ export default function DemoRunner({ from = null, onRestore, onExit, host }: Dem
       }
       placeCaption();
       /*
+       * Park on the edge the panel is not on, and keep parking until the script
+       * actually moves it.
+       *
+       * The ghost starts off screen and walks in, and starting below the fold
+       * on a phone - where the panel is a band across the foot - walked it up
+       * over the caption it had just arrived to explain. Which edge that is
+       * cannot be decided at mount, because the panel places itself on the
+       * first frame here; doing it once on the next frame is not enough either,
+       * because the layout is still settling. Re-parking every frame until the
+       * first move is self-correcting and costs nothing, since nothing moves
+       * for the length of the opening pose.
+       *
+       * The driver's own position goes with it. It was constructed with the
+       * mount-time guess, and `moveTo` flies from there - so without this the
+       * first leg starts from wherever the ghost used to be rather than from
+       * where it is.
+       */
+      if (!moving) {
+        const start = offscreenEdge(window.innerWidth * 0.5, 80);
+        target = start;
+        shown = start;
+        if (driverRef.current) driverRef.current.pos = start;
+      }
+      /*
        * The handover, once, on the first frame that has a real position to fly
        * to. Translate only - the welcome card is 560x318 and this is 670x90,
        * and scaling between those two would stretch the type for half a second
@@ -453,6 +477,17 @@ export default function DemoRunner({ from = null, onRestore, onExit, host }: Dem
           // Still restores the sections, the banks and the blend.
           restoreRef.current();
         }
+        /*
+         * Let go of whatever is hovered before the page moves.
+         *
+         * `carryHome` ends with this, so the branch above was covered; the
+         * short one was not, and the step before it leaves the ghost parked on
+         * the hexagon's tip with its channel tooltips showing - the driver
+         * re-reads what is under the pointer on release, on purpose, so they
+         * come back after the drag. Scrolling with those still up sweeps them
+         * down the screen and through the demo's own panel.
+         */
+        d.leave();
         // The whole tool back in view before the ghost goes. After the walk
         // home this is a no-op on a desktop and the difference between a
         // goodbye and a screenful of sliders on a phone.
