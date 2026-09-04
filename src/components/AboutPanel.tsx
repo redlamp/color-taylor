@@ -91,6 +91,23 @@ export function AboutPanel({ open, onClose, onWatchDemo }: AboutPanelProps) {
               Get Started
             </Button>
           </div>
+
+          {/* The link keeps the click to itself: everything else on this card
+              dismisses it, and a panel that vanishes as a new tab opens behind
+              it is a confusing way to leave. https rather than http - the site
+              redirects, so this is the same destination without the hop. */}
+          <p className="mt-10 text-base text-muted-foreground">
+            Made by{' '}
+            <a
+              href="https://redlamp.org"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="cursor-pointer text-foreground underline underline-offset-4 hover:no-underline"
+            >
+              Taylor Wright
+            </a>
+          </p>
         </DialogPrimitive.Popup>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>

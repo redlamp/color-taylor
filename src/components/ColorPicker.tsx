@@ -807,7 +807,6 @@ export default function ColorPicker() {
               />
             </>
           )}
-          <ThemeToggle />
           <Tooltip>
             <TooltipTrigger
               render={
@@ -823,6 +822,11 @@ export default function ColorPicker() {
             />
             <TooltipContent>Demo</TooltipContent>
           </Tooltip>
+          {/* Play, Demo, Theme, Menu. The two that do something to the
+              colour lead, then the two that are about the app itself - and
+              the audio controls stay beside Play, which is what makes them
+              audible. */}
+          <ThemeToggle />
           <Tooltip>
             <TooltipTrigger
               render={
