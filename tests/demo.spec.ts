@@ -70,6 +70,22 @@ async function hsb(page: Page): Promise<string> {
   });
 }
 
+/**
+ * Walk to the sign-off with the Next button.
+ *
+ * Tolerant of the player getting there first: a step that runs out while the
+ * loop is between clicks advances on its own, and the click after that would
+ * find Next disabled. Which way it arrived does not matter to any caller.
+ */
+async function toSignOff(page: Page) {
+  const next = page.getByRole('button', { name: 'Next step' });
+  for (let i = await stepCount(page); i > 0; i--) {
+    if (!(await next.isEnabled())) break;
+    await next.click();
+  }
+  await expect(primaryLabel(page)).toHaveText('Start exploring', { timeout: 20000 });
+}
+
 const panel = (page: Page) => page.getByTestId('demo-bar');
 /** Ticks light up to and including the step being played, so the count is the step number. */
 const litTicks = (page: Page) => page.locator('[data-testid="demo-ticks"] i[data-on]');
@@ -172,10 +188,7 @@ test.describe('Picker demo', () => {
 
   test('Next all the way through reaches the sign-off', async ({ page }) => {
     await page.locator('#demo-button').click();
-    for (let i = await stepCount(page); i > 0; i--) {
-      await page.getByRole('button', { name: 'Next step' }).click();
-    }
-    await expect(primaryLabel(page)).toHaveText('Start exploring');
+    await toSignOff(page);
     await expect(page.getByRole('button', { name: 'Next step' })).toBeDisabled();
   });
 
@@ -198,12 +211,9 @@ test.describe('Picker demo', () => {
     await seeded(page);
     const before = await rgb(page);
     await page.locator('#demo-button').click();
-    for (let i = await stepCount(page); i > 0; i--) {
-      await page.getByRole('button', { name: 'Next step' }).click();
-    }
-    await expect(primaryLabel(page)).toHaveText('Start exploring');
+    await toSignOff(page);
 
-    // Five real seconds, whatever ?demospeed says: it is reading time, not
+    // Four real seconds, whatever ?demospeed says: it is reading time, not
     // choreography. Still there a moment later, gone a few seconds after.
     await page.waitForTimeout(1500);
     await expect(panel(page)).toBeVisible();
@@ -281,7 +291,9 @@ test.describe('Picker demo', () => {
     // Step one gets there from black exactly as it would from anything else.
     await expect.poll(() => hsb(page), { timeout: 15000, intervals: [50] }).toBe('216/69/100');
 
-    // Then step two laps it. Before the swap this radius was zero throughout.
+    // The hexagon is the last step. Before the reorder its field would have
+    // been a point for the whole of this, whatever the gesture did.
+    await expect(litTicks(page)).toHaveCount(4, { timeout: 20000 });
     let widest = 0;
     for (let i = 0; i < 24; i++) {
       await page.waitForTimeout(50);
@@ -400,10 +412,10 @@ test.describe('Picker demo', () => {
   /**
    * Two things a phone needs that a desktop window does not.
    *
-   * Step four's subject is the slider tracks changing under the button, so the
-   * card has to be the shot and not just the button - and `bring` returns early
-   * the moment its target is already on screen, which leaves how the step looks
-   * to wherever the previous one happened to stop.
+   * The blend step's subject is the slider tracks changing under the button, so
+   * the card has to be the shot and not just the button - and `bring` returns
+   * early the moment its target is already on screen, which leaves how the step
+   * looks to wherever the previous one happened to stop.
    *
    * And the script ends deep in the page, on whatever it last worked. The demo
    * is over by then, so what should be on screen is the tool.
@@ -414,8 +426,8 @@ test.describe('Picker demo', () => {
     await page.locator('#rgb-dot-green').waitFor();
     await page.locator('#demo-button').click();
 
-    // Ticks light up to and including the step being played.
-    await expect(litTicks(page)).toHaveCount(4, { timeout: 20000 });
+    // Ticks light up to and including the step being played; blend is third.
+    await expect(litTicks(page)).toHaveCount(3, { timeout: 20000 });
     await expect.poll(() => page.evaluate(() => {
       const card = document.querySelector('#color-editor-group-content');
       const toggle = document.querySelector('#blend-toggle');
@@ -456,6 +468,10 @@ test.describe('Picker demo', () => {
     let behind = 0;
     for (let i = 0; i < 24; i++) {
       await page.waitForTimeout(120);
+      // The ghost leaves before the panel does, and beside eleven other
+      // workers these iterations can outlast the run. Stop rather than pile up
+      // empty samples, which is a slow machine and not a layout fault.
+      if (await panel(page).count() === 0) break;
       const hit = await page.evaluate(() => {
         const cursor = document.querySelector<HTMLElement>('[data-testid="demo-cursor"]');
         const panelEl = document.querySelector('[data-demo-chrome]');
@@ -475,7 +491,9 @@ test.describe('Picker demo', () => {
       samples += 1;
       if (hit.ghost || hit.tips) behind += 1;
     }
-    expect(samples).toBeGreaterThan(10);
-    expect(behind).toBe(0);
+    // Asserted together so a failure says which half went: `enough` false is a
+    // starved run that sampled almost nothing, `behind` non-zero is the real
+    // thing this is looking for.
+    expect({ enough: samples > 8, behind }).toEqual({ enough: true, behind: 0 });
   });
 });

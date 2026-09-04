@@ -55,6 +55,7 @@ const DWELL = {
   dragBox: 2800,
   dragHue: 2600,
   dragBar: 2600,
+  dragSlider: 2600,
   /** Blend: how long each state is held up for inspection. */
   blendHold: 1000,
 } as const;
@@ -328,18 +329,106 @@ export const STEPS: DemoStep[] = [
   },
 
   {
+    caption: 'Move one value and everything it affects lights up across the app.',
+    audio: '02-impact.mp3',
+    duration: DWELL.moveFar + DWELL.beforeAction + DWELL.dragSlider
+      + DWELL.betweenSteps + DWELL.move + DWELL.dragSlider + DWELL.afterAction,
+    /**
+     * The claim and its demonstration, which used to be two steps and used to
+     * be made on the hexagon's bars.
+     *
+     * The bars looked like the better argument: they are not in the slider
+     * bank, so the bank lighting up is unmistakably somewhere else. On a phone
+     * that reasoning inverts. The hexagon and the bank cannot be on screen at
+     * once, so a gesture on the hexagon makes a claim about readouts the user
+     * cannot see - the one step whose whole subject is what happens elsewhere,
+     * demonstrated off screen.
+     *
+     * Two sliders from two different banks says the same thing inside one
+     * card: neither lights itself, each lights the other, and the hexagon's
+     * chain and bars light too for anyone with the room to see them.
+     *
+     * Both are sweeps that hand the colour back where they found it, so the
+     * landing colour survives the step.
+     */
+    async run({ d }) {
+      // Whatever the user has showing, one slider from each of the first two
+      // banks. The demo runs against their arrangement rather than setting it,
+      // so this cannot assume the default pair is on screen.
+      const picks = ['rgb-g', 'hsb-s', 'hsl-l', 'rgb-b']
+        .map((c) => ({ track: el(`#slider-${c}-track`), arrow: el(`#slider-${c}-arrow`) }))
+        .filter((p): p is { track: Element; arrow: Element } => !!p.track && !!p.arrow)
+        .slice(0, 2);
+      if (!picks.length) return;
+
+      // The bank rather than the card: framing the card from its top pushes the
+      // last slider under the panel on a phone, and the sliders are the whole
+      // point of this step. Asked for outright, so the shot is a decision
+      // rather than a consequence of where the previous step stopped.
+      const banks = el('#slider-banks');
+      if (banks) await d.bring(banks, true);
+
+      for (const [i, { track, arrow }] of picks.entries()) {
+        /*
+         * The ghost rides the track, not the handle. Reaching for a 10px arrow
+         * is what a person does because they have to; watching a cursor hunt
+         * for one teaches nothing, and a near miss looks like a bug. Pressing
+         * the track is the same gesture with nothing to aim at, and it presses
+         * at the handle's own x so the value does not jump on contact.
+         */
+        const r = track.getBoundingClientRect();
+        const from = { x: centerOf(arrow).x, y: r.top + r.height / 2 };
+        const sweep = sweepFrom(r.left + 10, r.right - 10, from.x);
+        await d.moveTo(() => from, i === 0 ? DWELL.moveFar : DWELL.move);
+        if (i === 0) await d.wait(DWELL.beforeAction);
+        await d.drag(track, (t) => ({ x: sweep(t), y: from.y }), DWELL.dragSlider, true);
+        if (i === 0) await d.wait(DWELL.betweenSteps);
+      }
+      await d.wait(DWELL.afterAction);
+    },
+  },
+
+  {
+    caption: 'Press this button to toggle between Source and Mixed color sliders.',
+    audio: '03-blend.mp3',
+    duration: DWELL.moveFar + DWELL.beforeAction + 4 * CLICK_MS + 3 * DWELL.blendHold + DWELL.afterAction,
+    /** Blend on and off, which is a claim about the sliders you can only see. */
+    async run({ d }) {
+      const toggle = el('#blend-toggle');
+      if (!toggle) return;
+      // Framed rather than merely visible: what this step is about is the
+      // slider tracks changing under the button, so the card has to be the
+      // shot. On a phone the button alone is often already on screen after the
+      // previous step, and without this the view stays wherever that left it.
+      await d.bring(toggle, true);
+      await d.moveTo(() => centerOf(toggle), DWELL.moveFar);
+      await d.wait(DWELL.beforeAction);
+
+      // Four presses, ending where it started. The click carries the whole
+      // toggle - the button flips on a plain click - so nothing here sets the
+      // state behind its back.
+      for (let i = 0; i < 4; i++) {
+        await d.click(toggle);
+        await d.wait(i === 3 ? DWELL.afterAction : DWELL.blendHold);
+      }
+    },
+  },
+  {
     caption: 'Play with the handles to see how each one maps to a color channel.',
-    audio: '02-handles.mp3',
+    audio: '04-handles.mp3',
     duration: (DWELL.move + DWELL.hoverStem) + 2 * (DWELL.move + DWELL.hoverJoint)
       + DWELL.move + DWELL.dragTip + DWELL.afterAction,
     /**
-     * The chain, and the hexagon it lives on - second, because it is the
-     * unfamiliar one. The colour editor before it also hands this step a
-     * colour at full brightness, which matters more than it sounds: the
-     * hexagon's cross-section is a hexagon of radius b/100, so at a dark
-     * starting colour the whole field collapses toward a point and the lap
-     * below would happen inside a few pixels. From b=100 it is always the
-     * full field.
+     * The chain, and the hexagon it lives on - last, because it is the
+     * unfamiliar one and because everything before it fits in the colour
+     * editor. On a phone that means the demo does its first three steps in one
+     * card and only scrolls once, at the end, to the thing worth scrolling to.
+     *
+     * Going after the colour editor also hands this step a colour at full
+     * brightness, which matters more than it sounds: the hexagon's
+     * cross-section is a hexagon of radius b/100, so at a dark starting colour
+     * the whole field collapses toward a point and the lap below would happen
+     * inside a few pixels. From b=100 it is always the full field.
      *
      * Three stops, not all six: a stem, the joint two along, and the tip. Visiting every one in order made the point three times and took
      * nine seconds doing it - the tooltips name a channel the same whether or
@@ -395,85 +484,6 @@ export const STEPS: DemoStep[] = [
     },
   },
 
-  {
-    caption: 'Move one value and everything it affects lights up across the app.',
-    audio: '03-impact.mp3',
-    duration: DWELL.moveFar + DWELL.beforeAction + DWELL.dragBar
-      + DWELL.betweenSteps + DWELL.move + DWELL.dragBar + DWELL.afterAction,
-    /**
-     * The claim and its demonstration, which used to be two steps.
-     *
-     * They were split into "watch for the impact" and "here it is", and read
-     * as the same point made twice: the caption on the second said what the
-     * first had already said, and the pause between them was a pause in the
-     * middle of one idea.
-     *
-     * It worked a slider in the bank first, and that beat is gone. A slider is
-     * the weakest of the three for this step's own argument - it sits among
-     * the readouts that are supposed to be answering it, so "look at what
-     * lights up" competes with the thing being held. The hexagon's two bars
-     * are not in the bank at all, which is what makes the answer unmistakably
-     * somewhere else. Saturation and brightness each reach the whole of RGB
-     * and half of HSL, so a slow sweep of either lights most of the panel.
-     *
-     * Both gestures are sweeps that hand the colour back where they found it,
-     * so the landing colour survives the step.
-     */
-    async run({ d }) {
-      const sat = el('#sat-bar');
-      const bl = el('#bl-bar');
-      if (sat) {
-        await d.bring(sat);
-        const r = sat.getBoundingClientRect();
-        const y = r.top + r.height / 2;
-        const from = { x: centerOf(el('#sat-bar-arrow') ?? sat).x, y };
-        const sweep = sweepFrom(r.left + 4, r.right - 4, from.x);
-        await d.moveTo(() => from, DWELL.moveFar);
-        await d.wait(DWELL.beforeAction);
-        await d.drag(sat, (t) => ({ x: sweep(t), y }), DWELL.dragBar, true);
-        await d.wait(DWELL.betweenSteps);
-      }
-      if (bl) {
-        await d.bring(bl);
-        const r = bl.getBoundingClientRect();
-        const x = r.left + r.width / 2;
-        const from = { x, y: centerOf(el('#bl-bar-arrow') ?? bl).y };
-        // Brightness sits pinned at the top of its bar at the landing colour,
-        // so this is the one that has to sweep away from an end rather than
-        // about a middle - which is what sweepFrom exists for.
-        const sweep = sweepFrom(r.top + 4, r.bottom - 4, from.y);
-        await d.moveTo(() => from, DWELL.move);
-        await d.drag(bl, (t) => ({ x, y: sweep(t) }), DWELL.dragBar, true);
-      }
-      await d.wait(DWELL.afterAction);
-    },
-  },
-
-  {
-    caption: 'Press this button to toggle between Source and Mixed color sliders.',
-    audio: '04-blend.mp3',
-    duration: DWELL.moveFar + DWELL.beforeAction + 4 * CLICK_MS + 3 * DWELL.blendHold + DWELL.afterAction,
-    /** Blend on and off, which is a claim about the sliders you can only see. */
-    async run({ d }) {
-      const toggle = el('#blend-toggle');
-      if (!toggle) return;
-      // Framed rather than merely visible: what this step is about is the
-      // slider tracks changing under the button, so the card has to be the
-      // shot. On a phone the button alone is often already on screen after the
-      // previous step, and without this the view stays wherever that left it.
-      await d.bring(toggle, true);
-      await d.moveTo(() => centerOf(toggle), DWELL.moveFar);
-      await d.wait(DWELL.beforeAction);
-
-      // Four presses, ending where it started. The click carries the whole
-      // toggle - the button flips on a plain click - so nothing here sets the
-      // state behind its back.
-      for (let i = 0; i < 4; i++) {
-        await d.click(toggle);
-        await d.wait(i === 3 ? DWELL.afterAction : DWELL.blendHold);
-      }
-    },
-  },
 ];
 
 /**

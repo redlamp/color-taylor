@@ -29,9 +29,9 @@ step has, and where a longer line could go without changing a single timing.
 | # | Line | Runs | Words | Room |
 |---|---|---:|---:|---:|
 | 1 | Work with the tools that feel most familiar to you. | 8.3s | 10 | ~21 |
-| 2 | Play with the handles to see how each one maps to a color channel. | 9.9s | 14 | ~25 |
-| 3 | Move one value and everything it affects lights up across the app. | 8.1s | 12 | ~20 |
-| 4 | Press this button to toggle between Source and Mixed color sliders. | 5.5s | 11 | ~14 |
+| 2 | Move one value and everything it affects lights up across the app. | 8.1s | 12 | ~20 |
+| 3 | Press this button to toggle between Source and Mixed color sliders. | 5.5s | 11 | ~14 |
+| 4 | Play with the handles to see how each one maps to a color channel. | 9.9s | 14 | ~25 |
 | — | Have fun! | 4.4s | 2 | — |
 | | **Total** | **36.1s** | | |
 
@@ -46,7 +46,7 @@ Four things worth knowing before you rewrite any of them:
   in one cell and holds the height of the tallest, so a caption that wraps to
   three makes the panel taller for the whole demo, not just its own step. At the
   header's width that is about 66 characters; all four are 51–67 today.
-- **Step 4 is the tightest, and it is now tight enough to matter.** Eleven
+- **Step 3 is the tightest, and it is now tight enough to matter.** Eleven
   words in 5.5s leaves about three words of headroom. If a recorded line runs
   long the step stretches to fit it rather than clipping, but the choreography
   stops being what sets its length — put `blendHold` back to 1100 if that
@@ -127,7 +127,8 @@ Every duration in the script is one of these, in the `DWELL` block at the top of
 | `dragTip` | 3800 | The hexagon's tip handle, once round the field |
 | `dragBox` | 2800 | The colour box |
 | `dragHue` | 2600 | The colour editor's hue strip |
-| `dragBar` | 2600 | Each of the hexagon's two bars |
+| `dragBar` | 2600 | Each of the hexagon's two bars (unused by the current script) |
+| `dragSlider` | 2600 | Each of the two sliders in step 2 |
 | `blendHold` | 1000 | How long each blend state is held up for inspection |
 
 Sweeps that are only meant to show a range go out and back along their track,
@@ -185,14 +186,67 @@ rather than twice: both ends only fit when the start and the target are both
 near the middle, and a sweep that reverses twice in two and a half seconds
 reads as fidgeting rather than as showing a range.
 
-## Step 2 — The chain · 9.9s
+## Step 2 — What one value moves · 8.1s
+
+> **Move one value and everything it affects lights up across the app.**
+
+Narration: `public/demo/02-impact.mp3`
+
+This was two steps — "keep an eye open for the impact", then "here it is" — and
+they read as the same point made twice, with a pause in the middle of one idea.
+
+| Beat | ms | What happens |
+|---|---:|---|
+| `moveFar` | 680 | To a slider in the **first visible bank** — G by default. The bank block is centred in the band first, so every slider is in the shot. |
+| `beforeAction` | 400 | |
+| `dragSlider` | 2600 | Out and back along the track. Everything except the slider being held lights up. |
+| `betweenSteps` | 300 | |
+| `move` | 520 | To a slider in the **second bank** — HSB's S by default. |
+| `dragSlider` | 2600 | The same, the other way round: now this bank is the one that stays dark. |
+| `afterAction` | 950 | |
+
+This was made on the hexagon's two bars, and the reasoning for that looked
+sound: the bars are not in the slider bank, so the bank lighting up is
+unmistakably somewhere else.
+
+On a phone that reasoning inverts. The hexagon and the bank cannot be on screen
+at once, so a gesture on the hexagon makes a claim about readouts the user
+cannot see — the one step whose whole subject is what happens elsewhere,
+demonstrated off screen. Two sliders from two different banks says the same
+thing inside one card: neither lights itself, each lights the other, and the
+hexagon's chain and bars light too for anyone with the room to see them.
+
+Which sliders depends on what is showing, because the demo runs against the
+user's own arrangement rather than setting it. It takes one from each of the
+first two banks it finds.
+
+Both gestures are sweeps that hand the colour back where they found it, which
+is what lets the landing colour survive the step.
+
+## Step 3 — Source and mixed · 5.5s
+
+> **Press this button to toggle between Source and Mixed color sliders.**
+
+Narration: `public/demo/03-blend.mp3`
+
+| Beat | ms | What happens |
+|---|---:|---|
+| `moveFar` | 680 | To the **blend button**. |
+| `beforeAction` | 400 | |
+| 4 × (`CLICK_MS` + `blendHold`) | 4 × 110 + 3 × 1000 + 950 | Four presses, each leaving a ring, ending where it started. |
+
+## Step 4 — The chain · 9.9s
 
 > **Play with the handles to see how each one maps to a color channel.**
 
-Narration: `public/demo/02-handles.mp3`
+Narration: `public/demo/04-handles.mp3`
 
-It comes second because it is the unfamiliar one, and because step 1 hands it a
-colour at full brightness — the hexagon's cross-section is a hexagon of radius
+It comes last because it is the unfamiliar one, and because everything before it
+fits in the colour editor — on a phone the demo does its first three steps in one
+card and only scrolls once, at the end, to the thing worth scrolling to.
+
+Going after the colour editor also hands it a colour at full brightness, which
+matters more than it sounds: the hexagon's cross-section is a hexagon of radius
 `b/100`, so a dark starting colour would collapse the whole field toward a point
 and the lap below would happen inside a few pixels.
 
@@ -216,51 +270,6 @@ adjusted, and a full turn looks like a hue wheel, which is what it is.
 Brightness is untouched for the whole gesture — the mapping freezes its bound at
 pointer-down and every point on the path stays inside it — so hue and saturation
 are the only things moving.
-
-## Step 3 — What one value moves · 8.1s
-
-> **Move one value and everything it affects lights up across the app.**
-
-Narration: `public/demo/03-impact.mp3`
-
-This was two steps — "keep an eye open for the impact", then "here it is" — and
-they read as the same point made twice, with a pause in the middle of one idea.
-
-| Beat | ms | What happens |
-|---|---:|---|
-| `moveFar` | 680 | To the hexagon's **Saturation bar**. |
-| `beforeAction` | 400 | |
-| `dragBar` | 2600 | A slow sweep. Most of the RGB and HSL readouts light at once. |
-| `betweenSteps` | 300 | |
-| `move` | 520 | To the **Brightness bar**. |
-| `dragBar` | 2600 | The same, vertically. |
-| `afterAction` | 950 | |
-
-It opened on the H slider in the bank, and that beat is gone. A slider is the
-weakest of the three for this step's own argument: it sits among the readouts
-that are supposed to be answering it, so "look at what lights up" competes with
-the thing being held. The hexagon's bars are not in the bank at all, which is
-what makes the answer unmistakably somewhere else.
-
-The cost is that nothing in the demo now drives a slider directly. If that
-turns out to matter, the cheap fix is to swap the Brightness bar for the H
-slider rather than adding a fourth gesture — one in the bank and one on the
-hexagon covers "across the app" better than two of either, for about 0.4s.
-
-Both gestures are sweeps that hand the colour back where they found it, which
-is what lets the landing colour survive the step.
-
-## Step 4 — Source and mixed · 5.5s
-
-> **Press this button to toggle between Source and Mixed color sliders.**
-
-Narration: `public/demo/04-blend.mp3`
-
-| Beat | ms | What happens |
-|---|---:|---|
-| `moveFar` | 680 | To the **blend button**. |
-| `beforeAction` | 400 | |
-| 4 × (`CLICK_MS` + `blendHold`) | 4 × 110 + 3 × 1000 + 950 | Four presses, each leaving a ring, ending where it started. |
 
 ## Sign-off · 4.4s
 
@@ -302,9 +311,9 @@ the length. A recording shorter than the step changes nothing.
 | Step | File | Words to fill the current timing |
 |---|---|---:|
 | 1 | `01-color-box.mp3` | ~8.3s |
-| 2 | `02-handles.mp3` | ~9.9s |
-| 3 | `03-impact.mp3` | ~8.1s |
-| 4 | `04-blend.mp3` | ~5.5s |
+| 2 | `02-impact.mp3` | ~8.1s |
+| 3 | `03-blend.mp3` | ~5.5s |
+| 4 | `04-handles.mp3` | ~9.9s |
 
 ## Things the timings cannot predict
 
@@ -314,11 +323,13 @@ the length. A recording shorter than the step changes nothing.
   never happens; on a phone it happens most steps, and adds roughly half a
   second each.
 
-  Step 4 asks for it whether or not it needs it — `bring(el, true)`. Its subject
-  is the slider tracks changing under the button, so the card has to be the shot
-  and not just the button, and left to itself `bring` returns the moment its
-  target is on screen. That makes how the step looks a consequence of wherever
-  step 3 happened to stop, which is not a thing to leave to chance.
+  Steps 2 and 3 ask for it whether or not they need it — `bring(el, true)`.
+  Their subject is the slider tracks, so the tracks have to be the shot and not
+  just the control being worked, and left to itself `bring` returns the moment
+  its target is on screen. That makes how a step looks a consequence of wherever
+  the previous one happened to stop, which is not a thing to leave to chance.
+  Step 2 centres the bank block rather than framing the card, because framing
+  from the card's top pushes the last slider under the panel on a phone.
 - **Back and Next.** A step interrupted part way is abandoned at its next
   pause, so its remaining beats are simply not spent.
 - **Reduced motion.** `prefers-reduced-motion` removes the arcs and the cursor's
