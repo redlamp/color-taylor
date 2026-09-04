@@ -29,6 +29,9 @@ const buttonVariants = cva(
         // For a call to action rather than a control: the welcome panel's two
         // buttons are the only thing on it to press.
         xl: "h-11 gap-2 rounded-lg px-5 text-base [&_svg:not([class*='size-'])]:size-4.5",
+        // Set to the copy above it rather than to the other controls, which is
+        // why it steps the text as well as the box.
+        "2xl": "h-14 gap-2.5 rounded-xl px-6 text-2xl [&_svg:not([class*='size-'])]:size-6",
         icon: "size-8",
         "icon-xs":
           "size-6 rounded-[min(var(--radius-md),10px)] in-data-[slot=button-group]:rounded-lg [&_svg:not([class*='size-'])]:size-3",

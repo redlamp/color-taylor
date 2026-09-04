@@ -71,13 +71,13 @@ export function AboutPanel({ open, onClose, onWatchDemo }: AboutPanelProps) {
           <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
             <Button
               variant="secondary"
-              size="xl"
+              size="2xl"
               onClick={(e) => { e.stopPropagation(); onWatchDemo(); }}
             >
-              <Play className="size-5" />
+              <Play className="size-6" />
               Watch Demo
             </Button>
-            <Button size="xl" onClick={(e) => { e.stopPropagation(); onClose(); }}>
+            <Button size="2xl" onClick={(e) => { e.stopPropagation(); onClose(); }}>
               Get Started
             </Button>
           </div>
