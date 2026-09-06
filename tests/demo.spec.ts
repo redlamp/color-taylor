@@ -298,7 +298,7 @@ test.describe('Picker demo', () => {
 
     // The hexagon is the last step. Before the reorder its field would have
     // been a point for the whole of this, whatever the gesture did.
-    await expect(litTicks(page)).toHaveCount(4, { timeout: 20000 });
+    await expect(litTicks(page)).toHaveCount(5, { timeout: 25000 });
     let widest = 0;
     for (let i = 0; i < 24; i++) {
       await page.waitForTimeout(50);

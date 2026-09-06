@@ -76,6 +76,8 @@ import EquationsPanel from './EquationsPanel';
 import PreviewSwatch from './PreviewSwatch';
 import CollapsibleSection from './CollapsibleSection';
 import NamedColorMatch from './NamedColorMatch';
+import SwatchLibrary, { useSwatchLibrary, type PlaySection } from './SwatchLibrary';
+import { tipFromPointer, tipFromFocus } from '../utils/hoverTips';
 import ThemeToggle from './ThemeToggle';
 import { SettingsPanel } from './SettingsPanel';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
@@ -85,7 +87,7 @@ import { useTheme } from '@/hooks/useTheme';
 import useColorEffects from '@/hooks/useColorEffects';
 import { toneController } from '@/utils/toneControllerLazy';
 import { useColorState } from '@/hooks/useColorState';
-import { Play, Pause, Menu, Music, Slash, CircleHelp } from 'lucide-react';
+import { Menu, Music, Slash, CircleHelp } from 'lucide-react';
 
 type BlMode = 'brightness' | 'lightness';
 /**
@@ -114,22 +116,15 @@ const PLAY_SNAP_MS = 600;
 /** Tailwind for the rule a block draws above itself when it is not first. */
 const BLOCK_CLASS = 'flex flex-col gap-2 [&:not(:first-child)]:mt-3 [&:not(:first-child)]:border-t [&:not(:first-child)]:border-input [&:not(:first-child)]:pt-3';
 
-// Color-cycle animation constants (mirror DEFAULT_RECENT in ColorHexagon)
-const COLOR_KEYFRAMES = [
-  { r: 255, g: 0,   b: 0   },
-  { r: 255, g: 255, b: 0   },
-  { r: 0,   g: 255, b: 0   },
-  { r: 0,   g: 255, b: 255 },
-  { r: 0,   g: 0,   b: 255 },
-  { r: 255, g: 0,   b: 255 },
-  { r: 255, g: 255, b: 255 },
-  { r: 128, g: 128, b: 128 },
-  { r: 0,   g: 0,   b: 0   },
-];
-const ANIM_TRANSITION_DUR = 1200;
-const ANIM_HOLD_DUR = 800;
-const ANIM_STEP_DUR = ANIM_TRANSITION_DUR + ANIM_HOLD_DUR;
-const ANIM_CYCLE_DUR = COLOR_KEYFRAMES.length * ANIM_STEP_DUR;
+/**
+ * Playing a list of swatches: each gets the settings' play speed, split so
+ * most of it is the travel to the colour and the rest the stand on it - the
+ * 1.2s / 0.8s the old fixed keyframe cycle used, as a share so the setting
+ * scales both. The list is a snapshot taken at the press; the play buttons
+ * in the Swatches panel say which list and where to start.
+ */
+const PLAY_TRANSITION_SHARE = 0.6;
+type PlayRun = { section: PlaySection; colors: RGB[]; start: number };
 
 /**
  * #4F95FF, the blue of the logo and the Community thumbnail, so a first visit
@@ -202,8 +197,9 @@ export default function ColorPicker() {
    * this; when the cycle stops the value goes stale and is simply not read.
    */
   const [playHold, setPlayHold] = useState<Hold | null>(null);
-  // Declared up here because the hold above reads it; the cycle itself is below.
-  const [colorAnimActive, setColorAnimActive] = useState(false);
+  // Declared up here because the hold above reads it; the playback itself is below.
+  const [play, setPlay] = useState<PlayRun | null>(null);
+  const colorAnimActive = play !== null;
   const [blMode, setBlMode] = useState<BlMode>('brightness');
   const [colorSpace, setColorSpace] = useState<ColorSpace>('srgb');
   const [hoverMatchRgb, setHoverMatchRgb] = useState<RGB | null>(null);
@@ -513,23 +509,24 @@ export default function ColorPicker() {
    * borrows.
    *
    * What it found goes back when it ends or is skipped: the colour through
-   * the same tween an undo uses, the slider groups and blend as they were.
-   * Teaching a setting by silently changing it is a poor trade.
+   * the same tween an undo uses, the slider groups, blend and the HTML
+   * colours on the hexagon as they were. Teaching a setting by silently
+   * changing it is a poor trade.
    */
   const demoSnapshot = useRef<{
-    hsb: HSB; rgb: RGB; groups: SliderGroup[]; blend: boolean;
+    hsb: HSB; rgb: RGB; groups: SliderGroup[]; blend: boolean; showHtmlOnHex: boolean;
   } | null>(null);
   const demoExactRgb = useRef<RGB | null>(null);
   const startDemo = useCallback((from: { x: number; y: number } | null = null) => {
     setDemoFrom(from);
     takeOverFromAnimation();
-    demoSnapshot.current = { hsb: { ...hsbRef.current }, rgb: { ...rgb }, groups, blend };
+    demoSnapshot.current = { hsb: { ...hsbRef.current }, rgb: { ...rgb }, groups, blend, showHtmlOnHex };
     // Ask any section the script works in to open, before the overlay mounts,
     // so the 200ms collapse has run by the time the first beat measures
     // anything. A section that was already open is not touched.
     openDemoSections();
     setDemoOpen(true);
-  }, [takeOverFromAnimation, hsbRef, rgb, groups, blend]);
+  }, [takeOverFromAnimation, hsbRef, rgb, groups, blend, showHtmlOnHex]);
   const restoreDemo = useCallback(() => {
     const snap = demoSnapshot.current;
     // Null after the first call: the script restores when it reaches the last
@@ -539,6 +536,7 @@ export default function ColorPicker() {
     restoreDemoSections();
     setGroups(snap.groups);
     setBlend(snap.blend);
+    setShowHtmlOnHex(snap.showHtmlOnHex);
     /*
      * The tween restores HSB, and hsbToRgb(rgbToHsb(rgb)) changes 86.4% of
      * 8-bit colours - so a colour the user typed as R=137 would come back as
@@ -697,56 +695,52 @@ export default function ColorPicker() {
   const colorAnimRaf = useRef<number | null>(null);
   useEffect(() => { colorAnimActiveRef.current = colorAnimActive; }, [colorAnimActive]);
 
+  // Read every frame rather than restarting the run, so dragging the setting
+  // while a list plays changes the pace and nothing else.
+  const playSpeedRef = useRef(settings.playSpeed);
+  useEffect(() => { playSpeedRef.current = settings.playSpeed; }, [settings.playSpeed]);
+
   useEffect(() => {
-    if (!colorAnimActive) {
+    if (!play) {
       if (colorAnimRaf.current) cancelAnimationFrame(colorAnimRaf.current);
       colorAnimRaf.current = null;
       toneController.release();
       return;
     }
+    const { colors } = play;
+    if (!colors.length) return;
 
-    // Find nearest keyframe to current color
-    const curRgb = rgbOverride.current || hsbToRgb(hsbRef.current.h, hsbRef.current.s, hsbRef.current.b);
-    let bestIdx = 0, bestDist = Infinity;
-    for (let i = 0; i < COLOR_KEYFRAMES.length; i++) {
-      const kf = COLOR_KEYFRAMES[i];
-      const d = Math.abs(curRgb.r - kf.r) + Math.abs(curRgb.g - kf.g) + Math.abs(curRgb.b - kf.b);
-      if (d < bestDist) { bestDist = d; bestIdx = i; }
-    }
-    const timeOffset = bestIdx * ANIM_STEP_DUR;
-
-    const start = performance.now() - timeOffset;
-    let wasHolding: boolean | null = null;
+    // Standing on the start colour first, then travelling to the next: the
+    // list wraps, so a one-colour list simply holds.
+    let idx = play.start % colors.length;
+    let phase = 0;
+    let last: number | null = null;
     toneController.start(hsbRef.current);
     const tick = (ts: number) => {
       // Check if user interaction requested a stop
       if (colorAnimActiveRef.current === 'stop') {
         colorAnimActiveRef.current = false;
-        setColorAnimActive(false);
+        setPlay(null);
         toneController.stop(120);
         return;
       }
 
-      const elapsed = ts - start;
-      const t = elapsed % ANIM_CYCLE_DUR;
-      const frameIdx = Math.floor(t / ANIM_STEP_DUR);
-      const frameT = t - frameIdx * ANIM_STEP_DUR;
-
-      const isHolding = frameT < ANIM_HOLD_DUR;
-      let r, g, b;
-      if (isHolding) {
-        ({ r, g, b } = COLOR_KEYFRAMES[frameIdx]);
-      } else {
-        const p = Math.sin(((frameT - ANIM_HOLD_DUR) / ANIM_TRANSITION_DUR) * Math.PI / 2);
-        const from = COLOR_KEYFRAMES[frameIdx];
-        const to = COLOR_KEYFRAMES[(frameIdx + 1) % COLOR_KEYFRAMES.length];
-        r = Math.round(from.r + (to.r - from.r) * p);
-        g = Math.round(from.g + (to.g - from.g) * p);
-        b = Math.round(from.b + (to.b - from.b) * p);
+      const stepMs = playSpeedRef.current * 1000;
+      const holdMs = stepMs * (1 - PLAY_TRANSITION_SHARE);
+      if (last !== null) phase += ts - last;
+      last = ts;
+      while (phase >= stepMs) {
+        phase -= stepMs;
+        idx = (idx + 1) % colors.length;
       }
 
-      if (isHolding !== wasHolding) {
-        wasHolding = isHolding;
+      let { r, g, b } = colors[idx];
+      if (phase >= holdMs) {
+        const p = Math.sin(((phase - holdMs) / (stepMs - holdMs)) * Math.PI / 2);
+        const to = colors[(idx + 1) % colors.length];
+        r = Math.round(r + (to.r - r) * p);
+        g = Math.round(g + (to.g - g) * p);
+        b = Math.round(b + (to.b - b) * p);
       }
 
       rgbOverride.current = { r, g, b };
@@ -760,8 +754,37 @@ export default function ColorPicker() {
       if (colorAnimRaf.current) cancelAnimationFrame(colorAnimRaf.current);
       toneController.release();
     };
-  }, [colorAnimActive, hsbRef, rgbOverride, setHsb]);
+  }, [play, hsbRef, rgbOverride, setHsb]);
 
+  /**
+   * A press on a list's play button: that list plays from where it says, a
+   * second press on the same one stops it, and a press on the other list
+   * hands over to it. Stopping goes through the same 'stop' flag a user's
+   * edit raises, so the tick lands the tone and the state the one way.
+   */
+  const playRef = useRef(play);
+  useEffect(() => { playRef.current = play; }, [play]);
+  const togglePlay = useCallback((section: PlaySection, colors: RGB[], start: number) => {
+    if (playRef.current?.section === section) {
+      if (colorAnimActiveRef.current) colorAnimActiveRef.current = 'stop';
+      return;
+    }
+    setPlay({ section, colors, start });
+  }, []);
+
+  /**
+   * Recent and Saved. Owned here rather than by the hexagon because they
+   * render in a panel of their own now, and the hexagon still needs to record
+   * a colour picked outright - so it gets addToRecent handed back down.
+   * A row of the panel holds 24, which is also what Recent keeps.
+   */
+  const swatches = useSwatchLibrary({
+    rgb,
+    muted: effectiveMuted,
+    recordRecent: !demoOpen,
+    onAnimateToHsb: (target) => { if (colorAnimActiveRef.current) colorAnimActiveRef.current = 'stop'; animateToHsb(target); },
+    bank: 24,
+  });
 
   return (
     <div id="color-picker-root" className="mx-auto w-full px-0.5 py-1 sm:p-6" style={{ maxWidth: TOP_ROW_MAX_WIDTH }}>
@@ -800,20 +823,8 @@ export default function ColorPicker() {
               Intro
             </button>
           )}
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <button
-                  className="ctl-quiet-icon"
-                  onClick={() => setColorAnimActive(a => !a)}
-                  aria-label={colorAnimActive ? 'Pause color animation' : 'Play color animation'}
-                >
-                  {colorAnimActive ? <Pause className="size-4" /> : <Play className="size-4" />}
-                </button>
-              }
-            />
-            <TooltipContent>Cycle Colors</TooltipContent>
-          </Tooltip>
+          {/* The play button lived here, cycling nine fixed colours. It is in
+              the Swatches panel now, one per list, playing the swatches. */}
           {/* The synth and volume controls only exist once audio is switched on
               in Settings. Off is the default, so a first visit has no audio
               affordances at all and none of the engine is fetched. */}
@@ -935,9 +946,7 @@ export default function ColorPicker() {
             hoverMatchRgb={hoverMatchRgb}
             showHtmlOnHex={showHtmlOnHex}
             onHoverHtmlColor={setHoveredHtmlColor}
-            muted={effectiveMuted}
-            collapsedSections
-            recordRecent={!demoOpen}
+            onRecordColor={swatches.addToRecent}
             impactChannels={impactChannels}
             hueBadgeLit={hueBadgeLit}
             hueFillLit={hueFillLit}
@@ -1020,10 +1029,14 @@ export default function ColorPicker() {
 
         {/* The slider banks, one flat block of the panel rather than two cards:
             the models are the same colour read three ways, and a card each made
-            them look like three tools. The toolbar is the plugin's: which
-            blocks show, and whether tracks blend. */}
+            them look like three tools. The toolbar is the plugin's - which
+            blocks show, and whether tracks blend - with the hex readout at its
+            right end, stepper-wide so it lines up with the number fields
+            below. It used to sit in a card of its own under the sliders, with
+            a second swatch beside it; the swatch at the top is the swatch. */}
         <div className="flex flex-col gap-3" id="slider-banks">
           <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
             <ToggleGroup
               multiple
               value={groups}
@@ -1060,9 +1073,10 @@ export default function ColorPicker() {
                       value="blend"
                       className="px-2"
                       id="blend-toggle"
-                      onPointerEnter={() => setBlendTipOpen(true)}
+                      // Not on touch - see utils/hoverTips.
+                      onPointerEnter={(e) => { if (tipFromPointer(e)) setBlendTipOpen(true); }}
                       onPointerLeave={() => setBlendTipOpen(false)}
-                      onFocus={() => setBlendTipOpen(true)}
+                      onFocus={(e) => { if (tipFromFocus(e.currentTarget)) setBlendTipOpen(true); }}
                       onBlur={() => setBlendTipOpen(false)}
                       // The label is the action, the tooltip below is the
                       // state: blend off draws each channel's own ramp, which
@@ -1077,6 +1091,13 @@ export default function ColorPicker() {
                 <TooltipContent className={TOOLBAR_TIP_CLASS}>{blend ? 'Mixed Colors' : 'Source Colors'}</TooltipContent>
               </Tooltip>
             </ToggleGroup>
+            </div>
+            <div className="w-[92px] shrink-0">
+              <HexInput
+                hex={hex}
+                onChange={handleHexInput}
+              />
+            </div>
           </div>
 
           {/* A rule between blocks, drawn by the block below: the blocks are
@@ -1180,30 +1201,28 @@ export default function ColorPicker() {
           </div>
         </div>
 
-        {/* Hex & HTML Colors */}
-        <CollapsibleSection id="hex-group" title="Hex and HTML Colors" defaultOpen={false}>
-          <div className="flex flex-col gap-3">
-            <div className="flex gap-3 items-stretch">
-              <PreviewSwatch hex={hex} />
-              <div className="flex-1 min-w-0">
-                <HexInput
-                  hex={hex}
-                  onChange={handleHexInput}
-                />
-              </div>
-            </div>
-            <NamedColorMatch
-              rgb={rgb}
-              onAnimateToHsb={animateToHsb}
-              onHoverMatch={setHoverMatchRgb}
-              hoveredHtmlColor={hoveredHtmlColor}
-              showOnHex={showHtmlOnHex}
-              onShowOnHexChange={setShowHtmlOnHex}
-            />
+        {/* The HTML colour row: search, nearest name, show-on-hex. Flat in the
+            panel under a rule, the same rule the slider blocks draw between
+            themselves - it was boxed in a "Hex and HTML Colors" card, which
+            made one row of controls look like a section to open. */}
+        <hr className="m-0 border-0 border-t border-input" />
+        <NamedColorMatch
+          rgb={rgb}
+          onAnimateToHsb={animateToHsb}
+          onHoverMatch={setHoverMatchRgb}
+          hoveredHtmlColor={hoveredHtmlColor}
+          showOnHex={showHtmlOnHex}
+          onShowOnHexChange={setShowHtmlOnHex}
+        />
           </div>
         </CollapsibleSection>
-          </div>
-        </CollapsibleSection>
+      </div>
+
+      {/* Swatches: Recent and Saved, out of the Hexagon card and into a panel
+          of their own across both tracks, where a row holds 24. See
+          wiki/notes/decision-swatches-panel.md. */}
+      <div className="md:col-span-2 panel-frame border border-border rounded-lg p-2.5">
+        <SwatchLibrary lib={swatches} layout="panel" collapsed play={{ active: play?.section ?? null, onToggle: togglePlay }} />
       </div>
 
       {/* Equations panel. Spanning both tracks is what makes it match the width

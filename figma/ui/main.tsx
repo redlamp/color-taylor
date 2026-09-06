@@ -55,6 +55,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import BlendIcon from '../../src/components/BlendIcon';
 import { Ban, Brush, PaintBucket } from 'lucide-react';
 import ColorHexagon from '../../src/components/ColorHexagon';
+import SwatchLibrary, { useSwatchLibrary } from '../../src/components/SwatchLibrary';
 // The bridge protocol, shared with code.js - the one place the two halves of
 // the plugin are kept from drifting apart.
 import type {
@@ -500,6 +501,10 @@ function PluginApp() {
 
   const onHslChange = setHslChannel;
 
+  // Recent and Saved, under the hexagon in the sidebar shape. The hook lives
+  // here so the hexagon can hand a clicked vertex or marker straight to it.
+  const swatches = useSwatchLibrary({ rgb, alpha, onAnimateToHsb, onAlphaRestore, muted: true });
+
   return (
     <>
       <div className="figma-root" ref={rootRef}>
@@ -519,14 +524,10 @@ function PluginApp() {
         colorSpace={colorSpace}
         onColorSpaceChange={setColorSpace}
         bare
-        collapsedSections
-        sectionVariant="flush"
-        alpha={alpha}
-        onAlphaRestore={onAlphaRestore}
+        onRecordColor={swatches.addToRecent}
         blBar={false}
         satBar={false}
         stemRange={[2, 4]}
-        muted
         headerLeft={
           // Mirrors the Bright/Light group opposite: tabs with a caption
           // underneath, same classes so the two read as a matched pair.
@@ -762,6 +763,7 @@ function PluginApp() {
           </div>
         }
         />
+        <SwatchLibrary lib={swatches} layout="sections" variant="flush" collapsed />
       </div>
       <ScrollIndicator />
       <ResizeEdge side="w" />

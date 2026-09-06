@@ -53,7 +53,8 @@ test.describe('Saved colors row', () => {
     // control renders an icon now, so there is no text to match - and asserting
     // on state instead of presentation keeps this from breaking again the next
     // time the glyph changes.
-    const sortButton = section.locator('button[data-sort-mode]');
+    // Sort rides on the Swatches panel's header, above the Saved grid.
+    const sortButton = page.locator('#swatches-group button[data-sort-mode]');
     for (let i = 0; (await sortButton.getAttribute('data-sort-mode')) !== 'hue'; i++) {
       expect(i, 'sort should reach hue within one full cycle').toBeLessThan(5);
       await sortButton.click();

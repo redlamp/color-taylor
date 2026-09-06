@@ -1,5 +1,5 @@
 /**
- * The demo script: four steps the user can walk forwards and backwards, and a
+ * The demo script: five steps the user can walk forwards and backwards, and a
  * sign-off. Each one works a real control, so what they watch is exactly what
  * their own hand would produce - the hold, the impact highlights on everything
  * that moved, the channel tooltips, the tone. wiki/notes/plan-picker-demo.md.
@@ -132,7 +132,7 @@ export interface DemoStep {
 /** Flip to true once the recordings are in `public/demo/`. */
 export const NARRATION_READY = false;
 
-/** The last word, after the four steps. */
+/** The last word, after the five steps. */
 export const SIGN_OFF = 'Have fun!';
 
 /**
@@ -151,7 +151,6 @@ export const SIGN_OFF_FADE_MS = 350;
 
 const el = (selector: string) => document.querySelector(selector);
 const joints = () => Array.from(document.querySelectorAll('[data-joint]'));
-const stems = () => Array.from(document.querySelectorAll('[data-stem]'));
 
 /**
  * Smoothstep: zero rate of change at both ends, unity in the middle.
@@ -421,8 +420,37 @@ export const STEPS: DemoStep[] = [
     },
   },
   {
+    caption: 'Press button to show HTML named colors in the hex.',
+    audio: '04-html-colors.mp3',
+    duration: DWELL.move + DWELL.beforeAction + 4 * CLICK_MS + 3 * DWELL.blendHold + DWELL.afterAction,
+    /**
+     * The named colours pinned on the field, on and off and on and off: a
+     * claim about the hexagon made from the editor, the way the blend step is
+     * a claim about the sliders, and the same four presses so the two steps
+     * read as one pattern. An even count leaves the picker as it was found,
+     * and the step sits before the chain step so the field it walks onto is
+     * the one the user had. The toggle is on the same row as the blend button
+     * the step before ended on, so this is a short move, not a far one.
+     */
+    async run({ d }) {
+      const toggle = el('#html-colors-toggle');
+      if (!toggle) return;
+      // The control itself, not the bank block the step before framed: the
+      // button sits under the sliders, and on a phone framing the block from
+      // its top leaves it below the band, behind the demo panel - where the
+      // ghost then taps at a point the button is not.
+      await d.bring(toggle);
+      await d.moveTo(() => centerOf(toggle), DWELL.move);
+      await d.wait(DWELL.beforeAction);
+      for (let i = 0; i < 4; i++) {
+        await d.click(toggle);
+        await d.wait(i === 3 ? DWELL.afterAction : DWELL.blendHold);
+      }
+    },
+  },
+  {
     caption: 'Play with the Hex handles to see how each one maps to a color channel.',
-    audio: '04-handles.mp3',
+    audio: '05-handles.mp3',
     duration: (DWELL.move + DWELL.hoverStem) + 2 * (DWELL.move + DWELL.hoverJoint)
       + DWELL.move + DWELL.dragTip + DWELL.afterAction,
     /**
@@ -437,24 +465,29 @@ export const STEPS: DemoStep[] = [
      * the whole field collapses toward a point and the lap below would happen
      * inside a few pixels. From b=100 it is always the full field.
      *
-     * Three stops, not all six: a stem, the joint two along, and the tip. Visiting every one in order made the point three times and took
-     * nine seconds doing it - the tooltips name a channel the same whether or
-     * not you have seen its neighbour, and by the third stop the pattern is
-     * established rather than being demonstrated. Then the tip, the one handle
-     * that is the selection rather than an explanation of it.
+     * Three stops, not all six, one per channel in chain order: the red
+     * handle, the green stem, the blue handle. Visiting every joint and stem
+     * made the point three times and took nine seconds doing it - the
+     * tooltips name a channel the same whether or not you have seen its
+     * neighbour, and by the third stop the pattern is established rather than
+     * being demonstrated. A handle then a stem then a handle also shows both
+     * kinds of thing on the chain, and ends on the tip, the one handle that is
+     * the selection rather than an explanation of it.
      */
     async run({ d, host }) {
       const dots = joints();
-      const legs = stems();
-      if (!dots.length || !legs.length) return;
+      if (!dots.length) return;
       const tip = dots[dots.length - 1];
       await d.bring(tip);
 
-      // Positional rather than by channel: the chain's order changes with the
-      // vector mode, and a missing one should be skipped, not thrown over.
+      // By channel, through the data-hold the hexagon marks each piece with:
+      // a joint carries every channel up to it, a stem its own. A missing one
+      // is skipped, not thrown over.
+      const joint = (hold: string) => document.querySelector(`[data-joint][data-hold="hex:${hold}"]`) ?? undefined;
+      const stem = (ch: string) => document.querySelector(`[data-stem][data-hold="hex:${ch}"]`) ?? undefined;
       const tour: Array<[Element | undefined, number]> = [
-        [legs[0], DWELL.hoverStem],
-        [dots[1], DWELL.hoverJoint],
+        [joint('r'), DWELL.hoverJoint],
+        [stem('g'), DWELL.hoverStem],
         [tip, DWELL.hoverJoint],
       ];
       for (const [target, dwell] of tour) {

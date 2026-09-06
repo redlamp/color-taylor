@@ -771,12 +771,9 @@ export default function PresentationStage({ slide, slideIndex, animPaused = fals
             onBlModeChange={() => {}}
             colorSpace="srgb"
             bare
-            collapsedSections
-            sectionVariant="flush"
             blBar={false}
             satBar={false}
             stemRange={[2, 4]}
-            swatchSections={false}
             blModeTabs={false}
             vertexLabels={false}
             blMarkers={false}
@@ -792,7 +789,6 @@ export default function PresentationStage({ slide, slideIndex, animPaused = fals
              * handle - the selected color - is the one thing that never leaves.
              */
             chainReveal={shapeMix}
-            muted
           />
         </div>
         </div>

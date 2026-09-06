@@ -1,5 +1,4 @@
 import { test, expect } from '@playwright/test';
-import { openSections } from './open-sections';
 
 /**
  * The settings sheet's interaction contract.
@@ -21,7 +20,6 @@ test.describe('Settings sheet', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await menuButton(page).waitFor();
-    await openSections(page, ['hex-group']);
   });
 
   test('opens from the menu button and is a named dialog', async ({ page }) => {
@@ -110,14 +108,14 @@ test.describe('Settings sheet', () => {
 
     await toggle('color-editor-group').click();
     await expect.poll(height('color-editor-group')).toBe(0);
-    await toggle('recent-colors').click();
-    await expect.poll(height('recent-colors')).toBeGreaterThan(0);
+    await toggle('swatches-group').click();
+    await expect.poll(height('swatches-group')).toBeGreaterThan(0);
 
     await menuButton(page).click();
     await sheet(page).getByRole('button', { name: /default settings/i }).click();
 
     await expect.poll(height('color-editor-group'), { timeout: 4000 }).toBeGreaterThan(0);
-    await expect.poll(height('recent-colors'), { timeout: 4000 }).toBe(0);
+    await expect.poll(height('swatches-group'), { timeout: 4000 }).toBe(0);
   });
 
   /**
@@ -168,7 +166,9 @@ test.describe('Settings sheet', () => {
     await page.setViewportSize({ width: 1400, height: 1000 });
     await page.waitForTimeout(250);
     // Sized to its contents rather than to the window, and clear of the foot.
-    expect(desktop.height).toBeLessThan(desktop.viewport * 0.6);
+    // Display holds a slider row as well as its switches now, so the sheet
+    // stands a little taller than the 60% it once fitted under.
+    expect(desktop.height).toBeLessThan(desktop.viewport * 0.7);
     expect(desktop.bottom).toBeGreaterThan(16);
     expect(desktop.scrolls).toBe(false);
 

@@ -41,6 +41,7 @@ Top-level Map of Content. See `CLAUDE.md` in this folder for conventions.
 `wiki/daily/YYYY-MM-DD.md`. Dailies before 2026-08-01 were reconstructed from git history on 2026-08-03 and are marked as such.
 
 - [[2026-09-02]] — the frame-rate meter and bench: measured, no regression
+- [[2026-09-06]] — the spectrum lab; the Color Editor cleaned up and Recent and Saved in a Swatches panel with play buttons; two demo steps and two real bugs
 - [[2026-09-01]] — the Oklab research, and what a circle does to the RGB chain
 - [[2026-08-25]] — a linkable `/intro`, the route renamed, and the narration plan
 - [[2026-08-24]] — the colour model session: strict TS, radius is chroma, and the HSL edge cases

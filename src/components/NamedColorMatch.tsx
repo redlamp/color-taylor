@@ -3,11 +3,11 @@ import { findNearestNamedColor } from '../utils/namedColors';
 import NAMED_COLORS from '../utils/namedColors';
 import { rgbToHex, rgbToHsb } from '../utils/colorConversions';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
-import { Search, Eye, EyeOff } from 'lucide-react';
+import { Search, Tags } from 'lucide-react';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Command, CommandInput, CommandList, CommandEmpty, CommandItem } from '@/components/ui/command';
-
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { tipFromPointer, tipFromFocus } from '../utils/hoverTips';
 
 interface NamedColorMatchProps {
   rgb: { r: number; g: number; b: number };
@@ -41,6 +41,10 @@ function NamedColorMatch({ rgb, onAnimateToHsb, onHoverMatch, hoveredHtmlColor, 
 
   const [hovering, setHovering] = useState(false);
   const [comboOpen, setComboOpen] = useState(false);
+  // Controlled, like the blend toggle's: the tooltip names the state the
+  // press changes, and base-ui would otherwise close it on the press and not
+  // reopen until the pointer left and came back.
+  const [tagsTipOpen, setTagsTipOpen] = useState(false);
 
   const handleClick = () => {
     if (isMatch && onAnimateToHsb) {
@@ -129,28 +133,41 @@ function NamedColorMatch({ rgb, onAnimateToHsb, onHoverMatch, hoveredHtmlColor, 
             </TooltipContent>
           )}
         </Tooltip>
-        <Tabs value={showOnHex ? 'show' : 'hide'} onValueChange={(v) => onShowOnHexChange?.(v === 'show')} className="@max-xs/match:hidden">
-          <TabsList>
-            <TabsTrigger value="show" className="w-12">Show</TabsTrigger>
-            <TabsTrigger value="hide" className="w-12">Hide</TabsTrigger>
-          </TabsList>
-        </Tabs>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              aria-pressed={showOnHex}
-              aria-label={showOnHex ? 'Hide HTML colors on hex' : 'Show HTML colors on hex'}
-              onClick={() => onShowOnHexChange?.(!showOnHex)}
-              className="hidden @max-xs/match:flex items-center justify-center w-9 h-8 rounded-md border border-input text-muted-foreground hover:text-foreground cursor-pointer"
-            >
-              {showOnHex ? <Eye className="!size-4" /> : <EyeOff className="!size-4" />}
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="top" sideOffset={4} className="text-xs font-semibold">
-            {showOnHex ? 'Hide HTML colors on hex' : 'Show HTML colors on hex'}
-          </TooltipContent>
-        </Tooltip>
+        {/* One pressed pill, the shape of the blend toggle: pressed, the named
+            colours are pinned on the hexagon. It was a Show / Hide pair at
+            full width and an eye at narrow widths; one control now serves
+            both, and the name chip gets the width the pair took. */}
+        <ToggleGroup
+          multiple
+          value={showOnHex ? ['tags'] : []}
+          onValueChange={(v) => onShowOnHexChange?.(v.length > 0)}
+        >
+          <Tooltip
+            open={tagsTipOpen}
+            onOpenChange={(next) => { if (next) setTagsTipOpen(true); }}
+          >
+            <TooltipTrigger
+              render={
+                <ToggleGroupItem
+                  value="tags"
+                  className="px-2"
+                  id="html-colors-toggle"
+                  // Not on touch - see utils/hoverTips for the page it moved.
+                  onPointerEnter={(e) => { if (tipFromPointer(e)) setTagsTipOpen(true); }}
+                  onPointerLeave={() => setTagsTipOpen(false)}
+                  onFocus={(e) => { if (tipFromFocus(e.currentTarget)) setTagsTipOpen(true); }}
+                  onBlur={() => setTagsTipOpen(false)}
+                  aria-label={showOnHex ? 'Hide HTML colors on hex' : 'Show HTML colors on hex'}
+                >
+                  <Tags />
+                </ToggleGroupItem>
+              }
+            />
+            <TooltipContent side="top" sideOffset={4} className="text-sm font-semibold">
+              {showOnHex ? 'HTML colors on the hexagon' : 'HTML colors hidden'}
+            </TooltipContent>
+          </Tooltip>
+        </ToggleGroup>
       </div>
     </div>
   );

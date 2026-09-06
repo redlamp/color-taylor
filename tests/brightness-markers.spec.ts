@@ -158,7 +158,9 @@ test.describe('Picker column heights', () => {
       const closed = page.locator('button[id$="-trigger"][aria-expanded="false"]');
       const n = await closed.count();
       if (!n) break;
-      for (let i = n - 1; i >= 0; i--) await closed.nth(i).click().catch(() => {});
+      // A short timeout: Recent's trigger is inert while the Swatches panel
+      // around it is closed, so the click cannot land until the next pass.
+      for (let i = n - 1; i >= 0; i--) await closed.nth(i).click({ timeout: 1500 }).catch(() => {});
       await page.waitForTimeout(350);
     }
     await expect(page.locator('button[id$="-trigger"][aria-expanded="false"]')).toHaveCount(0);
@@ -171,13 +173,14 @@ test.describe('Picker column heights', () => {
         const card = r('#color-hexagon');
         return {
           columnGap: Math.abs(card.bottom - r('#picker-layout').bottom),
-          // Only the card's own p-3 should be left under Saved. Slack goes into
-          // the stage above, where the wheel centres in it.
-          savedGap: card.bottom - r('#saved-colors').bottom,
+          // Only the card's own p-3 should be left under the stage. Recent and
+          // Saved live in their own panel now, so the stage is the card's
+          // last child and takes whatever slack the row hands the card.
+          stageGap: card.bottom - r('#hex-stage').bottom,
         };
       });
       expect(m.columnGap, `columns level at ${width}px`).toBeLessThanOrEqual(1);
-      expect(m.savedGap, `Saved flush at ${width}px`).toBeLessThanOrEqual(16);
+      expect(m.stageGap, `stage flush at ${width}px`).toBeLessThanOrEqual(20);
     }
   });
 

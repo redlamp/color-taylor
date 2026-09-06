@@ -31,9 +31,10 @@ step has, and where a longer line could go without changing a single timing.
 | 1 | Work with the tools that feel most familiar to you. | 8.3s | 10 | ~21 |
 | 2 | Move one value and everything it affects lights up across the app. | 8.1s | 12 | ~20 |
 | 3 | Press this button to toggle between Source and Mixed color sliders. | 5.5s | 11 | ~14 |
-| 4 | Play with the Hex handles to see how each one maps to a color channel. | 9.9s | 15 | ~25 |
+| 4 | Press button to show HTML named colors in the hex. | 5.3s | 9 | ~13 |
+| 5 | Play with the Hex handles to see how each one maps to a color channel. | 9.9s | 15 | ~25 |
 | — | Have fun! | 4.4s | 2 | — |
-| | **Total** | **36.1s** | | |
+| | **Total** | **41.4s** | | |
 
 Four things worth knowing before you rewrite any of them:
 
@@ -95,7 +96,8 @@ borrows as little as it can.
 | **The colour** | Borrowed. Snapshotted at the start and tweened back at the end or on a skip, including the exact RGB where it differs from what HSB would derive — `hsbToRgb(rgbToHsb(rgb))` changes 86.4% of 8-bit colours, so a value typed as `R=137` would not survive the round trip. |
 | **Collapsed sections** | Opened, if closed, and closed again afterwards. It has to ask rather than notice: a collapsed section keeps its children mounted so its height can animate, so it looks exactly like an open one to a `querySelector`. Left alone, the script drove controls inside a clipped zero-height row — the colour landed correctly and the ghost traced a careful pattern over a closed panel. `utils/demoSections.ts`, two window events, the same shape as `color-taylor:reset-all`. |
 | **Slider banks** | Left alone. It used to force RGB + HSB and hand the arrangement back, which flickered HSL off and on again for anyone showing all three. Nothing in the script targets a particular bank any more. The one exception is a user with every bank closed, where the step about what lights up would have nothing to light. |
-| **Blend** | Left alone. Step 4 presses the toggle an even number of times, so it demonstrates the same thing from either state and gives it back either way. Still restored, because a skip part way through would leave it flipped. |
+| **Blend** | Left alone. Step 3 presses the toggle an even number of times, so it demonstrates the same thing from either state and gives it back either way. Still restored, because a skip part way through would leave it flipped. |
+| **HTML colours on the hex** | The same: step 4 presses it twice, and it is restored for the same reason. |
 | **The wheel** | Off. Nothing in any host lets the wheel over the field change brightness any more: it is a scroll gesture on a trackpad and in device emulation, so the one place on the page you most want to look at while scrolling past was the one place that ate the scroll. Turning it off also gives the browser its scrolling fast path back over the hexagon. |
 | **Scroll position** | Not restored, but the last beat returns to the top of the page rather than leaving you wherever the script finished. On a desktop window that fits the tool it is a no-op; on a phone it is the difference between ending on the app and ending on six sliders. |
 
@@ -239,11 +241,30 @@ Narration: `public/demo/03-blend.mp3`
 | `beforeAction` | 400 | |
 | 4 × (`CLICK_MS` + `blendHold`) | 4 × 110 + 3 × 1000 + 950 | Four presses, each leaving a ring, ending where it started. |
 
-## Step 4 — The chain · 9.9s
+## Step 4 — HTML colours on the hex · 5.3s
+
+> **Press button to show HTML named colors in the hex.**
+
+Narration: `public/demo/04-html-colors.mp3`
+
+The same shape as step 3, made about the hexagon instead of the sliders: the
+tags button on the HTML colour row pins the named colours on the field, and a
+second press takes them off again so the picker is left as it was found. It
+sits before the chain step so the field the tip walks round is the user's own.
+The button is on the same row as the blend toggle the step before ended on, so
+the move is a near one.
+
+| Beat | ms | What happens |
+|---|---:|---|
+| `move` | 520 | To the **tags button**. |
+| `beforeAction` | 400 | |
+| 4 × (`CLICK_MS` + `blendHold`) | 4 × 110 + 3 × 1000 + 950 | Four presses, the blend step's pattern: the named colours appear on the hexagon, go, appear, go. |
+
+## Step 5 — The chain · 9.9s
 
 > **Play with the Hex handles to see how each one maps to a color channel.**
 
-Narration: `public/demo/04-handles.mp3`
+Narration: `public/demo/05-handles.mp3`
 
 It comes last because it is the unfamiliar one, and because everything before it
 fits in the colour editor — on a phone the demo does its first three steps in one
@@ -254,16 +275,18 @@ matters more than it sounds: the hexagon's cross-section is a hexagon of radius
 `b/100`, so a dark starting colour would collapse the whole field toward a point
 and the lap below would happen inside a few pixels.
 
-Three stops rather than all six. Visiting every stem and joint in order made the
-same point three times; a tooltip names its channel whether or not you have seen
-its neighbour, and by the third stop the pattern is established rather than
-still being demonstrated.
+Three stops rather than all six, one per channel in chain order: a handle, a
+stem, a handle. Visiting every stem and joint in order made the same point three
+times; a tooltip names its channel whether or not you have seen its neighbour,
+and by the third stop the pattern is established rather than still being
+demonstrated. The stops are found by channel, through the `data-hold` the
+hexagon marks each piece with, not by position along the chain.
 
 | Beat | ms | What happens |
 |---|---:|---|
-| move + `hoverStem` | 520 + 900 | To the **red stem**. Its RED pill fades in. |
-| move + `hoverJoint` | 520 + 1100 | To the **green joint**. RED and GREEN, since it drives both. |
-| move + `hoverJoint` | 520 + 1100 | To the **tip**. All three. |
+| move + `hoverJoint` | 520 + 1100 | To the **red handle**. Its RED pill fades in. |
+| move + `hoverStem` | 520 + 900 | To the **green stem**. GREEN. |
+| move + `hoverJoint` | 520 + 1100 | To the **tip**, the blue handle. All three. |
 | move | 520 | Back onto the tip to take hold of it. |
 | `dragTip` | 3800 | **Once round the field**, plus however far the landing hue is from where it started — so it arrives on h216, s69 whatever colour the user was on. |
 | `afterAction` | 950 | Let go and watch the highlights fade. |
@@ -304,7 +327,7 @@ the goodbye rather than into the pause.
 ## Narration
 
 **The demo is silent on purpose.** The voice goes into a video instead, where
-there is room to explain rather than to narrate 36 seconds of choreography over
+there is room to explain rather than to narrate 41 seconds of choreography over
 the top of it. `NARRATION_READY` in `src/demo/steps.ts` stays `false` and the
 speaker button stays hidden.
 
@@ -325,7 +348,8 @@ the length. A recording shorter than the step changes nothing.
 | 1 | `01-color-box.mp3` | ~8.3s |
 | 2 | `02-impact.mp3` | ~8.1s |
 | 3 | `03-blend.mp3` | ~5.5s |
-| 4 | `04-handles.mp3` | ~9.9s |
+| 4 | `04-html-colors.mp3` | ~5.3s |
+| 5 | `05-handles.mp3` | ~9.9s |
 
 ## Things the timings cannot predict
 

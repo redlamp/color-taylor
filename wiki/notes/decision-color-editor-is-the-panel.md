@@ -18,6 +18,8 @@ Before, the column was called **Sliders** and its first child was a collapsible 
 
 Promoting the box fixed both at once: the name moves up to the panel, and the absorber becomes permanent.
 
+**2026-09-06.** The panel's other card went the same way: "Hex and HTML Colors" is gone, the hex field sits on the toggle row and the colour-name row sits flat under a rule - see [[decision-swatches-panel]].
+
 ## The floor moved, and stopped being the binding constraint
 
 `min-h-24` on `#sb-wrapper` came along with it. It used to be what decided how far down the two columns stayed flush — the box was the only part of either column that could give, so once it hit the floor this column overhung the hexagon, at about 1050px with `min-h-24` and 1150px with `min-h-32`.

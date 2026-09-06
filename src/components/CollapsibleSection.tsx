@@ -29,9 +29,11 @@ const chevronSize: Record<Level, string> = { h2: '!size-4', h3: '!size-4' };
  * among other cards. 'flush' is the Figma sidebar shape instead: no box, a
  * full-bleed rule above each section, and the content inset by the host's own
  * padding. Sections then stack as one continuous list rather than a stack of
- * floating panels, which is what a plugin panel wants.
+ * floating panels, which is what a plugin panel wants. 'plain' is the card's
+ * header without its box: for a section that sits inside a panel which already
+ * frames it, and whose neighbour above draws the rule between them.
  */
-type Variant = 'card' | 'flush';
+type Variant = 'card' | 'flush' | 'plain';
 
 /*
  * Which sections the user has opened or closed, keyed by id and outliving the
@@ -55,6 +57,13 @@ interface CollapsibleSectionProps {
   defaultOpen?: boolean;
   headerLeft?: ReactNode;
   headerRight?: ReactNode;
+  /**
+   * A control that sits right after the title, inside the header row. The
+   * trigger shrinks to its text and a plain spacer takes over the rest of the
+   * row's click area, so the row stays clickable end to end without nesting a
+   * button in a button. Shown only while open, like the other slots.
+   */
+  afterTitle?: ReactNode;
   className?: string;
   variant?: Variant;
   /**
@@ -82,7 +91,7 @@ interface CollapsibleSectionProps {
  * the attribute and the CSS rule that read it all went with it.
  */
 
-export default function CollapsibleSection({ id, title, level = 'h3', defaultOpen = true, headerLeft, headerRight, className: extraClass, variant = 'card', fill, children }: CollapsibleSectionProps) {
+export default function CollapsibleSection({ id, title, level = 'h3', defaultOpen = true, headerLeft, headerRight, afterTitle, className: extraClass, variant = 'card', fill, children }: CollapsibleSectionProps) {
   const [open, setOpen] = useState(
     () => (id !== undefined && OPEN_STATE.has(id) ? OPEN_STATE.get(id)! : defaultOpen),
   );
@@ -196,7 +205,7 @@ export default function CollapsibleSection({ id, title, level = 'h3', defaultOpe
   // header's hit area stops lining up with the padding it reaches over.
   const shell = flush
     ? 'border-t border-border pt-2'
-    : level === 'h3'
+    : level === 'h3' && variant === 'card'
       ? 'panel-inset border border-border rounded-lg px-3 py-2'
       : '';
 
@@ -237,7 +246,7 @@ export default function CollapsibleSection({ id, title, level = 'h3', defaultOpe
       */}
       <div
         className={`relative z-10 box-content flex h-8 items-center gap-2 ${
-          flush ? '-mt-2 pt-2' : level === 'h3' ? '-mt-2 -mx-3 px-3 pt-2' : ''
+          flush ? '-mt-2 pt-2' : level === 'h3' && variant === 'card' ? '-mt-2 -mx-3 px-3 pt-2' : ''
         }`}
       >
         <button
@@ -248,7 +257,7 @@ export default function CollapsibleSection({ id, title, level = 'h3', defaultOpe
           onClick={toggle}
           // No keydown handler: a real button already activates on Enter and
           // Space. The div it replaced needed one.
-          className="flex h-full flex-1 min-w-0 items-center gap-2 cursor-pointer select-none rounded-sm text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          className={`flex h-full ${afterTitle ? 'shrink-0' : 'flex-1'} min-w-0 items-center gap-2 cursor-pointer select-none rounded-sm text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring`}
         >
           <ChevronRight
             className={`${flush ? '!size-4' : chevronSize[level]} shrink-0 text-muted-foreground transition-transform duration-200 ${open ? 'rotate-90' : ''}`}
@@ -257,6 +266,12 @@ export default function CollapsibleSection({ id, title, level = 'h3', defaultOpe
             {title}
           </Tag>
         </button>
+        {afterTitle && open && afterTitle}
+        {afterTitle && (
+          // The rest of the row still toggles; the button above is what the
+          // keyboard and the accessibility tree get.
+          <div className="h-full flex-1 min-w-0 cursor-pointer" aria-hidden="true" onClick={toggle} />
+        )}
         {open && headerLeft}
         {open && headerRight && <div className="flex shrink-0 items-center">{headerRight}</div>}
       </div>

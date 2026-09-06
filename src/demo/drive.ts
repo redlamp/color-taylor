@@ -403,21 +403,30 @@ export class Driver {
    * Framing the card it belongs to, where there is one: on a phone the demo
    * moves between two stacked panels, and centring one small control leaves
    * the top of its card off screen with the tail of the previous one above it.
-   * Landing the card's top at the top of the band is what makes each step read
-   * as "now we are in the colour editor" rather than as a scroll to nowhere.
    *
-   * The card only wins if the target still ends up inside the band - a panel
-   * taller than the screen cannot be framed and have its last control visible,
-   * and the control is the thing being demonstrated.
+   * The card's bottom lands on the bottom of the band. It used to be the top
+   * on the top, which read as "now we are in the colour editor" but spent
+   * whatever room the screen had below the card on nothing. With Recent and
+   * Saved out of the hexagon's card the editor is the last thing above the
+   * caption panel on a phone, so seating its foot on the band's edge keeps
+   * the whole card in shot on a tall screen and puts the tail of the hexagon
+   * above it - the picker, not just the panel.
+   *
+   * Either framing only wins if the target still ends up inside the band: a
+   * card taller than the band cannot be framed from its foot and have a
+   * control at its top visible, so the top framing is tried next, and the
+   * control is centred when neither fits - it is the thing being demonstrated.
    */
   private scrollDelta(el: Element, r: DOMRect, band: { top: number; bottom: number }) {
     const centre = r.top + r.height / 2 - (band.top + band.bottom) / 2;
     const section = el.closest('[data-demo-section]');
     if (!section) return centre;
     const s = section.getBoundingClientRect();
-    const framed = s.top - band.top;
-    const lands = { top: r.top - framed, bottom: r.bottom - framed };
-    return lands.top >= band.top && lands.bottom <= band.bottom ? framed : centre;
+    const fits = (delta: number) => r.top - delta >= band.top && r.bottom - delta <= band.bottom;
+    for (const framed of [s.bottom - band.bottom, s.top - band.top]) {
+      if (fits(framed)) return framed;
+    }
+    return centre;
   }
 
   /**

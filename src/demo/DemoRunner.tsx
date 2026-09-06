@@ -119,7 +119,7 @@ export interface DemoRunnerProps {
    * than appearing somewhere else entirely while the card fades.
    */
   from?: Point | null;
-  /** Put the colour, the slider groups and blend back the way the demo found them. */
+  /** Put the colour, the slider groups, blend and the HTML colours on the hex back the way the demo found them. */
   onRestore: () => void;
   /** Take the overlay down. */
   onExit: () => void;

@@ -33,7 +33,16 @@ export interface AppSettings {
    * looking at the app while you toggle it.
    */
   keepMenuOpen: boolean;
+  /**
+   * Seconds each swatch gets when Saved or Recent is played: the travel to it
+   * and the stand on it together. 2s is what the old colour cycle spent per
+   * keyframe (1.2s moving, 0.8s holding).
+   */
+  playSpeed: number;
 }
+
+export const PLAY_SPEED_MIN = 0.5;
+export const PLAY_SPEED_MAX = 5;
 
 const STORAGE_KEY = 'color-taylor-settings';
 
@@ -42,7 +51,13 @@ const DEFAULTS: AppSettings = {
   synth: { ...DEFAULT_SYNTH_CONFIG },
   fpsMeter: false,
   keepMenuOpen: false,
+  playSpeed: 2,
 };
+
+function clampPlaySpeed(v: unknown): number {
+  const n = typeof v === 'number' && Number.isFinite(v) ? v : DEFAULTS.playSpeed;
+  return Math.min(PLAY_SPEED_MAX, Math.max(PLAY_SPEED_MIN, n));
+}
 
 function loadSettings(): AppSettings {
   try {
@@ -55,6 +70,7 @@ function loadSettings(): AppSettings {
       synth: { ...DEFAULTS.synth, ...(parsed?.synth ?? {}) },
       fpsMeter: parsed?.fpsMeter === true,
       keepMenuOpen: parsed?.keepMenuOpen === true,
+      playSpeed: clampPlaySpeed(parsed?.playSpeed),
     };
   } catch {
     return DEFAULTS;
@@ -67,6 +83,7 @@ interface SettingsContextValue {
   setAudioEnabled: (next: boolean) => void;
   setFpsMeter: (next: boolean) => void;
   setKeepMenuOpen: (next: boolean) => void;
+  setPlaySpeed: (next: number) => void;
   reset: () => void;
 }
 
@@ -76,6 +93,7 @@ const SettingsContext = createContext<SettingsContextValue>({
   setAudioEnabled: () => {},
   setFpsMeter: () => {},
   setKeepMenuOpen: () => {},
+  setPlaySpeed: () => {},
   reset: () => {},
 });
 
@@ -121,13 +139,17 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     setSettings(s => ({ ...s, keepMenuOpen: next }));
   }, []);
 
+  const setPlaySpeed = useCallback((next: number) => {
+    setSettings(s => ({ ...s, playSpeed: clampPlaySpeed(next) }));
+  }, []);
+
   const reset = useCallback(() => {
     setSettings(DEFAULTS);
     try { localStorage.removeItem(STORAGE_KEY); } catch { /* localStorage unavailable */ }
   }, []);
 
   return (
-    <SettingsContext.Provider value={{ settings, updateSynth, setAudioEnabled: setAudio, setFpsMeter, setKeepMenuOpen, reset }}>
+    <SettingsContext.Provider value={{ settings, updateSynth, setAudioEnabled: setAudio, setFpsMeter, setKeepMenuOpen, setPlaySpeed, reset }}>
       {children}
     </SettingsContext.Provider>
   );
