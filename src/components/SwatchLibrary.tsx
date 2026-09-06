@@ -10,9 +10,9 @@
  * wiki/notes/decision-swatches-panel.md.
  */
 import { useRef, useEffect, useCallback, useLayoutEffect, useState, useMemo, type ComponentType, type CSSProperties, type MouseEvent as ReactMouseEvent } from 'react';
-import { rgbToHsb, rgbToHex, type RGB, type HSB } from '../utils/colorConversions';
+import { rgbToHsb, rgbToHex, hexToRgb, type RGB, type HSB } from '../utils/colorConversions';
 import { swatchBackground } from '../utils/sliderGradients';
-import { RefreshCw, Trash2 } from 'lucide-react';
+import { RefreshCw, Trash2, Play, Pause } from 'lucide-react';
 import CollapsibleSection from './CollapsibleSection';
 import { readSwatch, writeSwatch, SWATCHES_READY } from '../utils/swatchStore';
 import { HSB_TWEEN_MS } from '../utils/colorTween';
@@ -720,8 +720,24 @@ export function useSwatchLibrary({ rgb, alpha = 100, muted, recordRecent = true,
 
 export type SwatchLibraryState = ReturnType<typeof useSwatchLibrary>;
 
+export type PlaySection = 'saved' | 'recent';
+
+/**
+ * The play buttons beside the two titles. The host runs the playback - it
+ * owns the colour and the tween - and says which list is playing; this side
+ * knows the lists, their display order and which swatch is selected, so it
+ * hands over the colours and where to start: the selected swatch if one is,
+ * else the first.
+ */
+export interface SwatchPlay {
+  active: PlaySection | null;
+  onToggle: (section: PlaySection, colors: RGB[], start: number) => void;
+}
+
 interface SwatchLibraryProps {
   lib: SwatchLibraryState;
+  /** Playback controls beside the titles. Absent, no buttons - the plugin. */
+  play?: SwatchPlay;
   /**
    * 'sections': Recent then Saved as two collapsible sections, the shape the
    * plugin sidebar wants. 'panel': one "Swatches" panel with Saved directly
@@ -734,7 +750,7 @@ interface SwatchLibraryProps {
   collapsed?: boolean;
 }
 
-export default function SwatchLibrary({ lib, layout, variant = 'card', collapsed = false }: SwatchLibraryProps) {
+export default function SwatchLibrary({ lib, layout, variant = 'card', collapsed = false, play }: SwatchLibraryProps) {
   const {
     bank, alpha, rgb, onAnimateToHsb, onAlphaRestore,
     recentColors, setRecentColors, setSavedSlots, displaySlots,
@@ -750,6 +766,35 @@ export default function SwatchLibrary({ lib, layout, variant = 'card', collapsed
   const gridClass = panel ? 'grid grid-cols-12 md:grid-cols-24 gap-1.5' : 'grid grid-cols-6 md:grid-cols-12 gap-1.5';
   // Header actions match the toggle pills beside them in the panel, not the 32px control.
   const actionClass = panel ? PILL_H : '';
+
+  // One play button per list, after its title. The list goes over in display
+  // order, filled slots only, starting from the selected swatch when there is
+  // one - the ring already says "this is your colour", so play picks up there.
+  const playButton = (section: PlaySection, entries: Swatch[]) => {
+    if (!play) return undefined;
+    const playing = play.active === section;
+    const label = `${playing ? 'Pause' : 'Play'} ${section} colors`;
+    return (
+      <button
+        type="button"
+        className={`${ACTION_BTN_CLASS} ${ACTION_BTN_W} ${actionClass}`}
+        aria-label={label}
+        title={label}
+        aria-pressed={playing}
+        data-play={section}
+        disabled={!entries.length}
+        onClick={(e) => {
+          e.stopPropagation();
+          const start = Math.max(0, entries.findIndex((s) => swatchKey(s.hex, s.alpha) === activeKey));
+          play.onToggle(section, entries.map((s) => hexToRgb(s.hex)).filter((c): c is RGB => c !== null), start);
+        }}
+      >
+        {playing ? <Pause className="!size-3.5" /> : <Play className="!size-3.5" />}
+      </button>
+    );
+  };
+  const savedPlay = playButton('saved', displaySlots.flatMap((d) => (d.slot ? [{ hex: d.slot.hex, alpha: d.slot.alpha }] : [])));
+  const recentPlay = playButton('recent', recentColors);
 
   const recentActions = (
     <div className="flex gap-1">
@@ -1062,7 +1107,7 @@ export default function SwatchLibrary({ lib, layout, variant = 'card', collapsed
     // actions ride on that row. Recent keeps its caption and sits under a rule.
     return (
       <>
-        <CollapsibleSection id="swatches-group" title="Swatches" level="h2" defaultOpen={!collapsed} headerRight={savedActions}>
+        <CollapsibleSection id="swatches-group" title="Swatches" level="h2" defaultOpen={!collapsed} afterTitle={savedPlay} headerRight={savedActions}>
           <div className="flex flex-col">
             <div id="saved-colors">{savedGrid}</div>
             <CollapsibleSection
@@ -1070,6 +1115,7 @@ export default function SwatchLibrary({ lib, layout, variant = 'card', collapsed
               title="Recent"
               variant="plain"
               defaultOpen={!collapsed}
+              afterTitle={recentPlay}
               headerRight={recentActions}
               className="mt-3 border-t border-input pt-3"
             >

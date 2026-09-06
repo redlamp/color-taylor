@@ -166,7 +166,9 @@ test.describe('Settings sheet', () => {
     await page.setViewportSize({ width: 1400, height: 1000 });
     await page.waitForTimeout(250);
     // Sized to its contents rather than to the window, and clear of the foot.
-    expect(desktop.height).toBeLessThan(desktop.viewport * 0.6);
+    // Display holds a slider row as well as its switches now, so the sheet
+    // stands a little taller than the 60% it once fitted under.
+    expect(desktop.height).toBeLessThan(desktop.viewport * 0.7);
     expect(desktop.bottom).toBeGreaterThan(16);
     expect(desktop.scrolls).toBe(false);
 

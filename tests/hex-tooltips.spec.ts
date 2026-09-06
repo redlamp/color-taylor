@@ -72,7 +72,9 @@ test.describe('Impact highlights during the colour cycle', () => {
     localStorage.setItem('color-taylor-about-seen', '1'); } catch { /* ignore */ } });
     await page.setViewportSize({ width: 1400, height: 1000 });
     await page.goto('/');
-    await page.getByRole('button', { name: 'Play color animation' }).click();
+    // The play buttons sit beside the Swatches panel's titles, shown while it is open.
+    await page.locator('#swatches-group-trigger').click();
+    await page.getByRole('button', { name: 'Play saved colors' }).click();
     await page.waitForTimeout(1200);
 
     const lit = await page.evaluate(() =>
@@ -85,6 +87,6 @@ test.describe('Impact highlights during the colour cycle', () => {
       [...document.querySelectorAll('[id^="impact-stem-"]')].map((el) => getComputedStyle(el).opacity));
     expect(halos.every((o) => o === '0'), 'no stem halos while playing').toBe(true);
 
-    await page.getByRole('button', { name: 'Pause color animation' }).click();
+    await page.getByRole('button', { name: 'Pause saved colors' }).click();
   });
 });

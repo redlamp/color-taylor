@@ -1,7 +1,60 @@
+import { useState } from 'react';
 import { Sun, Moon } from 'lucide-react';
 import { SwitchRow } from '@/components/settings/SettingsSwitch';
+import { Slider } from '@/components/ui/slider';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { useTheme } from '@/hooks/useTheme';
-import { useSettings } from '@/hooks/useSettings';
+import { useSettings, PLAY_SPEED_MIN, PLAY_SPEED_MAX } from '@/hooks/useSettings';
+
+/**
+ * Seconds per swatch when Saved or Recent is played. A slider for the feel
+ * of it and a field for the number, both on the one setting; the field keeps
+ * a draft while it is being typed in, so a half-typed "1." is not clamped
+ * out from under the cursor, and commits on blur or Enter.
+ */
+function PlaySpeedRow({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const commit = () => {
+    if (draft === null) return;
+    const n = Number(draft);
+    if (Number.isFinite(n)) onChange(n);
+    setDraft(null);
+  };
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center justify-between gap-3">
+        <Label htmlFor="play-speed" className="text-base text-muted-foreground">Play Speed</Label>
+        <div className="flex items-center gap-1.5">
+          <Input
+            id="play-speed"
+            type="text"
+            inputMode="decimal"
+            aria-label="Play speed, seconds per swatch"
+            className="h-8 w-16 text-right font-mono tabular-nums"
+            value={draft ?? String(value)}
+            onChange={(e) => setDraft(e.target.value)}
+            onFocus={(e) => { setDraft(String(value)); e.target.select(); }}
+            onBlur={commit}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); (e.target as HTMLInputElement).blur(); } }}
+          />
+          <span className="text-base text-muted-foreground">s</span>
+        </div>
+      </div>
+      <Slider
+        aria-label="Play speed"
+        value={[value]}
+        min={PLAY_SPEED_MIN}
+        max={PLAY_SPEED_MAX}
+        step={0.1}
+        onValueChange={(v) => {
+          const next = Array.isArray(v) ? v[0] : v;
+          if (typeof next === 'number') onChange(Math.round(next * 10) / 10);
+        }}
+      />
+    </div>
+  );
+}
 
 interface Props {
   highlights: boolean;
@@ -14,7 +67,7 @@ export function DisplaySettings({
   highlights, onToggleHighlights, colorFx, onToggleColorFx,
 }: Props) {
   const { isDark, toggle } = useTheme();
-  const { settings, setFpsMeter, setKeepMenuOpen } = useSettings();
+  const { settings, setFpsMeter, setKeepMenuOpen, setPlaySpeed } = useSettings();
   return (
     <div className="flex flex-col gap-3 px-1">
       {/* Checked is *light*, so the default sits on the left like every other
@@ -46,6 +99,8 @@ export function DisplaySettings({
         onToggle={onToggleColorFx}
         ariaLabel="Toggle border color effects"
       />
+      {/* How fast the Swatches panel's play buttons step through a list. */}
+      <PlaySpeedRow value={settings.playSpeed} onChange={setPlaySpeed} />
       {/* Diagnostic. Same meter `?fps` in the URL shows; this one persists. */}
       <SwitchRow
         label="Frame Rate Meter"

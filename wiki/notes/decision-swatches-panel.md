@@ -25,6 +25,10 @@ Sort, Defaults and Clear belong to Saved, and Saved's caption is gone, so they s
 
 They stand at the height of the pressed pills in the toggle groups beside them, 25px, not the 32px control. The user asked for that match; the constant is `PILL_H` in SwatchLibrary and is the only place the number lives.
 
+## Play, per list
+
+Later the same day the header's play button - a fixed cycle of nine colours - moved into the panel as two: one after the Swatches title, one after Recent's, each at the pill height of the actions beside it. A press plays that list in the order it is displayed, from the selected swatch if there is one and from the first if not; a second press stops it, a press on the other list hands over. The picker still runs the loop, since it owns the colour, the tween and the tone; the panel hands it the colours and where to start (`SwatchPlay` in SwatchLibrary). The pace is a Display setting, seconds per swatch, slider and field on the one value, 2s by default - what the old cycle spent per keyframe - and read every frame, so dragging it while a list plays changes the pace and nothing else.
+
 ## Who owns the lists
 
 The swatch library came out of `ColorHexagon` into `SwatchLibrary.tsx` - a hook for the state (`useSwatchLibrary`) and a component for the two layouts. The **host** calls the hook: the app, because the lists render in a different panel from the wheel; the plugin, because it still wants them under the wheel in the sidebar shape (`layout="sections"`, flush, 12 to a row - nothing there changed on screen). The hexagon gets one callback back, `onRecordColor`, for the clicks that record a colour at once: a vertex letter, a bar marker, an HTML colour on the field.
