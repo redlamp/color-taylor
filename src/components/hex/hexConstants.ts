@@ -11,7 +11,10 @@ export const BL_BAR_GAP = -20;
 export const BL_ARROW_SIZE = 8;
 export const BL_LABEL_SPACE = 40;
 export const SIZE = HEX_SIZE + BL_BAR_GAP + BL_BAR_WIDTH + BL_ARROW_SIZE + BL_LABEL_SPACE;
-// Hex panel width including its p-3 padding on both sides (12 + 12 = 24)
+// Hex panel width plus room for its padding on both sides. The card wears
+// p-2.5 now (10 + 10); the 24 dates from p-3 and the 4px spare is harmless -
+// this only has to be wide enough to keep the hue badge and brightness pill,
+// sized in px and positioned by percentage, on screen.
 export const HEX_PANEL_WIDTH = SIZE + 24;
 export const CENTER_X = 260;
 export const CENTER_Y = HEX_SIZE / 2;
@@ -71,11 +74,16 @@ export const HUE_LABEL_OFFSET = 16;
  */
 export const SVG_HEIGHT_SAT = SAT_BAR_TOP + SAT_BAR_HEIGHT + SAT_LABEL_SPACE + 2;
 /**
- * Units cropped off the top of the stage. 40 is what DISPLAY_HEIGHT has always
- * taken off each end, and the hue badge is known to survive it - so the new
- * room all arrives at the bottom and the framing above the hexagon is unchanged.
+ * Units cropped off the top of the stage: everything above the circumscribed
+ * circle, whose top is CENTER_Y - RADIUS. Nothing is drawn up there, and the
+ * two things that reach past it - the hue badge near 90 degrees and the
+ * brightness bar's 100% pill - are HTML, positioned by percentage and not
+ * clipped by the stage, so they overhang into the card's margin above it
+ * instead. It was 40, the same as DISPLAY_HEIGHT takes off each end, which
+ * left a 20-unit band of empty canvas between the header and the wheel at
+ * every hue.
  */
-export const STAGE_TOP_CROP = 40;
+export const STAGE_TOP_CROP = CENTER_Y - RADIUS;
 export const DISPLAY_HEIGHT_SAT = SVG_HEIGHT_SAT - STAGE_TOP_CROP;
 
 /**

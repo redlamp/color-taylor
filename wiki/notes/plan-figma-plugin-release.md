@@ -73,6 +73,8 @@ Since [[decision-single-source-picker]], a change made for the app arrives in th
 
 The practical consequence for release: an app design pass is a reason to re-check the panel at its 300px minimum, and there is no automated test that would catch it. Both swatch grids and the header actions are worth a look after any work on shared components.
 
+**Checked 2026-09-06, held back.** The swatch rewrite of `0371c7f` - Recent and Saved lifted out of `ColorHexagon` into `SwatchLibrary`, the plugin host owning the hook - was run in Figma from a `dev` build and behaves as before: Recent above Saved, no play buttons (they are opt-in through a `play` prop the plugin does not pass). Nothing visible changed, so no resubmission; the published bundle stays on the pre-rewrite code. The next plugin-facing change carries this rewrite with it and that pass is already done. Until then, a swatch bug reported against the live plugin is fixed on `dev`, and `0371c7f` is the diff to read first.
+
 ## Known gaps, deliberately not blocking
 
 - **Silent failure on locked layers.** `applyPaint` swallows write errors per node, because it runs on every drag frame. If *every* selected node rejects the write the user gets no feedback at all. A single `figma.notify` on `commit` when nothing landed would fix it; not done.

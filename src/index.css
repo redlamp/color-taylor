@@ -186,6 +186,19 @@ body {
   #app-stage { transition: none; }
 }
 
+/*
+ * The header row's icon buttons (.ctl-quiet-icon, 32px everywhere else - see
+ * the "one control height" note above) shrink to the toolbar's compact size
+ * here only: 25px, what the blend and HTML-colours toggles render at inside
+ * their pill (h-8 group, 3px padding, minus the border). A scoped rule rather
+ * than a second class on each button because it also has to reach
+ * VolumeControl's mute button, a separate component mounted in this row.
+ */
+#picker-tools .ctl-quiet-icon {
+  width: 25px;
+  height: 25px;
+}
+
 h1, h2 {
   font-family: var(--sans);
 }

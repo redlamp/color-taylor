@@ -239,13 +239,25 @@ export default function CollapsibleSection({ id, title, level = 'h3', defaultOpe
         negative margin claims - so without a stacking context the SVG wins the
         hit test and the header only *looks* clickable there.
 
-        box-content + h-8 pins the content box at 32px, which is what keeps the
-        title from moving when the section opens. min-h-8 did not: it is
-        border-box, so the padding came out of the 32px, and the row then resized
+        box-content + a fixed height pins the content box, which is what keeps
+        the title from moving when the section opens. min-h-* did not: it is
+        border-box, so the padding came out of it, and the row then resized
         with whatever the actions did.
+
+        The two levels pin different numbers, and only above `sm`. h3 stays at
+        the app's one control height, h-8/32px, at every width, because its
+        header sits beside 32px actions - Clear, Defaults, Sort in Swatches'
+        own Saved/Recent sections - and a shorter row would clip them or
+        misalign their centre. h2 fronts a whole panel (Color Editor,
+        Equations, Swatches) with nothing beside the title that tall, so it
+        trims to h-7/28px - but only from `sm` up. Below it the self-running
+        demo's collision check (tests/demo.spec.ts) measures the real DOM on a
+        390px viewport with margins tuned for the taller row; shrinking it
+        there too left one frame with the ghost cursor grazing the demo's own
+        panel.
       */}
       <div
-        className={`relative z-10 box-content flex h-8 items-center gap-2 ${
+        className={`relative z-10 box-content flex ${level === 'h2' ? 'h-8 sm:h-7' : 'h-8'} items-center gap-2 ${
           flush ? '-mt-2 pt-2' : level === 'h3' && variant === 'card' ? '-mt-2 -mx-3 px-3 pt-2' : ''
         }`}
       >
