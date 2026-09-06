@@ -514,23 +514,24 @@ export default function ColorPicker() {
    * borrows.
    *
    * What it found goes back when it ends or is skipped: the colour through
-   * the same tween an undo uses, the slider groups and blend as they were.
-   * Teaching a setting by silently changing it is a poor trade.
+   * the same tween an undo uses, the slider groups, blend and the HTML
+   * colours on the hexagon as they were. Teaching a setting by silently
+   * changing it is a poor trade.
    */
   const demoSnapshot = useRef<{
-    hsb: HSB; rgb: RGB; groups: SliderGroup[]; blend: boolean;
+    hsb: HSB; rgb: RGB; groups: SliderGroup[]; blend: boolean; showHtmlOnHex: boolean;
   } | null>(null);
   const demoExactRgb = useRef<RGB | null>(null);
   const startDemo = useCallback((from: { x: number; y: number } | null = null) => {
     setDemoFrom(from);
     takeOverFromAnimation();
-    demoSnapshot.current = { hsb: { ...hsbRef.current }, rgb: { ...rgb }, groups, blend };
+    demoSnapshot.current = { hsb: { ...hsbRef.current }, rgb: { ...rgb }, groups, blend, showHtmlOnHex };
     // Ask any section the script works in to open, before the overlay mounts,
     // so the 200ms collapse has run by the time the first beat measures
     // anything. A section that was already open is not touched.
     openDemoSections();
     setDemoOpen(true);
-  }, [takeOverFromAnimation, hsbRef, rgb, groups, blend]);
+  }, [takeOverFromAnimation, hsbRef, rgb, groups, blend, showHtmlOnHex]);
   const restoreDemo = useCallback(() => {
     const snap = demoSnapshot.current;
     // Null after the first call: the script restores when it reaches the last
@@ -540,6 +541,7 @@ export default function ColorPicker() {
     restoreDemoSections();
     setGroups(snap.groups);
     setBlend(snap.blend);
+    setShowHtmlOnHex(snap.showHtmlOnHex);
     /*
      * The tween restores HSB, and hsbToRgb(rgbToHsb(rgb)) changes 86.4% of
      * 8-bit colours - so a colour the user typed as R=137 would come back as

@@ -1,5 +1,5 @@
 /**
- * The demo script: four steps the user can walk forwards and backwards, and a
+ * The demo script: five steps the user can walk forwards and backwards, and a
  * sign-off. Each one works a real control, so what they watch is exactly what
  * their own hand would produce - the hold, the impact highlights on everything
  * that moved, the channel tooltips, the tone. wiki/notes/plan-picker-demo.md.
@@ -132,7 +132,7 @@ export interface DemoStep {
 /** Flip to true once the recordings are in `public/demo/`. */
 export const NARRATION_READY = false;
 
-/** The last word, after the four steps. */
+/** The last word, after the five steps. */
 export const SIGN_OFF = 'Have fun!';
 
 /**
@@ -420,8 +420,32 @@ export const STEPS: DemoStep[] = [
     },
   },
   {
+    caption: 'Press button to show HTML named colors in the hex.',
+    audio: '04-html-colors.mp3',
+    duration: DWELL.move + DWELL.beforeAction + 2 * CLICK_MS + DWELL.blendHold + DWELL.afterAction,
+    /**
+     * The named colours pinned on the field, on and then off again: a claim
+     * about the hexagon made from the editor, the way the blend step is a
+     * claim about the sliders. Two presses so the picker is left as it was
+     * found, and it sits before the chain step so the field it walks onto is
+     * the one the user had. The toggle is on the same row as the blend button
+     * the step before ended on, so this is a short move, not a far one.
+     */
+    async run({ d }) {
+      const toggle = el('#html-colors-toggle');
+      if (!toggle) return;
+      await d.bring(el('#slider-banks') ?? toggle, true);
+      await d.moveTo(() => centerOf(toggle), DWELL.move);
+      await d.wait(DWELL.beforeAction);
+      await d.click(toggle);
+      await d.wait(DWELL.blendHold);
+      await d.click(toggle);
+      await d.wait(DWELL.afterAction);
+    },
+  },
+  {
     caption: 'Play with the Hex handles to see how each one maps to a color channel.',
-    audio: '04-handles.mp3',
+    audio: '05-handles.mp3',
     duration: (DWELL.move + DWELL.hoverStem) + 2 * (DWELL.move + DWELL.hoverJoint)
       + DWELL.move + DWELL.dragTip + DWELL.afterAction,
     /**
