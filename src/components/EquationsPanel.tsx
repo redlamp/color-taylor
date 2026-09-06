@@ -28,6 +28,14 @@ function textOnColor(cssColor: string) {
   return '#fff';
 }
 
+/**
+ * The answer at the end of each equation, underlined. In the theme's
+ * foreground, not white: white was invisible on the light theme's panel, and
+ * the underline follows the text colour for the same reason.
+ */
+const RESULT_CLASS = 'text-foreground underline';
+const RESULT_STYLE: CSSProperties = { textDecorationColor: 'currentColor', textUnderlineOffset: '2px', textDecorationThickness: '2px' };
+
 function T({ color, title, bold, children }: { color: string; title: string; bold?: boolean; children: ReactNode }) {
   return (
     <Tooltip>
@@ -100,7 +108,8 @@ function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }: Equat
   const mcGradStyle: CSSProperties = { background: `linear-gradient(105deg, ${mc}, ${oc})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' };
   const mcVal = Math.round((1 - Math.abs(2 * l / 255 - 1)) * 255);
 
-  const ulStyle = { textDecorationColor: 'white', textUnderlineOffset: '2px', textDecorationThickness: '2px' };
+  // The underline takes the channel's own colour - white vanished on the light theme.
+  const ulStyle = { textDecorationColor: 'currentColor', textUnderlineOffset: '2px', textDecorationThickness: '2px' };
 
   const maxMinList = (isMaxMode: boolean) => (['r', 'g', 'b'] as const).map((k, i) => {
     const raw = String(rgb[k]);
@@ -153,9 +162,9 @@ function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }: Equat
         />
         <hr className="border-border" />
         <span className="text-sm font-sans text-muted-foreground">Based on max RGB channel</span>
-        <span className={maxChKey === 'r' ? '' : 'opacity-30'}>{Hr}: 60(({gv}-{bv})/{chrT(pad(delta))}%6){maxChKey === 'r' && <> = <span className="text-white underline" style={{ textDecorationColor: 'white', textUnderlineOffset: '2px', textDecorationThickness: '2px' }}>{hue}°</span></>}</span>
-        <span className={maxChKey === 'g' ? '' : 'opacity-30'}>{Hg}: 60(({bv}-{rv})/{chrT(pad(delta))}+2){maxChKey === 'g' && <> = <span className="text-white underline" style={{ textDecorationColor: 'white', textUnderlineOffset: '2px', textDecorationThickness: '2px' }}>{hue}°</span></>}</span>
-        <span className={maxChKey === 'b' ? '' : 'opacity-30'}>{Hb}: 60(({rv}-{gv})/{chrT(pad(delta))}+4){maxChKey === 'b' && <> = <span className="text-white underline" style={{ textDecorationColor: 'white', textUnderlineOffset: '2px', textDecorationThickness: '2px' }}>{hue}°</span></>}</span>
+        <span className={maxChKey === 'r' ? '' : 'opacity-30'}>{Hr}: 60(({gv}-{bv})/{chrT(pad(delta))}%6){maxChKey === 'r' && <> = <span className={RESULT_CLASS} style={RESULT_STYLE}>{hue}°</span></>}</span>
+        <span className={maxChKey === 'g' ? '' : 'opacity-30'}>{Hg}: 60(({bv}-{rv})/{chrT(pad(delta))}+2){maxChKey === 'g' && <> = <span className={RESULT_CLASS} style={RESULT_STYLE}>{hue}°</span></>}</span>
+        <span className={maxChKey === 'b' ? '' : 'opacity-30'}>{Hb}: 60(({rv}-{gv})/{chrT(pad(delta))}+4){maxChKey === 'b' && <> = <span className={RESULT_CLASS} style={RESULT_STYLE}>{hue}°</span></>}</span>
       </div>
       <div className="flex flex-col gap-1 border border-border rounded-lg p-1.5 min-w-0">
         <Row
@@ -164,12 +173,12 @@ function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }: Equat
         />
         <hr className="border-border" />
         {blMode === 'brightness' ? (
-          <span>{S}: {chrT(pad(delta))}/{maxT(pad(maxVal))} = <span className="text-white underline" style={{ textDecorationColor: 'white', textUnderlineOffset: '2px', textDecorationThickness: '2px' }}>{saturation}%</span></span>
+          <span>{S}: {chrT(pad(delta))}/{maxT(pad(maxVal))} = <span className={RESULT_CLASS} style={RESULT_STYLE}>{saturation}%</span></span>
         ) : (
           <>
             <span>{Lv}:{'\u2007'}({maxT(pad(maxVal))}+{minT(pad(minVal))})/2 = {pad(Math.round(l))}</span>
             <span><MCT gradStyle={mcGradStyle} bgColor={mc} title="Max Chroma">MC</MCT>: 1-|2·<span className="text-foreground font-bold">{pad(Math.round(l))}</span>/255-1| = <MCT gradStyle={mcGradStyle} bgColor={mc} title={`Max Chroma = ${mcVal}`}>{pad(mcVal)}</MCT></span>
-            <span>{S}:{'\u2007'}{chrT(pad(delta))}/<MCT gradStyle={mcGradStyle} bgColor={mc} title={`Max Chroma = ${mcVal}`}>{pad(mcVal)}</MCT> = <span className="text-white underline" style={{ textDecorationColor: 'white', textUnderlineOffset: '2px', textDecorationThickness: '2px' }}>{hsl?.s ?? 0}%</span></span>
+            <span>{S}:{'\u2007'}{chrT(pad(delta))}/<MCT gradStyle={mcGradStyle} bgColor={mc} title={`Max Chroma = ${mcVal}`}>{pad(mcVal)}</MCT> = <span className={RESULT_CLASS} style={RESULT_STYLE}>{hsl?.s ?? 0}%</span></span>
           </>
         )}
       </div>
@@ -181,7 +190,7 @@ function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }: Equat
               right={`${brightness}%`}
             />
             <hr className="border-border" />
-            <span>{Bv}: {maxT(pad(maxVal))}/255 = <span className="text-white underline" style={{ textDecorationColor: 'white', textUnderlineOffset: '2px', textDecorationThickness: '2px' }}>{brightness}%</span></span>
+            <span>{Bv}: {maxT(pad(maxVal))}/255 = <span className={RESULT_CLASS} style={RESULT_STYLE}>{brightness}%</span></span>
           </>
         ) : (
           <>
@@ -190,7 +199,7 @@ function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }: Equat
               right={`${hsl?.l ?? 0}%`}
             />
             <hr className="border-border" />
-            <span>{Lv}: <span className="text-foreground font-bold">{pad(Math.round(l))}</span>/255 = <span className="text-white underline" style={{ textDecorationColor: 'white', textUnderlineOffset: '2px', textDecorationThickness: '2px' }}>{hsl?.l ?? 0}%</span></span>
+            <span>{Lv}: <span className="text-foreground font-bold">{pad(Math.round(l))}</span>/255 = <span className={RESULT_CLASS} style={RESULT_STYLE}>{hsl?.l ?? 0}%</span></span>
           </>
         )}
       </div>
