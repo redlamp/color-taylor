@@ -171,13 +171,14 @@ test.describe('Picker column heights', () => {
         const card = r('#color-hexagon');
         return {
           columnGap: Math.abs(card.bottom - r('#picker-layout').bottom),
-          // Only the card's own p-3 should be left under Saved. Slack goes into
-          // the stage above, where the wheel centres in it.
-          savedGap: card.bottom - r('#saved-colors').bottom,
+          // Only the card's own p-3 should be left under the stage. Recent and
+          // Saved live in their own panel now, so the stage is the card's
+          // last child and takes whatever slack the row hands the card.
+          stageGap: card.bottom - r('#hex-stage').bottom,
         };
       });
       expect(m.columnGap, `columns level at ${width}px`).toBeLessThanOrEqual(1);
-      expect(m.savedGap, `Saved flush at ${width}px`).toBeLessThanOrEqual(16);
+      expect(m.stageGap, `stage flush at ${width}px`).toBeLessThanOrEqual(20);
     }
   });
 

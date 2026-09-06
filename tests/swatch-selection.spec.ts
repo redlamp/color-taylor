@@ -102,7 +102,7 @@ test.describe('Saved sort modes', () => {
   test('the app cycle omits alpha', async ({ page }) => {
     await page.goto('/');
     await openSections(page);
-    const sort = page.locator('#saved-colors button[data-sort-mode]');
+    const sort = page.locator('#swatches-group button[data-sort-mode]');
     await sort.waitFor();
 
     const seen: (string | null)[] = [];

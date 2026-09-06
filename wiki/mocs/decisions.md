@@ -22,6 +22,7 @@ Every `notes/decision-*.md`, newest first. Each note records what was decided, w
 - [[decision-border-color-effects]] — Anodised as the resting style, with a hue- and saturation-derived glow and rim light on top; four reasons it stops at the app
 - [[decision-audio-off-by-default]] — every audible thing behind one setting, off until asked for
 - [[decision-color-editor-is-the-panel]] — the SB box is the right column's subject, not a section in it; "Sliders" was one level too low
+- [[decision-swatches-panel]] — Recent and Saved out of the Hexagon card into a full-width Swatches panel, Saved unlabelled under its title; the hex field up onto the toggle row and the hex card gone
 - [[decision-both-columns-absorb-slack]] — both columns stretch unconditionally because each owns a permanent absorber; how a 10px caption broke the old arrangement
 - [[decision-link-preview-card]] — the shared link's preview card is the Figma thumbnail; why the Open Graph URLs cannot use `%BASE_URL%`
 - [[decision-demo-caption-in-the-header]] — the self-running demo's caption is one panel in the header, not a bubble at the target; a bubble covers the very neighbours the caption points at

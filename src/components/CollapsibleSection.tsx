@@ -29,9 +29,11 @@ const chevronSize: Record<Level, string> = { h2: '!size-4', h3: '!size-4' };
  * among other cards. 'flush' is the Figma sidebar shape instead: no box, a
  * full-bleed rule above each section, and the content inset by the host's own
  * padding. Sections then stack as one continuous list rather than a stack of
- * floating panels, which is what a plugin panel wants.
+ * floating panels, which is what a plugin panel wants. 'plain' is the card's
+ * header without its box: for a section that sits inside a panel which already
+ * frames it, and whose neighbour above draws the rule between them.
  */
-type Variant = 'card' | 'flush';
+type Variant = 'card' | 'flush' | 'plain';
 
 /*
  * Which sections the user has opened or closed, keyed by id and outliving the
@@ -196,7 +198,7 @@ export default function CollapsibleSection({ id, title, level = 'h3', defaultOpe
   // header's hit area stops lining up with the padding it reaches over.
   const shell = flush
     ? 'border-t border-border pt-2'
-    : level === 'h3'
+    : level === 'h3' && variant === 'card'
       ? 'panel-inset border border-border rounded-lg px-3 py-2'
       : '';
 
@@ -237,7 +239,7 @@ export default function CollapsibleSection({ id, title, level = 'h3', defaultOpe
       */}
       <div
         className={`relative z-10 box-content flex h-8 items-center gap-2 ${
-          flush ? '-mt-2 pt-2' : level === 'h3' ? '-mt-2 -mx-3 px-3 pt-2' : ''
+          flush ? '-mt-2 pt-2' : level === 'h3' && variant === 'card' ? '-mt-2 -mx-3 px-3 pt-2' : ''
         }`}
       >
         <button

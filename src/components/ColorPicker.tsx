@@ -76,6 +76,7 @@ import EquationsPanel from './EquationsPanel';
 import PreviewSwatch from './PreviewSwatch';
 import CollapsibleSection from './CollapsibleSection';
 import NamedColorMatch from './NamedColorMatch';
+import SwatchLibrary, { useSwatchLibrary } from './SwatchLibrary';
 import ThemeToggle from './ThemeToggle';
 import { SettingsPanel } from './SettingsPanel';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
@@ -762,6 +763,19 @@ export default function ColorPicker() {
     };
   }, [colorAnimActive, hsbRef, rgbOverride, setHsb]);
 
+  /**
+   * Recent and Saved. Owned here rather than by the hexagon because they
+   * render in a panel of their own now, and the hexagon still needs to record
+   * a colour picked outright - so it gets addToRecent handed back down.
+   * A row of the panel holds 24, which is also what Recent keeps.
+   */
+  const swatches = useSwatchLibrary({
+    rgb,
+    muted: effectiveMuted,
+    recordRecent: !demoOpen,
+    onAnimateToHsb: (target) => { if (colorAnimActiveRef.current) colorAnimActiveRef.current = 'stop'; animateToHsb(target); },
+    bank: 24,
+  });
 
   return (
     <div id="color-picker-root" className="mx-auto w-full px-0.5 py-1 sm:p-6" style={{ maxWidth: TOP_ROW_MAX_WIDTH }}>
@@ -935,9 +949,7 @@ export default function ColorPicker() {
             hoverMatchRgb={hoverMatchRgb}
             showHtmlOnHex={showHtmlOnHex}
             onHoverHtmlColor={setHoveredHtmlColor}
-            muted={effectiveMuted}
-            collapsedSections
-            recordRecent={!demoOpen}
+            onRecordColor={swatches.addToRecent}
             impactChannels={impactChannels}
             hueBadgeLit={hueBadgeLit}
             hueFillLit={hueFillLit}
@@ -1020,10 +1032,14 @@ export default function ColorPicker() {
 
         {/* The slider banks, one flat block of the panel rather than two cards:
             the models are the same colour read three ways, and a card each made
-            them look like three tools. The toolbar is the plugin's: which
-            blocks show, and whether tracks blend. */}
+            them look like three tools. The toolbar is the plugin's - which
+            blocks show, and whether tracks blend - with the hex readout at its
+            right end, stepper-wide so it lines up with the number fields
+            below. It used to sit in a card of its own under the sliders, with
+            a second swatch beside it; the swatch at the top is the swatch. */}
         <div className="flex flex-col gap-3" id="slider-banks">
           <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
             <ToggleGroup
               multiple
               value={groups}
@@ -1077,6 +1093,13 @@ export default function ColorPicker() {
                 <TooltipContent className={TOOLBAR_TIP_CLASS}>{blend ? 'Mixed Colors' : 'Source Colors'}</TooltipContent>
               </Tooltip>
             </ToggleGroup>
+            </div>
+            <div className="w-[92px] shrink-0">
+              <HexInput
+                hex={hex}
+                onChange={handleHexInput}
+              />
+            </div>
           </div>
 
           {/* A rule between blocks, drawn by the block below: the blocks are
@@ -1180,30 +1203,28 @@ export default function ColorPicker() {
           </div>
         </div>
 
-        {/* Hex & HTML Colors */}
-        <CollapsibleSection id="hex-group" title="Hex and HTML Colors" defaultOpen={false}>
-          <div className="flex flex-col gap-3">
-            <div className="flex gap-3 items-stretch">
-              <PreviewSwatch hex={hex} />
-              <div className="flex-1 min-w-0">
-                <HexInput
-                  hex={hex}
-                  onChange={handleHexInput}
-                />
-              </div>
-            </div>
-            <NamedColorMatch
-              rgb={rgb}
-              onAnimateToHsb={animateToHsb}
-              onHoverMatch={setHoverMatchRgb}
-              hoveredHtmlColor={hoveredHtmlColor}
-              showOnHex={showHtmlOnHex}
-              onShowOnHexChange={setShowHtmlOnHex}
-            />
+        {/* The HTML colour row: search, nearest name, show-on-hex. Flat in the
+            panel under a rule, the same rule the slider blocks draw between
+            themselves - it was boxed in a "Hex and HTML Colors" card, which
+            made one row of controls look like a section to open. */}
+        <hr className="m-0 border-0 border-t border-input" />
+        <NamedColorMatch
+          rgb={rgb}
+          onAnimateToHsb={animateToHsb}
+          onHoverMatch={setHoverMatchRgb}
+          hoveredHtmlColor={hoveredHtmlColor}
+          showOnHex={showHtmlOnHex}
+          onShowOnHexChange={setShowHtmlOnHex}
+        />
           </div>
         </CollapsibleSection>
-          </div>
-        </CollapsibleSection>
+      </div>
+
+      {/* Swatches: Recent and Saved, out of the Hexagon card and into a panel
+          of their own across both tracks, where a row holds 24. See
+          wiki/notes/decision-swatches-panel.md. */}
+      <div className="md:col-span-2 panel-frame border border-border rounded-lg p-2.5">
+        <SwatchLibrary lib={swatches} layout="panel" collapsed />
       </div>
 
       {/* Equations panel. Spanning both tracks is what makes it match the width

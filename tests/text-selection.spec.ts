@@ -24,7 +24,7 @@ test.describe('Text selection', () => {
   });
 
   test('only the readouts you would want to copy are selectable', async ({ page }) => {
-    await openSections(page, ['hex-group', 'equations-group']);
+    await openSections(page, ['equations-group']);
 
     const selectable = (selector: string) => page.evaluate((s) => {
       const el = document.querySelector(s);
@@ -37,7 +37,7 @@ test.describe('Text selection', () => {
     }
     // The readouts inside them, which are all real inputs, so one rule covers
     // both the channel steppers and the hex field.
-    for (const s of ['#slider-rgb-r-stepper input', '#hex-group-content input']) {
+    for (const s of ['#slider-rgb-r-stepper input', 'input[aria-label="Hex color value"]']) {
       expect(await selectable(s), s).toBe('text');
     }
     // And everything outside them is ordinary text.

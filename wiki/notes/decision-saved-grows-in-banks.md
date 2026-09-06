@@ -10,6 +10,8 @@ tags:
 
 **2026-08-04.** Saved is no longer a fixed 12 slots. It holds one bank of 12, opens another when the last free slot fills, and stops at 36. Closes the need behind issue [#64](https://github.com/redlamp/color-taylor/issues/64).
 
+**2026-09-06.** The bank is a parameter of the same rule now: 12 in the plugin, 24 in the app, where Saved has a full-width row of its own - see [[decision-swatches-panel]]. The ceiling is three banks either way.
+
 ## Why the bank is 12 and not 6
 
 The grid is `grid-cols-6 md:grid-cols-12`. A bank has to divide evenly into both or one breakpoint ends up with a half-empty row - which is the thing a fixed grid was avoiding in the first place. 12 is the smallest number that does: two rows narrow, one row wide.

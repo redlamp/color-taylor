@@ -68,9 +68,9 @@ Undo/redo lives in `undoStack`/`redoStack` refs in `ColorPicker.tsx` (debounced 
 | Key | Holds | Owner |
 |---|---|---|
 | `color-taylor-hsb` | current color | `ColorPicker` |
-| `color-taylor-recent` | recent-color palette | `ColorHexagon` |
-| `color-taylor-saved` | saved swatch slots, `{hex, alpha, addedAt}` | `ColorHexagon` |
-| `color-taylor-alpha` | **legacy.** A `hex -> alpha` map, read once for migration and never written. Don't delete it because nothing writes it | `ColorHexagon` |
+| `color-taylor-recent` | recent-color palette | `SwatchLibrary` |
+| `color-taylor-saved` | saved swatch slots, `{hex, alpha, addedAt}` | `SwatchLibrary` |
+| `color-taylor-alpha` | **legacy.** A `hex -> alpha` map, read once for migration and never written. Don't delete it because nothing writes it | `SwatchLibrary` |
 | `color-taylor-settings` | settings object, including `audioEnabled` and the synth | `useSettings` |
 | `color-taylor-theme` | dark/light | `useTheme` |
 | `color-taylor-muted` | mute toggle, `'1'`/`'0'` | `ColorPicker` |
@@ -88,6 +88,10 @@ Reset-all doesn't clear these centrally. `SettingsPanel` broadcasts a `color-tay
 ### Hexagon picker
 
 `src/components/ColorHexagon.tsx` + `src/components/hex/*` render a custom hex-shaped color wheel with a vertical brightness/lightness bar. Geometry constants and `colorAtPoint` (hex pixel → HSB) live in `hex/hexConstants.ts` — touch them carefully, the SVG handle positions depend on these exact numbers.
+
+### Swatches
+
+Recent and Saved live in `src/components/SwatchLibrary.tsx`: `useSwatchLibrary` owns the lists, storage, sorting and drag-and-drop, and `<SwatchLibrary>` renders them in one of two layouts. The **host** calls the hook, not the hexagon — the app puts them in a full-width Swatches panel (`layout="panel"`, 24 to a row), the plugin keeps them under the hexagon (`layout="sections"`, 12). `ColorHexagon` only gets `onRecordColor` handed back down, for clicks that should record a colour at once. See `wiki/notes/decision-swatches-panel.md`.
 
 ### Presentation
 
