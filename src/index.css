@@ -314,6 +314,16 @@ h1, h2 {
   }
 
   /*
+   * A confirming action, armed: "Sure?" in the destructive tint, so the second
+   * click reads as the one that throws something away. The plugin has the same
+   * rule on Figma's danger token (figma/ui/figma.css). data-armed is set by
+   * SwatchLibrary's ActionButton, and also while a swatch is held over the bin.
+   */
+  .ctl-quiet[data-armed] {
+    @apply bg-destructive/15 text-destructive hover:bg-destructive/25 hover:text-destructive;
+  }
+
+  /*
    * The wordmark, matched to the Community thumbnail's "Color Taylor" - node
    * 78:478 in the Figma file, the frame the listing artwork is exported from.
    *
