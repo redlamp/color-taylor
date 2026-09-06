@@ -151,7 +151,6 @@ export const SIGN_OFF_FADE_MS = 350;
 
 const el = (selector: string) => document.querySelector(selector);
 const joints = () => Array.from(document.querySelectorAll('[data-joint]'));
-const stems = () => Array.from(document.querySelectorAll('[data-stem]'));
 
 /**
  * Smoothstep: zero rate of change at both ends, unity in the middle.
@@ -437,24 +436,29 @@ export const STEPS: DemoStep[] = [
      * the whole field collapses toward a point and the lap below would happen
      * inside a few pixels. From b=100 it is always the full field.
      *
-     * Three stops, not all six: a stem, the joint two along, and the tip. Visiting every one in order made the point three times and took
-     * nine seconds doing it - the tooltips name a channel the same whether or
-     * not you have seen its neighbour, and by the third stop the pattern is
-     * established rather than being demonstrated. Then the tip, the one handle
-     * that is the selection rather than an explanation of it.
+     * Three stops, not all six, one per channel in chain order: the red
+     * handle, the green stem, the blue handle. Visiting every joint and stem
+     * made the point three times and took nine seconds doing it - the
+     * tooltips name a channel the same whether or not you have seen its
+     * neighbour, and by the third stop the pattern is established rather than
+     * being demonstrated. A handle then a stem then a handle also shows both
+     * kinds of thing on the chain, and ends on the tip, the one handle that is
+     * the selection rather than an explanation of it.
      */
     async run({ d, host }) {
       const dots = joints();
-      const legs = stems();
-      if (!dots.length || !legs.length) return;
+      if (!dots.length) return;
       const tip = dots[dots.length - 1];
       await d.bring(tip);
 
-      // Positional rather than by channel: the chain's order changes with the
-      // vector mode, and a missing one should be skipped, not thrown over.
+      // By channel, through the data-hold the hexagon marks each piece with:
+      // a joint carries every channel up to it, a stem its own. A missing one
+      // is skipped, not thrown over.
+      const joint = (hold: string) => document.querySelector(`[data-joint][data-hold="hex:${hold}"]`) ?? undefined;
+      const stem = (ch: string) => document.querySelector(`[data-stem][data-hold="hex:${ch}"]`) ?? undefined;
       const tour: Array<[Element | undefined, number]> = [
-        [legs[0], DWELL.hoverStem],
-        [dots[1], DWELL.hoverJoint],
+        [joint('r'), DWELL.hoverJoint],
+        [stem('g'), DWELL.hoverStem],
         [tip, DWELL.hoverJoint],
       ];
       for (const [target, dwell] of tour) {

@@ -254,16 +254,18 @@ matters more than it sounds: the hexagon's cross-section is a hexagon of radius
 `b/100`, so a dark starting colour would collapse the whole field toward a point
 and the lap below would happen inside a few pixels.
 
-Three stops rather than all six. Visiting every stem and joint in order made the
-same point three times; a tooltip names its channel whether or not you have seen
-its neighbour, and by the third stop the pattern is established rather than
-still being demonstrated.
+Three stops rather than all six, one per channel in chain order: a handle, a
+stem, a handle. Visiting every stem and joint in order made the same point three
+times; a tooltip names its channel whether or not you have seen its neighbour,
+and by the third stop the pattern is established rather than still being
+demonstrated. The stops are found by channel, through the `data-hold` the
+hexagon marks each piece with, not by position along the chain.
 
 | Beat | ms | What happens |
 |---|---:|---|
-| move + `hoverStem` | 520 + 900 | To the **red stem**. Its RED pill fades in. |
-| move + `hoverJoint` | 520 + 1100 | To the **green joint**. RED and GREEN, since it drives both. |
-| move + `hoverJoint` | 520 + 1100 | To the **tip**. All three. |
+| move + `hoverJoint` | 520 + 1100 | To the **red handle**. Its RED pill fades in. |
+| move + `hoverStem` | 520 + 900 | To the **green stem**. GREEN. |
+| move + `hoverJoint` | 520 + 1100 | To the **tip**, the blue handle. All three. |
 | move | 520 | Back onto the tip to take hold of it. |
 | `dragTip` | 3800 | **Once round the field**, plus however far the landing hue is from where it started — so it arrives on h216, s69 whatever colour the user was on. |
 | `afterAction` | 950 | Let go and watch the highlights fade. |
