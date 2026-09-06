@@ -52,6 +52,10 @@ largest cluster in the wiki.
 
 ## Teaching it
 
+- [[rgb-waves-are-max-and-min]] — the three channels across the hue circle are
+  one wave, shaped by the colour's largest and smallest channel alone; HSB and
+  HSL are two ways of naming those two rails. Playable, over Channel Surfer's
+  rainbow, in `lab/spectrum.html`
 - [[plan-teaching-rgb-to-hsb]] — the ladder and the deck's running order, which
   already ends on OkLab
 - [[presentation]] — the deck MOC
