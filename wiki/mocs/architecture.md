@@ -32,6 +32,7 @@ HSL is derived and written back within its own model — HSL's saturation is not
 | `src/utils/colorConversions.ts` | the color math |
 | `src/utils/sliderGradients.ts` | track gradients, blend and channel variants |
 | `src/utils/handleStyle.ts` | one handle treatment for every surface |
+| `src/components/SwatchLibrary.tsx` | Recent and Saved: a hook the host owns and a component with the app's panel layout and the plugin's sidebar layout — [[decision-swatches-panel]] |
 | `src/utils/swatchStore.ts` | the storage seam — [[decision-clientstorage-swatch-seam]] |
 | `src/hooks/useDrag.ts` | shared pointer drag, since 2026-03-28 |
 | `src/hooks/useUiSounds.ts` | interface sounds — [[decision-audio-as-optional-module]] |
