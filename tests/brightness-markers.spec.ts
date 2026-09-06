@@ -158,7 +158,9 @@ test.describe('Picker column heights', () => {
       const closed = page.locator('button[id$="-trigger"][aria-expanded="false"]');
       const n = await closed.count();
       if (!n) break;
-      for (let i = n - 1; i >= 0; i--) await closed.nth(i).click().catch(() => {});
+      // A short timeout: Recent's trigger is inert while the Swatches panel
+      // around it is closed, so the click cannot land until the next pass.
+      for (let i = n - 1; i >= 0; i--) await closed.nth(i).click({ timeout: 1500 }).catch(() => {});
       await page.waitForTimeout(350);
     }
     await expect(page.locator('button[id$="-trigger"][aria-expanded="false"]')).toHaveCount(0);

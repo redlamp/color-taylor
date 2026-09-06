@@ -7,7 +7,9 @@ tags:
 
 # Decision: Recent And Saved Move To A Swatches Panel
 
-**2026-09-06.** Recent and Saved leave the Hexagon card for a full-width panel of their own, **Swatches**, between the top row and Equations. Saved has no caption: the panel's title is its title, and Sort, Defaults and Clear ride on that header row while the panel is open. Recent sits under it as a section of its own, closed by default. A row holds 24 swatches. Drafted on the design canvas first, then built.
+**2026-09-06.** Recent and Saved leave the Hexagon card for a full-width panel of their own, **Swatches**, between the top row and Equations. Saved has no caption: the panel's title is its title, and Sort, Defaults and Clear ride on that header row while the panel is open. Recent sits under it as a section of its own. Both the panel and Recent start closed, as the two sections did in the card. A row holds 24 swatches. Drafted on the design canvas first, then built.
+
+One thing the panel's closed state exposed: with it closed the phone layout sits at its maximum scroll on the Color Editor, and a tooltip opening on a touch tap moved the page. Tooltips on the toolbar toggles no longer open from touch or from the demo's synthetic pointer on a device without hover - `utils/hoverTips.ts`.
 
 In the same pass the Color Editor lost its "Hex and HTML Colors" card: the hex field moved up onto the toggle row, at the right end and stepper-wide so it lines up with the number fields, and the search / colour-name / show-on-hex row sits flat under a rule. The second swatch that sat beside the hex field went with the card - the swatch at the top of the panel is the swatch. Follows on from [[decision-color-editor-is-the-panel]].
 

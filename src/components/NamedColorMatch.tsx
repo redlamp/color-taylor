@@ -7,6 +7,7 @@ import { Search, Tags } from 'lucide-react';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Command, CommandInput, CommandList, CommandEmpty, CommandItem } from '@/components/ui/command';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { tipFromPointer, tipFromFocus } from '../utils/hoverTips';
 
 interface NamedColorMatchProps {
   rgb: { r: number; g: number; b: number };
@@ -151,9 +152,10 @@ function NamedColorMatch({ rgb, onAnimateToHsb, onHoverMatch, hoveredHtmlColor, 
                   value="tags"
                   className="px-2"
                   id="html-colors-toggle"
-                  onPointerEnter={() => setTagsTipOpen(true)}
+                  // Not on touch - see utils/hoverTips for the page it moved.
+                  onPointerEnter={(e) => { if (tipFromPointer(e)) setTagsTipOpen(true); }}
                   onPointerLeave={() => setTagsTipOpen(false)}
-                  onFocus={() => setTagsTipOpen(true)}
+                  onFocus={(e) => { if (tipFromFocus(e.currentTarget)) setTagsTipOpen(true); }}
                   onBlur={() => setTagsTipOpen(false)}
                   aria-label={showOnHex ? 'Hide HTML colors on hex' : 'Show HTML colors on hex'}
                 >

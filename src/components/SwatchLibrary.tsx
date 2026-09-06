@@ -1062,7 +1062,7 @@ export default function SwatchLibrary({ lib, layout, variant = 'card', collapsed
     // actions ride on that row. Recent keeps its caption and sits under a rule.
     return (
       <>
-        <CollapsibleSection id="swatches-group" title="Swatches" level="h2" headerRight={savedActions}>
+        <CollapsibleSection id="swatches-group" title="Swatches" level="h2" defaultOpen={!collapsed} headerRight={savedActions}>
           <div className="flex flex-col">
             <div id="saved-colors">{savedGrid}</div>
             <CollapsibleSection

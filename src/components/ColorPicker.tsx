@@ -77,6 +77,7 @@ import PreviewSwatch from './PreviewSwatch';
 import CollapsibleSection from './CollapsibleSection';
 import NamedColorMatch from './NamedColorMatch';
 import SwatchLibrary, { useSwatchLibrary } from './SwatchLibrary';
+import { tipFromPointer, tipFromFocus } from '../utils/hoverTips';
 import ThemeToggle from './ThemeToggle';
 import { SettingsPanel } from './SettingsPanel';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
@@ -1078,9 +1079,10 @@ export default function ColorPicker() {
                       value="blend"
                       className="px-2"
                       id="blend-toggle"
-                      onPointerEnter={() => setBlendTipOpen(true)}
+                      // Not on touch - see utils/hoverTips.
+                      onPointerEnter={(e) => { if (tipFromPointer(e)) setBlendTipOpen(true); }}
                       onPointerLeave={() => setBlendTipOpen(false)}
-                      onFocus={() => setBlendTipOpen(true)}
+                      onFocus={(e) => { if (tipFromFocus(e.currentTarget)) setBlendTipOpen(true); }}
                       onBlur={() => setBlendTipOpen(false)}
                       // The label is the action, the tooltip below is the
                       // state: blend off draws each channel's own ramp, which

@@ -108,14 +108,14 @@ test.describe('Settings sheet', () => {
 
     await toggle('color-editor-group').click();
     await expect.poll(height('color-editor-group')).toBe(0);
-    await toggle('recent-colors').click();
-    await expect.poll(height('recent-colors')).toBeGreaterThan(0);
+    await toggle('swatches-group').click();
+    await expect.poll(height('swatches-group')).toBeGreaterThan(0);
 
     await menuButton(page).click();
     await sheet(page).getByRole('button', { name: /default settings/i }).click();
 
     await expect.poll(height('color-editor-group'), { timeout: 4000 }).toBeGreaterThan(0);
-    await expect.poll(height('recent-colors'), { timeout: 4000 }).toBe(0);
+    await expect.poll(height('swatches-group'), { timeout: 4000 }).toBe(0);
   });
 
   /**
