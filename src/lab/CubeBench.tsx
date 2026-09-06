@@ -29,6 +29,7 @@ import HSlider from '../components/HSlider';
 import PreviewSwatch from '../components/PreviewSwatch';
 import HexInput from '../components/HexInput';
 import CollapsibleSection from '../components/CollapsibleSection';
+import FlatSection from './FlatSection';
 import {
   createCubeRenderer, DEFAULT_PARAMS,
   type CubeParams, type CubeRenderer, type CubeStep, type UpAxis, type Shape,
@@ -64,23 +65,6 @@ function Notched({ trackId, ticks, max, children }: { trackId: string; ticks?: n
         </div>
       )}
     </div>
-  );
-}
-
-/**
- * A section title row without the card: the app's h3 title style, the switch
- * on the right, the content below. The app's CollapsibleSection has a flush
- * variant, but its title is a different size and weight from the card one.
- */
-function FlatSection({ title, headerRight, children }: { title: string; headerRight?: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <section className="flex flex-col gap-2">
-      <div className="flex h-8 items-center justify-between gap-2">
-        <h3 className="text-sm font-medium tracking-normal text-foreground/80">{title}</h3>
-        {headerRight}
-      </div>
-      {children}
-    </section>
   );
 }
 
@@ -295,8 +279,9 @@ export default function CubeBench() {
             onDoubleClick={goHome}
           />
         )}
-        <div className="pointer-events-none absolute left-4 top-4 flex flex-col gap-0.5 text-xs text-muted-foreground">
-          <div className="text-sm font-semibold text-foreground">{perSide} steps per axis</div>
+        {/* text-base, as all UI text is; the title a step up. */}
+        <div className="pointer-events-none absolute left-4 top-4 flex flex-col gap-0.5 text-base text-muted-foreground">
+          <div className="text-lg font-semibold text-foreground">{perSide} steps per axis</div>
           <div>#00 to #FF in {STEP_NAMES[p.cubeStep]} steps · {{ cube: 'RGB cube', hsb: 'HSB cone', hsl: 'HSL bicone' }[shape]} · {{ neutral: 'lightness', r: 'red', g: 'green', b: 'blue' }[p.up]} up</div>
           <div>Drag to orbit · wheel to zoom · double-click to reset</div>
         </div>
@@ -354,7 +339,7 @@ export default function CubeBench() {
                 <div className="flex flex-col gap-3">
                   {hslMode !== 'hsl' && (
                     <div className="flex flex-col gap-2" role="group" aria-label="HSB">
-                      {hslMode === 'both' && <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">HSB</span>}
+                      {hslMode === 'both' && <span className="text-base font-semibold text-muted-foreground">HSB</span>}
                       <ColorSlider label="H" group="hsb" value={hsb.h} max={360} wrap gradient={hueGradient(hsb.s, hsb.b, 'srgb')} onChange={handleH} />
                       <ColorSlider label="S" group="hsb" value={hsb.s} max={100} gradient={saturationGradient(hsb.h, hsb.b, 'srgb')} onChange={handleS} />
                       <ColorSlider label="B" group="hsb" value={hsb.b} max={100} gradient={brightnessGradient(hsb.h, hsb.s, 'srgb')} onChange={handleBr} />
@@ -362,7 +347,7 @@ export default function CubeBench() {
                   )}
                   {hslMode !== 'hsb' && (
                     <div className="flex flex-col gap-2" role="group" aria-label="HSL">
-                      {hslMode === 'both' && <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">HSL</span>}
+                      {hslMode === 'both' && <span className="text-base font-semibold text-muted-foreground">HSL</span>}
                       <ColorSlider label="H" group="hsl" value={hsl.h} max={360} wrap gradient={hslHueGradient(hsl.s, hsl.l, 'srgb')} onChange={handleHslH} />
                       <ColorSlider label="S" group="hsl" value={hsl.s} max={100} gradient={hslSaturationGradient(hsl.h, hsl.l, 'srgb')} onChange={handleHslS} />
                       <ColorSlider label="L" group="hsl" value={hsl.l} max={100} gradient={lightnessGradient(hsl.h, hsl.s, 'srgb')} onChange={handleHslL} />
@@ -377,20 +362,20 @@ export default function CubeBench() {
         <div className="panel-frame flex flex-col rounded-lg border border-border p-2.5">
           <CollapsibleSection id="lab-cube" title="Cube" level="h2">
             <div className="flex flex-col gap-3">
-              <Label className="text-sm text-muted-foreground">Steps per axis</Label>
+              <Label className="text-base text-muted-foreground">Steps per axis</Label>
               <Seg value={String(p.cubeStep)} options={'51:6|17:16|1:256'} onChange={(x) => goStep(+x as CubeStep)} />
               {shape === 'cube' && (<>
-                <Label className="text-sm text-muted-foreground">Cube style</Label>
+                <Label className="text-base text-muted-foreground">Cube style</Label>
                 <Seg value={p.cubeStyle} options={'cubes:Cubes|dots:Dots'} onChange={(x) => set('cubeStyle', x as 'cubes' | 'dots')} />
               </>)}
-              <Label className="text-sm text-muted-foreground">Shape</Label>
+              <Label className="text-base text-muted-foreground">Shape</Label>
               <Seg value={shape} options={'cube:Cube|hsb:HSB cone|hsl:HSL bicone'} onChange={(x) => goShape(x as Shape)} />
               <div className="flex items-center justify-between gap-3">
-                <Label htmlFor="lab-pointscale" className="text-sm text-muted-foreground">Point size</Label>
-                <span className="text-sm tabular-nums text-foreground">{p.pointScale.toFixed(2)}</span>
+                <Label htmlFor="lab-pointscale" className="text-base text-muted-foreground">Point size</Label>
+                <span className="text-base tabular-nums text-foreground">{p.pointScale.toFixed(2)}</span>
               </div>
               <input id="lab-pointscale" type="range" min={0.25} max={2} step={0.05} value={p.pointScale} onChange={(e) => set('pointScale', +e.target.value)} className="h-1.5 w-full cursor-pointer accent-foreground" />
-              <Label className="text-sm text-muted-foreground">Up axis</Label>
+              <Label className="text-base text-muted-foreground">Up axis</Label>
               <Seg value={p.up} options="neutral:Lightness|r:Red|g:Green|b:Blue" onChange={(x) => setP((prev) => ({
                 ...prev, up: x as UpAxis,
                 // lightness: from the white corner looking down to black, the hexagon;
