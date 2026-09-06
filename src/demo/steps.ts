@@ -434,7 +434,11 @@ export const STEPS: DemoStep[] = [
     async run({ d }) {
       const toggle = el('#html-colors-toggle');
       if (!toggle) return;
-      await d.bring(el('#slider-banks') ?? toggle, true);
+      // The control itself, not the bank block the step before framed: the
+      // button sits under the sliders, and on a phone framing the block from
+      // its top leaves it below the band, behind the demo panel - where the
+      // ghost then taps at a point the button is not.
+      await d.bring(toggle);
       await d.moveTo(() => centerOf(toggle), DWELL.move);
       await d.wait(DWELL.beforeAction);
       await d.click(toggle);
