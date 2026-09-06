@@ -422,12 +422,13 @@ export const STEPS: DemoStep[] = [
   {
     caption: 'Press button to show HTML named colors in the hex.',
     audio: '04-html-colors.mp3',
-    duration: DWELL.move + DWELL.beforeAction + 2 * CLICK_MS + DWELL.blendHold + DWELL.afterAction,
+    duration: DWELL.move + DWELL.beforeAction + 4 * CLICK_MS + 3 * DWELL.blendHold + DWELL.afterAction,
     /**
-     * The named colours pinned on the field, on and then off again: a claim
-     * about the hexagon made from the editor, the way the blend step is a
-     * claim about the sliders. Two presses so the picker is left as it was
-     * found, and it sits before the chain step so the field it walks onto is
+     * The named colours pinned on the field, on and off and on and off: a
+     * claim about the hexagon made from the editor, the way the blend step is
+     * a claim about the sliders, and the same four presses so the two steps
+     * read as one pattern. An even count leaves the picker as it was found,
+     * and the step sits before the chain step so the field it walks onto is
      * the one the user had. The toggle is on the same row as the blend button
      * the step before ended on, so this is a short move, not a far one.
      */
@@ -441,10 +442,10 @@ export const STEPS: DemoStep[] = [
       await d.bring(toggle);
       await d.moveTo(() => centerOf(toggle), DWELL.move);
       await d.wait(DWELL.beforeAction);
-      await d.click(toggle);
-      await d.wait(DWELL.blendHold);
-      await d.click(toggle);
-      await d.wait(DWELL.afterAction);
+      for (let i = 0; i < 4; i++) {
+        await d.click(toggle);
+        await d.wait(i === 3 ? DWELL.afterAction : DWELL.blendHold);
+      }
     },
   },
   {

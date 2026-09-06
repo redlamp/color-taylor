@@ -31,10 +31,10 @@ step has, and where a longer line could go without changing a single timing.
 | 1 | Work with the tools that feel most familiar to you. | 8.3s | 10 | ~21 |
 | 2 | Move one value and everything it affects lights up across the app. | 8.1s | 12 | ~20 |
 | 3 | Press this button to toggle between Source and Mixed color sliders. | 5.5s | 11 | ~14 |
-| 4 | Press button to show HTML named colors in the hex. | 3.1s | 9 | ~8 |
+| 4 | Press button to show HTML named colors in the hex. | 5.3s | 9 | ~13 |
 | 5 | Play with the Hex handles to see how each one maps to a color channel. | 9.9s | 15 | ~25 |
 | — | Have fun! | 4.4s | 2 | — |
-| | **Total** | **39.2s** | | |
+| | **Total** | **41.4s** | | |
 
 Four things worth knowing before you rewrite any of them:
 
@@ -241,7 +241,7 @@ Narration: `public/demo/03-blend.mp3`
 | `beforeAction` | 400 | |
 | 4 × (`CLICK_MS` + `blendHold`) | 4 × 110 + 3 × 1000 + 950 | Four presses, each leaving a ring, ending where it started. |
 
-## Step 4 — HTML colours on the hex · 3.1s
+## Step 4 — HTML colours on the hex · 5.3s
 
 > **Press button to show HTML named colors in the hex.**
 
@@ -258,8 +258,7 @@ the move is a near one.
 |---|---:|---|
 | `move` | 520 | To the **tags button**. |
 | `beforeAction` | 400 | |
-| `CLICK_MS` + `blendHold` | 110 + 1000 | Press. The named colours appear on the hexagon. |
-| `CLICK_MS` + `afterAction` | 110 + 950 | Press again. They go. |
+| 4 × (`CLICK_MS` + `blendHold`) | 4 × 110 + 3 × 1000 + 950 | Four presses, the blend step's pattern: the named colours appear on the hexagon, go, appear, go. |
 
 ## Step 5 — The chain · 9.9s
 
@@ -328,7 +327,7 @@ the goodbye rather than into the pause.
 ## Narration
 
 **The demo is silent on purpose.** The voice goes into a video instead, where
-there is room to explain rather than to narrate 39 seconds of choreography over
+there is room to explain rather than to narrate 41 seconds of choreography over
 the top of it. `NARRATION_READY` in `src/demo/steps.ts` stays `false` and the
 speaker button stays hidden.
 
@@ -349,7 +348,7 @@ the length. A recording shorter than the step changes nothing.
 | 1 | `01-color-box.mp3` | ~8.3s |
 | 2 | `02-impact.mp3` | ~8.1s |
 | 3 | `03-blend.mp3` | ~5.5s |
-| 4 | `04-html-colors.mp3` | ~3.1s |
+| 4 | `04-html-colors.mp3` | ~5.3s |
 | 5 | `05-handles.mp3` | ~9.9s |
 
 ## Things the timings cannot predict
