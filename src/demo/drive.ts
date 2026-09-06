@@ -375,12 +375,32 @@ export class Driver {
   }
 
   /**
+   * The panel mounts at top: -400 and the runner's frame loop puts it where it
+   * goes - the header or the foot - on the first frame after. The first `bring`
+   * of a run can get in ahead of that frame, and an off-screen panel reads as
+   * no panel: clearBand hands back the whole window, a target that is in fact
+   * about to be under the foot band counts as visible, and the step works it
+   * there. It stayed hidden while the SB box happened to fall past the bottom
+   * of even that band; trimming 12px off the hexagon card above it was enough
+   * to expose it. A few frames is all the placement ever needs.
+   */
+  private async panelPlaced(): Promise<void> {
+    for (let i = 0; i < 6; i++) {
+      const p = document.querySelector('[data-demo-chrome]')?.getBoundingClientRect();
+      if (!p || (p.bottom > 0 && p.top < window.innerHeight)) return;
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      this.guard();
+    }
+  }
+
+  /**
    * Put a target where it can actually be watched: inside the band the demo
    * panel leaves, not merely inside the window. A no-op when it is already
    * there, so a step can ask before every beat without the page hopping about.
    */
   async bring(el: Element, always = false): Promise<void> {
     this.guard();
+    await this.panelPlaced();
     const band = this.clearBand();
     const r = el.getBoundingClientRect();
     // `always` asks for the framing whether or not the target is already

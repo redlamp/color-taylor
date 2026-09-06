@@ -64,7 +64,7 @@ function AppInner() {
           <PluginBanner />
           {/* Named because the pinned menu narrows it - see the
               `[data-menu-pinned]` rule in index.css. */}
-          <div id="app-stage" className="flex flex-1 items-center justify-center p-5">
+          <div id="app-stage" className="flex flex-1 items-center justify-center px-5 py-5 sm:py-0">
             <ColorPicker />
             <Toaster position="top-center" />
           </div>

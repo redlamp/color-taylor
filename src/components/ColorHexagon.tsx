@@ -1084,8 +1084,14 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       // `max-w-full${cond` as the candidate, so the utility is never generated
       // and the card silently overflows its column.
       className={[
-        'flex flex-col items-center gap-1 max-w-full',
-        bare ? 'w-full' : 'panel-frame border border-border rounded-lg p-3',
+        // gap-1 sits between the header row and the stage below - but a flex
+        // gap counts even when the stage collapses to a 0fr row, so a closed
+        // card carried 4px of dead space the other panels don't. Dropped only
+        // while closed, alongside p-2.5 rather than p-3 (2px less on every
+        // side), which is what brings this card's collapsed height to the
+        // same 50px as Color Editor, Equations and Swatches instead of 58.
+        `flex flex-col items-center ${hexOpen ? 'gap-1' : 'gap-0'} max-w-full`,
+        bare ? 'w-full' : 'panel-frame border border-border rounded-lg p-2.5',
       ].join(' ')}
       // This card collapses on its own `hexOpen` rather than through
       // CollapsibleSection, so it reports its state itself. .panel-frame reads
@@ -1096,8 +1102,8 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     >
       {/*
         relative z-10 because #hex-svg overhangs this row. Its box is HEX_SIZE
-        tall inside a DISPLAY_HEIGHT stage, so 40 user units of empty canvas
-        stick out above the stage - and a root <svg> takes the hit over its
+        tall inside a shorter stage, so STAGE_TOP_CROP user units of empty
+        canvas stick out above the stage - and a root <svg> takes the hit over its
         whole box, tabs included. It used to clear the header by a few px only
         because the caption below the tabs padded this row out; dropping that
         caption pulled the stage up and the SVG started swallowing tab clicks.
@@ -1227,10 +1233,11 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       <div id="hex-stage" className={`w-full relative grow ${satBar ? 'mx-4 mt-4 mb-1' : 'm-4'}`} style={{ maxWidth: EXTENT, aspectRatio: `${EXTENT} / ${stageHeight}`, containerType: 'inline-size' }}>
       {/* Centred while the content is symmetric about CENTER_Y. With the
           saturation bar on it hangs well below, so the box is pinned to the
-          stage's top instead, shifted up by the crop - the same 40 units
-          DISPLAY_HEIGHT has always taken, which is the amount the hue badge is
-          known to survive. Top rather than bottom so that when the card grows
-          the hexagon and its bars stay put and the slack collects underneath. */}
+          stage's top instead, shifted up by STAGE_TOP_CROP, so the circle's
+          top lands on the stage's edge; the hue badge and the 100% pill
+          overhang into the mt-4 above. Top rather than bottom so that when the
+          card grows the hexagon and its bars stay put and the slack collects
+          underneath. */}
       <div
         className={`absolute left-0 w-full ${satBar ? '' : 'top-1/2 -translate-y-1/2'}`}
         style={{

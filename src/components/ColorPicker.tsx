@@ -43,13 +43,18 @@ const TOP_ROW_GAP_PX = 16;                // Tailwind gap-4
  * The root's own horizontal padding, which has to be added on top of the two
  * columns rather than eaten out of them.
  *
- * maxWidth is a border-box measurement, so the sm:p-6 on the root came out of
+ * maxWidth is a border-box measurement, so the sm:px-6 on the root came out of
  * the total: the columns only ever had 1002px of the 1050 they ask for, and were
  * 48px short of ever reaching their stated widths. Flex hid that by shrinking
  * both a little; the grid made it visible by holding the sliders column at 420
  * and taking the whole shortfall out of the hexagon.
+ *
+ * Horizontal only - the root used to carry sm:p-6 on every side, stacking its
+ * own 24px of vertical padding on top of #app-stage's, which centres the whole
+ * picker and already carries 20px of its own. Vertical stayed at py-1 (4px),
+ * so app-stage is the only source of vertical breathing room above sm.
  */
-const ROOT_PADDING_X = 48;                // Tailwind sm:p-6, both sides
+const ROOT_PADDING_X = 48;                // Tailwind sm:px-6, both sides
 
 /*
  * Resting height of the SB box.
@@ -787,7 +792,7 @@ export default function ColorPicker() {
   });
 
   return (
-    <div id="color-picker-root" className="mx-auto w-full px-0.5 py-1 sm:p-6" style={{ maxWidth: TOP_ROW_MAX_WIDTH }}>
+    <div id="color-picker-root" className="mx-auto w-full px-0.5 py-1 sm:px-6" style={{ maxWidth: TOP_ROW_MAX_WIDTH }}>
       {/*
         One row wherever it fits, two where it does not - `flex-wrap` decides,
         not a breakpoint.
@@ -800,7 +805,7 @@ export default function ColorPicker() {
         device, or a dev build where VITE_INTRO_ENABLED adds a fourth control,
         simply falls back to two rows on its own.
       */}
-      <div id="picker-header" className="flex flex-wrap items-center justify-between gap-2 mb-4">
+      <div id="picker-header" className="flex flex-wrap items-center justify-between gap-2 mb-2">
         {/* The emoji sit outside .wordmark on purpose: that class paints the
             glyphs with a background clipped to the text, so anything inside it
             loses its own colour - the palette and thread would come out as
