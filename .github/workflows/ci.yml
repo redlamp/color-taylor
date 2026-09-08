@@ -11,18 +11,31 @@ name: CI
 # `workflow_run`. That works but carries sharp edges - it evaluates the workflow
 # file from the default branch, needs the target SHA checked out explicitly, and
 # silently does nothing if the upstream run is skipped. One file is plainer.
+#
+# The gate is the fast half of the tests. `check` - lint, types, the unit
+# suite, about a minute - is what deploy waits for; the Playwright suite runs
+# beside it and does not hold the deploy. It used to: one job ran everything,
+# and a push to main sat seven minutes behind an e2e run on the very commit
+# the pull request had just run it on. The e2e still gates the merge, on the
+# PR, and still runs on main for the record; what a red run on main means now
+# is fix forward or revert, not "the site is still on the previous build".
+# See wiki/notes/decision-fast-deploy-gate.md.
+#
+# No run on a push to dev. Every dev commit that matters opens a pull request,
+# which runs the same jobs, and the push run was the same commit tested twice
+# on two runners at once.
 
 on:
   pull_request:
   push:
-    branches: [main, dev]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  test:
+  check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -33,6 +46,15 @@ jobs:
       - run: bun run lint
       - run: bun run typecheck
       - run: bun run test:unit
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.0
+      - run: bun install --frozen-lockfile
       - name: Cache Playwright browsers
         uses: actions/cache@v6
         with:
@@ -49,7 +71,7 @@ jobs:
           retention-days: 7
 
   deploy:
-    needs: test
+    needs: check
     # Only from main, and never from a pull request - a PR must not be able to
     # publish. workflow_dispatch is allowed so a manual deploy is still possible,
     # but it now runs the tests first like everything else.

@@ -43,6 +43,7 @@ Every `notes/decision-*.md`, newest first. Each note records what was decided, w
 
 ## Build and CI
 
+- [[decision-fast-deploy-gate]] — the deploy waits for lint, types and unit tests; the e2e runs beside it and gates the PR instead; no CI on dev pushes
 - [[decision-pin-bun-version-in-ci]] — an exact `bun-version` in both jobs, not `latest`; what bun 1.4 did and did not change, including the lockfile that stayed at v1
 
 ## Recorded in git only
