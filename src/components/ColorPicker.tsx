@@ -704,6 +704,12 @@ export default function ColorPicker() {
   // while a list plays changes the pace and nothing else.
   const playSpeedRef = useRef(settings.playSpeed);
   useEffect(() => { playSpeedRef.current = settings.playSpeed; }, [settings.playSpeed]);
+  /**
+   * Tells the Swatches panel which swatch the colour is travelling to, so its
+   * ring moves as the transition starts rather than on arrival. A ref because
+   * the library is created below this loop; it is filled in once it exists.
+   */
+  const playHeadingRef = useRef<((hex: string, forMs: number) => void) | null>(null);
 
   useEffect(() => {
     if (!play) {
@@ -720,6 +726,9 @@ export default function ColorPicker() {
     let idx = play.start % colors.length;
     let phase = 0;
     let last: number | null = null;
+    // Which colour the panel has been told is next; one announcement per step.
+    let heading = -1;
+    const hexOf = (c: RGB) => rgbToHex(c.r, c.g, c.b);
     toneController.start(hsbRef.current);
     const tick = (ts: number) => {
       // Check if user interaction requested a stop
@@ -737,6 +746,12 @@ export default function ColorPicker() {
       while (phase >= stepMs) {
         phase -= stepMs;
         idx = (idx + 1) % colors.length;
+      }
+
+      // As the transition starts, the ring goes to where the colour is going.
+      if (phase >= holdMs && heading !== idx) {
+        heading = idx;
+        playHeadingRef.current?.(hexOf(colors[(idx + 1) % colors.length]), stepMs - holdMs);
       }
 
       let { r, g, b } = colors[idx];
@@ -790,6 +805,10 @@ export default function ColorPicker() {
     onAnimateToHsb: (target) => { if (colorAnimActiveRef.current) colorAnimActiveRef.current = 'stop'; animateToHsb(target); },
     bank: 24,
   });
+  const { markPending: markSwatchPending } = swatches;
+  useEffect(() => {
+    playHeadingRef.current = (hex, forMs) => markSwatchPending(hex, 100, forMs);
+  }, [markSwatchPending]);
 
   return (
     <div id="color-picker-root" className="mx-auto w-full px-0.5 py-1 sm:px-6" style={{ maxWidth: TOP_ROW_MAX_WIDTH }}>

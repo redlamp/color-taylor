@@ -638,7 +638,12 @@ export function useSwatchLibrary({ rgb, alpha = 100, muted, recordRecent = true,
    */
   const activeKey = pendingKey ?? swatchKey(currentHex, alpha);
 
-  const markPending = useCallback((hex: string, a: number) => {
+  /**
+   * Ring a swatch the colour is on its way to. `lifetime` is how long that
+   * can take: a click's tween by default, or a play step's transition, which
+   * the pace setting can stretch well past it.
+   */
+  const markPending = useCallback((hex: string, a: number, lifetime = HSB_TWEEN_MS) => {
     setPendingKey(swatchKey(hex, a));
     if (pendingTimer.current !== null) window.clearTimeout(pendingTimer.current);
     // The tween's own duration is the natural lifetime. The timer is the
@@ -647,7 +652,7 @@ export function useSwatchLibrary({ rgb, alpha = 100, muted, recordRecent = true,
     pendingTimer.current = window.setTimeout(() => {
       setPendingKey(null);
       pendingTimer.current = null;
-    }, HSB_TWEEN_MS + 100);
+    }, lifetime + 100);
   }, []);
 
   useEffect(() => () => {
