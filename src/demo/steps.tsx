@@ -420,7 +420,7 @@ export const STEPS: DemoStep[] = [
   },
 
   {
-    caption: <><Press /> the <Glyph label="droplet"><BlendIcon filled={false} /></Glyph> to switch the sliders between Source or Mixed colored sliders.</>,
+    caption: <><Press /> the <Glyph label="droplet"><BlendIcon filled={false} /></Glyph> to switch between<br />Source or Mixed colored sliders.</>,
     audio: '03-blend.mp3',
     duration: DWELL.moveFar + DWELL.beforeAction + 4 * CLICK_MS + 3 * DWELL.blendHold + DWELL.afterAction,
     /** Blend on and off, which is a claim about the sliders you can only see. */

@@ -30,7 +30,7 @@ step has, and where a longer line could go without changing a single timing.
 |---|---|---:|---:|---:|
 | 1 | Start with the controls you already know. | 8.3s | 7 | ~21 |
 | 2 | Move one slider to highlight every slider it affects. | 8.1s | 9 | ~20 |
-| 3 | Click the ⟨droplet⟩ to switch the sliders between Source or Mixed colored sliders. | 5.5s | 13 | ~14 |
+| 3 | Click the ⟨droplet⟩ to switch between ⏎ Source or Mixed colored sliders. | 5.5s | 11 | ~14 |
 | 4 | Click the ⟨tags⟩ to show the HTML colors on the hexagon. | 5.3s | 10 | ~13 |
 | 5 | Drag a handle on the hex and watch the RGB and HSB sliders follow. | 9.9s | 14 | ~25 |
 | — | Have fun! | 4.4s | 2 | — |
@@ -55,8 +55,9 @@ Four things worth knowing before you rewrite any of them:
   header's width that is about 70 characters, which all four are inside. A
   phone is narrower and takes the two longest to three lines regardless; the
   panel is 90px on a desktop and 161px there.
-- **Step 3 is the tightest, and it is now tight enough to matter.** Thirteen
-  words in 5.5s leaves about a word of headroom. If a recorded line runs
+- **Step 3 is the tightest, and it is now tight enough to matter.** Eleven
+  words in 5.5s leaves about three words of headroom, and its line break is
+  written in (⏎ above) rather than left to the wrap. If a recorded line runs
   long the step stretches to fit it rather than clipping, but the choreography
   stops being what sets its length — put `blendHold` back to 1100 if that
   bothers you.
@@ -237,7 +238,7 @@ is what lets the landing colour survive the step.
 
 ## Step 3 — Source and mixed · 5.5s
 
-> **Click the ⟨droplet⟩ to switch the sliders between Source or Mixed colored sliders.**
+> **Click the ⟨droplet⟩ to switch between ⏎ Source or Mixed colored sliders.**
 
 Narration: `public/demo/03-blend.mp3`
 
