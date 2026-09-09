@@ -543,7 +543,7 @@ export default function DemoRunner({ from = null, onRestore, onExit, host }: Dem
   }, [skip]);
 
   const hot = hotspotOf(kind);
-  const caption = done ? SIGN_OFF : STEPS[index].caption;
+  const captionIndex = done ? STEPS.length : index;
 
   return createPortal(
     <div className="pointer-events-none fixed inset-0 z-[60]">
@@ -570,13 +570,15 @@ export default function DemoRunner({ from = null, onRestore, onExit, host }: Dem
       >
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
           <div role="status" aria-live="polite" className="grid min-w-[15rem] flex-1">
-            {CAPTIONS.map((text) => (
+            {CAPTIONS.map((text, i) => (
               <p
-                key={text}
+                // By position: a caption can carry a glyph, so it is not a
+                // string to key or compare on.
+                key={i}
                 // visibility, not display: the hidden lines still take their
                 // space, which is the whole point, and are still out of the
                 // accessibility tree, which is the other one.
-                style={{ visibility: text === caption ? 'visible' : 'hidden' }}
+                style={{ visibility: i === captionIndex ? 'visible' : 'hidden' }}
                 className="col-start-1 row-start-1 self-center text-pretty text-xl font-medium leading-snug sm:text-2xl"
               >
                 {text}
