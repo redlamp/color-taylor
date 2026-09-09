@@ -579,7 +579,10 @@ export default function DemoRunner({ from = null, onRestore, onExit, host }: Dem
                 // space, which is the whole point, and are still out of the
                 // accessibility tree, which is the other one.
                 style={{ visibility: i === captionIndex ? 'visible' : 'hidden' }}
-                className="col-start-1 row-start-1 self-center text-pretty text-xl font-medium leading-snug sm:text-2xl"
+                // Balanced, not pretty: two lines of even length rather than
+                // a long first line and a short tail, which is what a line
+                // with a glyph in it kept landing on.
+                className="col-start-1 row-start-1 self-center text-balance text-xl font-medium leading-snug sm:text-2xl"
               >
                 {text}
               </p>

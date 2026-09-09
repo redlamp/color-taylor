@@ -132,7 +132,9 @@ function Glyph({ label, children }: { label: string; children: ReactNode }) {
     <span
       role="img"
       aria-label={label}
-      className="mx-0.5 inline-flex h-7 w-8 items-center justify-center rounded-md border border-input bg-input/30 align-[-6px] text-foreground [&_svg]:size-4"
+      // Middle-aligned, so the pill centres on the text's x-height on both
+      // type sizes rather than hanging off the baseline by a fixed offset.
+      className="mx-0.5 inline-flex h-6 w-7 items-center justify-center rounded-md border border-input bg-input/30 align-middle text-foreground [&_svg]:size-3.5"
     >
       {children}
     </span>
