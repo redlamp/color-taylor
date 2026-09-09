@@ -1082,7 +1082,7 @@ export default function SwatchLibrary({ lib, layout, variant = 'card', collapsed
                 // then place the new color at the clicked display position.
                 const flattened: SavedSlot[] = displaySlots.map((d) => d.slot);
                 flattened[displayIdx] = { hex: currentHex, alpha, addedAt: Date.now() };
-                setSavedSlots(fitSaved(flattened));
+                setSavedSlots(fitSaved(flattened, bank));
                 setSavedSortMode('user');
                 playSave();
                 if (navigator.vibrate) navigator.vibrate(10);
