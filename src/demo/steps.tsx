@@ -132,9 +132,10 @@ function Glyph({ label, children }: { label: string; children: ReactNode }) {
     <span
       role="img"
       aria-label={label}
-      // The pill's foot sits 3px under the baseline, so it spans the capitals
-      // rather than the x-height: middle alignment left it sitting low.
-      className="mx-0.5 inline-flex h-6 w-7 items-center justify-center rounded-md border border-input bg-input/30 align-[-3px] text-foreground [&_svg]:size-3.5"
+      // The pill's foot sits on the baseline. An inline-flex box with no text
+      // in it puts its baseline at its bottom edge, so this is exact, whatever
+      // the font's metrics do to a fixed offset.
+      className="mx-0.5 inline-flex h-6 w-7 items-center justify-center rounded-md border border-input bg-input/30 align-baseline text-foreground [&_svg]:size-3.5"
     >
       {children}
     </span>
