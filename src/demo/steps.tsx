@@ -14,7 +14,21 @@
  * skips its step rather than throwing.
  */
 
+import type { ReactNode } from 'react';
+import { Tags } from 'lucide-react';
+import BlendIcon from '../components/BlendIcon';
+import { cursorKind } from './DemoCursor';
 import { CLICK_MS, centerOf, type Driver, type Point } from './drive';
+
+/**
+ * The verb for pressing a control, by device: "Tap" on a coarse pointer,
+ * "Click" on a fine one - the same test that picks the touch disc over the
+ * arrow for the ghost. One word rather than "press", which is the hedge you
+ * reach for when you cannot tell, and here we can.
+ */
+function Press() {
+  return <>{cursorKind() === 'touch' ? 'Tap' : 'Click'}</>;
+}
 import { HSB_TWEEN_MS } from '../utils/colorTween';
 import {
   CENTER_X, CENTER_Y, PI, RADIUS, blLimitScale, hexEdgeDist, type BLMode,
@@ -109,9 +123,25 @@ export interface StepContext {
   host: DemoHost;
 }
 
+/**
+ * A control's glyph, inline in a caption, drawn as the pill it is on the
+ * toolbar so the words point at the thing the ghost is about to press.
+ */
+function Glyph({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <span
+      role="img"
+      aria-label={label}
+      className="mx-0.5 inline-flex h-7 w-8 items-center justify-center rounded-md border border-input bg-input/30 align-[-6px] text-foreground [&_svg]:size-4"
+    >
+      {children}
+    </span>
+  );
+}
+
 export interface DemoStep {
   /** Shown in the caption panel for the length of the step. */
-  caption: string;
+  caption: ReactNode;
   /**
    * What the step's own waits and moves add up to, for the playhead in the
    * progress ticks. Written as the sum of the DWELL entries the step actually
@@ -230,7 +260,7 @@ function fieldPoint(hueDeg: number, satFraction: number, f: FieldState): Point |
 
 export const STEPS: DemoStep[] = [
   {
-    caption: 'Work with the tools that feel most familiar to you.',
+    caption: 'Start with the controls you already know.',
     audio: '01-color-box.mp3',
     duration: DWELL.moveFar + DWELL.beforeAction + DWELL.dragBox
       + DWELL.betweenSteps + DWELL.move + DWELL.dragHue + DWELL.afterAction,
@@ -328,7 +358,7 @@ export const STEPS: DemoStep[] = [
   },
 
   {
-    caption: 'Move one value and everything it affects lights up across the app.',
+    caption: 'Move one slider to highlight every slider it affects.',
     audio: '02-impact.mp3',
     duration: DWELL.moveFar + DWELL.beforeAction + DWELL.dragSlider
       + DWELL.betweenSteps + DWELL.move + DWELL.dragSlider + DWELL.afterAction,
@@ -388,7 +418,7 @@ export const STEPS: DemoStep[] = [
   },
 
   {
-    caption: 'Press this button to toggle between Source and Mixed color sliders.',
+    caption: <><Press /> the <Glyph label="droplet"><BlendIcon filled={false} /></Glyph> to switch the sliders between Source and Mixed.</>,
     audio: '03-blend.mp3',
     duration: DWELL.moveFar + DWELL.beforeAction + 4 * CLICK_MS + 3 * DWELL.blendHold + DWELL.afterAction,
     /** Blend on and off, which is a claim about the sliders you can only see. */
@@ -420,7 +450,7 @@ export const STEPS: DemoStep[] = [
     },
   },
   {
-    caption: 'Press button to show HTML named colors in the hex.',
+    caption: <><Press /> the <Glyph label="tags"><Tags /></Glyph> to show the HTML colors on the hexagon.</>,
     audio: '04-html-colors.mp3',
     duration: DWELL.move + DWELL.beforeAction + 4 * CLICK_MS + 3 * DWELL.blendHold + DWELL.afterAction,
     /**
@@ -449,7 +479,7 @@ export const STEPS: DemoStep[] = [
     },
   },
   {
-    caption: 'Play with the Hex handles to see how each one maps to a color channel.',
+    caption: 'Drag a handle on the hex and watch the RGB and HSB sliders follow.',
     audio: '05-handles.mp3',
     duration: (DWELL.move + DWELL.hoverStem) + 2 * (DWELL.move + DWELL.hoverJoint)
       + DWELL.move + DWELL.dragTip + DWELL.afterAction,

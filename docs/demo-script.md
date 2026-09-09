@@ -28,11 +28,17 @@ step has, and where a longer line could go without changing a single timing.
 
 | # | Line | Runs | Words | Room |
 |---|---|---:|---:|---:|
-| 1 | Work with the tools that feel most familiar to you. | 8.3s | 10 | ~21 |
-| 2 | Move one value and everything it affects lights up across the app. | 8.1s | 12 | ~20 |
-| 3 | Press this button to toggle between Source and Mixed color sliders. | 5.5s | 11 | ~14 |
-| 4 | Press button to show HTML named colors in the hex. | 5.3s | 9 | ~13 |
-| 5 | Play with the Hex handles to see how each one maps to a color channel. | 9.9s | 15 | ~25 |
+| 1 | Start with the controls you already know. | 8.3s | 7 | ~21 |
+| 2 | Move one slider to highlight every slider it affects. | 8.1s | 9 | ~20 |
+| 3 | Click the ⟨droplet⟩ to switch the sliders between Source and Mixed. | 5.5s | 11 | ~14 |
+| 4 | Click the ⟨tags⟩ to show the HTML colors on the hexagon. | 5.3s | 10 | ~13 |
+
+⟨droplet⟩ and ⟨tags⟩ are the controls' own glyphs, drawn inline as the pills
+they are on the toolbar, so the line points at the thing the ghost presses.
+"Click" reads "Tap" on a touch device - the same test that picks the ghost's
+touch disc over its arrow. The narration reads the glyphs as "the droplet" and
+"the tags". One shape for all five lines: a verb, the thing, the payoff.
+| 5 | Drag a handle on the hex and watch the RGB and HSB sliders follow. | 9.9s | 14 | ~25 |
 | — | Have fun! | 4.4s | 2 | — |
 | | **Total** | **41.4s** | | |
 
@@ -162,7 +168,7 @@ Four more live beside them, and are named in the beats below:
 
 ## Step 1 — The colour editor · 8.3s
 
-> **Work with the tools that feel most familiar to you.**
+> **Start with the controls you already know.**
 
 Narration: `public/demo/01-color-box.mp3`
 
@@ -194,7 +200,7 @@ reads as fidgeting rather than as showing a range.
 
 ## Step 2 — What one value moves · 8.1s
 
-> **Move one value and everything it affects lights up across the app.**
+> **Move one slider to highlight every slider it affects.**
 
 Narration: `public/demo/02-impact.mp3`
 
@@ -231,7 +237,7 @@ is what lets the landing colour survive the step.
 
 ## Step 3 — Source and mixed · 5.5s
 
-> **Press this button to toggle between Source and Mixed color sliders.**
+> **Click the ⟨droplet⟩ to switch the sliders between Source and Mixed.**
 
 Narration: `public/demo/03-blend.mp3`
 
@@ -243,7 +249,7 @@ Narration: `public/demo/03-blend.mp3`
 
 ## Step 4 — HTML colours on the hex · 5.3s
 
-> **Press button to show HTML named colors in the hex.**
+> **Click the ⟨tags⟩ to show the HTML colors on the hexagon.**
 
 Narration: `public/demo/04-html-colors.mp3`
 
@@ -262,7 +268,7 @@ the move is a near one.
 
 ## Step 5 — The chain · 9.9s
 
-> **Play with the Hex handles to see how each one maps to a color channel.**
+> **Drag a handle on the hex and watch the RGB and HSB sliders follow.**
 
 Narration: `public/demo/05-handles.mp3`
 
