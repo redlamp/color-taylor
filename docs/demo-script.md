@@ -28,10 +28,10 @@ step has, and where a longer line could go without changing a single timing.
 
 | # | Line | Runs | Words | Room |
 |---|---|---:|---:|---:|
-| 1 | Start with the controls you already know. | 8.3s | 7 | ~21 |
-| 2 | Move one slider to highlight every slider it affects. | 8.1s | 9 | ~20 |
+| 1 | Start with the sliders and controls you already know. | 8.3s | 9 | ~21 |
+| 2 | Moving one slider will highlight every other slider it affects. | 8.1s | 10 | ~20 |
 | 3 | Click the ⟨droplet⟩ to switch between ⏎ Source or Mixed colored sliders. | 5.5s | 11 | ~14 |
-| 4 | Click the ⟨tags⟩ to show the HTML colors on the hexagon. | 5.3s | 10 | ~13 |
+| 4 | Click the ⟨tags⟩ to show HTML colors on the hex. | 5.3s | 9 | ~13 |
 | 5 | Drag a handle on the hex and watch the RGB and HSB sliders follow. | 9.9s | 14 | ~25 |
 | — | Have fun! | 4.4s | 2 | — |
 | | **Total** | **41.4s** | | |
@@ -169,7 +169,7 @@ Four more live beside them, and are named in the beats below:
 
 ## Step 1 — The colour editor · 8.3s
 
-> **Start with the controls you already know.**
+> **Start with the sliders and controls you already know.**
 
 Narration: `public/demo/01-color-box.mp3`
 
@@ -201,7 +201,7 @@ reads as fidgeting rather than as showing a range.
 
 ## Step 2 — What one value moves · 8.1s
 
-> **Move one slider to highlight every slider it affects.**
+> **Moving one slider will highlight every other slider it affects.**
 
 Narration: `public/demo/02-impact.mp3`
 
@@ -250,7 +250,7 @@ Narration: `public/demo/03-blend.mp3`
 
 ## Step 4 — HTML colours on the hex · 5.3s
 
-> **Click the ⟨tags⟩ to show the HTML colors on the hexagon.**
+> **Click the ⟨tags⟩ to show HTML colors on the hex.**
 
 Narration: `public/demo/04-html-colors.mp3`
 
