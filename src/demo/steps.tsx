@@ -19,6 +19,10 @@ import { Tags } from 'lucide-react';
 import BlendIcon from '../components/BlendIcon';
 import { cursorKind } from './DemoCursor';
 import { CLICK_MS, centerOf, type Driver, type Point } from './drive';
+import { HSB_TWEEN_MS } from '../utils/colorTween';
+import {
+  CENTER_X, CENTER_Y, PI, RADIUS, blLimitScale, hexEdgeDist, type BLMode,
+} from '../components/hex/hexConstants';
 
 /**
  * The verb for pressing a control, by device: "Tap" on a coarse pointer,
@@ -29,10 +33,6 @@ import { CLICK_MS, centerOf, type Driver, type Point } from './drive';
 function Press() {
   return <>{cursorKind() === 'touch' ? 'Tap' : 'Click'}</>;
 }
-import { HSB_TWEEN_MS } from '../utils/colorTween';
-import {
-  CENTER_X, CENTER_Y, PI, RADIUS, blLimitScale, hexEdgeDist, type BLMode,
-} from '../components/hex/hexConstants';
 
 /**
  * The pacing, in milliseconds, gathered here because it is the thing most
@@ -263,7 +263,7 @@ function fieldPoint(hueDeg: number, satFraction: number, f: FieldState): Point |
 
 export const STEPS: DemoStep[] = [
   {
-    caption: 'Start with the controls you already know.',
+    caption: 'Start with the sliders and controls you already know.',
     audio: '01-color-box.mp3',
     duration: DWELL.moveFar + DWELL.beforeAction + DWELL.dragBox
       + DWELL.betweenSteps + DWELL.move + DWELL.dragHue + DWELL.afterAction,
@@ -361,7 +361,7 @@ export const STEPS: DemoStep[] = [
   },
 
   {
-    caption: 'Move one slider to highlight every slider it affects.',
+    caption: 'Moving one slider will highlight every other slider it affects.',
     audio: '02-impact.mp3',
     duration: DWELL.moveFar + DWELL.beforeAction + DWELL.dragSlider
       + DWELL.betweenSteps + DWELL.move + DWELL.dragSlider + DWELL.afterAction,
@@ -453,7 +453,7 @@ export const STEPS: DemoStep[] = [
     },
   },
   {
-    caption: <><Press /> the <Glyph label="tags"><Tags /></Glyph> to show the HTML colors on the hexagon.</>,
+    caption: <><Press /> the <Glyph label="tags"><Tags /></Glyph> to show HTML colors on the hex.</>,
     audio: '04-html-colors.mp3',
     duration: DWELL.move + DWELL.beforeAction + 4 * CLICK_MS + 3 * DWELL.blendHold + DWELL.afterAction,
     /**
