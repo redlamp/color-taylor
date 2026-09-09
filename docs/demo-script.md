@@ -1,7 +1,7 @@
 # The Picker Demo: Script and Timing
 
 The self-running demo behind the `?` button, beat by beat, as it actually runs.
-Four steps and a sign-off, **36.1 seconds** of budgeted beats — about 37
+Five steps and a sign-off, **41.4 seconds** of budgeted beats — a little more
 measured end to end, the difference being the opening pose and frame
 boundaries.
 
@@ -30,17 +30,17 @@ step has, and where a longer line could go without changing a single timing.
 |---|---|---:|---:|---:|
 | 1 | Start with the controls you already know. | 8.3s | 7 | ~21 |
 | 2 | Move one slider to highlight every slider it affects. | 8.1s | 9 | ~20 |
-| 3 | Click the ⟨droplet⟩ to switch the sliders between Source and Mixed. | 5.5s | 11 | ~14 |
+| 3 | Click the ⟨droplet⟩ to switch the sliders between Source or Mixed colored sliders. | 5.5s | 13 | ~14 |
 | 4 | Click the ⟨tags⟩ to show the HTML colors on the hexagon. | 5.3s | 10 | ~13 |
+| 5 | Drag a handle on the hex and watch the RGB and HSB sliders follow. | 9.9s | 14 | ~25 |
+| — | Have fun! | 4.4s | 2 | — |
+| | **Total** | **41.4s** | | |
 
 ⟨droplet⟩ and ⟨tags⟩ are the controls' own glyphs, drawn inline as the pills
 they are on the toolbar, so the line points at the thing the ghost presses.
 "Click" reads "Tap" on a touch device - the same test that picks the ghost's
 touch disc over its arrow. The narration reads the glyphs as "the droplet" and
-"the tags". One shape for all five lines: a verb, the thing, the payoff.
-| 5 | Drag a handle on the hex and watch the RGB and HSB sliders follow. | 9.9s | 14 | ~25 |
-| — | Have fun! | 4.4s | 2 | — |
-| | **Total** | **41.4s** | | |
+"the tags".
 
 Four things worth knowing before you rewrite any of them:
 
@@ -55,8 +55,8 @@ Four things worth knowing before you rewrite any of them:
   header's width that is about 70 characters, which all four are inside. A
   phone is narrower and takes the two longest to three lines regardless; the
   panel is 90px on a desktop and 161px there.
-- **Step 3 is the tightest, and it is now tight enough to matter.** Eleven
-  words in 5.5s leaves about three words of headroom. If a recorded line runs
+- **Step 3 is the tightest, and it is now tight enough to matter.** Thirteen
+  words in 5.5s leaves about a word of headroom. If a recorded line runs
   long the step stretches to fit it rather than clipping, but the choreography
   stops being what sets its length — put `blendHold` back to 1100 if that
   bothers you.
@@ -237,7 +237,7 @@ is what lets the landing colour survive the step.
 
 ## Step 3 — Source and mixed · 5.5s
 
-> **Click the ⟨droplet⟩ to switch the sliders between Source and Mixed.**
+> **Click the ⟨droplet⟩ to switch the sliders between Source or Mixed colored sliders.**
 
 Narration: `public/demo/03-blend.mp3`
 
