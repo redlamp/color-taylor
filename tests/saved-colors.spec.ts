@@ -29,6 +29,21 @@ test.describe('Saved colors row', () => {
     await page.addInitScript(clearStorage);
   });
 
+  /**
+   * The app's row is 24 wide. Saving into an early empty slot used to re-fit
+   * the list with the default bank of 12 - one call the bank parameter had
+   * missed - so the right half of the row vanished on the click.
+   */
+  test('saving into an empty slot keeps the whole row', async ({ page }) => {
+    await page.goto('/');
+    await openSections(page);
+    const slots = page.locator('#saved-colors [data-saved-idx]');
+    await expect(slots).toHaveCount(24);
+    await slots.nth(9).click();
+    await expect(slots.nth(9)).toHaveAttribute('aria-label', /^Load /);
+    await expect(slots).toHaveCount(24);
+  });
+
   test('renders defaults without duplicate-key console warnings', async ({ page }) => {
     const violations: string[] = [];
     page.on('console', (msg: ConsoleMessage) => {
