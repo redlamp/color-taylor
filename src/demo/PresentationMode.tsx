@@ -55,7 +55,7 @@ interface NotesFile {
 export interface PresentationModeProps {
   name: string;
   host: DemoHost;
-  onDemo: () => void;
+  onDemo: (from?: { x: number; y: number } | null) => void;
   onColor: (hsb: { h: number; s: number; b: number }) => void;
   demoOpen: boolean;
 }

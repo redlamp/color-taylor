@@ -36,6 +36,12 @@ import { openDemoSections, restoreDemoSections } from '@/utils/demoSections';
 const DemoRunner = lazy(() => import('@/demo/DemoRunner'));
 const ScriptRunner = lazy(() => import('@/demo/ScriptRunner'));
 const PresentationMode = lazy(() => import('@/demo/PresentationMode'));
+/*
+ * The presenter's camera panel, the same box OBS composites the webcam into.
+ * Only under `?script=` or `?present=`: the script drags it off screen and
+ * back, and nothing about it belongs to the app.
+ */
+const CameraPip = lazy(() => import('@/demo/CameraPip'));
 
 /**
  * `?script=<name>` (dev builds only) puts the picker under a recorded video
@@ -338,6 +344,12 @@ export default function ColorPicker() {
    */
   const [demoFrom, setDemoFrom] = useState<{ x: number; y: number } | null>(null);
   /*
+   * Where the demo's ghost starts, when the video script handed the cursor
+   * over rather than the welcome card handing the panel over. See
+   * DemoRunner's `cursorFrom`.
+   */
+  const [demoCursorFrom, setDemoCursorFrom] = useState<{ x: number; y: number } | null>(null);
+  /*
    * The about panel, shown once on a first visit and from Settings after that.
    * Eleventh localStorage key, and it holds "seen" rather than "show me",
    * so a browser that cannot store anything simply shows it every time - the
@@ -556,8 +568,12 @@ export default function ColorPicker() {
     hsb: HSB; rgb: RGB; groups: SliderGroup[]; blend: boolean; showHtmlOnHex: boolean;
   } | null>(null);
   const demoExactRgb = useRef<RGB | null>(null);
-  const startDemo = useCallback((from: { x: number; y: number } | null = null) => {
+  const startDemo = useCallback((
+    from: { x: number; y: number } | null = null,
+    cursorFrom: { x: number; y: number } | null = null,
+  ) => {
     setDemoFrom(from);
+    setDemoCursorFrom(cursorFrom);
     takeOverFromAnimation();
     demoSnapshot.current = { hsb: { ...hsbRef.current }, rgb: { ...rgb }, groups, blend, showHtmlOnHex };
     // Ask any section the script works in to open, before the overlay mounts,
@@ -1305,6 +1321,7 @@ export default function ColorPicker() {
         <Suspense fallback={null}>
           <DemoRunner
             from={demoFrom}
+            cursorFrom={demoCursorFrom}
             host={demoHost}
             onRestore={restoreDemo}
             onExit={() => setDemoOpen(false)}
@@ -1316,9 +1333,14 @@ export default function ColorPicker() {
           <ScriptRunner
             host={demoHost}
             demoOpen={demoOpen}
-            onDemo={() => startDemo(null)}
+            onDemo={(cursorFrom) => startDemo(null, cursorFrom ?? null)}
             onColor={(target) => { if (colorAnimActiveRef.current) colorAnimActiveRef.current = 'stop'; animateToHsb(target); }}
           />
+        </Suspense>
+      )}
+      {(scriptName() || presentName()) && (
+        <Suspense fallback={null}>
+          <CameraPip />
         </Suspense>
       )}
       {presentName() && (
@@ -1327,7 +1349,7 @@ export default function ColorPicker() {
             name={presentName() as string}
             host={demoHost}
             demoOpen={demoOpen}
-            onDemo={() => startDemo(null)}
+            onDemo={(cursorFrom) => startDemo(null, cursorFrom ?? null)}
             onColor={(target) => { if (colorAnimActiveRef.current) colorAnimActiveRef.current = 'stop'; animateToHsb(target); }}
           />
         </Suspense>
