@@ -391,7 +391,8 @@ the length. A recording shorter than the step changes nothing.
 
 A second player, for recording the app against a cut of the video rather than
 for visitors: `src/demo/ScriptRunner.tsx`. It reuses the demo's `Driver` and
-ghost cursor, so every gesture goes through the real controls.
+ghost cursor, so every gesture goes through the real controls. Dev builds only
+(`bun dev`), like presentation mode; the production bundle never mounts it.
 
 - `?script=<name>` loads `public/scripts/<name>.json` (for example
   `?script=cut-01`) and waits. The app opens exactly as on a first visit,
