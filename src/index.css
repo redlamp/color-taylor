@@ -337,6 +337,24 @@ h1, h2 {
   }
 
   /*
+   * The demo's ghost cursor. It moves no hardware, so `:hover` never fires
+   * under it; the Driver (src/demo/drive.ts) sets data-ghost-hover on what it
+   * is over instead, and these mirror the hover rules above for the controls
+   * the recorded script points at: the quiet buttons (the plugin banner's
+   * CTA among them) and the slider-group toggles.
+   */
+  .ctl-quiet[data-ghost-hover],
+  .ctl-quiet-icon[data-ghost-hover] {
+    @apply bg-muted/80 text-foreground;
+  }
+  .ctl-quiet[data-armed][data-ghost-hover] {
+    @apply bg-destructive/25 text-destructive;
+  }
+  [data-slot="toggle-group-item"][data-ghost-hover] {
+    @apply text-foreground;
+  }
+
+  /*
    * The wordmark, matched to the Community thumbnail's "Color Taylor" - node
    * 78:478 in the Figma file, the frame the listing artwork is exported from.
    *

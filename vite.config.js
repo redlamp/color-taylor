@@ -2,6 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
+import fs from 'fs'
 
 const base = process.env.GH_PAGES_DEV
   ? '/color-taylor/dev/'
@@ -43,10 +44,71 @@ const siteUrlHtml = {
   },
 }
 
+/**
+ * Where presentation-mode notes are kept (`?present=<name>`, see
+ * docs/demo-script.md). One JSON file per cut, `<name>-notes.json`, beside the
+ * cut's other cue files in the videos repo; `PRESENTATION_NOTES_DIR` moves it.
+ */
+const NOTES_DIR =
+  process.env.PRESENTATION_NOTES_DIR ||
+  'C:\\workspace\\redlamp-videos\\videos\\color-taylor-demo-test\\cues'
+
+/**
+ * Dev-server only: `GET/POST /__notes/<name>` reads and writes that file as
+ * `{ "source": "<name>", "notes": [...] }`. The dev tool has no other backend,
+ * and a file the video project can read is the whole point of the notes.
+ */
+const presentationNotes = {
+  name: 'color-taylor-presentation-notes',
+  apply: 'serve',
+  configureServer(server) {
+    server.middlewares.use((req, res, next) => {
+      const m = /^\/__notes\/([\w-]+)\/?(?:\?.*)?$/.exec(req.url || '')
+      if (!m) return next()
+      const name = m[1]
+      const file = path.join(NOTES_DIR, `${name}-notes.json`)
+      const send = (status, body) => {
+        res.statusCode = status
+        res.setHeader('content-type', 'application/json')
+        res.end(JSON.stringify(body))
+      }
+      if (req.method === 'GET') {
+        try {
+          if (!fs.existsSync(file)) return send(200, { source: name, notes: [] })
+          const data = JSON.parse(fs.readFileSync(file, 'utf8'))
+          return send(200, { source: name, notes: Array.isArray(data.notes) ? data.notes : [] })
+        } catch (err) {
+          return send(500, { error: String(err) })
+        }
+      }
+      if (req.method === 'POST') {
+        let raw = ''
+        req.on('data', (chunk) => { raw += chunk })
+        req.on('end', () => {
+          try {
+            const data = JSON.parse(raw || '{}')
+            const notes = Array.isArray(data.notes) ? data.notes : null
+            if (!notes) return send(400, { error: 'body needs a notes array' })
+            fs.mkdirSync(NOTES_DIR, { recursive: true })
+            const doc = { source: name, notes }
+            fs.writeFileSync(file, JSON.stringify(doc, null, 2) + '\n')
+            return send(200, doc)
+          } catch (err) {
+            return send(500, { error: String(err) })
+          }
+        })
+        return
+      }
+      res.setHeader('allow', 'GET, POST')
+      return send(405, { error: 'GET or POST' })
+    })
+  },
+}
+
 // https://vite.dev/config/
 export default defineConfig({
   base,
-  plugins: [react(), tailwindcss(), siteUrlHtml],
+  plugins: [react(), tailwindcss(), siteUrlHtml, presentationNotes],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

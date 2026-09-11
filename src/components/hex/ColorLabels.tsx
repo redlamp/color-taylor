@@ -75,6 +75,7 @@ export default function ColorLabels({
             11px chrome size, so a semantic step here does not leak into the
             panel the way a text-[[Npx]] literal would. */}
         <button
+          id={`hex-letter-${label.toLowerCase()}`}
           className="flex items-center justify-center w-8 h-6 text-sm font-bold select-none cursor-pointer rounded-full"
           style={{ color: displayColor }}
           aria-label={name}

@@ -41,3 +41,6 @@ figma/ui.html
 
 # Single-file cube bench, from scripts/build-cube-bench.mjs
 dist-lab
+
+# Video script voice tracks: the audio is not source
+public/scripts/*.m4a

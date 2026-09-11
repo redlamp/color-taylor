@@ -384,3 +384,139 @@ the length. A recording shorter than the step changes nothing.
   pause, so its remaining beats are simply not spent.
 - **Reduced motion.** `prefers-reduced-motion` removes the arcs and the cursor's
   lean; moves become near-instant, which takes roughly 2.5s off the total.
+
+---
+
+## Video script runner (`?script=`)
+
+A second player, for recording the app against a cut of the video rather than
+for visitors: `src/demo/ScriptRunner.tsx`. It reuses the demo's `Driver` and
+ghost cursor, so every gesture goes through the real controls.
+
+- `?script=<name>` loads `public/scripts/<name>.json` (for example
+  `?script=cut-01`) and waits. The app opens exactly as on a first visit,
+  welcome panel included; the script closes it itself (see `about-close`).
+- Press **Space** to start, or add `&go=<seconds>` to start on a timer.
+- The recording is silent. Add `&audio=1` to also play the voice track
+  (`public/scripts/<name>.m4a`) from the same instant, for checking a take by
+  ear; the clock is still the page's own, not the audio's.
+- On start the page shows one white frame (~100 ms) for lining the recording
+  up against the cut, then every action starts when the clock reaches its `at`
+  (seconds). Actions are independent: a late one never delays the next, and a
+  new action interrupts whatever the hands were still doing.
+- The `demo` action starts the built-in demo; the runner's cursor hides while
+  it runs and due actions are held until it exits.
+
+The JSON is `{ "actions": [ { "at": 9.1, "do": "rest", "target": "help-button" }, ... ] }`.
+
+| `do` | Fields | What it does |
+|---|---|---|
+| `rest` | `target` | Move to the target and stay. |
+| `hover` | `target`, `ms` | Move, then wait `ms`. |
+| `walk` | `targets[]`, `ms` | Visit each target in turn; `ms` is split evenly (400 ms travel, the rest dwell). |
+| `click` | `target` | Move and click. |
+| `loop` | `target`, `ms`, `turns`, `wobble` | A hand-drawn circuit around the target: `turns` full turns (default 1.3) over `ms`, hovering only. The radius is about 0.55 of the target's half-width (for `hex-field`, the hexagon's radius), modulated by a slow irregular wobble of `wobble` x radius (default 0.18) and squashed slightly on y, so it is never a perfect circle. Around a target with a box (`editor-top`) it is a flat ellipse the width of the box. Starts and ends at rest. |
+| `circle` | `target`, `ms`, `turns`, `wobble`, `hold` | A ring that draws itself around the target over `ms` (default 1200): the same circuit at the target's own radius (`letter:*` rings the letter at 1.6x its half-size; an element without one uses half its width), a little over one lap (default 1.1 turns); around a target with a box (`slider:<c>`, `editor-top`, `editor-sb`, `editor-hue`) it is a flat ellipse the shape of the box. The cursor is not involved, so a `circle` can share its `at` with a `hover` and neither cuts the other short; no later action cuts it short either (only a seek clears it). The ring stands for `hold` ms (default 900) and fades out over 300 ms. |
+| `rect` | `target`, `from`, `ms`, `hold`, `hands` | A selection marquee around a target that has a box (`sliders:rgb`, `sliders:hsb`, `values:rgb`, `slider:<c>`, `editor-top`, `editor-sb`, `editor-hue`), hovering only: the cursor travels to the corner `from` (`tl`, `tr`, `br`, `bl`) and drags to the opposite one, on a diagonal bowed a few pixels off straight, and a rectangle grows with it. The travel (up to 400 ms) is inside `ms` (default 1100); the diagonal gets the rest, never under 400 ms. If the next action takes the cursor before the diagonal is done, the box snaps to its full size rather than standing half drawn. The finished box stands for `hold` ms (default 900) and fades over 300 ms; the cursor stays where it landed unless the next action moves it. Total on screen is about `ms` + `hold` + 300. With `"hands": "free"` the box draws itself on the layer, like a `circle`: it grows from the corner `from` to the opposite one over the whole `ms`, the cursor is not involved, and it neither interrupts nor is interrupted, so it can run over a drag (the RGB values while the saturation bar is being lowered). No scrolling in that case: the target has to be on screen already. |
+| `orbit` | `ms`, `turns`, `wobble` | Drag the hex tip round the field, so the stems follow: the hue sweeps `turns` laps (default 1) and lands back on the starting hue (whole laps go round; the fraction is an out-and-back bulge), while saturation wanders by about 3 x `wobble` (default 0.15) around where it started, held to 0.55-1.0, and returns to it. |
+| `stem` | `ch`, `amount`, `ms` | Grab the `r`, `g` or `b` stem at its midpoint and drag it along its own axis by `amount` x its length (+ outward, - inward), then let go. The channel changes by that fraction of its value. |
+| `wander` | `target`, `ms` | A playful curved move to the target: a cubic bezier whose two control points sit 25% of the trip off the line, one to each side, eased. |
+| `demo` | | Start the built-in demo. |
+| `slider` | `target`, `from`, `to`, `ms` | Press the track at `from` and drag to `to` (0-100 along the track) with smoothstep. Targets: `hex-sat`, `hex-bri`, `slider:<c>`, `editor-hue` (the Color Editor's hue strip, 0-360 down it; `from` defaults to the current hue, so the press lands on the marker). The travel to the track comes before `ms`, except on `editor-hue`, where it is inside `ms` (up to 400 ms; the drag gets the rest, never under 400 ms) so the drag lands before the next action takes the cursor. |
+| `box` | `target`, `from`, `to`, `ms` | Drag the Color Editor's saturation/brightness handle: press at `from` and drag to `to`, each an `[s, b]` pair (0-100), with smoothstep. `target` is `editor-sb`; `from` defaults to the current color. The travel is inside `ms`, as for `editor-hue`. |
+| `tip` | `degrees`, `ms`, `via` | Drag the hex tip so the hue turns by `degrees` at the current saturation; ends where the turn ends. With `"via": "hue-label"` the cursor takes the hexagon's hue pill (`hex-hue-label`) round the ring instead. The grip is the pill's outer rim, on the ray from the hexagon's center, 2 px clear of it, and stays there as the pill moves with the hue. It cannot be a corner of the pill: the control reads hue as the pointer's angle from the center and draws the pill on that angle, so the pointer is always on the pill's own radial line and a pill held off to one side would swing under the cursor. With the tip on the rim the arrow's body trails away outside the pill, off the number for most of the ring (it crosses the pill for hues in the upper left, where outward is up-left and the body goes down-right). The pointer's angle is exactly the hue wanted at each frame, so pressing does not nudge the hue and a 360° turn lands back on the hue it started from. The travel to the pill scales with the distance and is nothing when the cursor is already there, so a turn cued 1.5 s before the next has its whole `ms`. |
+| `underline` | `target`, `ms` | Underline a link: travel to just under its bottom-left (4 px below the text), then sweep to just under its bottom-right over `ms`, bowing a couple of pixels down in the middle, and rest there. Hover only; nothing is pressed. The target is polled for up to 600 ms until it exists and its box stops moving, so a link in a panel that is still animating in is measured once it has landed. Target: `about-author`. |
+| `color` | `h`, `s`, `b` | Tween the app color (the app's own tween length; `ms` is ignored). |
+| `scroll` | `target` | Smooth-scroll the target to the center; `top` scrolls to the top of the page. |
+| `leave` | | Walk the cursor off screen. |
+
+Targets: `about-watch-demo` and `about-close` (the welcome panel's "Watch
+Demo" and "Get Started" buttons; clicking `about-close` dismisses the panel
+through its normal handler), `help-button`, `editor`, `editor-top` (the
+Color Editor panel's header band, the top 60 px), `hex-field` /
+`hex-center`, `between-panels`,
+`hex-tip`, `hex-hue-label` (the hexagon's hue pill, `#hue-handle`; the point
+is its outer rim, see `tip`), `stem:r|g|b`, `corner:r|y|g|c|b|m`,
+`letter:r|g|b` (the vertex letters on the hexagon), `slider:<c>` for
+`rgb-r|rgb-g|rgb-b|hsb-h|hsb-s|hsb-b|hsl-h|hsl-s|hsl-l` (a bare `r`, `g` or
+`b` means the RGB bank's), `sliders:rgb` / `sliders:hsb` (a whole bank, for
+`rect`), `values:rgb` (the RGB bank's three numeric fields, the steppers,
+as one padded box for `rect`), `hex-sat`, `hex-bri`,
+`editor-sb` (the Color Editor's saturation/brightness box, `#sb-area`) and
+`editor-hue` (its hue strip, `#hue-bar`),
+`equations` (the section's toggle; a click opens and a second click closes),
+`figma-banner`, `figma-button`, `editor-group:rgb|hsb|hsl` (the slider-bank
+toggles; a click on one turns that bank on, another turns it off),
+`settings-button` (opens the menu), `settings-about` (the menu's "About
+Color Taylor"; only there while the menu is open, and looked up when the
+action fires), `about-author` (the "Taylor Wright" link on the About panel,
+for `underline`), `hsl-tab`, `hsb-tab`, `top`. A target that is not on the page
+(a dismissed banner, a closed slider bank) logs a `[script]` warning to the
+console and the action is skipped.
+
+Drawn callouts. `rect` and `circle` draw into a fixed, pointer-events-none
+SVG layer the runner keeps under its cursor and over the app: an 8 px solid
+stroke in bright red `#ff3333`, a marquee with a 5% fill of the same. Each shape runs its own hold and fade timers, so
+two can overlap (the RGB marquee is still standing when the HSB one starts)
+and the next action taking the cursor does not take a shape down early. A
+`circle`, and a `rect` with `"hands": "free"`, is drawn on the layer's own
+frame loop rather than by the cursor. A seek clears them all.
+
+The `color` action and the app's own gestures. The tween `color` starts is
+the app's (`animateToHsb` in `useColorState`, 1000 ms), and it is cancelled
+by anything that counts as the user taking the color over: a hue or field
+drag on the hexagon, a slider, a swatch. The runner's hover gestures never
+press anything, so a `wander` or `hover` over the field does not cancel it;
+only a `tip`, `orbit`, `stem`, `slider` or `box` started before the tween has
+finished does.
+
+Hover looks. The ghost moves no hardware pointer, so `:hover` never fires
+under it. The driver sends `pointerover`/`pointerout` (which React turns
+into enter/leave), `mouseover`/`mouseout`, and non-bubbling
+`pointerenter`/`pointerleave`, and sets `data-ghost-hover` on the element
+under the cursor and its ancestors; `src/index.css` mirrors the hover rules
+onto that attribute for the quiet buttons (the plugin banner's CTA) and the
+slider-group toggles. Hovering `hex-tip` or a `stem:*` raises the hexagon's
+channel tooltips the same way a pointer would.
+
+## Presentation mode (`?present=`)
+
+The same script played against its voice track, for reviewing the cut and
+leaving notes: `src/demo/PresentationMode.tsx`. Dev builds only (`bun dev`);
+the production bundle never mounts it.
+
+- `?present=<name>` (for example `?present=cut-01`) loads
+  `public/scripts/<name>.json`, the voice track `<name>.m4a` (gitignored: the
+  audio is not source) and, if present, `<name>-lines.json` - the script's
+  spoken lines as `{ beat, line, text, start, end }` in seconds of that audio.
+- **The clock is the audio.** The runner's schedule reads
+  `audio.currentTime`, so the actions land where the voice track says, on
+  every play and after every seek. There is no sync flash. The runner itself
+  takes a `clock` (`now()` in seconds and `running()`) and a `script`; without
+  them it is in recording mode, exactly as above.
+- A transport sits at the foot of the page, styled as a tool rather than as
+  the app: play/pause (**Space**, when focus is not in a text field), time
+  over total, and a timeline to click or drag. On the timeline every action is
+  a tick (red for `color`, green for `demo`) and every line a shaded span,
+  the current one in orange. Above it: the line being spoken, and the action
+  in hand and the one after (`do` + target). While the `demo` action's span
+  runs - from its `at` to the next action's - the readout says "demo would
+  be running".
+- **Seeking** interrupts whatever the hands were doing, applies the latest
+  `color` action at or before the new time, puts the ghost on the last
+  `rest`/`hover` target before it, and resumes dispatching from the first
+  action at or after it. Nothing earlier fires again unless you seek back.
+  A seek does not start or stop the built-in demo: seeking into its span
+  only notes it, and if it is on screen, due actions are held until it
+  exits, as always.
+- **Notes.** Press **N** (or the Note button), type, Enter. Each note is
+  `{ t, beat, line, text, created }`, beat and line from the line being
+  spoken, listed under the transport in time order; the time seeks, `x`
+  deletes. "Copy as markdown" puts them on the clipboard as
+  `- [m:ss] beat.line — text`.
+- Notes persist through a dev-server middleware in `vite.config.js`:
+  `GET`/`POST /__notes/<name>` reads and writes
+  `<PRESENTATION_NOTES_DIR>/<name>-notes.json` as
+  `{ "source": "<name>", "notes": [...] }`. The default directory is the
+  cut's cue folder in the videos repo,
+  `C:\workspace\redlamp-videos\videos\color-taylor-demo-test\cues`.

@@ -106,6 +106,35 @@ function pointerEvent(type: string, x: number, y: number, init: PointerEventInit
   });
 }
 
+function mouseEvent(type: string, x: number, y: number, relatedTarget: Element | null): MouseEvent {
+  return new MouseEvent(type, {
+    bubbles: true, cancelable: true, composed: true, clientX: x, clientY: y, relatedTarget,
+  });
+}
+
+/**
+ * The attribute the ghost sets on whatever it is over, and every ancestor of
+ * it, for the life of the hover. `:hover` needs a hardware pointer; the
+ * stylesheet mirrors its hover rules onto `[data-ghost-hover]` for the
+ * controls the recorded script points at (see index.css).
+ */
+export const GHOST_HOVER = 'data-ghost-hover';
+
+/**
+ * The elements an `enter`/`leave` pair is owed when the pointer goes from
+ * `other` to `el`: `el` and its ancestors, minus those that also contain
+ * `other`, which the pointer never left. Root to leaf, the order browsers
+ * fire enter in.
+ */
+function leftBehind(el: Element, other: Element | null): Element[] {
+  const out: Element[] = [];
+  for (let n: Element | null = el; n && n !== document.documentElement; n = n.parentElement) {
+    if (other && n.contains(other)) break;
+    out.push(n);
+  }
+  return out.reverse();
+}
+
 export class Driver {
   private stopped = false;
   private timers = new Set<number>();
@@ -259,6 +288,16 @@ export class Driver {
     await this.animate(ms, () => this.place(at()), true);
   }
 
+  /**
+   * Trace a path of the ghost's own for `ms`: `at(t)` is read every frame on a
+   * linear clock, t from 0 to 1, so the path carries its own easing (see
+   * `animate`). Hover only - nothing is pressed - but the element under the
+   * ghost is kept honest the whole way, as it is for every other move.
+   */
+  async path(at: (t: number) => Point, ms: number): Promise<void> {
+    await this.animate(ms, (t) => this.place(at(t)), true);
+  }
+
   private place(p: Point) {
     this.pos = p;
     this.stage.setCursor(p);
@@ -285,9 +324,24 @@ export class Driver {
     if (el === this.under) return;
     const prev = this.under;
     this.under = el;
-    if (prev) prev.dispatchEvent(pointerEvent('pointerout', x, y, { buttons: 0, relatedTarget: el }));
+    if (prev) {
+      prev.dispatchEvent(pointerEvent('pointerout', x, y, { buttons: 0, relatedTarget: el }));
+      prev.dispatchEvent(mouseEvent('mouseout', x, y, el));
+      // The non-bubbling pair too, for anything listening natively rather
+      // than through React. Only sent to the elements actually left/entered,
+      // as a browser would.
+      for (const node of leftBehind(prev, el)) {
+        node.dispatchEvent(pointerEvent('pointerleave', x, y, { bubbles: false, buttons: 0, relatedTarget: el }));
+        node.removeAttribute(GHOST_HOVER);
+      }
+    }
     if (el) {
+      for (const node of leftBehind(el, prev)) {
+        node.dispatchEvent(pointerEvent('pointerenter', x, y, { bubbles: false, buttons: 0, relatedTarget: prev }));
+        node.setAttribute(GHOST_HOVER, '');
+      }
       el.dispatchEvent(pointerEvent('pointerover', x, y, { buttons: 0, relatedTarget: prev }));
+      el.dispatchEvent(mouseEvent('mouseover', x, y, prev));
       el.dispatchEvent(pointerEvent('pointermove', x, y, { buttons: 0 }));
     }
   }
@@ -302,7 +356,13 @@ export class Driver {
     const prev = this.under;
     if (!prev) return;
     this.under = null;
-    prev.dispatchEvent(pointerEvent('pointerout', this.pos.x, this.pos.y, { buttons: 0, relatedTarget: null }));
+    const { x, y } = this.pos;
+    prev.dispatchEvent(pointerEvent('pointerout', x, y, { buttons: 0, relatedTarget: null }));
+    prev.dispatchEvent(mouseEvent('mouseout', x, y, null));
+    for (const node of leftBehind(prev, null)) {
+      node.dispatchEvent(pointerEvent('pointerleave', x, y, { bubbles: false, buttons: 0, relatedTarget: null }));
+      node.removeAttribute(GHOST_HOVER);
+    }
   }
 
   /**

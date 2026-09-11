@@ -80,7 +80,10 @@ export function AboutPanel({ open, onClose, onWatchDemo }: AboutPanelProps) {
               `sm` up. Capped and centred so they do not stretch the width of
               the card on a desktop. */}
           <div className="mx-auto mt-9 grid max-w-[26rem] gap-3 sm:grid-cols-2">
+            {/* The ids are for the video script runner, which points at these
+                by name (about-watch-demo, about-close). */}
             <Button
+              id="about-watch-demo"
               variant="secondary"
               size="2xl"
               className="w-full"
@@ -89,7 +92,7 @@ export function AboutPanel({ open, onClose, onWatchDemo }: AboutPanelProps) {
               <Play className="size-6" />
               Watch Demo
             </Button>
-            <Button size="2xl" className="w-full" onClick={(e) => { e.stopPropagation(); onClose(); }}>
+            <Button id="about-close" size="2xl" className="w-full" onClick={(e) => { e.stopPropagation(); onClose(); }}>
               Get Started
             </Button>
           </div>
@@ -101,6 +104,7 @@ export function AboutPanel({ open, onClose, onWatchDemo }: AboutPanelProps) {
           <p className="mt-10 text-base text-muted-foreground">
             Made by{' '}
             <a
+              id="about-author"
               href="https://redlamp.org"
               target="_blank"
               rel="noopener noreferrer"

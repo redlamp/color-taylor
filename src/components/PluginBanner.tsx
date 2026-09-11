@@ -109,6 +109,7 @@ export default function PluginBanner() {
   return (
     <div className="pointer-events-none fixed inset-x-0 top-0 z-40 hidden justify-center p-3 sm:flex">
       <div
+        id="plugin-banner"
         role="region"
         aria-label="Color Taylor plugin"
         className={
@@ -137,6 +138,7 @@ export default function PluginBanner() {
 
         {live && (
           <a
+            id="plugin-banner-cta"
             // nowrap: the label must never break to "Get the / plugin".
             className="ctl-quiet h-7 shrink-0 rounded-full px-3 text-xs whitespace-nowrap no-underline"
             href={item.href}
