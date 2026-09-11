@@ -34,6 +34,37 @@ import { openDemoSections, restoreDemoSections } from '@/utils/demoSections';
  * not carry them. wiki/notes/plan-picker-demo.md.
  */
 const DemoRunner = lazy(() => import('@/demo/DemoRunner'));
+const ScriptRunner = lazy(() => import('@/demo/ScriptRunner'));
+const PresentationMode = lazy(() => import('@/demo/PresentationMode'));
+
+/**
+ * `?script=<name>` puts the picker under a recorded video script: the runner
+ * mounts and the app opens exactly as on a first visit (welcome panel and all)
+ * and sits idle at its default color until the script starts. The script
+ * closes the panel itself. See docs/demo-script.md.
+ */
+function scriptName(): string | null {
+  try {
+    const raw = new URLSearchParams(window.location.search).get('script');
+    return raw && /^[\w-]+$/.test(raw) ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * `?present=<name>` (dev builds only) plays the same script against its voice
+ * track, with a transport for scrubbing and notes. See docs/demo-script.md.
+ */
+function presentName(): string | null {
+  if (!import.meta.env.DEV) return null;
+  try {
+    const raw = new URLSearchParams(window.location.search).get('present');
+    return raw && /^[\w-]+$/.test(raw) ? raw : null;
+  } catch {
+    return null;
+  }
+}
 
 // Top-row layout constants — root max-width and shrink behavior derive from these
 const SLIDERS_PANEL_WIDTH = 420;          // px, target width of the right column on md+
@@ -906,6 +937,7 @@ export default function ColorPicker() {
             <TooltipTrigger
               render={
                 <button
+                  id="settings-button"
                   className="ctl-quiet-icon"
                   onClick={() => setSettingsOpen(o => !o)}
                   aria-label="Open menu"
@@ -1069,7 +1101,7 @@ export default function ColorPicker() {
             >
               {SLIDER_GROUPS.map((g) => (
                 <Tooltip key={g}>
-                  <TooltipTrigger render={<ToggleGroupItem value={g} className="w-12">{g}</ToggleGroupItem>} />
+                  <TooltipTrigger render={<ToggleGroupItem value={g} id={`slider-group-${g.toLowerCase()}`} className="w-12">{g}</ToggleGroupItem>} />
                   <TooltipContent className={TOOLBAR_TIP_CLASS}>{GROUP_TIP[g]}</TooltipContent>
                 </Tooltip>
               ))}
@@ -1273,6 +1305,27 @@ export default function ColorPicker() {
             host={demoHost}
             onRestore={restoreDemo}
             onExit={() => setDemoOpen(false)}
+          />
+        </Suspense>
+      )}
+      {scriptName() && (
+        <Suspense fallback={null}>
+          <ScriptRunner
+            host={demoHost}
+            demoOpen={demoOpen}
+            onDemo={() => startDemo(null)}
+            onColor={(target) => { if (colorAnimActiveRef.current) colorAnimActiveRef.current = 'stop'; animateToHsb(target); }}
+          />
+        </Suspense>
+      )}
+      {presentName() && (
+        <Suspense fallback={null}>
+          <PresentationMode
+            name={presentName() as string}
+            host={demoHost}
+            demoOpen={demoOpen}
+            onDemo={() => startDemo(null)}
+            onColor={(target) => { if (colorAnimActiveRef.current) colorAnimActiveRef.current = 'stop'; animateToHsb(target); }}
           />
         </Suspense>
       )}
