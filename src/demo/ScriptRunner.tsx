@@ -29,18 +29,26 @@ import { createPortal } from 'react-dom';
 import DemoCursor, { CURSOR_BOX, cursorKind, hotspotOf, type CursorKind } from './DemoCursor';
 import { Driver, DemoAborted, centerOf, type Point, type Stage } from './drive';
 import { fieldPoint, hexClientPoint, smooth, type DemoHost } from './steps';
+import { markScriptRunner, setScriptOverDemo } from './handover';
 import { CENTER_X, CENTER_Y, HUE_LABEL_OFFSET, PI, RADIUS } from '../components/hex/hexConstants';
 
 export interface ScriptAction {
   /** Seconds into the cut at which the action begins. */
   at: number;
   do: 'rest' | 'hover' | 'walk' | 'click' | 'loop' | 'circle' | 'rect' | 'ray' | 'orbit' | 'stem' | 'wander'
-    | 'demo' | 'slider' | 'box' | 'tip' | 'color' | 'scroll' | 'leave' | 'underline';
+    | 'demo' | 'slider' | 'box' | 'tip' | 'color' | 'scroll' | 'leave' | 'underline' | 'pip';
   target?: string;
   targets?: string[];
   ms?: number;
   /** `tip`: take the hexagon's hue pill round the ring instead of the tip handle. */
   via?: 'hue-label';
+  /**
+   * `rect`: re-measure the target every frame, so the box tracks a group whose
+   * own size is what the line is about (`range:rgb`, which is the span of the
+   * three RGB handles). It stands live for its whole `hold` as well as while
+   * it is drawn.
+   */
+  live?: boolean;
   /** `rect`: `free` draws the box itself, without the cursor, the way a `circle` does. */
   hands?: 'free';
   /**
@@ -63,7 +71,13 @@ export interface ScriptAction {
    * current color). `rect`: the corner to start from.
    */
   from?: number | RectCorner | [number, number];
-  to?: number | [number, number];
+  /**
+   * `slider`/`box`: where the drag lands. `tip` with `via: "hue-label"`: an
+   * absolute hue to take the pill to, the short way round (`degrees` is the
+   * relative form, and wins where both are given). `pip`: which side of the
+   * screen edge the camera panel ends up on.
+   */
+  to?: number | [number, number] | 'off' | 'on';
   /** `rect`/`circle`: how long the drawn shape stands after the gesture, before it fades (default 900). */
   hold?: number;
   degrees?: number;
@@ -105,8 +119,8 @@ export interface ScriptRunnerHandle {
 
 export interface ScriptRunnerProps {
   host: DemoHost;
-  /** Start the built-in demo. */
-  onDemo: () => void;
+  /** Start the built-in demo, its ghost picking up from where this one stands. */
+  onDemo: (from?: Point | null) => void;
   /** Tween the app's color; the tween length is the app's own. */
   onColor: (hsb: { h: number; s: number; b: number }) => void;
   /** Whether the built-in demo is on screen, which hides this runner's cursor. */
@@ -146,6 +160,18 @@ const tipEl = () => {
   const joints = document.querySelectorAll('[data-joint]');
   return joints.length ? joints[joints.length - 1] : null;
 };
+
+/**
+ * How far the camera panel is currently pushed off its home position, and how
+ * to put it there. Kept on the element rather than in the schedule, so a seek
+ * can set it without replaying the drag, and so the panel's own markup is the
+ * only thing that knows how it is moved.
+ */
+const pipOffset = (el: HTMLElement) => Number(el.dataset.pipX ?? '0') || 0;
+function setPipOffset(el: HTMLElement, x: number) {
+  el.dataset.pipX = String(Math.round(x));
+  el.style.transform = `translateX(${Math.round(x)}px)`;
+}
 
 /** Hue, in degrees, of each corner of the hexagon. */
 const CORNER_HUE: Record<string, number> = { r: 0, y: 60, g: 120, c: 180, b: 240, m: 300 };
@@ -189,6 +215,20 @@ const ROW_PAD = 4;
 const HEADER_BAND = 60;
 /** A circuit around a vertex letter, as a multiple of the letter's half-size. */
 const LETTER_RING = 1.6;
+/**
+ * A circuit around a slider handle, as a multiple of its half-size. Wider than
+ * a letter's, because the handle is the smallest thing anything is ringed
+ * around and a ring hugging it reads as part of the control.
+ */
+const HANDLE_RING = 1.8;
+/**
+ * The least a ring around a handle may be. The RGB banks mark their value
+ * with a 10px arrow, and 1.8x its half-size is a ring smaller than the stroke
+ * it is drawn in.
+ */
+const HANDLE_RING_MIN = 18;
+/** How far the span of a group of handles is padded for `range:rgb`. */
+const RANGE_PAD = 8;
 
 /** Default turns and wobble for a `loop`, and the y squash that keeps it off a circle. */
 const LOOP_TURNS = 1.3;
@@ -220,11 +260,14 @@ const shapeColor = (): string => SHAPE_COLOR;
 /** A `ray`'s thickness in client px, and the stroke each channel's callouts wear. */
 const RAY_WIDTH = 36;
 /**
- * How far short of the vertex letter's center the bar stops, as a multiple of
- * the letter's half-size: it reaches the letter without covering it, which a
- * bar that ran to the middle of a 36 px-wide "R" did.
+ * How far past each end the bar runs, in client px: back behind the middle of
+ * the hexagon, and out past the vertex letter. The bar is the claim that this
+ * channel's direction joins the centre to that letter, so it has to contain
+ * both of them - it used to stop 19px short of the letter, which left the
+ * thing being named outside the thing doing the naming.
  */
-const RAY_LETTER_CLEAR = 1.2;
+const RAY_CENTER_OVER = 24;
+const RAY_LETTER_OVER = 20;
 const CHANNEL_COLOR: Record<string, string> = { r: '#ff3333', g: '#2ecc40', b: '#3b82f6' };
 /** How long a finished callout stands before it fades, and how long the fade takes. */
 const HOLD_MS = 900;
@@ -237,6 +280,14 @@ const ORBIT_SAT_MAX = 1.0;
 const WANDER_BOW = 0.25;
 /** How far outside the hue pill's rim the arrow's tip sits while holding it, in px. */
 const HUE_GRIP_CLEAR = 2;
+/**
+ * The camera panel: where the ghost takes hold of it (from its top-left
+ * corner, so the hand stays on screen for nearly the whole trip), and how far
+ * past the right edge "off" is.
+ */
+const PIP_GRIP_X = 28;
+const PIP_GRIP_Y = 14;
+const PIP_OFF_CLEAR = 8;
 /** `underline`: how far under the text the line runs, and how far it bows down in the middle, in px. */
 const UNDERLINE_GAP = 4;
 const UNDERLINE_BOW = 2;
@@ -388,6 +439,34 @@ class Callouts {
       shape.update({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
       if (t < 1) this.nextFrame(step);
       else shape.done();
+    };
+    this.nextFrame(step);
+  }
+
+  /**
+   * A marquee that both draws itself and keeps measuring: `box()` is read
+   * every frame, the diagonal grows across it over `ms`, and for the rest of
+   * `hold` the rectangle is the target's own, live. For a callout whose whole
+   * point is that the thing it is around changes size while it stands.
+   */
+  liveBox(box: () => DOMRect, from: RectCorner, ms: number, hold: number, color?: string) {
+    const el = this.add('rect', color);
+    const t0 = performance.now();
+    const step = (now: number) => {
+      const elapsed = now - t0;
+      const { start: a, end: b } = rectCorners(box(), from);
+      const t = smoothstep(clamp(elapsed / Math.max(1, ms), 0, 1));
+      const p = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+      el.setAttribute('x', String(Math.min(a.x, p.x)));
+      el.setAttribute('y', String(Math.min(a.y, p.y)));
+      el.setAttribute('width', String(Math.abs(p.x - a.x)));
+      el.setAttribute('height', String(Math.abs(p.y - a.y)));
+      if (elapsed < ms + hold) this.nextFrame(step);
+      else {
+        el.style.transition = `opacity ${FADE_MS}ms ease-out`;
+        el.style.opacity = '0';
+        this.later(FADE_MS, () => el.remove());
+      }
     };
     this.nextFrame(step);
   }
@@ -565,6 +644,13 @@ export const sortActions = (actions: ScriptAction[]) => [...actions].sort((a, b)
 /** `<bank>-<ch>` from a target's suffix; a bare `r`/`g`/`b` is the RGB bank's. */
 const bankChannel = (c: string) => (c.includes('-') ? c : `rgb-${c}`);
 const sliderChannel = (name: string) => bankChannel(name.slice(7));
+/**
+ * A slider's marker. ColorSlider draws either a ring (`-handle`) or an arrow
+ * under the track (`-arrow`), depending on the bank, and both are the same
+ * thing to anything pointing at "the handle".
+ */
+const markerEl = (channel: string) =>
+  q(`#slider-${channel}-handle`) ?? q(`#slider-${channel}-arrow`);
 
 /**
  * A logical target name to the element it means and where to point at it.
@@ -630,11 +716,14 @@ function resolve(name: string, host: DemoHost): Target | null {
     return { el, at: () => rectCenter(rect()), rect };
   }
   if (name.startsWith('row:')) {
-    // A channel's track and its stepper together: the slider "and steppers",
-    // which `slider:<c>` alone leaves out - its box is the track only.
+    // A channel's label, track and stepper together: the whole row, which is
+    // what "the R slider" means to somebody watching - the letter to the left
+    // of the track is the half that says which channel it is, and a box that
+    // began at the track left it outside.
     const ch = bankChannel(name.slice(4));
-    const els = [q(`#slider-${ch}-track`), q(`#slider-${ch}-stepper`)].filter((el): el is Element => !!el);
-    if (els.length < 2) return null;
+    const els = [q(`#slider-${ch}-label`), q(`#slider-${ch}-track`), q(`#slider-${ch}-stepper`)]
+      .filter((el): el is Element => !!el);
+    if (els.length < 3) return null;
     const rect = () => unionRect(els, ROW_PAD);
     return { el: els[0], at: () => rectCenter(rect()), rect };
   }
@@ -681,6 +770,33 @@ function resolve(name: string, host: DemoHost): Target | null {
     if (hue === undefined) return null;
     const rad = (hue * PI) / 180;
     return onHex(CENTER_X + RADIUS * Math.cos(rad), CENTER_Y - RADIUS * Math.sin(rad));
+  }
+  if (name.startsWith('handle:')) {
+    // One slider's handle, not its track: for a ring that means "this value",
+    // which on a 300px track a ring round the whole thing does not.
+    const el = markerEl(bankChannel(name.slice(7)));
+    if (!el) return null;
+    const half = () => { const r = el.getBoundingClientRect(); return Math.max(r.width, r.height) / 2; };
+    return { el, at: () => centerOf(el), radius: () => Math.max(HANDLE_RING_MIN, HANDLE_RING * half()) };
+  }
+  if (name === 'range:rgb') {
+    // The span the three RGB handles occupy: left edge on the lowest value,
+    // right edge on the highest, top and bottom on the R and B tracks. The
+    // box is the saturation - it opens as the values spread and closes to a
+    // sliver at gray - so a `rect` on it wants `live`, and re-measures.
+    const handles = ['r', 'g', 'b'].map((c) => markerEl(`rgb-${c}`)).filter((el): el is Element => !!el);
+    const top = q('#slider-rgb-r-track');
+    const bottom = q('#slider-rgb-b-track');
+    if (handles.length < 3 || !top || !bottom) return null;
+    const rect = () => {
+      const xs = handles.map((el) => centerOf(el).x);
+      const t = top.getBoundingClientRect();
+      const b = bottom.getBoundingClientRect();
+      const l = Math.min(...xs);
+      const r = Math.max(...xs);
+      return new DOMRect(l - RANGE_PAD, t.top - RANGE_PAD, r - l + RANGE_PAD * 2, b.bottom - t.top + RANGE_PAD * 2);
+    };
+    return { el: handles[0], at: () => rectCenter(rect()), rect };
   }
   if (name.startsWith('slider:')) {
     // The track carries a padded box, so a `circle` round it is a flat
@@ -967,14 +1083,16 @@ export default function ScriptRunner({
           if (!t) return;
           const c = hexClientPoint(CENTER_X, CENTER_Y);
           if (!c) { warnMissing(a, 'hex-center'); return; }
-          // Stop just short of the letter, so the letter it points at stays
-          // readable: `radius` on a `letter:` target is its ringing radius,
-          // which is the half-size the clearance is measured in.
+          // Over both ends rather than short of one: the bar runs from behind
+          // the middle of the hexagon out past the vertex letter, so what it
+          // encloses is exactly the two things it is joining.
           const tip = t.at();
-          const back = RAY_LETTER_CLEAR * ((t.radius?.() ?? 0) / LETTER_RING);
           const len = Math.hypot(tip.x - c.x, tip.y - c.y) || 1;
-          const end = { x: c.x + (tip.x - c.x) * (1 - back / len), y: c.y + (tip.y - c.y) * (1 - back / len) };
-          callouts.beam(c, end, RAY_WIDTH, a.ms ?? CIRCLE_MS, a.hold ?? HOLD_MS,
+          const ux = (tip.x - c.x) / len;
+          const uy = (tip.y - c.y) / len;
+          const root = { x: c.x - ux * RAY_CENTER_OVER, y: c.y - uy * RAY_CENTER_OVER };
+          const end = { x: tip.x + ux * RAY_LETTER_OVER, y: tip.y + uy * RAY_LETTER_OVER };
+          callouts.beam(root, end, RAY_WIDTH, a.ms ?? CIRCLE_MS, a.hold ?? HOLD_MS,
             a.color ?? CHANNEL_COLOR[a.ch ?? '']);
           return;
         }
@@ -983,6 +1101,14 @@ export default function ScriptRunner({
           if (!t) return;
           if (!t.rect) { console.warn(`[script] t=${a.at}s rect: "${a.target}" has no box`); return; }
           const from: RectCorner = typeof a.from === 'string' ? a.from : 'tl';
+          if (a.live) {
+            // Hands free by definition: nothing can hold a box that is still
+            // being re-measured, and the point of it is the drag going on
+            // underneath.
+            const box = t.rect;
+            callouts.liveBox(() => box(), from, a.ms ?? CIRCLE_MS, a.hold ?? HOLD_MS, a.color);
+            return;
+          }
           if (a.hands === 'free') {
             // Self-drawn, so it can go up while the cursor is holding
             // something else; the whole `ms` is the diagonal. No scrolling:
@@ -1059,8 +1185,11 @@ export default function ScriptRunner({
           return;
         }
         case 'demo': {
-          // The built-in demo has its own cursor; ours hides while it runs.
-          if (!demoOpenRef.current) onDemoRef.current();
+          // The built-in demo has its own cursor; ours hides while it runs -
+          // and its starts from exactly where ours stopped, so the two read as
+          // one cursor changing hands rather than one vanishing and another
+          // walking in from off screen.
+          if (!demoOpenRef.current) onDemoRef.current({ ...d.pos });
           return;
         }
         case 'slider': {
@@ -1117,7 +1246,10 @@ export default function ScriptRunner({
             const dist = Math.hypot(p.x - d.pos.x, p.y - d.pos.y);
             await d.moveTo(() => p, clamp(dist * 1.2, 0, MOVE_MS));
             const h0 = hostRef.current.field().h;
-            const degrees = a.degrees ?? 0;
+            // `degrees` is the relative form and wins; `to` is an absolute hue,
+            // taken the short way round, so a cue can say where the pill ends
+            // up without knowing where the last gesture left it.
+            const degrees = a.degrees ?? (typeof a.to === 'number' ? ((a.to - h0 + 540) % 360) - 180 : 0);
             const c = t.at();
             await d.drag(t.el, (u) => hueGripPoint(t.el, h0 + degrees * smooth(u)) ?? c, a.ms ?? 1000, true);
             return;
@@ -1135,6 +1267,34 @@ export default function ScriptRunner({
           const sat = clamp(f.s / 100, 0.05, 1);
           const degrees = a.degrees ?? 0;
           await d.drag(tip, (u) => fieldPoint(f.h + degrees * smooth(u), sat, f) ?? c, a.ms ?? 1000, true);
+          return;
+        }
+        case 'pip': {
+          // The camera panel, dragged off the right edge and back. It is not a
+          // control - nothing listens - so the gesture is the whole effect:
+          // the ghost takes it by its top-left corner, presses, and the panel
+          // really moves under it.
+          const el = document.getElementById('camera-pip');
+          if (!el) { warnMissing(a, 'camera-pip'); return; }
+          const from = pipOffset(el);
+          const r = el.getBoundingClientRect();
+          // Home is where the panel sits with no offset on it.
+          const homeLeft = r.left - from;
+          const to = a.to === 'on' ? 0 : window.innerWidth - homeLeft + PIP_OFF_CLEAR;
+          const grip = (x: number): Point => ({ x: homeLeft + PIP_GRIP_X + x, y: r.top + PIP_GRIP_Y });
+          try {
+            await d.moveTo(() => grip(from), MOVE_MS);
+            await d.drag(el, (u) => {
+              const x = from + (to - from) * smooth(u);
+              setPipOffset(el, x);
+              return grip(x);
+            }, a.ms ?? 1200, true);
+          } finally {
+            // Land exactly, interrupted or not: a drag cut a frame short of its
+            // end leaves the panel a pixel off, and home is a place rather than
+            // nearly a place.
+            setPipOffset(el, to);
+          }
           return;
         }
         case 'color': {
@@ -1193,13 +1353,16 @@ export default function ScriptRunner({
       running += 1;
       // An over-demo gesture brings the ghost out for as long as it lasts;
       // the rest of the demo's span it is the demo's cursor on screen alone.
-      if (a.over === 'demo') setOverDemo(true);
+      if (a.over === 'demo') { setOverDemo(true); setScriptOverDemo(true); }
       run(a)
         .catch((err: unknown) => {
           if (err instanceof DemoAborted) return;
           console.error(`[script] t=${a.at}s ${a.do} failed`, err);
         })
-        .finally(() => { running -= 1; if (a.over === 'demo') setOverDemo(false); });
+        .finally(() => {
+          running -= 1;
+          if (a.over === 'demo') { setOverDemo(false); setScriptOverDemo(false); }
+        });
     };
 
     /* The clock: time-locked, so a late action never delays the next. */
@@ -1250,12 +1413,21 @@ export default function ScriptRunner({
       next = i;
       let color: ScriptAction | null = null;
       let pose: ScriptAction | null = null;
+      let pip: ScriptAction | null = null;
       for (const a of actions) {
         if (a.at >= t) break;
         if (a.do === 'color') color = a;
+        if (a.do === 'pip') pip = a;
         if ((a.do === 'rest' || a.do === 'hover') && a.target) pose = a;
       }
       if (color) onColorRef.current({ h: color.h ?? 0, s: color.s ?? 0, b: color.b ?? 0 });
+      // The camera panel is where the last `pip` before `t` put it, at once
+      // and without the gesture: a scrub is not a performance.
+      const panel = document.getElementById('camera-pip');
+      if (panel) {
+        const home = panel.getBoundingClientRect().left - pipOffset(panel);
+        setPipOffset(panel, pip && pip.to === 'off' ? window.innerWidth - home + PIP_OFF_CLEAR : 0);
+      }
       const target = pose?.target ? resolve(pose.target, hostRef.current) : null;
       if (!target) return;
       running += 1;
@@ -1315,6 +1487,9 @@ export default function ScriptRunner({
 
     loop = requestAnimationFrame(tick);
     onHandleRef.current?.({ seek });
+    // The built-in demo's goodbye asks whether a script is on screen before it
+    // decides how long to wait for one. See handover.ts.
+    markScriptRunner(true);
 
     // requestAnimationFrame is suspended while the document is hidden (a tab
     // switched away, a minimized or occluded window) but the clock driving
@@ -1324,6 +1499,8 @@ export default function ScriptRunner({
     const fallback = window.setInterval(step, 250);
 
     return () => {
+      markScriptRunner(false);
+      setScriptOverDemo(false);
       onHandleRef.current?.(null);
       teardown();
       cancelAnimationFrame(raf);
