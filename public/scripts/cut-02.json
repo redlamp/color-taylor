@@ -28,9 +28,11 @@
       "do": "demo"
     },
     {
-      "at": 66.87,
-      "do": "rest",
-      "target": "between-panels"
+      "do": "underline",
+      "target": "demo-caption",
+      "ms": 1400,
+      "over": "demo",
+      "at": 66.81
     },
     {
       "at": 70.35,
@@ -98,48 +100,75 @@
     },
     {
       "do": "wander",
-      "target": "slider:hsb-s",
-      "ms": 1500,
-      "at": 91.87
-    },
-    {
-      "do": "hover",
-      "target": "slider:r",
-      "ms": 2000,
-      "at": 92.14
-    },
-    {
-      "do": "circle",
       "target": "letter:r",
-      "ms": 1200,
-      "hold": 500,
-      "at": 92.14
+      "ms": 800,
+      "at": 91.19
     },
     {
-      "do": "hover",
-      "target": "slider:g",
-      "ms": 2000,
-      "at": 94.08
+      "do": "click",
+      "target": "letter:r",
+      "at": 92.09
     },
     {
-      "do": "circle",
+      "do": "rect",
+      "target": "row:r",
+      "from": "tl",
+      "hands": "free",
+      "color": "#ff3333",
+      "ms": 900,
+      "hold": 8470,
+      "at": 92.24
+    },
+    {
+      "do": "ray",
+      "ch": "r",
+      "ms": 900,
+      "hold": 8470,
+      "at": 92.24
+    },
+    {
+      "do": "click",
       "target": "letter:g",
-      "ms": 1200,
-      "hold": 500,
-      "at": 94.08
+      "at": 93.69
     },
     {
-      "do": "hover",
-      "target": "slider:b",
-      "ms": 2000,
-      "at": 96
+      "do": "rect",
+      "target": "row:g",
+      "from": "tl",
+      "hands": "free",
+      "color": "#2ecc40",
+      "ms": 900,
+      "hold": 6520,
+      "at": 94.19
     },
     {
-      "do": "circle",
+      "do": "ray",
+      "ch": "g",
+      "ms": 900,
+      "hold": 6520,
+      "at": 94.19
+    },
+    {
+      "do": "click",
       "target": "letter:b",
-      "ms": 1200,
-      "hold": 500,
-      "at": 96
+      "at": 95.64
+    },
+    {
+      "do": "rect",
+      "target": "row:b",
+      "from": "tl",
+      "hands": "free",
+      "color": "#3b82f6",
+      "ms": 900,
+      "hold": 4620,
+      "at": 96.09
+    },
+    {
+      "do": "ray",
+      "ch": "b",
+      "ms": 900,
+      "hold": 4620,
+      "at": 96.09
     },
     {
       "at": 103.26,
@@ -161,56 +190,57 @@
       "ms": 4200
     },
     {
-      "at": 121.38,
       "do": "tip",
       "via": "hue-label",
       "degrees": 40,
-      "ms": 1400
+      "ms": 1400,
+      "at": 121.38
     },
     {
-      "at": 122.88,
       "do": "tip",
       "via": "hue-label",
       "degrees": -40,
-      "ms": 1400
+      "ms": 1400,
+      "at": 122.88
     },
     {
-      "at": 124.38,
       "do": "color",
       "h": 30,
-      "s": 90,
+      "s": 40,
       "b": 100,
-      "ms": 800
+      "ms": 800,
+      "at": 124.38
     },
     {
       "do": "slider",
       "target": "hex-sat",
-      "from": 5,
-      "to": 90,
+      "from": 40,
+      "to": 100,
       "ms": 3200,
+      "at": 126.59
+    },
+    {
+      "do": "rect",
+      "target": "values:rgb",
+      "from": "tl",
+      "hands": "free",
+      "ms": 1200,
+      "hold": 9620,
       "at": 126.59
     },
     {
       "do": "slider",
       "target": "hex-sat",
-      "from": 90,
-      "to": 25,
-      "ms": 1600,
+      "from": 100,
+      "to": 0,
+      "ms": 1500,
       "at": 131.47
     },
     {
       "do": "slider",
       "target": "hex-sat",
-      "from": 25,
-      "to": 0,
-      "ms": 1800,
-      "at": 133.41
-    },
-    {
-      "do": "slider",
-      "target": "hex-sat",
       "from": 0,
-      "to": 70,
+      "to": 90,
       "ms": 1500,
       "at": 139.05
     },
@@ -229,31 +259,47 @@
       "at": 142.05
     },
     {
-      "do": "hover",
-      "target": "hex-hue-label",
-      "ms": 2200,
+      "do": "circle",
+      "target": "value:hsb-h",
+      "ms": 1500,
+      "hold": 6500,
       "at": 142.71
     },
     {
       "do": "slider",
       "target": "hex-sat",
-      "from": 70,
-      "to": 90,
-      "ms": 1500,
-      "at": 147.01
+      "from": 90,
+      "to": 40,
+      "ms": 2000,
+      "at": 144.61
     },
     {
-      "at": 152.79,
+      "do": "slider",
+      "target": "hex-sat",
+      "from": 40,
+      "to": 90,
+      "ms": 2000,
+      "at": 147.41
+    },
+    {
       "do": "circle",
       "target": "slider:r",
-      "ms": 2400,
-      "hold": 600
+      "ms": 1500,
+      "hold": 1800,
+      "at": 152.87
     },
     {
-      "at": 155.29,
+      "do": "circle",
+      "target": "value:hsb-b",
+      "ms": 1500,
+      "hold": 1800,
+      "at": 152.87
+    },
+    {
       "do": "hover",
       "target": "hex-bri",
-      "ms": 1400
+      "ms": 1300,
+      "at": 154.97
     },
     {
       "at": 157.81,

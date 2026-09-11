@@ -417,8 +417,9 @@ The JSON is `{ "actions": [ { "at": 9.1, "do": "rest", "target": "help-button" }
 | `walk` | `targets[]`, `ms` | Visit each target in turn; `ms` is split evenly (400 ms travel, the rest dwell). |
 | `click` | `target` | Move and click. |
 | `loop` | `target`, `ms`, `turns`, `wobble` | A hand-drawn circuit around the target: `turns` full turns (default 1.3) over `ms`, hovering only. The radius is about 0.55 of the target's half-width (for `hex-field`, the hexagon's radius), modulated by a slow irregular wobble of `wobble` x radius (default 0.18) and squashed slightly on y, so it is never a perfect circle. Around a target with a box (`editor-top`) it is a flat ellipse the width of the box. Starts and ends at rest. |
-| `circle` | `target`, `ms`, `turns`, `wobble`, `hold` | A ring that draws itself around the target over `ms` (default 1200): the same circuit at the target's own radius (`letter:*` rings the letter at 1.6x its half-size; an element without one uses half its width), a little over one lap (default 1.1 turns); around a target with a box (`slider:<c>`, `editor-top`, `editor-sb`, `editor-hue`) it is a flat ellipse the shape of the box. The cursor is not involved, so a `circle` can share its `at` with a `hover` and neither cuts the other short; no later action cuts it short either (only a seek clears it). The ring stands for `hold` ms (default 900) and fades out over 300 ms. |
-| `rect` | `target`, `from`, `ms`, `hold`, `hands` | A selection marquee around a target that has a box (`sliders:rgb`, `sliders:hsb`, `values:rgb`, `slider:<c>`, `editor-top`, `editor-sb`, `editor-hue`), hovering only: the cursor travels to the corner `from` (`tl`, `tr`, `br`, `bl`) and drags to the opposite one, on a diagonal bowed a few pixels off straight, and a rectangle grows with it. The travel (up to 400 ms) is inside `ms` (default 1100); the diagonal gets the rest, never under 400 ms. If the next action takes the cursor before the diagonal is done, the box snaps to its full size rather than standing half drawn. The finished box stands for `hold` ms (default 900) and fades over 300 ms; the cursor stays where it landed unless the next action moves it. Total on screen is about `ms` + `hold` + 300. With `"hands": "free"` the box draws itself on the layer, like a `circle`: it grows from the corner `from` to the opposite one over the whole `ms`, the cursor is not involved, and it neither interrupts nor is interrupted, so it can run over a drag (the RGB values while the saturation bar is being lowered). No scrolling in that case: the target has to be on screen already. |
+| `circle` | `target`, `ms`, `turns`, `wobble`, `hold`, `color` | A ring that draws itself around the target over `ms` (default 1200): the same circuit at the target's own radius (`letter:*` rings the letter at 1.6x its half-size; an element without one uses half its width), a little over one lap (default 1.1 turns); around a target with a box (`slider:<c>`, `editor-top`, `editor-sb`, `editor-hue`) it is a flat ellipse the shape of the box. The cursor is not involved, so a `circle` can share its `at` with a `hover` and neither cuts the other short; no later action cuts it short either (only a seek clears it). The ring stands for `hold` ms (default 900) and fades out over 300 ms. `color` is any CSS color; the default is the layer's own red. |
+| `rect` | `target`, `from`, `ms`, `hold`, `hands`, `color` | A selection marquee around a target that has a box (`sliders:rgb`, `sliders:hsb`, `values:rgb`, `value:<bank>-<ch>`, `slider:<c>`, `row:<c>`, `editor-top`, `editor-sb`, `editor-hue`), hovering only: the cursor travels to the corner `from` (`tl`, `tr`, `br`, `bl`) and drags to the opposite one, on a diagonal bowed a few pixels off straight, and a rectangle grows with it. The travel (up to 400 ms) is inside `ms` (default 1100); the diagonal gets the rest, never under 400 ms. If the next action takes the cursor before the diagonal is done, the box snaps to its full size rather than standing half drawn. The finished box stands for `hold` ms (default 900) and fades over 300 ms; the cursor stays where it landed unless the next action moves it. Total on screen is about `ms` + `hold` + 300. With `"hands": "free"` the box draws itself on the layer, like a `circle`: it grows from the corner `from` to the opposite one over the whole `ms`, the cursor is not involved, and it neither interrupts nor is interrupted, so it can run over a drag (the RGB values while the saturation bar is being lowered). No scrolling in that case: the target has to be on screen already. `color` is any CSS color; the default is the layer's own red. |
+| `ray` | `ch`, `ms`, `hold`, `color` | A bar along one channel's axis: from the middle of the hexagon out to that channel's vertex letter, 36 px thick, growing outward over `ms` (default 1200), then held for `hold` (default 900) and faded. The angle is read off where the letter actually sits, so the three rays are 120 degrees apart because the hexagon is. Self-drawn like a `circle`, so it neither takes the hands nor gives them up. `color` defaults to the channel's own: red `#ff3333`, green `#2ecc40`, blue `#3b82f6`. |
 | `orbit` | `ms`, `turns`, `wobble` | Drag the hex tip round the field, so the stems follow: the hue sweeps `turns` laps (default 1) and lands back on the starting hue (whole laps go round; the fraction is an out-and-back bulge), while saturation wanders by about 3 x `wobble` (default 0.15) around where it started, held to 0.55-1.0, and returns to it. |
 | `stem` | `ch`, `amount`, `ms` | Grab the `r`, `g` or `b` stem at its midpoint and drag it along its own axis by `amount` x its length (+ outward, - inward), then let go. The channel changes by that fraction of its value. |
 | `wander` | `target`, `ms` | A playful curved move to the target: a cubic bezier whose two control points sit 25% of the trip off the line, one to each side, eased. |
@@ -426,7 +427,7 @@ The JSON is `{ "actions": [ { "at": 9.1, "do": "rest", "target": "help-button" }
 | `slider` | `target`, `from`, `to`, `ms` | Press the track at `from` and drag to `to` (0-100 along the track) with smoothstep. Targets: `hex-sat`, `hex-bri`, `slider:<c>`, `editor-hue` (the Color Editor's hue strip, 0-360 down it; `from` defaults to the current hue, so the press lands on the marker). The travel to the track comes before `ms`, except on `editor-hue`, where it is inside `ms` (up to 400 ms; the drag gets the rest, never under 400 ms) so the drag lands before the next action takes the cursor. |
 | `box` | `target`, `from`, `to`, `ms` | Drag the Color Editor's saturation/brightness handle: press at `from` and drag to `to`, each an `[s, b]` pair (0-100), with smoothstep. `target` is `editor-sb`; `from` defaults to the current color. The travel is inside `ms`, as for `editor-hue`. |
 | `tip` | `degrees`, `ms`, `via` | Drag the hex tip so the hue turns by `degrees` at the current saturation; ends where the turn ends. With `"via": "hue-label"` the cursor takes the hexagon's hue pill (`hex-hue-label`) round the ring instead. The grip is the pill's outer rim, on the ray from the hexagon's center, 2 px clear of it, and stays there as the pill moves with the hue. It cannot be a corner of the pill: the control reads hue as the pointer's angle from the center and draws the pill on that angle, so the pointer is always on the pill's own radial line and a pill held off to one side would swing under the cursor. With the tip on the rim the arrow's body trails away outside the pill, off the number for most of the ring (it crosses the pill for hues in the upper left, where outward is up-left and the body goes down-right). The pointer's angle is exactly the hue wanted at each frame, so pressing does not nudge the hue and a 360° turn lands back on the hue it started from. The travel to the pill scales with the distance and is nothing when the cursor is already there, so a turn cued 1.5 s before the next has its whole `ms`. |
-| `underline` | `target`, `ms` | Underline a link: travel to just under its bottom-left (4 px below the text), then sweep to just under its bottom-right over `ms`, bowing a couple of pixels down in the middle, and rest there. Hover only; nothing is pressed. The target is polled for up to 600 ms until it exists and its box stops moving, so a link in a panel that is still animating in is measured once it has landed. Target: `about-author`. |
+| `underline` | `target`, `ms` | Underline a link: travel to just under its bottom-left (4 px below the text), then sweep to just under its bottom-right over `ms`, bowing a couple of pixels down in the middle, and rest there. Hover only; nothing is pressed. The target is polled for up to 600 ms until it exists and its box stops moving, so a link in a panel that is still animating in is measured once it has landed. Targets: `about-author`, `demo-caption`. |
 | `color` | `h`, `s`, `b` | Tween the app color (the app's own tween length; `ms` is ignored). |
 | `scroll` | `target` | Smooth-scroll the target to the center; `top` scrolls to the top of the page. |
 | `leave` | | Walk the cursor off screen. |
@@ -442,7 +443,11 @@ is its outer rim, see `tip`), `stem:r|g|b`, `corner:r|y|g|c|b|m`,
 `rgb-r|rgb-g|rgb-b|hsb-h|hsb-s|hsb-b|hsl-h|hsl-s|hsl-l` (a bare `r`, `g` or
 `b` means the RGB bank's), `sliders:rgb` / `sliders:hsb` (a whole bank, for
 `rect`), `values:rgb` (the RGB bank's three numeric fields, the steppers,
-as one padded box for `rect`), `hex-sat`, `hex-bri`,
+as one padded box for `rect`), `value:<bank>-<ch>` (one channel's stepper on
+its own, for naming a single readout: `value:hsb-h` is the H number),
+`row:<c>` (a channel's track and its stepper together - the slider "and
+steppers", which `slider:<c>` leaves out, its box being the track only),
+`hex-sat`, `hex-bri`,
 `editor-sb` (the Color Editor's saturation/brightness box, `#sb-area`) and
 `editor-hue` (its hue strip, `#hue-bar`),
 `equations` (the section's toggle; a click opens and a second click closes),
@@ -451,17 +456,30 @@ toggles; a click on one turns that bank on, another turns it off),
 `settings-button` (opens the menu), `settings-about` (the menu's "About
 Color Taylor"; only there while the menu is open, and looked up when the
 action fires), `about-author` (the "Taylor Wright" link on the About panel,
-for `underline`), `hsl-tab`, `hsb-tab`, `top`. A target that is not on the page
+for `underline`), `demo-caption` (the line the built-in demo is showing, as
+the text's own span rather than the caption column's full width), `hsl-tab`,
+`hsb-tab`, `top`. A target that is not on the page
 (a dismissed banner, a closed slider bank) logs a `[script]` warning to the
 console and the action is skipped.
 
-Drawn callouts. `rect` and `circle` draw into a fixed, pointer-events-none
-SVG layer the runner keeps under its cursor and over the app: an 8 px solid
-stroke in bright red `#ff3333`, a marquee with a 5% fill of the same. Each shape runs its own hold and fade timers, so
-two can overlap (the RGB marquee is still standing when the HSB one starts)
-and the next action taking the cursor does not take a shape down early. A
-`circle`, and a `rect` with `"hands": "free"`, is drawn on the layer's own
-frame loop rather than by the cursor. A seek clears them all.
+Drawn callouts. `rect`, `circle` and `ray` draw into a fixed,
+pointer-events-none SVG layer the runner keeps under its cursor and over the
+app: an 8 px solid stroke in bright red `#ff3333`, a marquee with a 5% fill of
+the same. `color` on any of the three overrides that stroke, which is how the
+three channels get boxes and rays in their own colors on beat 3.3. Each shape
+runs its own hold and fade timers, so two can overlap (the RGB marquee is
+still standing when the HSB one starts) and the next action taking the cursor
+does not take a shape down early. A `circle`, a `ray`, and a `rect` with
+`"hands": "free"`, is drawn on the layer's own frame loop rather than by the
+cursor. A seek clears them all.
+
+Over the built-in demo. While the demo is on screen the runner's cursor is
+hidden and every due action waits in line for it to exit. One action at a time
+can opt out with `"over": "demo"`: it fires on its cue, with the ghost on
+screen for as long as it runs, and the queue behind it goes on waiting. It is
+meant for a gesture aimed at the demo's own chrome - the cut underlines the
+demo's "Have fun!" sign-off on beat 2.8 - and not for anything that touches
+the app, which the demo is driving.
 
 The `color` action and the app's own gestures. The tween `color` starts is
 the app's (`animateToHsb` in `useColorState`, 1000 ms), and it is cancelled

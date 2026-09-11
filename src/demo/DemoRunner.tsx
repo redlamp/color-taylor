@@ -579,12 +579,16 @@ export default function DemoRunner({ from = null, onRestore, onExit, host }: Dem
                 // space, which is the whole point, and are still out of the
                 // accessibility tree, which is the other one.
                 style={{ visibility: i === captionIndex ? 'visible' : 'hidden' }}
+                // Which line is up, for a script that wants to point at it
+                // (the video cut underlines "Have fun!"); the span inside is
+                // the text's own box, which the paragraph's is not.
+                data-demo-caption={i === captionIndex ? 'on' : 'off'}
                 // Balanced, not pretty: two lines of even length rather than
                 // a long first line and a short tail, which is what a line
                 // with a glyph in it kept landing on.
                 className="col-start-1 row-start-1 self-center text-balance text-xl font-medium leading-snug sm:text-2xl"
               >
-                {text}
+                <span>{text}</span>
               </p>
             ))}
           </div>
