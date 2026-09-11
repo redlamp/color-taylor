@@ -34,7 +34,7 @@ import { CENTER_X, CENTER_Y, HUE_LABEL_OFFSET, PI, RADIUS } from '../components/
 export interface ScriptAction {
   /** Seconds into the cut at which the action begins. */
   at: number;
-  do: 'rest' | 'hover' | 'walk' | 'click' | 'loop' | 'circle' | 'rect' | 'orbit' | 'stem' | 'wander'
+  do: 'rest' | 'hover' | 'walk' | 'click' | 'loop' | 'circle' | 'rect' | 'ray' | 'orbit' | 'stem' | 'wander'
     | 'demo' | 'slider' | 'box' | 'tip' | 'color' | 'scroll' | 'leave' | 'underline';
   target?: string;
   targets?: string[];
@@ -43,6 +43,17 @@ export interface ScriptAction {
   via?: 'hue-label';
   /** `rect`: `free` draws the box itself, without the cursor, the way a `circle` does. */
   hands?: 'free';
+  /**
+   * `rect`/`circle`/`ray`: the callout's stroke, any CSS color. Default is the
+   * layer's own red, so a callout that is not naming a channel needs nothing.
+   */
+  color?: string;
+  /**
+   * Run even while the built-in demo is on screen, and show this runner's
+   * cursor for as long as it does. Only for a gesture aimed at the demo's own
+   * chrome (`underline` on `demo-caption`); everything else stays held.
+   */
+  over?: 'demo';
   /** `loop`/`circle`/`orbit`: full turns around the target; `wobble`: radius (or saturation) modulation, 0-1. */
   turns?: number;
   wobble?: number;
@@ -168,6 +179,12 @@ function unionRect(els: Element[], pad: number): DOMRect {
 const rectCenter = (r: DOMRect): Point => ({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
 /** Padding around a group of controls for `rect`, and around a header row. */
 const GROUP_PAD = 10;
+/**
+ * Padding around one channel's row. Tighter than a group's: the three rows
+ * are about 40 px apart, and at GROUP_PAD the red, green and blue boxes of
+ * beat 3.3 overlapped each other and climbed into the bank's toggle row.
+ */
+const ROW_PAD = 4;
 /** How tall the header band of a section is taken to be, for `editor-top`. */
 const HEADER_BAND = 60;
 /** A circuit around a vertex letter, as a multiple of the letter's half-size. */
@@ -200,6 +217,15 @@ const SHAPE_STROKE = 8;
 const SHAPE_FILL_OPACITY = 0.05;
 const SHAPE_COLOR = '#ff3333';
 const shapeColor = (): string => SHAPE_COLOR;
+/** A `ray`'s thickness in client px, and the stroke each channel's callouts wear. */
+const RAY_WIDTH = 36;
+/**
+ * How far short of the vertex letter's center the bar stops, as a multiple of
+ * the letter's half-size: it reaches the letter without covering it, which a
+ * bar that ran to the middle of a 36 px-wide "R" did.
+ */
+const RAY_LETTER_CLEAR = 1.2;
+const CHANNEL_COLOR: Record<string, string> = { r: '#ff3333', g: '#2ecc40', b: '#3b82f6' };
 /** How long a finished callout stands before it fades, and how long the fade takes. */
 const HOLD_MS = 900;
 const FADE_MS = 300;
@@ -296,11 +322,12 @@ class Callouts {
 
   constructor(private layer: SVGSVGElement | null) {}
 
-  private add(tag: 'rect' | 'polyline'): SVGElement {
+  private add(tag: 'rect' | 'polyline', color?: string): SVGElement {
     const el = document.createElementNS(SVG_NS, tag);
-    el.setAttribute('fill', tag === 'rect' ? this.color : 'none');
+    const ink = color ?? this.color;
+    el.setAttribute('fill', tag === 'rect' ? ink : 'none');
     el.setAttribute('fill-opacity', String(SHAPE_FILL_OPACITY));
-    el.setAttribute('stroke', this.color);
+    el.setAttribute('stroke', ink);
     el.setAttribute('stroke-width', String(SHAPE_STROKE));
     el.setAttribute('stroke-linecap', 'round');
     el.setAttribute('stroke-linejoin', 'round');
@@ -331,8 +358,8 @@ class Callouts {
    * A selection marquee anchored at `a`, spanning to wherever the cursor is.
    * Nothing shows until the first update: a zero-size rect is not drawn.
    */
-  marquee(a: Point, hold: number): Drawn {
-    const el = this.add('rect');
+  marquee(a: Point, hold: number, color?: string): Drawn {
+    const el = this.add('rect', color);
     el.setAttribute('x', String(a.x));
     el.setAttribute('y', String(a.y));
     el.setAttribute('width', '0');
@@ -353,8 +380,8 @@ class Callouts {
    * over `ms`, eased, then held and faded. For a `rect` whose hands are
    * free - the cursor is busy with a drag while the box goes up.
    */
-  box(a: Point, b: Point, ms: number, hold: number) {
-    const shape = this.marquee(a, hold);
+  box(a: Point, b: Point, ms: number, hold: number, color?: string) {
+    const shape = this.marquee(a, hold, color);
     const t0 = performance.now();
     const step = (now: number) => {
       const t = smoothstep(clamp((now - t0) / Math.max(1, ms), 0, 1));
@@ -371,8 +398,8 @@ class Callouts {
    * faded. No cursor is involved, so nothing that takes the hands can cut
    * it short; only `clear` does.
    */
-  ring(point: (u: number) => Point, ms: number, hold: number) {
-    const el = this.add('polyline');
+  ring(point: (u: number) => Point, ms: number, hold: number, color?: string) {
+    const el = this.add('polyline', color);
     const pts: string[] = [];
     const t0 = performance.now();
     const step = (now: number) => {
@@ -380,6 +407,32 @@ class Callouts {
       const p = point(u);
       pts.push(`${p.x.toFixed(1)},${p.y.toFixed(1)}`);
       el.setAttribute('points', pts.join(' '));
+      if (u < 1) this.nextFrame(step);
+      else this.retire(el, hold);
+    };
+    this.nextFrame(step);
+  }
+
+  /**
+   * A bar from `c` out to `tip`, `width` px thick, drawn on the ray between
+   * them: an axis-aligned rect rotated about `c`, growing outward over `ms`,
+   * then held and faded. Self-drawn like `ring`, so a drag can run under it.
+   * The geometry is read once - it is pinned to the hexagon, which does not
+   * move while the bar is up.
+   */
+  beam(c: Point, tip: Point, width: number, ms: number, hold: number, color?: string) {
+    const el = this.add('rect', color);
+    const len = Math.hypot(tip.x - c.x, tip.y - c.y);
+    const deg = (Math.atan2(tip.y - c.y, tip.x - c.x) * 180) / PI;
+    el.setAttribute('x', String(c.x));
+    el.setAttribute('y', String(c.y - width / 2));
+    el.setAttribute('height', String(width));
+    el.setAttribute('width', '0');
+    el.setAttribute('transform', `rotate(${deg.toFixed(2)} ${c.x} ${c.y})`);
+    const t0 = performance.now();
+    const step = (now: number) => {
+      const u = smoothstep(clamp((now - t0) / Math.max(1, ms), 0, 1));
+      el.setAttribute('width', String(len * u));
       if (u < 1) this.nextFrame(step);
       else this.retire(el, hold);
     };
@@ -509,10 +562,9 @@ export const sortActions = (actions: ScriptAction[]) => [...actions].sort((a, b)
  * The slider id a `slider:<c>` target names. The full form is the bank and
  * the channel (`hsb-s`); a bare `r`, `g` or `b` is the RGB bank's.
  */
-const sliderChannel = (name: string) => {
-  const c = name.slice(7);
-  return c.includes('-') ? c : `rgb-${c}`;
-};
+/** `<bank>-<ch>` from a target's suffix; a bare `r`/`g`/`b` is the RGB bank's. */
+const bankChannel = (c: string) => (c.includes('-') ? c : `rgb-${c}`);
+const sliderChannel = (name: string) => bankChannel(name.slice(7));
 
 /**
  * A logical target name to the element it means and where to point at it.
@@ -562,6 +614,30 @@ function resolve(name: string, host: DemoHost): Target | null {
     return { el, at: () => hueGripPoint(el, host.field().h) ?? centerOf(el) };
   }
   if (name === 'about-author') return byEl(q('#about-author'));
+  if (name === 'demo-caption') {
+    // The line the built-in demo is showing, as its own inline span rather
+    // than the paragraph, whose box is the whole caption column: an
+    // `underline` measures what it is given, and "Have fun!" is four inches
+    // of a fourteen-inch box.
+    return byEl(q('[data-demo-caption="on"] > span'));
+  }
+  if (name.startsWith('value:')) {
+    // One channel's numeric field, the stepper, as a box of its own: the
+    // readout a callout names ("the H readout"), not the whole bank.
+    const el = q(`#slider-${bankChannel(name.slice(6))}-stepper`);
+    if (!el) return null;
+    const rect = () => unionRect([el], GROUP_PAD);
+    return { el, at: () => rectCenter(rect()), rect };
+  }
+  if (name.startsWith('row:')) {
+    // A channel's track and its stepper together: the slider "and steppers",
+    // which `slider:<c>` alone leaves out - its box is the track only.
+    const ch = bankChannel(name.slice(4));
+    const els = [q(`#slider-${ch}-track`), q(`#slider-${ch}-stepper`)].filter((el): el is Element => !!el);
+    if (els.length < 2) return null;
+    const rect = () => unionRect(els, ROW_PAD);
+    return { el: els[0], at: () => rectCenter(rect()), rect };
+  }
   if (name === 'values:rgb' || name === 'values:hsb') {
     // A bank's three numeric fields, the steppers, as one box.
     const bank = name.slice(7);
@@ -667,7 +743,8 @@ function boxPoint(box: Element, s: number, b: number): Point {
 }
 
 /** The actions that never take the cursor, so they neither interrupt nor get interrupted. */
-const handsFree = (a: ScriptAction) => a.do === 'circle' || (a.do === 'rect' && a.hands === 'free');
+const handsFree = (a: ScriptAction) =>
+  a.do === 'circle' || a.do === 'ray' || (a.do === 'rect' && a.hands === 'free');
 
 function warnMissing(action: ScriptAction, name: string | undefined) {
   console.warn(`[script] t=${action.at}s ${action.do}: no target for "${name ?? '(none)'}"`);
@@ -686,6 +763,9 @@ export default function ScriptRunner({
   // Under an external clock the ghost is on screen from the start: it does
   // not wait for Space.
   const [started, setStarted] = useState(() => external !== undefined);
+  // On while an `over: "demo"` action is in hand, which is the one case the
+  // ghost is on screen with the built-in demo's own.
+  const [overDemo, setOverDemo] = useState(false);
 
   // The schedule outlives any one render; it reaches the host through refs.
   const hostRef = useRef(host);
@@ -875,7 +955,27 @@ export default function ScriptRunner({
           callouts.ring((u) => {
             const { rx, ry } = circuitRadii(t, 1);
             return circuitPoint(t.at(), rx, ry, turns, wobble)(u);
-          }, a.ms ?? CIRCLE_MS, a.hold ?? HOLD_MS);
+          }, a.ms ?? CIRCLE_MS, a.hold ?? HOLD_MS, a.color);
+          return;
+        }
+        case 'ray': {
+          // A bar along one channel's axis, from the middle of the hexagon
+          // out to that channel's vertex letter: the letter's own place on
+          // screen carries the angle, so nothing here has to know the
+          // geometry. Self-drawn, like a `circle`.
+          const t = need(`letter:${a.ch ?? ''}`);
+          if (!t) return;
+          const c = hexClientPoint(CENTER_X, CENTER_Y);
+          if (!c) { warnMissing(a, 'hex-center'); return; }
+          // Stop just short of the letter, so the letter it points at stays
+          // readable: `radius` on a `letter:` target is its ringing radius,
+          // which is the half-size the clearance is measured in.
+          const tip = t.at();
+          const back = RAY_LETTER_CLEAR * ((t.radius?.() ?? 0) / LETTER_RING);
+          const len = Math.hypot(tip.x - c.x, tip.y - c.y) || 1;
+          const end = { x: c.x + (tip.x - c.x) * (1 - back / len), y: c.y + (tip.y - c.y) * (1 - back / len) };
+          callouts.beam(c, end, RAY_WIDTH, a.ms ?? CIRCLE_MS, a.hold ?? HOLD_MS,
+            a.color ?? CHANNEL_COLOR[a.ch ?? '']);
           return;
         }
         case 'rect': {
@@ -888,7 +988,7 @@ export default function ScriptRunner({
             // something else; the whole `ms` is the diagonal. No scrolling:
             // the hands are not free to, so the target has to be in shot.
             const { start: p0, end: p1 } = rectCorners(t.rect(), from);
-            callouts.box(p0, p1, a.ms ?? CIRCLE_MS, a.hold ?? HOLD_MS);
+            callouts.box(p0, p1, a.ms ?? CIRCLE_MS, a.hold ?? HOLD_MS, a.color);
             return;
           }
           await d.bring(t.el);
@@ -901,7 +1001,7 @@ export default function ScriptRunner({
           // wherever the cursor is, and stands once the diagonal is done. Cut
           // short at any point, it snaps to its full size and stands anyway:
           // a partial box reads as a mistake, a whole one as the callout.
-          const shape = callouts.marquee(p0, a.hold ?? HOLD_MS);
+          const shape = callouts.marquee(p0, a.hold ?? HOLD_MS, a.color);
           let complete = false;
           try {
             await d.moveTo(() => p0, travel);
@@ -1091,12 +1191,15 @@ export default function ScriptRunner({
       }
       if (running > 0) d.interrupt();
       running += 1;
+      // An over-demo gesture brings the ghost out for as long as it lasts;
+      // the rest of the demo's span it is the demo's cursor on screen alone.
+      if (a.over === 'demo') setOverDemo(true);
       run(a)
         .catch((err: unknown) => {
           if (err instanceof DemoAborted) return;
           console.error(`[script] t=${a.at}s ${a.do} failed`, err);
         })
-        .finally(() => { running -= 1; });
+        .finally(() => { running -= 1; if (a.over === 'demo') setOverDemo(false); });
     };
 
     /* The clock: time-locked, so a late action never delays the next. */
@@ -1112,9 +1215,17 @@ export default function ScriptRunner({
     const step = () => {
       // Held while the built-in demo is on screen; released, in order, when
       // it exits. Later actions are time-locked, so nothing is delayed.
-      if (clk.running() && !demoOpenRef.current) {
+      if (clk.running()) {
         const now = clk.now();
         while (next < actions.length && actions[next].at <= now) {
+          // The first action the demo is holding stops the queue: everything
+          // behind it waits its turn rather than jumping the one in front.
+          // A `demo` action is never held: the script names the demo's span,
+          // and if the demo is already on screen (the cut opens it by clicking
+          // the help button a couple of seconds earlier) there is nothing for
+          // it to do. Held, it would come due the moment the demo ended and
+          // start the whole thing over.
+          if (demoOpenRef.current && actions[next].over !== 'demo' && actions[next].do !== 'demo') break;
           dispatch(actions[next]);
           next += 1;
         }
@@ -1262,7 +1373,7 @@ export default function ScriptRunner({
           marginTop: -hot.y,
           transformOrigin: `${hot.x}px ${hot.y}px`,
           filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.45))',
-          opacity: started && !demoOpen ? 1 : 0,
+          opacity: started && (!demoOpen || overDemo) ? 1 : 0,
         }}
       >
         <DemoCursor kind={kind} />
