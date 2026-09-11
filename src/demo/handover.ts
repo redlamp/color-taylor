@@ -1,5 +1,6 @@
 /**
- * The one thing the two ghosts have to agree on: who has the screen.
+ * The one thing the two ghosts have to agree on: who has the screen, and
+ * where the one going out of it was standing.
  *
  * The script runner and the built-in demo each draw their own cursor, and for
  * the length of an `over: "demo"` action both are up. Two cursors read as a
@@ -8,15 +9,76 @@
  * walk home and the colour tweening back) waits, so the gesture the script is
  * making is the only thing moving.
  *
- * A window event rather than a prop: the two components are mounted by the
- * same parent but neither owns the other, and this is a moment of the
- * recording rather than a piece of app state.
+ * The cut hands the cursor over four times - the script's ghost clicks the ?
+ * and the demo's takes it, the script's comes back out for the "Have fun!"
+ * underline, the demo's takes it again for the goodbye, and the script's has
+ * it from the demo's exit to the end - and every one of them has to look like
+ * one hand, not two. So each side reports where its cursor is every frame and
+ * the one arriving is placed on the one leaving. Reported rather than passed:
+ * the two components are mounted by the same parent but neither owns the
+ * other, and the last position has to outlive the component that had it (the
+ * demo unmounts at its exit, and that exit is a handover).
+ *
+ * A window event rather than a prop for the over-demo flag, for the same
+ * reason: it is a moment of the recording rather than a piece of app state.
  */
 
 const EVENT = 'color-taylor:script-over-demo';
 
+/** Client pixels. Declared here rather than imported so this stays leaf-level. */
+export interface CursorPoint { x: number; y: number }
+
+/** The two cursors, by the component that draws each. */
+export type CursorOwner = 'ghost' | 'demo';
+
+/**
+ * Where each cursor last was, and whether it is currently drawn.
+ *
+ * A position is never cleared, only overwritten: the demo's last point is
+ * read *after* it unmounts, which is exactly the moment the script's ghost
+ * needs it.
+ */
+const at: Record<CursorOwner, CursorPoint | null> = { ghost: null, demo: null };
+const drawn: Record<CursorOwner, boolean> = { ghost: false, demo: false };
+let overDemo = false;
+
+/** Every frame, from whichever component draws that cursor. */
+export function reportCursor(who: CursorOwner, p: CursorPoint): void {
+  at[who] = { x: p.x, y: p.y };
+}
+
+/** As a cursor's component mounts and unmounts. */
+export function markCursor(who: CursorOwner, on: boolean): void {
+  drawn[who] = on;
+}
+
+/** Where `who` last stood, or null if it has never been on screen this session. */
+export const cursorPos = (who: CursorOwner): CursorPoint | null => at[who];
+
+/**
+ * Which cursor the viewer is looking at: the demo's while it is mounted,
+ * except for the span of an `over: "demo"` gesture, when the script's ghost
+ * is out and the demo's is hidden. Null before either is up.
+ */
+export function liveCursor(): CursorOwner | null {
+  if (drawn.demo && !overDemo) return 'demo';
+  if (drawn.ghost) return 'ghost';
+  return drawn.demo ? 'demo' : null;
+}
+
+/**
+ * Where a cursor about to become live should start: on top of the one it is
+ * taking over from. Null when nothing was on screen to take over from, which
+ * is the cue to fall back to a walk-on from off screen.
+ */
+export function handoverPoint(to: CursorOwner): CursorPoint | null {
+  const from: CursorOwner = to === 'demo' ? 'ghost' : 'demo';
+  return at[from];
+}
+
 /** The script runner, as an `over: "demo"` action starts and ends. */
 export function setScriptOverDemo(on: boolean): void {
+  overDemo = on;
   window.dispatchEvent(new CustomEvent<boolean>(EVENT, { detail: on }));
 }
 

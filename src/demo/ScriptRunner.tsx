@@ -29,7 +29,9 @@ import { createPortal } from 'react-dom';
 import DemoCursor, { CURSOR_BOX, cursorKind, hotspotOf, type CursorKind } from './DemoCursor';
 import { Driver, DemoAborted, centerOf, type Point, type Stage } from './drive';
 import { fieldPoint, hexClientPoint, smooth, type DemoHost } from './steps';
-import { markScriptRunner, setScriptOverDemo } from './handover';
+import {
+  handoverPoint, markCursor, markScriptRunner, reportCursor, setScriptOverDemo,
+} from './handover';
 import { CENTER_X, CENTER_Y, HUE_LABEL_OFFSET, PI, RADIUS } from '../components/hex/hexConstants';
 
 export interface ScriptAction {
@@ -43,10 +45,14 @@ export interface ScriptAction {
   /** `tip`: take the hexagon's hue pill round the ring instead of the tip handle. */
   via?: 'hue-label';
   /**
-   * `rect`: re-measure the target every frame, so the box tracks a group whose
-   * own size is what the line is about (`range:rgb`, which is the span of the
-   * three RGB handles). It stands live for its whole `hold` as well as while
-   * it is drawn.
+   * `rect`/`circle`: re-measure the target every frame, so the callout tracks
+   * something that moves while it stands - `range:rgb`, the span of the three
+   * RGB handles, or a ring round one handle while saturation is dragged. It
+   * stands live for its whole `hold` as well as while it is drawn.
+   *
+   * A `rect` is static unless this says otherwise. A `circle` on a handle or
+   * the hexagon's tip is live unless this says `false`: those move by
+   * definition, and a ring that stays behind is pointing at the old value.
    */
   live?: boolean;
   /** `rect`: `free` draws the box itself, without the cursor, the way a `circle` does. */
@@ -255,6 +261,23 @@ const smoothstep = (u: number) => u * u * (3 - 2 * u);
 /** A `circle` is a little over one lap, drawn over this long by default. */
 const CIRCLE_TURNS = 1.1;
 const CIRCLE_MS = 1200;
+/**
+ * Points in a live ring's full lap. The same density `ring` gets for free by
+ * adding one point a frame over a default-length draw, so the two look alike.
+ */
+const RING_SAMPLES = 72;
+/**
+ * The `circle` targets that follow what they are drawn around, unless the cue
+ * says `live: false`.
+ *
+ * A ring means "this thing here", and for a slider handle or the hexagon's
+ * tip the whole point of the line it is drawn under is that the thing moves:
+ * the RGB handles spread and close as saturation is dragged, and a ring left
+ * behind at the old value is pointing at the wrong number. A readout
+ * (`value:*`) and a vertex letter do not move, so they are drawn once and
+ * stand.
+ */
+const followsTarget = (name: string) => name.startsWith('handle:') || name === 'hex-tip';
 /** How far a `rect`'s diagonal bows off the straight line, in px: a hand, not a ruler. */
 const DIAG_BOW = 6;
 /**
@@ -507,6 +530,41 @@ class Callouts {
       el.setAttribute('points', pts.join(' '));
       if (u < 1) this.nextFrame(step);
       else this.retire(el, hold);
+    };
+    this.nextFrame(step);
+  }
+
+  /**
+   * A ring that keeps measuring, the way `liveBox` does: the whole polyline
+   * is rebuilt from `point()` every frame, so it follows a target that moves
+   * while it stands - a slider handle under a drag - through the draw and
+   * for the whole of `hold`.
+   *
+   * `ring` cannot do this: it lays the stroke down point by point and the
+   * points already laid are where the target used to be, so a ring round a
+   * handle being dragged smears into a comma. The cost is re-sampling the
+   * lap every frame instead of adding one point to it, which at this many
+   * samples is nothing.
+   */
+  liveRing(point: (u: number) => Point, ms: number, hold: number, color?: string) {
+    const el = this.add('polyline', color);
+    const t0 = performance.now();
+    const step = (now: number) => {
+      const elapsed = now - t0;
+      const u = clamp(elapsed / Math.max(1, ms), 0, 1);
+      const n = Math.max(2, Math.round(RING_SAMPLES * u));
+      const pts: string[] = [];
+      for (let i = 0; i <= n; i++) {
+        const p = point((u * i) / n);
+        pts.push(`${p.x.toFixed(1)},${p.y.toFixed(1)}`);
+      }
+      el.setAttribute('points', pts.join(' '));
+      if (elapsed < ms + hold) this.nextFrame(step);
+      else {
+        el.style.transition = `opacity ${FADE_MS}ms ease-out`;
+        el.style.opacity = '0';
+        this.later(FADE_MS, () => el.remove());
+      }
     };
     this.nextFrame(step);
   }
@@ -954,6 +1012,8 @@ export default function ScriptRunner({
   const onColorRef = useRef(onColor);
   const demoOpenRef = useRef(demoOpen);
   const onHandleRef = useRef(onHandle);
+  /** Set by the schedule effect: put the ghost down somewhere with no travel. */
+  const placeGhostRef = useRef<((p: Point | null) => void) | null>(null);
   useEffect(() => {
     hostRef.current = host;
     onDemoRef.current = onDemo;
@@ -961,6 +1021,21 @@ export default function ScriptRunner({
     demoOpenRef.current = demoOpen;
     onHandleRef.current = onHandle;
   }, [host, onDemo, onColor, demoOpen, onHandle]);
+
+  /*
+   * The demo just closed: this hand picks up where the demo's left off.
+   *
+   * Without it the ghost comes back at whatever it was doing when the demo
+   * opened - the ? button, three beats ago - and the first gesture after the
+   * demo flies across the screen from a place no cursor has been for a
+   * minute. The demo's last point is still readable after it unmounts, which
+   * is the whole reason handover.ts keeps it rather than passing it.
+   */
+  const wasDemoOpen = useRef(demoOpen);
+  useEffect(() => {
+    if (wasDemoOpen.current && !demoOpen) placeGhostRef.current?.(handoverPoint('ghost'));
+    wasDemoOpen.current = demoOpen;
+  }, [demoOpen]);
 
   useEffect(() => {
     if (given) return;
@@ -1015,6 +1090,36 @@ export default function ScriptRunner({
     const d = new Driver(stage, { reduced: false, speed: 1 }, start);
     const callouts = new Callouts(shapesRef.current);
 
+    /*
+     * Put this hand down at `p` with no travel: the driver's idea of where it
+     * is, the frame loop's, and the drawn cursor's all at once.
+     *
+     * For a handover from the demo's cursor. `d.pos` alone is not enough -
+     * the ghost is hidden while the demo has the screen, so `shown` is
+     * wherever it was parked before the demo opened, and moving only the
+     * driver would make the next gesture fly from a point the cursor is not
+     * drawn at.
+     */
+    const placeGhost = (p: Point | null) => {
+      if (!p) return;
+      d.pos = { x: p.x, y: p.y };
+      target = { x: p.x, y: p.y };
+      shown = { x: p.x, y: p.y };
+      vx = 0;
+      vy = 0;
+      // Straight to the DOM as well as to the frame loop. Showing the ghost is
+      // a React state change and the position is written on the next animation
+      // frame, and in that order there is one frame - the frame the handover
+      // happens on - with the cursor visible at the point it was parked at
+      // before the demo opened.
+      const el = cursorRef.current;
+      if (el) {
+        el.style.left = `${p.x}px`;
+        el.style.top = `${p.y}px`;
+      }
+    };
+    placeGhostRef.current = placeGhost;
+
     const frame = () => {
       const dx = target.x - shown.x;
       const dy = target.y - shown.y;
@@ -1031,6 +1136,8 @@ export default function ScriptRunner({
         cursor.style.transformOrigin = `${hot.x}px ${hot.y}px`;
         cursor.style.transform = `rotate(${tilt.toFixed(2)}deg) scale(${pressed ? 0.86 : 1})`;
       }
+      // Where this hand is, for whichever hand takes over next. See handover.ts.
+      reportCursor('ghost', shown);
       const dot = rippleRef.current;
       if (dot && ring) {
         const t = (performance.now() - ring.start) / RIPPLE_MS;
@@ -1144,10 +1251,18 @@ export default function ScriptRunner({
           // around something the page is scrolling stays on it.
           const turns = a.turns ?? CIRCLE_TURNS;
           const wobble = a.wobble ?? LOOP_WOBBLE;
-          callouts.ring((u) => {
+          const point = (u: number) => {
             const { rx, ry } = circuitRadii(t, 1);
             return circuitPoint(t.at(), rx, ry, turns, wobble)(u);
-          }, a.ms ?? CIRCLE_MS, a.hold ?? HOLD_MS, a.color);
+          };
+          const ms = a.ms ?? CIRCLE_MS;
+          const hold = a.hold ?? HOLD_MS;
+          // On a handle, the ring goes with it; see `followsTarget`.
+          if (a.live ?? followsTarget(a.target ?? '')) {
+            callouts.liveRing(point, ms, hold, a.color);
+            return;
+          }
+          callouts.ring(point, ms, hold, a.color);
           return;
         }
         case 'ray': {
@@ -1454,7 +1569,14 @@ export default function ScriptRunner({
       running += 1;
       // An over-demo gesture brings the ghost out for as long as it lasts;
       // the rest of the demo's span it is the demo's cursor on screen alone.
-      if (a.over === 'demo') { setOverDemo(true); setScriptOverDemo(true); }
+      // It comes out on top of the demo's cursor, not at the ? button it was
+      // parked on before the demo opened: the underline on "Have fun!" is the
+      // same hand the demo has been using, taking one more step.
+      if (a.over === 'demo') {
+        placeGhost(handoverPoint('ghost'));
+        setOverDemo(true);
+        setScriptOverDemo(true);
+      }
       run(a)
         .catch((err: unknown) => {
           if (err instanceof DemoAborted) return;
@@ -1591,6 +1713,7 @@ export default function ScriptRunner({
     // The built-in demo's goodbye asks whether a script is on screen before it
     // decides how long to wait for one. See handover.ts.
     markScriptRunner(true);
+    markCursor('ghost', true);
 
     // requestAnimationFrame is suspended while the document is hidden (a tab
     // switched away, a minimized or occluded window) but the clock driving
@@ -1601,6 +1724,8 @@ export default function ScriptRunner({
 
     return () => {
       markScriptRunner(false);
+      markCursor('ghost', false);
+      placeGhostRef.current = null;
       setScriptOverDemo(false);
       onHandleRef.current?.(null);
       teardown();

@@ -33,7 +33,9 @@ import { createPortal } from 'react-dom';
 import { ChevronLeft, ChevronRight, Volume2, VolumeX } from 'lucide-react';
 import DemoCursor, { CURSOR_BOX, cursorKind, hotspotOf, type CursorKind } from './DemoCursor';
 import { Driver, DemoAborted, offscreenEdge, type Point, type Stage } from './drive';
-import { onScriptOverDemo, scriptRunnerPresent, OVER_DEMO_GRACE_MS } from './handover';
+import {
+  markCursor, onScriptOverDemo, reportCursor, scriptRunnerPresent, OVER_DEMO_GRACE_MS,
+} from './handover';
 import {
   STEPS, SIGN_OFF, SIGN_OFF_MS, SIGN_OFF_FADE_MS, EXIT_MS,
   NARRATION_READY, carryHome, closingPose, exitPose, openingPose, type DemoHost,
@@ -242,7 +244,13 @@ export default function DemoRunner({ from = null, cursorFrom = null, onRestore, 
   /* The ghost: one rAF for the life of the overlay, driving position and lean. */
   useEffect(() => {
     const hot = hotspotOf(kind);
-    let target: Point = { x: window.innerWidth * 0.5, y: window.innerHeight + 80 };
+    // Parked below the fold unless something handed the cursor over, in which
+    // case it starts on top of the cursor it is taking over from - on the
+    // first frame, not on the frame after it, or the hand appears for a
+    // sixtieth of a second at the bottom of the screen before it is placed.
+    let target: Point = cursorFrom
+      ? { ...cursorFrom }
+      : { x: window.innerWidth * 0.5, y: window.innerHeight + 80 };
     let shown: Point = { ...target };
     let vx = 0;
     let vy = 0;
@@ -358,6 +366,10 @@ export default function DemoRunner({ from = null, cursorFrom = null, onRestore, 
         cursor.style.transformOrigin = `${hot.x}px ${hot.y}px`;
         cursor.style.transform = `rotate(${tilt.toFixed(2)}deg) scale(${pressed ? 0.86 : 1})`;
       }
+      // Where this hand is, for the script's ghost when it takes over - for
+      // the "Have fun!" underline, and again at this demo's exit, which
+      // happens after this component is gone. See handover.ts.
+      reportCursor('demo', shown);
       const dot = rippleRef.current;
       if (dot && ring) {
         const t = (performance.now() - ring.start) / RIPPLE_MS;
@@ -436,8 +448,10 @@ export default function DemoRunner({ from = null, cursorFrom = null, onRestore, 
     raf = requestAnimationFrame(frame);
 
     driverRef.current = new Driver(stage, { reduced, speed: demoSpeed() }, target);
+    markCursor('demo', true);
 
     return () => {
+      markCursor('demo', false);
       cancelAnimationFrame(raf);
       setTail('');
       driverRef.current?.stop();
