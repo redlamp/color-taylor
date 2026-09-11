@@ -29,13 +29,14 @@ import { createPortal } from 'react-dom';
 import DemoCursor, { CURSOR_BOX, cursorKind, hotspotOf, type CursorKind } from './DemoCursor';
 import { Driver, DemoAborted, centerOf, type Point, type Stage } from './drive';
 import { fieldPoint, hexClientPoint, smooth, type DemoHost } from './steps';
+import { Camera, CAMERA_ID, CAMERA_MS, cameraMode, type CameraEase, type CameraState } from './camera';
 import { CENTER_X, CENTER_Y, HUE_LABEL_OFFSET, PI, RADIUS } from '../components/hex/hexConstants';
 
 export interface ScriptAction {
   /** Seconds into the cut at which the action begins. */
   at: number;
   do: 'rest' | 'hover' | 'walk' | 'click' | 'loop' | 'circle' | 'rect' | 'orbit' | 'stem' | 'wander'
-    | 'demo' | 'slider' | 'box' | 'tip' | 'color' | 'scroll' | 'leave' | 'underline';
+    | 'demo' | 'slider' | 'box' | 'tip' | 'color' | 'scroll' | 'leave' | 'underline' | 'camera';
   target?: string;
   targets?: string[];
   ms?: number;
@@ -62,6 +63,16 @@ export interface ScriptAction {
   h?: number;
   s?: number;
   b?: number;
+  /**
+   * `camera`: where to put the frame. `zoom` is the scale (1 is the whole
+   * app), `target` the element to centre on, or `x`/`y` a point as fractions
+   * of the app's width and height instead. `ms` is the length of the move and
+   * `ease` its shape.
+   */
+  zoom?: number;
+  x?: number;
+  y?: number;
+  ease?: CameraEase;
 }
 
 export type RectCorner = 'tl' | 'tr' | 'bl' | 'br';
@@ -666,8 +677,13 @@ function boxPoint(box: Element, s: number, b: number): Point {
   return { x: r.left + (clamp(s, 0, 100) / 100) * r.width, y: r.top + (1 - clamp(b, 0, 100) / 100) * r.height };
 }
 
-/** The actions that never take the cursor, so they neither interrupt nor get interrupted. */
-const handsFree = (a: ScriptAction) => a.do === 'circle' || (a.do === 'rect' && a.hands === 'free');
+/**
+ * The actions that never take the cursor, so they neither interrupt nor get
+ * interrupted. A `camera` is one of them: the frame moves while the hands
+ * carry on with whatever drag they are in the middle of.
+ */
+const handsFree = (a: ScriptAction) =>
+  a.do === 'circle' || a.do === 'camera' || (a.do === 'rect' && a.hands === 'free');
 
 function warnMissing(action: ScriptAction, name: string | undefined) {
   console.warn(`[script] t=${action.at}s ${action.do}: no target for "${name ?? '(none)'}"`);
@@ -742,6 +758,33 @@ export default function ScriptRunner({
     };
     const d = new Driver(stage, { reduced: false, speed: 1 }, start);
     const callouts = new Callouts(shapesRef.current);
+    const cam = new Camera(document.getElementById(CAMERA_ID), cameraMode());
+    // A handle on the frame for the console, for checking a push-in against
+    // a capture without cueing one. Dev builds only.
+    if (import.meta.env.DEV) (window as unknown as { __camera?: Camera }).__camera = cam;
+    /**
+     * Framing a target is the camera's job while it is pushed in, so the
+     * page is left where it is: `bring` scrolls a target that is off screen
+     * into view, and off screen is the normal state of most of the app at
+     * zoom 2. At home it is the Driver's own `bring`, unchanged.
+     */
+    const bring = (el: Element, always = false) =>
+      cam.zoom > 1.0001 ? Promise.resolve() : d.bring(el, always);
+    /** Where a `camera` cue puts the frame, in the wrapper's own pixels. */
+    const framing = (a: ScriptAction): CameraState | null => {
+      const zoom = Math.max(1, a.zoom ?? 1);
+      if (a.target) {
+        const t = resolve(a.target, hostRef.current);
+        if (!t) { warnMissing(a, a.target); return null; }
+        return { zoom, focus: cam.toLocal(t.at()) };
+      }
+      if (typeof a.x === 'number' || typeof a.y === 'number') {
+        return { zoom, focus: cam.fractionToLocal(a.x ?? 0.5, a.y ?? 0.5) };
+      }
+      // No subject: a pure zoom, holding whatever is in the middle of the
+      // frame now. At zoom 1 the clamp centres the app whatever the focus is.
+      return { zoom, focus: cam.focus };
+    };
 
     const frame = () => {
       const dx = target.x - shown.x;
@@ -811,14 +854,14 @@ export default function ScriptRunner({
         case 'rest': {
           const t = need(a.target);
           if (!t) return;
-          await d.bring(t.el);
+          await bring(t.el);
           await d.moveTo(t.at);
           return;
         }
         case 'hover': {
           const t = need(a.target);
           if (!t) return;
-          await d.bring(t.el);
+          await bring(t.el);
           await d.moveTo(t.at);
           await d.wait(a.ms ?? 0);
           return;
@@ -830,7 +873,7 @@ export default function ScriptRunner({
           for (const name of names) {
             const t = need(name);
             if (!t) continue;
-            await d.bring(t.el);
+            await bring(t.el);
             await d.moveTo(t.at, MOVE_MS);
             await d.wait(dwell);
           }
@@ -839,7 +882,7 @@ export default function ScriptRunner({
         case 'click': {
           const t = need(a.target);
           if (!t) return;
-          await d.bring(t.el);
+          await bring(t.el);
           // Travel scales with distance: a hop to the next button over is
           // quick, so a click scheduled close behind a hover still lands
           // before the following action takes the hands.
@@ -852,7 +895,7 @@ export default function ScriptRunner({
         case 'loop': {
           const t = need(a.target);
           if (!t) return;
-          await d.bring(t.el);
+          await bring(t.el);
           const c = t.at();
           // A loop keeps well inside its target.
           const { rx, ry } = circuitRadii(t, LOOP_RADIUS);
@@ -891,7 +934,7 @@ export default function ScriptRunner({
             callouts.box(p0, p1, a.ms ?? CIRCLE_MS, a.hold ?? HOLD_MS);
             return;
           }
-          await d.bring(t.el);
+          await bring(t.el);
           const { start: p0, end: p1 } = rectCorners(t.rect(), from);
           // The travel to the first corner comes out of the action's own
           // budget, so the diagonal is done by the time the next action is
@@ -917,14 +960,14 @@ export default function ScriptRunner({
         case 'wander': {
           const t = need(a.target);
           if (!t) return;
-          await d.bring(t.el);
+          await bring(t.el);
           await d.path(wanderPoint({ ...d.pos }, t.at()), a.ms ?? 1500);
           return;
         }
         case 'orbit': {
           const tip = tipEl();
           if (!tip) { warnMissing(a, 'hex-tip'); return; }
-          await d.bring(tip);
+          await bring(tip);
           const c = centerOf(tip);
           await d.moveTo(() => c);
           const f = hostRef.current.field();
@@ -947,7 +990,7 @@ export default function ScriptRunner({
           if (!t) return;
           const ends = stemEnds(t.el);
           if (!ends) { warnMissing(a, name); return; }
-          await d.bring(t.el);
+          await bring(t.el);
           // Along the stem's own axis, from its midpoint: the component
           // projects the pointer onto the channel's direction, so a move of
           // `amount` x the stem's length changes the channel by that fraction.
@@ -978,7 +1021,7 @@ export default function ScriptRunner({
           const to = typeof a.to === 'number' ? a.to : from;
           const budget = a.ms ?? 1000;
           const split = hueStrip ? splitBudget(budget) : null;
-          await d.bring(t.el);
+          await bring(t.el);
           await d.moveTo(() => trackPoint(name, t.el, from), split?.travel);
           await d.drag(t.el, (u) => trackPoint(name, t.el, from + (to - from) * smooth(u)), split?.gesture ?? budget, true);
           return;
@@ -993,7 +1036,7 @@ export default function ScriptRunner({
           const from: [number, number] = Array.isArray(a.from) ? a.from : [f.s, f.b];
           const to: [number, number] = Array.isArray(a.to) ? a.to : from;
           const { travel, gesture } = splitBudget(a.ms ?? 1500);
-          await d.bring(t.el);
+          await bring(t.el);
           await d.moveTo(() => boxPoint(t.el, from[0], from[1]), travel);
           await d.drag(t.el, (u) => {
             const k = smooth(u);
@@ -1009,7 +1052,7 @@ export default function ScriptRunner({
             // the way. The start is read once; the path carries it round.
             const t = need('hex-hue-label');
             if (!t) return;
-            await d.bring(t.el);
+            await bring(t.el);
             // Travel scales with distance, and is nothing when the cursor is
             // already on the pill (the hover before, or the turn before), so
             // a 1.4 s turn cued 1.5 s before the next one is done in time.
@@ -1024,7 +1067,7 @@ export default function ScriptRunner({
           }
           const tip = tipEl();
           if (!tip) { warnMissing(a, 'hex-tip'); return; }
-          await d.bring(tip);
+          await bring(tip);
           const c = centerOf(tip);
           // Travel scales with distance, so a turn cued right behind another
           // one (the +-30 pair in beat 8) starts on time instead of overrunning.
@@ -1035,6 +1078,14 @@ export default function ScriptRunner({
           const sat = clamp(f.s / 100, 0.05, 1);
           const degrees = a.degrees ?? 0;
           await d.drag(tip, (u) => fieldPoint(f.h + degrees * smooth(u), sat, f) ?? c, a.ms ?? 1000, true);
+          return;
+        }
+        case 'camera': {
+          // Hands free: the move is the camera's own tween, so it runs
+          // alongside whatever the cursor is doing and the next cue does not
+          // cut it short. See src/demo/camera.ts.
+          const to = framing(a);
+          if (to) cam.move(to, a.ms ?? CAMERA_MS, a.ease);
           return;
         }
         case 'color': {
@@ -1139,16 +1190,23 @@ export default function ScriptRunner({
       next = i;
       let color: ScriptAction | null = null;
       let pose: ScriptAction | null = null;
+      let shot: ScriptAction | null = null;
       for (const a of actions) {
         if (a.at >= t) break;
         if (a.do === 'color') color = a;
+        if (a.do === 'camera') shot = a;
         if ((a.do === 'rest' || a.do === 'hover') && a.target) pose = a;
       }
       if (color) onColorRef.current({ h: color.h ?? 0, s: color.s ?? 0, b: color.b ?? 0 });
+      // Every camera cue is an absolute framing, so the last one before `t`
+      // is the whole camera state at `t`: land on it with no tween, and go
+      // home when there is nothing before `t` at all. Done before the pose,
+      // which is measured in screen space and so depends on the framing.
+      cam.set(shot ? framing(shot) ?? cam.home() : cam.home());
       const target = pose?.target ? resolve(pose.target, hostRef.current) : null;
       if (!target) return;
       running += 1;
-      d.bring(target.el)
+      bring(target.el)
         .then(() => d.moveTo(target.at, SEEK_MOVE_MS))
         .catch((err: unknown) => {
           if (!(err instanceof DemoAborted)) console.error('[script] seek failed', err);
@@ -1220,6 +1278,8 @@ export default function ScriptRunner({
       window.clearInterval(fallback);
       d.stop();
       callouts.clear();
+      cam.reset();
+      if (import.meta.env.DEV) delete (window as unknown as { __camera?: Camera }).__camera;
     };
   }, [script, kind, external]);
 

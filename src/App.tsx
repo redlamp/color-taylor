@@ -8,6 +8,7 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { ThemeProvider, useTheme } from './hooks/useTheme'
 import { SettingsProvider } from './hooks/useSettings'
 import { useHashRoute } from './hooks/useHashRoute'
+import { CAMERA_ID } from './demo/camera'
 const PresentationShell = lazy(() => import('./presentation/PresentationShell'))
 
 function App() {
@@ -51,6 +52,12 @@ function AppInner() {
           transition: 'background-color 0.3s ease-in-out',
         }}
       />
+      {/* The camera's wrapper. Nothing is on it until a `camera` cue in a
+          video script scales and slides it (src/demo/camera.ts); the ghost
+          cursor, the script's drawn callouts and presentation mode's
+          transport are all portalled to <body>, outside it, so a push-in
+          moves the app and leaves the recording's furniture alone. */}
+      <div id={CAMERA_ID}>
       {isPresentation ? (
         <Suspense fallback={null}>
           <PresentationShell navigate={navigate} />
@@ -70,6 +77,7 @@ function AppInner() {
           </div>
         </div>
       )}
+      </div>
     </>
   )
 }

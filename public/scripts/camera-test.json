@@ -1,0 +1,27 @@
+{
+  "source": "none - a bench for the camera action, not a cut",
+  "notes": "25 s from a first visit: close the intro, push in to 1.8x on the hexagon and work a stem while zoomed, slide across to the RGB bank at 2.2x and run the R slider there, then pull back to the full frame. Every gesture is an existing action on an existing target; the only new cue is `camera`, which is hands-free, so the pull-back at 21 s runs while the ghost is still on the bank. Run it with ?script=camera-test&go=0, or review it with ?present=camera-test.",
+  "color": {
+    "h": 30,
+    "s": 90,
+    "b": 100
+  },
+  "actions": [
+    { "at": 0.4, "do": "rest", "target": "about-close" },
+    { "at": 1.6, "do": "click", "target": "about-close" },
+    { "at": 2.4, "do": "rest", "target": "hex-field" },
+    { "at": 3.0, "do": "camera", "target": "hex-field", "zoom": 1.8, "ms": 1100 },
+    { "at": 4.6, "do": "hover", "target": "hex-tip", "ms": 1400 },
+    { "at": 6.4, "do": "stem", "ch": "g", "amount": 0.34, "ms": 1700 },
+    { "at": 8.6, "do": "stem", "ch": "g", "amount": -0.3, "ms": 1600 },
+    { "at": 10.8, "do": "hover", "target": "letter:r", "ms": 1200 },
+    { "at": 12.6, "do": "camera", "target": "sliders:rgb", "zoom": 2.2, "ms": 1400 },
+    { "at": 14.4, "do": "rest", "target": "slider:r" },
+    { "at": 15.4, "do": "slider", "target": "slider:r", "from": 25, "to": 92, "ms": 2100 },
+    { "at": 18.0, "do": "slider", "target": "slider:r", "from": 92, "to": 45, "ms": 1800 },
+    { "at": 20.2, "do": "hover", "target": "values:rgb", "ms": 1000 },
+    { "at": 21.4, "do": "camera", "zoom": 1, "ms": 900 },
+    { "at": 22.6, "do": "rest", "target": "between-panels" },
+    { "at": 24.0, "do": "leave" }
+  ]
+}
