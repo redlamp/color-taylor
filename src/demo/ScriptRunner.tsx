@@ -1107,7 +1107,9 @@ export default function ScriptRunner({
     // external one. Declared before the clock is built, which is what sets it.
     let teardown: () => void = () => {};
     const clk: ScriptClock = external ?? recordingClock();
-    const tick = () => {
+    // Fire every action whose cue has passed. Safe to call from more than
+    // one clock: an action dispatches once, when `next` moves past it.
+    const step = () => {
       // Held while the built-in demo is on screen; released, in order, when
       // it exits. Later actions are time-locked, so nothing is delayed.
       if (clk.running() && !demoOpenRef.current) {
@@ -1117,6 +1119,9 @@ export default function ScriptRunner({
           next += 1;
         }
       }
+    };
+    const tick = () => {
+      step();
       // An external clock can be wound back, so its loop never retires.
       if (external || next < actions.length) loop = requestAnimationFrame(tick);
     };
@@ -1200,11 +1205,19 @@ export default function ScriptRunner({
     loop = requestAnimationFrame(tick);
     onHandleRef.current?.({ seek });
 
+    // requestAnimationFrame is suspended while the document is hidden (a tab
+    // switched away, a minimized or occluded window) but the clock driving
+    // the run keeps advancing, so a cue due in that window sat unfired until
+    // the next visible frame. A slow poll on `step` keeps dispatch alive
+    // without adding a second animation loop.
+    const fallback = window.setInterval(step, 250);
+
     return () => {
       onHandleRef.current?.(null);
       teardown();
       cancelAnimationFrame(raf);
       cancelAnimationFrame(loop);
+      window.clearInterval(fallback);
       d.stop();
       callouts.clear();
     };
