@@ -52,6 +52,14 @@ export interface ScriptAction {
   /** `rect`: `free` draws the box itself, without the cursor, the way a `circle` does. */
   hands?: 'free';
   /**
+   * `rect`: the hands are already on the first corner, so the whole `ms` is
+   * the diagonal and none of it is travel. For a marquee that has to start on
+   * a word: cue a `rest` at `corner:<target>:<from>` half a second earlier and
+   * the box begins growing on the cue rather than a trip's worth of time after
+   * it. Ignored by a `rect` whose hands are `free`, which never travels.
+   */
+  pre?: boolean;
+  /**
    * `rect`/`circle`/`ray`: the callout's stroke, any CSS color. Default is the
    * layer's own red, so a callout that is not naming a channel needs nothing.
    */
@@ -227,8 +235,16 @@ const HANDLE_RING = 1.8;
  * it is drawn in.
  */
 const HANDLE_RING_MIN = 18;
-/** How far the span of a group of handles is padded for `range:rgb`. */
-const RANGE_PAD = 8;
+/**
+ * How far the span of the three RGB handles is padded for `range:rgb`, across
+ * and down. Measured against the markers themselves rather than the tracks, and
+ * wider than it is tall because the markers are 10px arrows under a 300px
+ * track: at the old uniform 8px the outer two sat on the box's own stroke,
+ * which is 8px of its own, and the thing the callout was drawn around was
+ * half underneath the drawing.
+ */
+const RANGE_PAD_X = 14;
+const RANGE_PAD_Y = 10;
 
 /** Default turns and wobble for a `loop`, and the y squash that keeps it off a circle. */
 const LOOP_TURNS = 1.3;
@@ -285,6 +301,9 @@ const HUE_GRIP_CLEAR = 2;
  * corner, so the hand stays on screen for nearly the whole trip), and how far
  * past the right edge "off" is.
  */
+/** Where the ghost waits when it is not wanted: off screen through the bottom-right corner. */
+const OFFSCREEN_REACH = 180;
+const OFFSCREEN_BR = (): Point => ({ x: window.innerWidth + OFFSCREEN_REACH, y: window.innerHeight + OFFSCREEN_REACH });
 const PIP_GRIP_X = 28;
 const PIP_GRIP_Y = 14;
 const PIP_OFF_CLEAR = 8;
@@ -549,6 +568,35 @@ function wanderPoint(p0: Point, p3: Point): (u: number) => Point {
 }
 
 /**
+ * A smooth path through a list of points: Catmull-Rom, eased over the whole
+ * run so it starts and ends at rest, with the ends duplicated so the first
+ * and last legs curve like the middle ones.
+ *
+ * For a wander that is meant to draw the eye over a region rather than go
+ * somewhere - the sweep across the tool before the last beat's controls. A
+ * chain of separate moves stops dead at every waypoint, which reads as four
+ * decisions; one spline reads as one gesture.
+ */
+function splinePoint(pts: Point[]): (u: number) => Point {
+  const p = [pts[0], ...pts, pts[pts.length - 1]];
+  const legs = p.length - 3;
+  return (u) => {
+    const t = smoothstep(u);
+    const x = clamp(t * legs, 0, legs);
+    const i = Math.min(Math.floor(x), legs - 1);
+    const f = x - i;
+    const [a, b, c, d] = [p[i], p[i + 1], p[i + 2], p[i + 3]];
+    const at = (k: 'x' | 'y') => 0.5 * (
+      2 * b[k]
+      + (c[k] - a[k]) * f
+      + (2 * a[k] - 5 * b[k] + 4 * c[k] - d[k]) * f * f
+      + (-a[k] + 3 * b[k] - 3 * c[k] + d[k]) * f * f * f
+    );
+    return { x: at('x'), y: at('y') };
+  };
+}
+
+/**
  * The hue of an orbit, in turns: `turns` laps, landing back on the starting
  * hue. The whole laps go round; the fractional part is a bulge that goes
  * out and comes back, so 1.2 turns reads as a lap and a bit without ending
@@ -766,7 +814,19 @@ function resolve(name: string, host: DemoHost): Target | null {
   if (name === 'settings-about') return byEl(q('#settings-about'));
   if (name.startsWith('stem:')) return byEl(q(`[data-stem][data-hold="hex:${name.slice(5)}"]`));
   if (name.startsWith('corner:')) {
-    const hue = CORNER_HUE[name.slice(7)];
+    // `corner:<target>:<tl|tr|bl|br>` is a corner of another target's box - a
+    // place for the hand to be waiting when a marquee is due to start on a
+    // word. The one-segment form is a vertex of the hexagon, below.
+    const rest = name.slice(7);
+    const cut = rest.lastIndexOf(':');
+    const corner = rest.slice(cut + 1);
+    if (cut > 0 && (corner === 'tl' || corner === 'tr' || corner === 'bl' || corner === 'br')) {
+      const inner = resolve(rest.slice(0, cut), host);
+      if (!inner?.rect) return null;
+      const box = inner.rect;
+      return { el: inner.el, at: () => rectCorners(box(), corner).start };
+    }
+    const hue = CORNER_HUE[rest];
     if (hue === undefined) return null;
     const rad = (hue * PI) / 180;
     return onHex(CENTER_X + RADIUS * Math.cos(rad), CENTER_Y - RADIUS * Math.sin(rad));
@@ -789,12 +849,17 @@ function resolve(name: string, host: DemoHost): Target | null {
     const bottom = q('#slider-rgb-b-track');
     if (handles.length < 3 || !top || !bottom) return null;
     const rect = () => {
-      const xs = handles.map((el) => centerOf(el).x);
+      // The markers' own boxes, not their centres and not the tracks: the box
+      // is a claim about where the three values are, so the three things that
+      // mark them have to be inside it with air around them.
+      const boxes = handles.map((el) => el.getBoundingClientRect());
       const t = top.getBoundingClientRect();
       const b = bottom.getBoundingClientRect();
-      const l = Math.min(...xs);
-      const r = Math.max(...xs);
-      return new DOMRect(l - RANGE_PAD, t.top - RANGE_PAD, r - l + RANGE_PAD * 2, b.bottom - t.top + RANGE_PAD * 2);
+      const l = Math.min(...boxes.map((r) => r.left));
+      const r = Math.max(...boxes.map((r) => r.right));
+      const y = Math.min(t.top, ...boxes.map((r) => r.top));
+      const y2 = Math.max(b.bottom, ...boxes.map((r) => r.bottom));
+      return new DOMRect(l - RANGE_PAD_X, y - RANGE_PAD_Y, r - l + RANGE_PAD_X * 2, y2 - y + RANGE_PAD_Y * 2);
     };
     return { el: handles[0], at: () => rectCenter(rect()), rect };
   }
@@ -920,7 +985,18 @@ export default function ScriptRunner({
   useEffect(() => {
     if (!script) return;
     const hot = hotspotOf(kind);
-    const start: Point = { x: window.innerWidth * 0.5, y: -80 };
+    /*
+      Off screen through the bottom-right corner, and parked there until the
+      first action asks for the hand.
+
+      It used to start just above the top edge at the middle of the window,
+      which put a stationary ghost on the header for the whole of beat 1 on a
+      short window - and the first thing the hand does is take the camera
+      panel, which sits in the bottom-right corner, so the entrance arrived
+      from the far side of the screen. Coming from the corner the panel is in
+      makes the reach for it the short, curved trip it would be for a person.
+    */
+    const start: Point = OFFSCREEN_BR();
     let target: Point = { ...start };
     let shown: Point = { ...start };
     let vx = 0;
@@ -1121,8 +1197,12 @@ export default function ScriptRunner({
           const { start: p0, end: p1 } = rectCorners(t.rect(), from);
           // The travel to the first corner comes out of the action's own
           // budget, so the diagonal is done by the time the next action is
-          // due rather than still running when it takes the hands.
-          const { travel, gesture } = splitBudget(a.ms ?? 1100);
+          // due rather than still running when it takes the hands. `pre` says
+          // a `rest` already put the hand on that corner, so there is no trip
+          // to pay for and the whole budget draws the box.
+          const { travel, gesture } = a.pre
+            ? { travel: 0, gesture: a.ms ?? 1100 }
+            : splitBudget(a.ms ?? 1100);
           // A selection marquee: the box grows from the first corner to
           // wherever the cursor is, and stands once the diagonal is done. Cut
           // short at any point, it snaps to its full size and stands anyway:
@@ -1141,10 +1221,25 @@ export default function ScriptRunner({
           return;
         }
         case 'wander': {
-          const t = need(a.target);
-          if (!t) return;
-          await d.bring(t.el);
-          await d.path(wanderPoint({ ...d.pos }, t.at()), a.ms ?? 1500);
+          // `targets` is a wander through several places rather than to one:
+          // a single smooth spline over the whole list, so the hand sweeps an
+          // S through them instead of stopping at each. One `target` is the
+          // two-point case, which keeps its own bowed cubic.
+          const names = a.targets ?? (a.target ? [a.target] : []);
+          if (!names.length) { warnMissing(a, a.target); return; }
+          const stops: Target[] = [];
+          for (const name of names) {
+            const t = need(name);
+            if (t) stops.push(t);
+          }
+          if (!stops.length) return;
+          for (const t of stops) await d.bring(t.el);
+          const here = { ...d.pos };
+          if (stops.length === 1) {
+            await d.path(wanderPoint(here, stops[0].at()), a.ms ?? 1500);
+            return;
+          }
+          await d.path(splinePoint([here, ...stops.map((t) => t.at())]), a.ms ?? 2400);
           return;
         }
         case 'orbit': {
@@ -1295,6 +1390,12 @@ export default function ScriptRunner({
             // nearly a place.
             setPipOffset(el, to);
           }
+          // Having pushed the panel out through the right edge the hand is out
+          // there with it, level with where the panel was. Curving away to the
+          // corner it came in through finishes the gesture the way it started,
+          // and leaves the ghost parked where the next entrance can arc in from
+          // rather than at the lip of the edge it just crossed.
+          if (a.to !== 'on') await d.moveTo(OFFSCREEN_BR, MOVE_MS * 2);
           return;
         }
         case 'color': {
@@ -1514,7 +1615,14 @@ export default function ScriptRunner({
   const hot = hotspotOf(kind);
 
   return createPortal(
-    <div className="pointer-events-none fixed inset-0 z-[60]" data-testid="script-runner">
+    /*
+      Above the built-in demo's own layer, which is z-60: the demo is a subset
+      of the presentation, and the presentation's hand is the one in front. The
+      cut points at the demo's caption ("Have fun!") with the ghost, and a hand
+      drawn under the thing it is pointing at reads as a bug. Still under the
+      presentation transport (z-80), which is the tool rather than the picture.
+    */
+    <div className="pointer-events-none fixed inset-0 z-[70]" data-testid="script-runner">
       {/* The sync flash: full white for one frame at t=0, invisible otherwise. */}
       <div
         ref={flashRef}

@@ -7,407 +7,407 @@
       "line": 1,
       "text": "Hey, I'm Taylor, and I'm a real person.",
       "start": 1.19,
-      "end": 4.27
+      "end": 3.66
     },
     {
       "beat": 1,
       "title": "Hook",
       "line": 2,
       "text": "I'm also a user experience and product designer.",
-      "start": 4.92,
-      "end": 7.53
+      "start": 3.86,
+      "end": 6.47
     },
     {
       "beat": 1,
       "title": "Hook",
       "line": 3,
       "text": "I'm going to show you something I've been working on.",
-      "start": 7.54,
-      "end": 9.49
+      "start": 6.48,
+      "end": 8.43
     },
     {
       "beat": 1,
       "title": "Hook",
       "line": 4,
       "text": "It's called Color Taylor.",
-      "start": 9.6,
-      "end": 11.66
+      "start": 8.74,
+      "end": 9.93
     },
     {
       "beat": 1,
       "title": "Hook",
       "line": 5,
       "text": "I'll just move myself out of the way.",
-      "start": 12.76,
-      "end": 15.4
+      "start": 10.16,
+      "end": 12.25
     },
     {
       "beat": 2,
       "title": "Demo tour",
       "line": 1,
       "text": "You can find this demo the first time loading the app,",
-      "start": 16.4,
-      "end": 20.28
+      "start": 12.45,
+      "end": 15.1
     },
     {
       "beat": 2,
       "title": "Demo tour",
       "line": 2,
       "text": "or from the question mark button at the top of the app.",
-      "start": 21.88,
-      "end": 25.5
+      "start": 15.3,
+      "end": 17.91
     },
     {
       "beat": 2,
       "title": "Demo tour",
       "line": 3,
       "text": "Start with the sliders and controls you already know.",
-      "start": 27.5,
-      "end": 31.22
+      "start": 18.29,
+      "end": 20.9
     },
     {
       "beat": 2,
       "title": "Demo tour",
       "line": 4,
       "text": "Moving one slider will highlight every other slider it affects.",
-      "start": 36,
-      "end": 39.84
+      "start": 26.64,
+      "end": 29.57
     },
     {
       "beat": 2,
       "title": "Demo tour",
       "line": 5,
       "text": "Click the droplet button to switch between Source or Mixed colored sliders.",
-      "start": 43.7,
-      "end": 48.08
+      "start": 34.75,
+      "end": 38.51
     },
     {
       "beat": 2,
       "title": "Demo tour",
       "line": 6,
       "text": "Click the tags button to show HTML colors on the hex.",
-      "start": 49.4,
-      "end": 53.78
+      "start": 40.33,
+      "end": 43.87
     },
     {
       "beat": 2,
       "title": "Demo tour",
       "line": 7,
       "text": "Drag a handle on the hex and watch the RGB and HSB sliders follow.",
-      "start": 54.7,
-      "end": 59.5
+      "start": 45.85,
+      "end": 49.71
     },
     {
       "beat": 2,
       "title": "Demo tour",
       "line": 8,
       "text": "Having fun is the goal of the tool.",
-      "start": 64.4,
-      "end": 66.07
+      "start": 55.91,
+      "end": 57.57
     },
     {
       "beat": 2,
       "title": "Demo tour",
       "line": 9,
       "text": "It's a playground for people to interact with",
-      "start": 66.08,
-      "end": 68.27
+      "start": 57.59,
+      "end": 59.77
     },
     {
       "beat": 2,
       "title": "Demo tour",
       "line": 10,
       "text": "and see the relationship between color models,",
-      "start": 68.28,
-      "end": 71.56
+      "start": 59.79,
+      "end": 63.06
     },
     {
       "beat": 2,
       "title": "Demo tour",
       "line": 11,
       "text": "specifically RGB and HSB.",
-      "start": 71.84,
-      "end": 74.08
+      "start": 63.34,
+      "end": 64.95
     },
     {
       "beat": 3,
       "title": "The interface",
       "line": 1,
       "text": "The color editor on the right should be familiar to most people who have worked with creative tools.",
-      "start": 75.68,
-      "end": 80.96
+      "start": 65.84,
+      "end": 70.2
     },
     {
       "beat": 3,
       "title": "The interface",
       "line": 2,
       "text": "The hexagon on the left is a different way of displaying the same information.",
-      "start": 82.52,
-      "end": 87.2
+      "start": 70.46,
+      "end": 74.21
     },
     {
       "beat": 3,
       "title": "The interface",
       "line": 3,
       "text": "The difference is that red... green... and blue each get their own direction on the hex, matching where they sit on the hue wheel.",
-      "start": 88.98,
-      "end": 99.5
+      "start": 74.47,
+      "end": 84.75
     },
     {
       "beat": 3,
       "title": "The interface",
       "line": 4,
       "text": "Next, I'll show you what the different handles are doing.",
-      "start": 100.91,
-      "end": 103.21
+      "start": 85.13,
+      "end": 87.43
     },
     {
       "beat": 4,
       "title": "Hue",
       "line": 1,
       "text": "Hue is an angle that ranges from 0 to 360 degrees.",
-      "start": 104.21,
-      "end": 107.78
+      "start": 88.33,
+      "end": 91.9
     },
     {
       "beat": 4,
       "title": "Hue",
       "line": 2,
       "text": "The angle is cast from the center of the hex,",
-      "start": 107.79,
-      "end": 109.9
+      "start": 91.91,
+      "end": 94.02
     },
     {
       "beat": 4,
       "title": "Hue",
       "line": 3,
       "text": "and its direction is based on the combination of red, green, and blue values for that color.",
-      "start": 109.91,
-      "end": 115.65
+      "start": 94.03,
+      "end": 98.78
     },
     {
       "beat": 4,
       "title": "Hue",
       "line": 4,
       "text": "As you adjust the colors they dictate the hue angle.",
-      "start": 117.19,
-      "end": 120.89
+      "start": 99.11,
+      "end": 101.77
     },
     {
       "beat": 5,
       "title": "Saturation",
       "line": 1,
       "text": "Raise the saturation and the three color values spread apart.",
-      "start": 122.32,
-      "end": 126.26
+      "start": 102.7,
+      "end": 105.35
     },
     {
       "beat": 5,
       "title": "Saturation",
       "line": 2,
       "text": "Lower it and they flatten out.",
-      "start": 127.2,
-      "end": 128.93
+      "start": 105.71,
+      "end": 107.44
     },
     {
       "beat": 5,
       "title": "Saturation",
       "line": 3,
       "text": "When all three are equal, there's no saturation, and you're left with gray.",
-      "start": 128.94,
-      "end": 133.24
+      "start": 107.45,
+      "end": 110.75
     },
     {
       "beat": 5,
       "title": "Saturation",
       "line": 4,
       "text": "So saturation is the range between colors, from the highest value down to the lowest.",
-      "start": 134.68,
-      "end": 138.34
+      "start": 111.13,
+      "end": 114.79
     },
     {
       "beat": 5,
       "title": "Saturation",
       "line": 5,
       "text": "Notice the hue didn't change. Same arrangement, only the distance between color values moved.",
-      "start": 138.34,
-      "end": 147.46
+      "start": 114.79,
+      "end": 123.81
     },
     {
       "beat": 6,
       "title": "Brightness",
       "line": 1,
       "text": "Brightness is determined by the highest color value.",
-      "start": 148.6,
-      "end": 152.14
+      "start": 124.73,
+      "end": 127.26
     },
     {
       "beat": 6,
       "title": "Brightness",
       "line": 2,
       "text": "At a hundred percent brightness the hex is at its largest,",
-      "start": 153.62,
-      "end": 156.69
+      "start": 127.54,
+      "end": 130.61
     },
     {
       "beat": 6,
       "title": "Brightness",
       "line": 3,
       "text": "and lowering it shrinks the size of the hex.",
-      "start": 156.7,
-      "end": 159.78
+      "start": 130.62,
+      "end": 132.82
     },
     {
       "beat": 6,
       "title": "Brightness",
       "line": 4,
       "text": "You can still reach full saturation at low brightness,",
-      "start": 161.37,
-      "end": 164.08
+      "start": 133.09,
+      "end": 135.8
     },
     {
       "beat": 6,
       "title": "Brightness",
       "line": 5,
       "text": "it's just within a smaller range of RGB values.",
-      "start": 164.09,
-      "end": 167.21
+      "start": 135.81,
+      "end": 138.7
     },
     {
       "beat": 7,
       "title": "Bridge back to the editor",
       "line": 1,
       "text": "Back on the editor side.",
-      "start": 168.52,
-      "end": 170.68
+      "start": 139.62,
+      "end": 141.78
     },
     {
       "beat": 7,
       "title": "Bridge back to the editor",
       "line": 2,
       "text": "Remember the sliders lighting up in the demo? Here's why.",
-      "start": 170.96,
-      "end": 174.96
+      "start": 142.06,
+      "end": 144.96
     },
     {
       "beat": 7,
       "title": "Bridge back to the editor",
       "line": 3,
       "text": "Saturation pushes the highest and lowest value sliders apart from each other,",
-      "start": 175.76,
-      "end": 179.87
+      "start": 145.34,
+      "end": 149.46
     },
     {
       "beat": 7,
       "title": "Bridge back to the editor",
       "line": 4,
       "text": "or pulls them together when desaturating.",
-      "start": 179.88,
-      "end": 182.4
+      "start": 149.47,
+      "end": 151.58
     },
     {
       "beat": 7,
       "title": "Bridge back to the editor",
       "line": 5,
       "text": "Brightness scales up the red, green, and blue values proportionally.",
-      "start": 184.4,
-      "end": 188.24
+      "start": 151.86,
+      "end": 155.05
     },
     {
       "beat": 8,
       "title": "Equations",
       "line": 1,
       "text": "This app is meant to show the relations between colors as a playground,",
-      "start": 189.87,
-      "end": 193.52
+      "start": 155.94,
+      "end": 159.59
     },
     {
       "beat": 8,
       "title": "Equations",
       "line": 2,
       "text": "but if you want the classroom perspective, check out the equations section.",
-      "start": 193.53,
-      "end": 198.17
+      "start": 159.6,
+      "end": 163.31
     },
     {
       "beat": 8,
       "title": "Equations",
       "line": 3,
       "text": "If there's interest we can explore this more in the future.",
-      "start": 199.85,
-      "end": 203.15
+      "start": 163.57,
+      "end": 166.44
     },
     {
       "beat": 9,
       "title": "Figma plugin",
       "line": 1,
       "text": "If you use Figma, I've also made a Color Taylor plugin that you might like to check out.",
-      "start": 204.15,
-      "end": 208.26
+      "start": 167.22,
+      "end": 171.33
     },
     {
       "beat": 9,
       "title": "Figma plugin",
       "line": 2,
       "text": "You can access that from the top of the app,",
-      "start": 210.68,
-      "end": 212.75
+      "start": 171.67,
+      "end": 173.74
     },
     {
       "beat": 9,
       "title": "Figma plugin",
       "line": 3,
       "text": "and I'll show you how the plugin works in a future video.",
-      "start": 212.76,
-      "end": 216.22
+      "start": 173.75,
+      "end": 176.21
     },
     {
       "beat": 10,
       "title": "Wrap",
       "line": 1,
       "text": "HSL is in the app as well, but that's a video of its own.",
-      "start": 217.32,
-      "end": 221.6
+      "start": 177.14,
+      "end": 180.38
     },
     {
       "beat": 10,
       "title": "Wrap",
       "line": 2,
       "text": "In the future I'd like to add OKLCH support.",
-      "start": 221.84,
-      "end": 225.78
+      "start": 180.5,
+      "end": 183.44
     },
     {
       "beat": 10,
       "title": "Wrap",
       "line": 3,
       "text": "That's Color Taylor!",
-      "start": 227.26,
-      "end": 229.02
+      "start": 183.72,
+      "end": 184.57
     },
     {
       "beat": 10,
       "title": "Wrap",
       "line": 4,
       "text": "Go play with it, and I hope it helps you see the relationship between RGB and HSB in a different light.",
-      "start": 229.9,
-      "end": 236.44
+      "start": 184.87,
+      "end": 190.38
     },
     {
       "beat": 10,
       "title": "Wrap",
       "line": 5,
       "text": "If it's useful, I'd like to hear from you. Questions and feedback are welcome.",
-      "start": 237.18,
-      "end": 241.6
+      "start": 190.64,
+      "end": 195.06
     },
     {
       "beat": 10,
       "title": "Wrap",
       "line": 6,
       "text": "Thanks, see ya.",
-      "start": 242.3,
-      "end": 243.84
+      "start": 195.59,
+      "end": 196.43
     }
   ]
 }

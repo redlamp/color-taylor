@@ -82,6 +82,19 @@ export function offscreenEdge(x: number, reach = 160): Point {
 const ease = (t: number) => t * t * t * (t * (t * 6 - 15) + 10);
 const clamp01 = (t: number) => (t < 0 ? 0 : t > 1 ? 1 : t);
 
+/**
+ * How far a move bows off the straight line, as a fraction of its own length:
+ * the ordinary case, the case with an end off screen, and the ceiling that
+ * keeps a full-width trip from swinging out of the window. See `moveTo`.
+ */
+const BOW_NEAR = 0.10;
+const BOW_LONG = 0.22;
+const BOW_MAX = 140;
+
+/** Whether a point is outside the window, which is what makes a move an entrance or an exit. */
+const offScreen = (p: Point) =>
+  p.x < 0 || p.y < 0 || p.x > window.innerWidth || p.y > window.innerHeight;
+
 /** The centre of an element in client coordinates. Zero-height SVG lines included. */
 export function centerOf(el: Element): Point {
   const r = el.getBoundingClientRect();
@@ -254,6 +267,20 @@ export class Driver {
   /**
    * Move the ghost to a target on a quadratic bezier bowing alternately to
    * each side. `at` is a thunk because targets move while the demo runs.
+   *
+   * Every move curves - there is no straight-line case. A hand travelling
+   * between two controls does not draw the shortest path between them, and a
+   * ghost that does reads as a thing being positioned rather than a person
+   * reaching for something. The bow is a fraction of the travel, so a hop
+   * between two neighbouring buttons is almost straight and a trip across the
+   * tool is a visible curve, and it alternates sides so a run of moves does
+   * not read as a repeated flourish.
+   *
+   * A leg with an end off screen - the entrance at the top of the cut, the
+   * exit at the end of it, the reach out past the right edge for the camera
+   * panel - gets a wider arc: most of its length is off screen, so at the
+   * on-screen fraction a 10% bow is very nearly the straight line it is
+   * trying not to be.
    */
   async moveTo(at: () => Point, ms = 520): Promise<void> {
     const p2 = at();
@@ -266,7 +293,8 @@ export class Driver {
     const d = Math.hypot(p2.x - p0.x, p2.y - p0.y);
     const nx = -(p2.y - p0.y) / (d || 1);
     const ny = (p2.x - p0.x) / (d || 1);
-    const bow = Math.min(90, d * 0.3) * this.bow;
+    const long = offScreen(p0) || offScreen(p2);
+    const bow = Math.min(BOW_MAX, d * (long ? BOW_LONG : BOW_NEAR)) * this.bow;
     this.bow = -this.bow;
     const c = { x: (p0.x + p2.x) / 2 + nx * bow, y: (p0.y + p2.y) / 2 + ny * bow };
     await this.animate(ms, (t) => {
