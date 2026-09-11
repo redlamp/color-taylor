@@ -27,6 +27,7 @@ import { HEX_PANEL_WIDTH } from './hex/hexConstants';
 import { AboutPanel } from './AboutPanel';
 import type { DemoHost } from '@/demo/steps';
 import { openDemoSections, restoreDemoSections } from '@/utils/demoSections';
+import { handoverPoint, scriptRunnerPresent } from '@/demo/handover';
 
 /*
  * The self-running demo, lazy like the deck: it is a few hundred lines that
@@ -573,7 +574,15 @@ export default function ColorPicker() {
     cursorFrom: { x: number; y: number } | null = null,
   ) => {
     setDemoFrom(from);
-    setDemoCursorFrom(cursorFrom);
+    /*
+     * The cut opens the demo by pressing the ? button for real, so this runs
+     * from the button's own onClick with nothing handed in - and the demo's
+     * ghost then walked in from off screen while the script's was still
+     * standing on the button it had just pressed. With a script on screen the
+     * hand it was using is the hand the demo starts with, whichever mode is
+     * driving. See handover.ts.
+     */
+    setDemoCursorFrom(cursorFrom ?? (scriptRunnerPresent() ? handoverPoint('demo') : null));
     takeOverFromAnimation();
     demoSnapshot.current = { hsb: { ...hsbRef.current }, rgb: { ...rgb }, groups, blend, showHtmlOnHex };
     // Ask any section the script works in to open, before the overlay mounts,
