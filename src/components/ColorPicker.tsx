@@ -38,12 +38,15 @@ const ScriptRunner = lazy(() => import('@/demo/ScriptRunner'));
 const PresentationMode = lazy(() => import('@/demo/PresentationMode'));
 
 /**
- * `?script=<name>` puts the picker under a recorded video script: the runner
- * mounts and the app opens exactly as on a first visit (welcome panel and all)
- * and sits idle at its default color until the script starts. The script
- * closes the panel itself. See docs/demo-script.md.
+ * `?script=<name>` (dev builds only) puts the picker under a recorded video
+ * script: the runner mounts and the app opens exactly as on a first visit
+ * (welcome panel and all) and sits idle at its default color until the script
+ * starts. The script closes the panel itself. Recording runs against the dev
+ * server, so the production bundle never mounts the runner. See
+ * docs/demo-script.md.
  */
 function scriptName(): string | null {
+  if (!import.meta.env.DEV) return null;
   try {
     const raw = new URLSearchParams(window.location.search).get('script');
     return raw && /^[\w-]+$/.test(raw) ? raw : null;
