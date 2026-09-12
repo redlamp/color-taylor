@@ -90,6 +90,17 @@ const presentationNotes = {
             const data = JSON.parse(raw || '{}')
             const notes = Array.isArray(data.notes) ? data.notes : null
             if (!notes) return send(400, { error: 'body needs a notes array' })
+            // An empty list only replaces a file that has notes when the client says it
+            // means to clear (the Clear button sends `clear: true`); anything else that
+            // arrives empty, such as a stale page or a bad reload, is refused.
+            if (notes.length === 0 && data.clear !== true && fs.existsSync(file)) {
+              try {
+                const cur = JSON.parse(fs.readFileSync(file, 'utf8'))
+                if (Array.isArray(cur.notes) && cur.notes.length > 0) {
+                  return send(409, { error: 'refusing to empty a notes file without clear: true', notes: cur.notes })
+                }
+              } catch { /* unreadable: fall through and overwrite */ }
+            }
             fs.mkdirSync(NOTES_DIR, { recursive: true })
             const doc = { source: name, notes }
             fs.writeFileSync(file, JSON.stringify(doc, null, 2) + '\n')

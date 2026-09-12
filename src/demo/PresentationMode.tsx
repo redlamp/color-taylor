@@ -316,9 +316,9 @@ export default function PresentationMode({ name, host, onDemo, onColor, demoOpen
   };
 
   /* Notes: kept on the dev server, whole file each time. */
-  const persist = useCallback((next: Note[]) => {
+  const persist = useCallback((next: Note[], clear = false) => {
     setNotes(next);
-    const body: NotesFile = { source: name, notes: next };
+    const body: NotesFile & { clear?: boolean } = { source: name, notes: next, ...(clear ? { clear: true } : {}) };
     fetch(notesUrl(name), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -349,7 +349,7 @@ export default function PresentationMode({ name, host, onDemo, onColor, demoOpen
     if (clearArmed) {
       if (disarm.current !== null) window.clearTimeout(disarm.current);
       setClearArmed(false);
-      persist([]);
+      persist([], true);
       return;
     }
     setClearArmed(true);
