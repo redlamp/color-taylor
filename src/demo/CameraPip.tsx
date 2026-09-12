@@ -113,6 +113,28 @@ export default function CameraPip() {
   const [clips, setClips] = useState<PipClip[]>([]);
   /** Whether the footage has a frame to show. Until it has, the plate does. */
   const [decoded, setDecoded] = useState(false);
+  /**
+   * The panel's home `left`, so the gap between the app's right edge and the
+   * panel equals the gap between the panel and the display's right edge -
+   * rather than the panel sitting flush 20px off the display edge regardless
+   * of how much room the viewport leaves past the app. `null` while there
+   * isn't a sane app edge to measure from, or the viewport is too narrow to
+   * leave more than a sliver either side; the fixed 20px margin stands in.
+   */
+  const [homeLeft, setHomeLeft] = useState<number | null>(null);
+
+  useEffect(() => {
+    const compute = () => {
+      const app = document.querySelector('#color-editor-group');
+      const appRight = app?.getBoundingClientRect().right;
+      if (appRight == null) { setHomeLeft(null); return; }
+      const gap = (window.innerWidth - appRight - PIP_WIDTH) / 2;
+      setHomeLeft(gap >= 8 ? appRight + gap : null);
+    };
+    compute();
+    window.addEventListener('resize', compute);
+    return () => window.removeEventListener('resize', compute);
+  }, []);
 
   /* The cut's camera footage, when this presentation has any. */
   useEffect(() => {
@@ -296,7 +318,7 @@ export default function CameraPip() {
       aria-hidden="true"
       className="pointer-events-none fixed overflow-hidden"
       style={{
-        right: PIP_MARGIN,
+        ...(homeLeft != null ? { left: homeLeft } : { right: PIP_MARGIN }),
         bottom: PIP_MARGIN,
         width: PIP_WIDTH,
         height: PIP_HEIGHT,

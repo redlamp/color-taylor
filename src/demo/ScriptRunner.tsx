@@ -361,6 +361,8 @@ const OFFSCREEN_BR = (): Point => ({ x: window.innerWidth + OFFSCREEN_REACH, y: 
 const PIP_GRIP_X = 28;
 const PIP_GRIP_Y = 14;
 const PIP_OFF_CLEAR = 8;
+/** How much lower the panel's off-screen resting position sits than home. */
+const PIP_OFF_DROP = 80;
 /**
  * The bow on the panel's own trip out through the right edge, as a fraction
  * of the travel: at the home end, at the off-screen end, and how far below
@@ -378,8 +380,8 @@ const PIP_OFF_CLEAR = 8;
  * out to the right and comes down a little as it goes - and the drag back in
  * is the same curve run backwards.
  */
-const PIP_BOW_HOME = 0.18;
-const PIP_BOW_OFF = 0.26;
+const PIP_BOW_HOME = 0.09;
+const PIP_BOW_OFF = 0.13;
 const PIP_DROP = 0.05;
 const PIP_BOW_MAX = 140;
 /**
@@ -1722,7 +1724,7 @@ export default function ScriptRunner({
           // is not on a track of its own any more: its transform is the
           // cursor's own position less the grip, every frame, so the hand and
           // the picture fly the same arc. See pipArc.
-          const arc = pipArc(home, grip(off, 0));
+          const arc = pipArc(home, grip(off, PIP_OFF_DROP));
           const going = a.to === 'on' ? -1 : 1;
           try {
             await d.moveTo(() => arc(going > 0 ? 0 : 1), MOVE_MS);
@@ -1735,8 +1737,9 @@ export default function ScriptRunner({
             // Land exactly, interrupted or not: a drag cut a frame short of its
             // end leaves the panel a pixel off, and home is a place rather than
             // nearly a place. The arc's own lift goes with it - the panel rides
-            // it while the hand is on it and sits square when the hand is not.
-            setPipOffset(el, going > 0 ? off : 0, 0);
+            // it while the hand is on it and sits square when the hand is not,
+            // 80px lower than home once it is off screen.
+            setPipOffset(el, going > 0 ? off : 0, going > 0 ? PIP_OFF_DROP : 0);
           }
           // Having pushed the panel out through the right edge the hand is out
           // there with it, level with where the panel was. Curving away to the
@@ -1928,7 +1931,8 @@ export default function ScriptRunner({
       const panel = document.getElementById('camera-pip');
       if (panel) {
         const home = panel.getBoundingClientRect().left - pipOffset(panel).x;
-        setPipOffset(panel, pip && pip.to === 'off' ? window.innerWidth - home + PIP_OFF_CLEAR : 0, 0);
+        const isOff = pip && pip.to === 'off';
+        setPipOffset(panel, isOff ? window.innerWidth - home + PIP_OFF_CLEAR : 0, isOff ? PIP_OFF_DROP : 0);
       }
       const target = pose?.target ? resolve(pose.target, hostRef.current) : null;
       if (!target) return;
