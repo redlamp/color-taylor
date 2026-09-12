@@ -10,14 +10,23 @@
  * against when the real camera is on the OBS side.
  *
  * Under `?present=<cut>` the panel plays the take instead: the beats that have
- * Taylor on camera - the intro and the wrap - are cut into one small video per
- * line by redlamp-videos `tools/takes/cut-pip-clips.mjs`, and
+ * Taylor on camera - the intro and the wrap - are cut into one continuous
+ * video per beat by redlamp-videos `tools/takes/cut-pip-clips.mjs`, and
  * `scripts/<cut>-pip.json` says where each one belongs in the cut. That is
  * what makes those beats watchable in context; between them the panel is
  * dragged off the right edge anyway, so nothing is cut for the middle of the
  * video. Where the manifest is missing, or the cut is being played on the
  * page's own clock under `?script=`, the webcam and the plate stand in as
  * before.
+ *
+ * One file per beat rather than per line, and two `<video>` elements rather
+ * than one, because every `src` write is a visible pop: the element blanks
+ * while the new file is decoded. So the element that is on screen never has
+ * its `src` touched. The span it is playing runs the whole beat - the lines
+ * and the silences between them - and the other element sits hidden with the
+ * *next* span loaded and seeked to its first frame, so the change of span is a
+ * change of which one is opaque. The one that just went hidden then takes the
+ * span after that.
  *
  * Mounted only under `?script=` or `?present=` (dev), so nothing about it
  * reaches the app. It moves by `transform` alone, written by the script
@@ -36,7 +45,7 @@ export const PIP_HEIGHT = 362;
 export const PIP_MARGIN = 20;
 export const PIP_RADIUS = 12;
 
-/** One line's footage: `video.currentTime = t - cutStart + clipOffset`. */
+/** One span of footage: `video.currentTime = t - cutStart + clipOffset`. */
 interface PipClip {
   id: string;
   /** Relative to `scripts/`, as the tool writes it: `pip/<cut>/<id>.mp4`. */
@@ -47,12 +56,20 @@ interface PipClip {
 }
 
 /**
- * How far the picture may drift from the voice before it is seeked, in
- * seconds. A frame of the take is 1/60 s, so this is two frames: tight enough
- * that a spoken word and the mouth saying it stay together, loose enough that
- * a `currentTime` write - which restarts decoding - is rare while playing.
+ * How far the picture may drift from the voice while it is playing before it is
+ * seeked, in seconds. A frame of the take is 1/60 s, so this is two frames:
+ * tight enough that a spoken word and the mouth saying it stay together, loose
+ * enough that a `currentTime` write - which restarts decoding, and shows as a
+ * stutter - is rare. It is a threshold and not a correction on every frame for
+ * that reason: a decoder a frame behind catches itself up, a scrub does not.
  */
 const DRIFT = 0.04;
+
+/**
+ * And how far while it is paused, which is half a frame: a scrub has to land on
+ * the exact frame, because nothing after it is going to move.
+ */
+const EXACT = 1 / 120;
 
 /** Read the URL once, the way presentation mode does. Dev builds only. */
 function presentName(): string | null {
@@ -66,23 +83,36 @@ function presentName(): string | null {
 }
 
 /** The entry covering `t`, or the one to hold a frame of when none does. */
-function clipAt(clips: PipClip[], t: number): { clip: PipClip; inside: boolean } | null {
+function clipAt(clips: PipClip[], t: number): { clip: PipClip; i: number; inside: boolean } | null {
   if (!clips.length) return null;
-  let prev: PipClip | null = null;
-  for (const c of clips) {
-    if (t < c.cutStart) break;
-    if (t < c.cutEnd) return { clip: c, inside: true };
-    prev = c;
+  let prev = -1;
+  for (let i = 0; i < clips.length; i++) {
+    if (t < clips[i].cutStart) break;
+    if (t < clips[i].cutEnd) return { clip: clips[i], i, inside: true };
+    prev = i;
   }
   // Before the first entry the panel holds that entry's first frame; after one
   // it holds its last, which is the take carrying on past the line.
-  return prev ? { clip: prev, inside: false } : { clip: clips[0], inside: false };
+  return prev >= 0 ? { clip: clips[prev], i: prev, inside: false } : { clip: clips[0], i: 0, inside: false };
+}
+
+/** One of the two elements, and the span it is pointed at. */
+interface Slot {
+  el: HTMLVideoElement | null;
+  entry: PipClip | null;
+  /** Whether its first frame has been decoded, so showing it is free. */
+  parked: boolean;
 }
 
 export default function CameraPip() {
+  // A is the one the webcam uses, and the one a span is shown on first; B is
+  // its double, hidden, holding the span that comes next.
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const spareRef = useRef<HTMLVideoElement | null>(null);
   const [live, setLive] = useState(false);
   const [clips, setClips] = useState<PipClip[]>([]);
+  /** Whether the footage has a frame to show. Until it has, the plate does. */
+  const [decoded, setDecoded] = useState(false);
 
   /* The cut's camera footage, when this presentation has any. */
   useEffect(() => {
@@ -90,10 +120,13 @@ export default function CameraPip() {
     if (!name) return;
     let alive = true;
     fetch(`${import.meta.env.BASE_URL}scripts/${name}-pip.json`)
-      .then((res) => (res.ok ? (res.json() as Promise<{ lines?: PipClip[] }>) : null))
+      .then((res) => (res.ok ? (res.json() as Promise<{ spans?: PipClip[]; lines?: PipClip[] }>) : null))
       .then((data) => {
-        if (!alive || !data || !Array.isArray(data.lines)) return;
-        setClips([...data.lines].sort((a, b) => a.cutStart - b.cutStart));
+        // `spans` is what the tool writes now; `lines` is its --per-line mode,
+        // which plays by the same rule, one entry to a line.
+        const entries = data?.spans ?? data?.lines;
+        if (!alive || !Array.isArray(entries) || !entries.length) return;
+        setClips([...entries].sort((a, b) => a.cutStart - b.cutStart));
       })
       // No manifest: the cut has no camera clips yet, and the webcam stands in.
       .catch(() => { /* nothing to play */ });
@@ -136,25 +169,84 @@ export default function CameraPip() {
    * pause all show up in `currentTime` and `paused` with nothing to subscribe
    * to. Read every frame, because a scrub writes `currentTime` without ever
    * firing a distinguishable event.
+   *
+   * What a frame does *not* do is touch the `src` of the element on screen.
+   * The two elements hand over instead: the visible one plays its span through,
+   * the hidden one holds the next span decoded at its first frame, and the
+   * moment the clock crosses into it the two swap opacity. See the top of the
+   * file.
    */
   useEffect(() => {
     if (!clips.length) return;
     let raf = 0;
-    let src = '';
     const base = `${import.meta.env.BASE_URL}scripts/`;
+    const slots: Slot[] = [
+      { el: null, entry: null, parked: false },
+      { el: null, entry: null, parked: false },
+    ];
+    /** Which slot is on screen. The other is always hidden and always paused. */
+    let front = 0;
+    /** Set once the front element has a frame. Before that the plate is up. */
+    let ready = false;
+    const show = () => {
+      slots.forEach((s, i) => {
+        if (!s.el) return;
+        s.el.style.opacity = i === front && ready ? '1' : '0';
+        // Which element is live, for a test to read: both are in the DOM.
+        s.el.dataset.front = i === front ? '1' : '0';
+      });
+    };
+    /** Point a slot at a span. Only ever the hidden one, once a span is up. */
+    const attach = (s: Slot, entry: PipClip) => {
+      if (!s.el || s.entry?.file === entry.file) return;
+      s.entry = entry;
+      s.parked = false;
+      s.el.src = base + entry.file;
+      s.el.load();
+    };
+    /**
+     * Its first frame, decoded and waiting. `load()` alone leaves the element
+     * with nothing painted, which is the blank frame the swap is there to
+     * avoid; a seek is what makes it produce one.
+     */
+    const park = (s: Slot) => {
+      if (!s.el || !s.entry || s.parked || s.el.readyState < 1) return;
+      s.el.currentTime = s.entry.clipOffset;
+      s.parked = true;
+    };
     const frame = () => {
       raf = requestAnimationFrame(frame);
-      const v = videoRef.current;
+      slots[0].el = videoRef.current;
+      slots[1].el = spareRef.current;
       const audio = document.querySelector<HTMLAudioElement>('audio[data-testid="present-audio"]');
-      if (!v || !audio) return;
+      if (!slots[0].el || !slots[1].el || !audio) return;
       const t = audio.currentTime;
       const hit = clipAt(clips, t);
       if (!hit) return;
-      const { clip, inside } = hit;
-      if (src !== clip.file) {
-        src = clip.file;
-        v.src = base + clip.file;
+      const { clip, i, inside } = hit;
+
+      if (slots[front].entry?.file !== clip.file) {
+        if (slots[1 - front].entry?.file === clip.file) {
+          // The handover: the span was loaded and decoded before it was due, so
+          // arriving at it costs an opacity write and nothing else.
+          front = 1 - front;
+        } else {
+          // Nothing is holding this span - the first mount, or a scrub across
+          // the middle of the cut - so the visible element takes it. This is
+          // the one case that blanks, and there is no frame to hold instead.
+          attach(slots[front], clip);
+        }
       }
+      const back = slots[1 - front];
+      const next = clips[i + 1] ?? clips[i - 1];
+      if (next && next.file !== clip.file) {
+        attach(back, next);
+        park(back);
+      }
+      if (back.el && !back.el.paused) back.el.pause();
+
+      const v = slots[front].el;
+      if (!v) return;
       // Outside the entry the panel is a still: its last frame, or - before
       // the cut has reached the first entry - its first.
       const want = inside
@@ -164,15 +256,38 @@ export default function CameraPip() {
           : clip.cutEnd - clip.cutStart + clip.clipOffset;
       const playing = inside && !audio.paused && !audio.ended;
       const at = Math.max(0, v.duration ? Math.min(want, v.duration - 1 / 120) : want);
-      if (v.readyState >= 1 && Math.abs(v.currentTime - at) > DRIFT) v.currentTime = at;
+      // Playing, only a gap wide enough to be a seek rather than a decoder a
+      // frame or two behind: correcting every frame is a stutter of its own.
+      // Paused or scrubbed, exactly - the frame on screen is the whole picture.
+      if (v.readyState >= 1 && Math.abs(v.currentTime - at) > (playing ? DRIFT : EXACT)) v.currentTime = at;
       if (playing && v.paused) v.play().catch(() => { /* seeking, or not decodable yet */ });
       else if (!playing && !v.paused) v.pause();
+      if (v.readyState >= 2) { ready = true; setDecoded(true); }
+      show();
     };
     raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
   }, [clips]);
 
-  const showVideo = clips.length > 0 || live;
+  // With the cut's own footage the panel waits for a decoded frame rather than
+  // showing an empty element: at t=0 the first frame of the intro is already
+  // there, so the picture never opens on black.
+  const showVideo = (clips.length > 0 && decoded) || live;
+  const shared = {
+    position: 'absolute' as const,
+    inset: 0,
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover' as const,
+    // A webcam preview is mirrored, the way every camera preview is: the
+    // presenter is watching themselves while the script runs. The cut's
+    // footage is not - it is the picture as it was recorded, and the shelf
+    // behind him reads backwards if it is flipped.
+    transform: clips.length ? 'none' : 'scaleX(-1)',
+    // Always laid out, so the element decodes while it is still invisible; what
+    // hides it is opacity, and the plate underneath shows through until then.
+    display: 'block',
+  };
   return createPortal(
     <div
       id="camera-pip"
@@ -202,18 +317,23 @@ export default function CameraPip() {
         preload="auto"
         data-testid="camera-pip-video"
         data-source={clips.length ? 'cut' : 'webcam'}
-        style={{
-          width: '100%',
-          height: '100%',
-          objectFit: 'cover',
-          // A webcam preview is mirrored, the way every camera preview is: the
-          // presenter is watching themselves while the script runs. The cut's
-          // footage is not - it is the picture as it was recorded, and the
-          // shelf behind him reads backwards if it is flipped.
-          transform: clips.length ? 'none' : 'scaleX(-1)',
-          display: showVideo ? 'block' : 'none',
-        }}
+        data-front="1"
+        style={{ ...shared, opacity: showVideo ? 1 : 0 }}
       />
+      {/* The double, for the span after the one playing. It is never seen
+          while it loads: it is opaque only once it is the one being played. */}
+      {clips.length > 0 && (
+        <video
+          ref={spareRef}
+          muted
+          playsInline
+          preload="auto"
+          data-testid="camera-pip-video-b"
+          data-source="cut"
+          data-front="0"
+          style={{ ...shared, opacity: 0 }}
+        />
+      )}
       {!showVideo && (
         <div
           data-testid="camera-pip-placeholder"
