@@ -203,14 +203,24 @@ function ColorSlider({ label, group, value, max, gradient, suffix, wrap, onChang
   const sliderId = `slider-${channel}`;
   const channelName = CHANNEL_NAMES[channel] ?? label;
 
+  // Beside a stepper the row is the stepper's h-8, and the track and letter
+  // centre on it. The arrow marker needs no padding for its room then: it
+  // hangs 16px under a track that starts 8px down, so it ends on the row's
+  // bottom edge, inside the row. The rows used to be items-start with pb-3 on
+  // the body, which put the track 8px above the stepper's centre.
+  //
+  // Without a stepper nothing sets that height, so the arrow keeps its pb-3
+  // and the row stays top-aligned - that is the presentation's bare sliders.
+  const topAligned = handle !== 'ring' && stepperMode === 'none';
+
   return (
-    <div id={sliderId} className={`flex gap-2 ${handle === 'ring' ? 'items-center' : 'items-start'}`}>
-      <span id={`${sliderId}-label`} className={`w-3 shrink-0 text-right text-xs font-semibold text-muted-foreground ${handle === 'ring' ? '' : 'pt-0.5'}`}>
+    <div id={sliderId} className={`flex gap-2 ${topAligned ? 'items-start' : 'items-center'}`}>
+      <span id={`${sliderId}-label`} className={`w-3 shrink-0 text-right text-xs font-semibold text-muted-foreground ${topAligned ? 'pt-0.5' : ''}`}>
         {label}
       </span>
 
       {/* Track + arrow */}
-      <div id={`${sliderId}-body`} className={`flex-1 min-w-0 ${handle === 'ring' ? '' : 'pb-3'}`}>
+      <div id={`${sliderId}-body`} className={`flex-1 min-w-0 ${topAligned ? 'pb-3' : ''}`}>
         {/* The positioning context is this inner box, not the padded body.
             An absolutely positioned child resolves against the padding box,
             so with padding on the body the handle's 0-100% ran 10px wider
