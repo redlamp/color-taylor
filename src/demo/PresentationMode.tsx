@@ -9,13 +9,19 @@
  * `/__notes/<name>` middleware (vite.config.js) to a JSON file beside the
  * cut's other cue files.
  *
+ * Double-clicking a line's span on the timeline opens the clip editor
+ * (ClipEditor.tsx): the waveform of that line's own clip, its in and out
+ * points, and the gap before it. Applying there rebuilds the cut on disk and
+ * this component re-fetches it in place.
+ *
  * This is a tool, not a surface of the app: the styling is deliberately not
  * the app's. See docs/demo-script.md, "Presentation mode".
  */
 
 import {
   useCallback, useEffect, useMemo, useRef, useState,
-  type CSSProperties, type PointerEvent as ReactPointerEvent,
+  type CSSProperties, type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
 } from 'react';
 import { createPortal } from 'react-dom';
 import ScriptRunner, {
@@ -27,6 +33,7 @@ import ScriptRunner, {
   type ScriptRunnerHandle,
 } from './ScriptRunner';
 import type { DemoHost } from './steps';
+import ClipEditor from './ClipEditor';
 
 /** One spoken line of the cut, with where it sits in the voice track. */
 interface ScriptLine {
@@ -122,6 +129,13 @@ export default function PresentationMode({ name, host, onDemo, onColor, demoOpen
   const [playing, setPlaying] = useState(false);
   const [noting, setNoting] = useState(false);
   const [copied, setCopied] = useState(false);
+  // The clip editor: the line id being edited, opened by double-clicking a span.
+  const [editing, setEditing] = useState<string | null>(null);
+  // Bumped after an Apply. It re-fetches the cut and re-loads the audio in
+  // place, so a round of trimming does not lose the playhead or the page's
+  // state; the ref is where the playhead goes once the new audio has loaded.
+  const [rebuilt, setRebuilt] = useState(0);
+  const resumeAt = useRef<number | null>(null);
   // Collapsed keeps only the transport row on screen, so the app underneath
   // is not hidden by the panel while reviewing. Remembered per browser.
   const [collapsed, setCollapsed] = useState<boolean>(() => {
@@ -134,8 +148,11 @@ export default function PresentationMode({ name, host, onDemo, onColor, demoOpen
   /* The script and its lines; the lines are optional. */
   useEffect(() => {
     let live = true;
+    // `?v=` only after an Apply: the built files were just overwritten, and the
+    // dev server is happy to serve the copy the browser already has.
     const base = `${import.meta.env.BASE_URL}scripts/${name}`;
-    fetch(`${base}.json`)
+    const bust = rebuilt ? `?v=${rebuilt}` : '';
+    fetch(`${base}.json${bust}`)
       .then((res) => {
         if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
         return res.json() as Promise<Script>;
@@ -146,7 +163,7 @@ export default function PresentationMode({ name, host, onDemo, onColor, demoOpen
         setScript({ actions: sortActions(data.actions) });
       })
       .catch((err: unknown) => console.error('[present] could not load', name, err));
-    fetch(`${base}-lines.json`)
+    fetch(`${base}-lines.json${bust}`)
       .then((res) => (res.ok ? (res.json() as Promise<{ lines?: ScriptLine[] }>) : null))
       .then((data) => {
         if (live && data && Array.isArray(data.lines)) {
@@ -166,7 +183,7 @@ export default function PresentationMode({ name, host, onDemo, onColor, demoOpen
         if (live) setNotesError(`notes: ${err instanceof Error ? err.message : String(err)}`);
       });
     return () => { live = false; };
-  }, [name]);
+  }, [name, rebuilt]);
 
   /* The clock: the audio element's position, read on every frame. */
   useEffect(() => {
@@ -202,6 +219,33 @@ export default function PresentationMode({ name, host, onDemo, onColor, demoOpen
     handleRef.current?.seek(clamped);
   }, []);
 
+  /**
+   * After the clip editor's Apply: the audio, the lines and the cues have all
+   * been rebuilt on disk. Re-fetch them rather than reloading the page, so the
+   * app underneath keeps the state the edit was being judged against, and put
+   * the playhead back where it was once the new track has its duration.
+   */
+  const onApplied = useCallback(() => {
+    const a = audioRef.current;
+    resumeAt.current = a ? a.currentTime : 0;
+    a?.pause();
+    setRebuilt(Date.now());
+  }, []);
+  useEffect(() => {
+    const a = audioRef.current;
+    const t = resumeAt.current;
+    if (!a || !rebuilt || t === null) return;
+    resumeAt.current = null;
+    const restore = () => {
+      a.currentTime = Math.min(t, a.duration || t);
+      setTime(a.currentTime);
+      handleRef.current?.seek(a.currentTime);
+    };
+    a.addEventListener('loadedmetadata', restore, { once: true });
+    if (a.readyState >= 1) restore();
+    return () => a.removeEventListener('loadedmetadata', restore);
+  }, [rebuilt]);
+
   const toggle = useCallback(() => {
     const a = audioRef.current;
     if (!a) return;
@@ -213,6 +257,9 @@ export default function PresentationMode({ name, host, onDemo, onColor, demoOpen
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (inTextField(e.target)) return;
+      // The clip editor owns the keyboard while it is open: its handles nudge
+      // with the arrow keys and Space would otherwise start the track under it.
+      if (editing !== null) return;
       if (e.code === 'Space' || e.key === ' ') {
         e.preventDefault();
         e.stopPropagation();
@@ -229,14 +276,14 @@ export default function PresentationMode({ name, host, onDemo, onColor, demoOpen
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
-  }, [toggle]);
+  }, [toggle, editing]);
 
   useEffect(() => {
     if (noting) noteInputRef.current?.focus();
   }, [noting]);
 
   /* Scrubbing: a press seeks, and dragging keeps seeking. */
-  const timeFromPointer = (e: ReactPointerEvent<HTMLDivElement>) => {
+  const timeFromPointer = (e: { clientX: number }) => {
     const el = timelineRef.current;
     if (!el || !duration) return null;
     const r = el.getBoundingClientRect();
@@ -253,6 +300,19 @@ export default function PresentationMode({ name, host, onDemo, onColor, demoOpen
     if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
     const t = timeFromPointer(e);
     if (t !== null) seek(t);
+  };
+  /**
+   * A double-click opens the clip editor for the line under the pointer.
+   *
+   * It is handled here rather than on the span itself: the press sets pointer
+   * capture on the timeline so a drag keeps scrubbing, and the capture makes the
+   * timeline the target of the click and double-click that follow, so a handler
+   * on the span would never hear them.
+   */
+  const onTimelineDouble = (e: ReactMouseEvent<HTMLDivElement>) => {
+    const t = timeFromPointer(e);
+    const l = t === null ? null : lineAt(lines, t);
+    if (l) setEditing(`${l.beat}.${l.line}`);
   };
 
   /* Notes: kept on the dev server, whole file each time. */
@@ -347,7 +407,12 @@ export default function PresentationMode({ name, host, onDemo, onColor, demoOpen
             userSelect: 'none',
           }}
         >
-          <audio ref={audioRef} src={scriptAudioUrl(name)} preload="auto" data-testid="present-audio" />
+          <audio
+            ref={audioRef}
+            src={rebuilt ? `${scriptAudioUrl(name)}?v=${rebuilt}` : scriptAudioUrl(name)}
+            preload="auto"
+            data-testid="present-audio"
+          />
 
           <div style={{ display: collapsed ? 'none' : 'flex', gap: 16, alignItems: 'baseline', minHeight: 18 }}>
             <span data-testid="present-line" style={{ flex: 1, color: '#fff', fontSize: 13 }}>
@@ -365,6 +430,7 @@ export default function PresentationMode({ name, host, onDemo, onColor, demoOpen
             data-testid="present-timeline"
             onPointerDown={onTimelineDown}
             onPointerMove={onTimelineMove}
+            onDoubleClick={onTimelineDouble}
             style={{
               display: collapsed ? 'none' : 'block',
               position: 'relative',
@@ -381,7 +447,8 @@ export default function PresentationMode({ name, host, onDemo, onColor, demoOpen
               <div
                 key={`line-${i}`}
                 data-testid="present-line-span"
-                title={`${l.beat}.${l.line} ${l.text}`}
+                data-line-id={`${l.beat}.${l.line}`}
+                title={`${l.beat}.${l.line} ${l.text} — double-click to edit the clip`}
                 style={{
                   position: 'absolute',
                   top: 4,
@@ -532,6 +599,16 @@ export default function PresentationMode({ name, host, onDemo, onColor, demoOpen
             </ul>
           )}
         </div>,
+        document.body,
+      )}
+      {editing !== null && createPortal(
+        <ClipEditor
+          key={`${name}:${editing}`}
+          name={name}
+          id={editing}
+          onClose={() => setEditing(null)}
+          onApplied={onApplied}
+        />,
         document.body,
       )}
     </>

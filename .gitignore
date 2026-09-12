@@ -44,3 +44,8 @@ dist-lab
 
 # Video script voice tracks: the audio is not source
 public/scripts/*.m4a
+
+# Camera picture-in-picture clips for presentation mode, cut from the take by
+# redlamp-videos tools/takes/cut-pip-clips.mjs. Footage is not source; the
+# manifest beside them (scripts/<cut>-pip.json) is.
+public/scripts/pip/

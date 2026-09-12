@@ -42,6 +42,21 @@ export interface DriverOptions {
   reduced: boolean;
   /** Wall-clock divisor. 1 is the demo as designed; the Playwright spec runs it hot. */
   speed: number;
+  /**
+   * A ceiling on how fast a `moveTo` may travel, in client px per second of
+   * its own average. A move asked to cover more ground than that in its `ms`
+   * is given the time it needs instead: long trips take longer rather than
+   * going faster.
+   *
+   * The recorded cut sets it (see MAX_MOVE_PX_PER_S in ScriptRunner) because a
+   * hand on video that crosses the tool in a fifth of a second reads as a
+   * thing being teleported - Taylor, round 5, on the ghost "jetting" after the
+   * demo's exit. The built-in demo leaves it unset: its steps declare their own
+   * durations as the sum of their dwells, so a move allowed to overrun its `ms`
+   * would slide that step's caption off the moment beat 2's audio is lined up
+   * against.
+   */
+  maxSpeed?: number;
 }
 
 /** How long a press is held before it becomes a click. Steps total themselves with it. */
@@ -297,7 +312,10 @@ export class Driver {
     const bow = Math.min(BOW_MAX, d * (long ? BOW_LONG : BOW_NEAR)) * this.bow;
     this.bow = -this.bow;
     const c = { x: (p0.x + p2.x) / 2 + nx * bow, y: (p0.y + p2.y) / 2 + ny * bow };
-    await this.animate(ms, (t) => {
+    // The speed ceiling, where there is one: the distance decides the time
+    // rather than the time deciding the speed. See DriverOptions.maxSpeed.
+    const span = this.opts.maxSpeed ? Math.max(ms, (d / this.opts.maxSpeed) * 1000) : ms;
+    await this.animate(span, (t) => {
       const u = 1 - t;
       this.place({
         x: u * u * p0.x + 2 * u * t * c.x + t * t * p2.x,
