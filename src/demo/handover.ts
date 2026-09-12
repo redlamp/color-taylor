@@ -39,12 +39,37 @@ export type CursorOwner = 'ghost' | 'demo';
  * needs it.
  */
 const at: Record<CursorOwner, CursorPoint | null> = { ghost: null, demo: null };
+/**
+ * And where each cursor last was while it was still in the window.
+ *
+ * The last position and the last *visible* position are not the same point,
+ * and the handover wants the visible one. Both ends of the demo walk off
+ * screen: its sign-off takes its cursor out through the edge below the fold,
+ * so the point it leaves behind is a hundred-odd pixels past the bottom of
+ * the window. Seeding the script's ghost there meant the first gesture after
+ * the demo flew in from off screen - a long trip at whatever speed its `ms`
+ * implied, which read as the hand jetting rather than reaching (Taylor,
+ * round 5, on beat 2.9). Picked up from where the hand was last *seen*, the
+ * same gesture is a move across the screen at a hand's pace.
+ */
+const seen: Record<CursorOwner, CursorPoint | null> = { ghost: null, demo: null };
 const drawn: Record<CursorOwner, boolean> = { ghost: false, demo: false };
 let overDemo = false;
+
+/**
+ * Inside the window, with nothing to spare. The cursor is drawn with its
+ * hotspot on this point, so a point on the edge is a cursor the viewer can
+ * still see - and a slack of even a few pixels defeats the whole thing, since
+ * an exit walks out through the edge one frame at a time and the last frame
+ * inside the slack is as good as off screen.
+ */
+const onScreen = (p: CursorPoint) =>
+  p.x >= 0 && p.y >= 0 && p.x <= window.innerWidth && p.y <= window.innerHeight;
 
 /** Every frame, from whichever component draws that cursor. */
 export function reportCursor(who: CursorOwner, p: CursorPoint): void {
   at[who] = { x: p.x, y: p.y };
+  if (onScreen(p)) seen[who] = { x: p.x, y: p.y };
 }
 
 /** As a cursor's component mounts and unmounts. */
@@ -73,7 +98,8 @@ export function liveCursor(): CursorOwner | null {
  */
 export function handoverPoint(to: CursorOwner): CursorPoint | null {
   const from: CursorOwner = to === 'demo' ? 'ghost' : 'demo';
-  return at[from];
+  // The last point it was seen at, not the last point it was at: see `seen`.
+  return seen[from] ?? at[from];
 }
 
 /** The script runner, as an `over: "demo"` action starts and ends. */

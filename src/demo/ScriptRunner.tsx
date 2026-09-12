@@ -38,7 +38,7 @@ export interface ScriptAction {
   /** Seconds into the cut at which the action begins. */
   at: number;
   do: 'rest' | 'hover' | 'walk' | 'click' | 'loop' | 'circle' | 'rect' | 'ray' | 'orbit' | 'stem' | 'wander'
-    | 'demo' | 'slider' | 'box' | 'tip' | 'color' | 'scroll' | 'leave' | 'underline' | 'pip';
+    | 'demo' | 'slider' | 'box' | 'tip' | 'color' | 'scroll' | 'leave' | 'underline' | 'pip' | 'zigzag';
   target?: string;
   targets?: string[];
   ms?: number;
@@ -98,6 +98,10 @@ export interface ScriptAction {
   /** `stem`: which channel's stem, and how far along it as a fraction of its length (-1..1). */
   ch?: 'r' | 'g' | 'b';
   amount?: number;
+  /** `zigzag`: how many legs the path is cut into. */
+  legs?: number;
+  /** `zigzag`: the saturation band, 0-100, the legs alternate between. */
+  sat?: [number, number];
   h?: number;
   s?: number;
   b?: number;
@@ -225,6 +229,13 @@ const GROUP_PAD = 10;
  * beat 3.3 overlapped each other and climbed into the bank's toggle row.
  */
 const ROW_PAD = 4;
+/**
+ * Padding around one of the equations panel's channel blocks. Smaller than a
+ * group's: the four blocks are a grid with an 8px gutter, and a box drawn at
+ * GROUP_PAD sat on its neighbours' borders. At 6 the 8px stroke still clears
+ * the card it is around without reaching the next one's text.
+ */
+const EQUATION_PAD = 6;
 /** How tall the header band of a section is taken to be, for `editor-top`. */
 const HEADER_BAND = 60;
 /** A circuit around a vertex letter, as a multiple of the letter's half-size. */
@@ -308,6 +319,21 @@ const RAY_WIDTH = 36;
 const RAY_CENTER_OVER = 24;
 const RAY_LETTER_OVER = 20;
 const CHANNEL_COLOR: Record<string, string> = { r: '#ff3333', g: '#2ecc40', b: '#3b82f6' };
+/**
+ * The ghost's speed ceiling, in client px per second of a move's average.
+ *
+ * Every `moveTo` is given at least the time this implies, so a long trip takes
+ * longer instead of going faster (see DriverOptions.maxSpeed). Taylor, round 5,
+ * on the hand after the demo's exit: "the mouse kind of jets around" - a
+ * gesture whose `ms` was written for a hop within one panel was being handed a
+ * trip across the whole tool and covering it in the same fifth of a second.
+ *
+ * 1200 is a little under what a `click` already travels at (its own budget is
+ * 1.2 ms per px, so 833 px/s), and above the pace of the cut's deliberate long
+ * moves - the walk off screen is 900 ms for at most about 1030 px - so it binds
+ * on the accidents rather than on the choreography.
+ */
+const MAX_MOVE_PX_PER_S = 1200;
 /** How long a finished callout stands before it fades, and how long the fade takes. */
 const HOLD_MS = 900;
 const FADE_MS = 300;
@@ -655,6 +681,40 @@ function splinePoint(pts: Point[]): (u: number) => Point {
 }
 
 /**
+ * A zig-zag across the hexagon's field, in field coordinates: from where the
+ * handle is now, out to one side of the hue band, and then across it in even
+ * steps with the saturation alternating between the ends of its own band. A W
+ * laid over the field rather than a line walked up and down it - hue and
+ * saturation both alternating together would put every odd corner in the same
+ * place and every even corner in the other, and the hand would retrace one
+ * stroke five times.
+ *
+ * Eased per leg rather than over the whole run: a single ease would take the
+ * corners at full speed, which is the one place a hand slows down. The corners
+ * are values rather than points on screen, so the shape is the same wherever
+ * the hexagon happens to be drawn.
+ */
+function zigzagField(
+  h0: number, s0: number, swing: number, band: [number, number], legs: number,
+): (u: number) => { h: number; s: number } {
+  // The hue of corner i, 1-based: -swing to +swing in even steps across the
+  // legs. Corner 0 is wherever the handle already is, so the press moves
+  // nothing.
+  const acrossAt = (i: number) => (legs > 1 ? -swing + (2 * swing * (i - 1)) / (legs - 1) : swing);
+  const corner = (i: number) => (i === 0
+    ? { h: h0, s: s0 }
+    : { h: h0 + acrossAt(i), s: i % 2 ? band[1] : band[0] });
+  return (u) => {
+    const x = clamp(u, 0, 1) * legs;
+    const i = Math.min(Math.floor(x), legs - 1);
+    const t = smooth(x - i);
+    const a = corner(i);
+    const b = corner(i + 1);
+    return { h: a.h + (b.h - a.h) * t, s: a.s + (b.s - a.s) * t };
+  };
+}
+
+/**
  * The hue of an orbit, in turns: `turns` laps, landing back on the starting
  * hue. The whole laps go round; the fractional part is a bulge that goes
  * out and comes back, so 1.2 turns reads as a lap and a bit without ending
@@ -948,7 +1008,18 @@ function resolve(name: string, host: DemoHost): Target | null {
   // first button inside the content once the section was open, so the
   // closing click landed on a control in the panel instead of the header.
   if (name === 'equations') return byEl(q('#equations-group-trigger'));
+  if (name.startsWith('equations:')) {
+    // One of the panel's channel blocks - the bordered card that answers for
+    // hue, for saturation or for brightness. A box of its own, so beat 8 can
+    // work a channel on the hexagon and name the arithmetic that moved with
+    // it; and a scroll target, so the block being named is in shot.
+    const el = q(`#equations-${name.slice(10)}`);
+    if (!el) return null;
+    const rect = () => unionRect([el], EQUATION_PAD);
+    return { el, at: () => rectCenter(rect()), rect };
+  }
   if (name === 'figma-banner') return byEl(q('#plugin-banner'));
+  if (name === 'figma-text') return byEl(q('#plugin-banner-text'));
   if (name === 'figma-button') return byEl(q('#plugin-banner-cta'));
   if (name === 'hsl-tab') return byEl(q('#hex-mode-hsl'));
   if (name === 'hsb-tab') return byEl(q('#hex-mode-hsb'));
@@ -981,9 +1052,19 @@ function boxPoint(box: Element, s: number, b: number): Point {
   return { x: r.left + (clamp(s, 0, 100) / 100) * r.width, y: r.top + (1 - clamp(b, 0, 100) / 100) * r.height };
 }
 
-/** The actions that never take the cursor, so they neither interrupt nor get interrupted. */
+/**
+ * The actions that never take the cursor, so they neither interrupt nor get
+ * interrupted.
+ *
+ * `scroll` is one of them: it moves the page, not the hand. It used to take the
+ * hands like any other action, which meant a cue asking for a block to be
+ * brought into shot while a drag was running cut that drag off wherever it had
+ * got to - and beat 8 wants exactly that, the equations block for the channel
+ * being worked framed as the drag starts.
+ */
 const handsFree = (a: ScriptAction) =>
-  a.do === 'circle' || a.do === 'ray' || (a.do === 'rect' && a.hands === 'free');
+  a.do === 'circle' || a.do === 'ray' || a.do === 'scroll'
+  || (a.do === 'rect' && a.hands === 'free');
 
 function warnMissing(action: ScriptAction, name: string | undefined) {
   console.warn(`[script] t=${action.at}s ${action.do}: no target for "${name ?? '(none)'}"`);
@@ -1087,7 +1168,7 @@ export default function ScriptRunner({
       setPressed(v) { pressed = v; },
       ripple(p) { ring = { x: p.x, y: p.y, start: performance.now() }; },
     };
-    const d = new Driver(stage, { reduced: false, speed: 1 }, start);
+    const d = new Driver(stage, { reduced: false, speed: 1, maxSpeed: MAX_MOVE_PX_PER_S }, start);
     const callouts = new Callouts(shapesRef.current);
 
     /*
@@ -1511,6 +1592,43 @@ export default function ScriptRunner({
           // and leaves the ghost parked where the next entrance can arc in from
           // rather than at the lip of the edge it just crossed.
           if (a.to !== 'on') await d.moveTo(OFFSCREEN_BR, MOVE_MS * 2);
+          return;
+        }
+        case 'zigzag': {
+          // The hexagon's tip dragged in a zig-zag across the field: hue one
+          // way, saturation the other, a few times over. Beat 10.4, "go play
+          // with it" - the point is the play rather than any value it lands on,
+          // which is why it is a shape and not a list of drags.
+          //
+          // The tip where there is one, the hue pill where there is not: at low
+          // saturation the joints collapse into the middle of the hexagon and
+          // there is nothing to take hold of. The pill can only carry the hue
+          // half of the gesture, so on that path the zig-zag is a hue swing.
+          const tip = tipEl();
+          const f = hostRef.current.field();
+          const legs = Math.max(1, Math.round(a.legs ?? 5));
+          const swing = a.degrees ?? 70;
+          const band: [number, number] = a.sat ?? [35, 95];
+          if (!tip) {
+            const pill = need('hex-hue-label');
+            if (!pill) return;
+            await d.bring(pill.el);
+            const p = pill.at();
+            await d.moveTo(() => p, clamp(Math.hypot(p.x - d.pos.x, p.y - d.pos.y) * 1.2, 0, MOVE_MS));
+            const path = zigzagField(f.h, f.s, swing, band, legs);
+            await d.drag(pill.el, (u) => hueGripPoint(pill.el, path(u).h) ?? p, a.ms ?? 2400, true);
+            return;
+          }
+          await d.bring(tip);
+          const c = centerOf(tip);
+          await d.moveTo(() => c, clamp(Math.hypot(c.x - d.pos.x, c.y - d.pos.y) * 1.2, 0, MOVE_MS));
+          // Read once and held, as `tip` does: the whole zig-zag stays on this
+          // brightness cross-section, so only the two channels it names move.
+          const path = zigzagField(f.h, f.s, swing, band, legs);
+          await d.drag(tip, (u) => {
+            const { h, s } = path(u);
+            return fieldPoint(h, clamp(s, 0, 100) / 100, f) ?? c;
+          }, a.ms ?? 2400, true);
           return;
         }
         case 'color': {

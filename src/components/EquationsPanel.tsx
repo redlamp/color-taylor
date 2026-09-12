@@ -155,7 +155,14 @@ function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }: Equat
           </div>
         </div>
       </div>
-      <div className="flex flex-col gap-1 border border-border rounded-lg p-1.5 min-w-0">
+      {/*
+        The three channel blocks carry ids of their own so the video script can
+        point at one of them - beat 8 works a channel on the hexagon and boxes
+        the block that answers for it. Only the blocks, not the Variables card:
+        nothing names that one, and an id that nothing reads is a claim that
+        something does.
+      */}
+      <div id="equations-hue" className="flex flex-col gap-1 border border-border rounded-lg p-1.5 min-w-0">
         <Row
           left={<span className="text-sm font-semibold font-sans text-foreground">Hue</span>}
           right={`${hue}°`}
@@ -166,7 +173,7 @@ function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }: Equat
         <span className={maxChKey === 'g' ? '' : 'opacity-30'}>{Hg}: 60(({bv}-{rv})/{chrT(pad(delta))}+2){maxChKey === 'g' && <> = <span className={RESULT_CLASS} style={RESULT_STYLE}>{hue}°</span></>}</span>
         <span className={maxChKey === 'b' ? '' : 'opacity-30'}>{Hb}: 60(({rv}-{gv})/{chrT(pad(delta))}+4){maxChKey === 'b' && <> = <span className={RESULT_CLASS} style={RESULT_STYLE}>{hue}°</span></>}</span>
       </div>
-      <div className="flex flex-col gap-1 border border-border rounded-lg p-1.5 min-w-0">
+      <div id="equations-saturation" className="flex flex-col gap-1 border border-border rounded-lg p-1.5 min-w-0">
         <Row
           left={<span className="text-sm font-semibold font-sans text-foreground">Saturation</span>}
           right={blMode === 'brightness' ? `${saturation}%` : `${hsl?.s ?? 0}%`}
@@ -182,7 +189,10 @@ function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }: Equat
           </>
         )}
       </div>
-      <div className="flex flex-col gap-1 border border-border rounded-lg p-1.5">
+      {/* The same block answers for brightness and, in HSL mode, for lightness;
+          it keeps the one id, because what a callout means by it is "the third
+          channel's block" either way. */}
+      <div id="equations-brightness" className="flex flex-col gap-1 border border-border rounded-lg p-1.5">
         {blMode === 'brightness' ? (
           <>
             <Row

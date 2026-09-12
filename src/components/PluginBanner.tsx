@@ -130,7 +130,10 @@ export default function PluginBanner() {
         */}
         {Glyph && <Glyph className="size-4 shrink-0" />}
 
-        <span className="text-sm text-foreground">
+        {/* Its own id: the video script underlines this sentence as beat 9 names
+            Figma, and an underline measures the element it is given - the pill's
+            own box is the glyph, the sentence and two buttons. */}
+        <span id="plugin-banner-text" className="text-sm text-foreground">
           {live
             ? `Try Color Taylor in ${item.platform}`
             : `Color Taylor is coming to ${item.platform}`}

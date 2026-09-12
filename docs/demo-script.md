@@ -397,6 +397,16 @@ ghost cursor, so every gesture goes through the real controls. Dev builds only
 
 - The ghost is parked off screen through the bottom-right corner until the
   first action asks for it, and arcs in from there.
+- **The ghost has a speed limit**: 1200 px per second of a move's own average
+  (`MAX_MOVE_PX_PER_S` in `ScriptRunner.tsx`, enforced by
+  `DriverOptions.maxSpeed` in `drive.ts`). A move asked to cover more ground
+  than its `ms` allows is given the time it needs instead, so a long trip takes
+  longer rather than going faster. It binds on the accidents — a gesture whose
+  `ms` was written for a hop inside one panel being handed a trip across the
+  whole tool — and not on the choreography, which already travels slower than
+  that. The built-in demo is deliberately left uncapped: its steps declare
+  their durations as the sum of their own dwells, and a move allowed to overrun
+  its `ms` would slide the caption that beat 2's audio is lined up against.
 - `?script=<name>` loads `public/scripts/<name>.json` (for example
   `?script=cut-01`) and waits. The app opens exactly as on a first visit,
   welcome panel included; the script closes it itself (see `about-close`).
@@ -423,9 +433,11 @@ ghost cursor, so every gesture goes through the real controls. Dev builds only
   real and the app opened it itself); the script's ghost comes back out on the
   demo's cursor for an `over: "demo"` gesture; and at the demo's exit the
   script's ghost picks up from wherever the demo's last was, which is off
-  screen through the edge it walked out by, so the next gesture arcs back in
-  rather than appearing mid-screen. A position outlives the component that
-  had it, which is what makes the last of those possible. The one handover
+  screen through the edge it walked out by — so it is the last point the hand
+  was *seen* at, on the inside of that edge, that the ghost is put down on,
+  and the next gesture is a move across the screen rather than a flight in
+  from below the fold. A position outlives the component that had it, which is
+  what makes the last of those possible. The one handover
   that is *not* seeded is the demo taking its own cursor back when an
   `over: "demo"` gesture ends: the demo is mid-choreography and resumes it
   where it paused, which is the rule that the demo is left alone.
@@ -455,9 +467,10 @@ The JSON is `{ "actions": [ { "at": 9.1, "do": "rest", "target": "help-button" }
 | `slider` | `target`, `from`, `to`, `ms` | Press the track at `from` and drag to `to` (0-100 along the track) with smoothstep. Targets: `hex-sat`, `hex-bri`, `slider:<c>`, `editor-hue` (the Color Editor's hue strip, 0-360 down it; `from` defaults to the current hue, so the press lands on the marker). The travel to the track comes before `ms`, except on `editor-hue`, where it is inside `ms` (up to 400 ms; the drag gets the rest, never under 400 ms) so the drag lands before the next action takes the cursor. |
 | `box` | `target`, `from`, `to`, `ms` | Drag the Color Editor's saturation/brightness handle: press at `from` and drag to `to`, each an `[s, b]` pair (0-100), with smoothstep. `target` is `editor-sb`; `from` defaults to the current color. The travel is inside `ms`, as for `editor-hue`. |
 | `tip` | `degrees`, `to`, `ms`, `via` | Drag the hex tip so the hue turns by `degrees` at the current saturation; ends where the turn ends. With `"via": "hue-label"` the cursor takes the hexagon's hue pill (`hex-hue-label`) round the ring instead, and may be given `to` — an absolute hue, taken the short way round — in place of `degrees`, so a cue can say where the pill ends up without knowing where the last gesture left it (`degrees` wins if both are there). The grip is the pill's outer rim, on the ray from the hexagon's center, 2 px clear of it, and stays there as the pill moves with the hue. It cannot be a corner of the pill: the control reads hue as the pointer's angle from the center and draws the pill on that angle, so the pointer is always on the pill's own radial line and a pill held off to one side would swing under the cursor. With the tip on the rim the arrow's body trails away outside the pill, off the number for most of the ring (it crosses the pill for hues in the upper left, where outward is up-left and the body goes down-right). The pointer's angle is exactly the hue wanted at each frame, so pressing does not nudge the hue and a 360° turn lands back on the hue it started from. The travel to the pill scales with the distance and is nothing when the cursor is already there, so a turn cued 1.5 s before the next has its whole `ms`. |
-| `underline` | `target`, `ms` | Underline a link: travel to just under its bottom-left (4 px below the text), then sweep to just under its bottom-right over `ms`, bowing a couple of pixels down in the middle, and rest there. Hover only; nothing is pressed. The target is polled for up to 600 ms until it exists and its box stops moving, so a link in a panel that is still animating in is measured once it has landed. Targets: `about-author`, `demo-caption`. |
+| `zigzag` | `ms`, `legs`, `degrees`, `sat`, | A zig-zag across the hexagon's field, worked on the tip handle: press where the handle already is, then cut across the field in `legs` legs (default 5) over `ms` (default 2400). The corners are values rather than places on screen — the hue steps evenly from `degrees` below the starting hue to `degrees` above it (default 70) while the saturation alternates between the two ends of `sat` (default `[35, 95]`) — so the path is a W laid over the hexagon whatever colour it starts from, and the brightness never moves. Eased leg by leg, because the corners are the one place a hand slows down. It ends on the last corner rather than back where it began: what follows reads the current hue and saturation as its own starting point. Where the tip is not on the page — the joints collapse into the middle at low saturation — the hue pill carries it instead, and the gesture is the hue half alone. |
+| `underline` | `target`, `ms` | Underline a link: travel to just under its bottom-left (4 px below the text), then sweep to just under its bottom-right over `ms`, bowing a couple of pixels down in the middle, and rest there. Hover only; nothing is pressed. The target is polled for up to 600 ms until it exists and its box stops moving, so a link in a panel that is still animating in is measured once it has landed. Targets: `about-author`, `figma-text`, `demo-caption`. |
 | `color` | `h`, `s`, `b` | Tween the app color (the app's own tween length; `ms` is ignored). |
-| `scroll` | `target` | Smooth-scroll the target to the center; `top` scrolls to the top of the page. |
+| `scroll` | `target` | Smooth-scroll the target to the center; `top` scrolls to the top of the page. It takes no cursor, so like a `circle` it neither interrupts what the hands are doing nor is cut short by what comes next — a cue can frame the thing a running drag is about to be measured against (beat 8 brings each equations block into shot as its own drag starts). |
 | `leave` | | Walk the cursor off screen. |
 
 Targets: `about-watch-demo` and `about-close` (the welcome panel's "Watch
@@ -489,12 +502,18 @@ bottom on the R and B tracks or the markers, whichever reach further, padded
 `editor-sb` (the Color Editor's saturation/brightness box, `#sb-area`) and
 `editor-hue` (its hue strip, `#hue-bar`),
 `equations` (the section's toggle; a click opens and a second click closes),
+`equations:hue|saturation|brightness` (one of the equations panel's channel
+blocks, as a padded box for a `rect` and as a place to `scroll` to; the third
+block is the Lightness block in HSL mode and keeps the same name),
 `figma-banner`, `figma-button`, `editor-group:rgb|hsb|hsl` (the slider-bank
 toggles; a click on one turns that bank on, another turns it off),
 `settings-button` (opens the menu), `settings-about` (the menu's "About
 Color Taylor"; only there while the menu is open, and looked up when the
 action fires), `about-author` (the "Taylor Wright" link on the About panel,
-for `underline`), `demo-caption` (the line the built-in demo is showing, as
+for `underline`), `figma-text` (the plugin banner's own sentence, "Try Color
+Taylor in Figma" — `#plugin-banner-text`, which is what an `underline` on the
+banner has to be given, the pill's own box being the glyph, the sentence and
+two buttons), `demo-caption` (the line the built-in demo is showing, as
 the text's own span rather than the caption column's full width), `hsl-tab`,
 `hsb-tab`, `top`. A target that is not on the page
 (a dismissed banner, a closed slider bank) logs a `[script]` warning to the
