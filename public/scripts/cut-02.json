@@ -41,6 +41,11 @@
       "at": 55.81
     },
     {
+      "do": "drift",
+      "ms": 2200,
+      "at": 57.21
+    },
+    {
       "at": 59.35,
       "do": "hover",
       "target": "hex-tip",
@@ -191,22 +196,28 @@
     {
       "do": "hover",
       "target": "hex-hue-label",
-      "ms": 700,
+      "ms": 500,
       "at": 88.83
     },
     {
       "do": "tip",
       "via": "hue-label",
       "to": 0,
-      "ms": 1200,
-      "at": 89.43
+      "ms": 900,
+      "at": 89.36
+    },
+    {
+      "do": "hover",
+      "target": "hex-hue-label",
+      "ms": 700,
+      "at": 90.48
     },
     {
       "do": "tip",
       "via": "hue-label",
       "degrees": 359.8,
       "ms": 4200,
-      "at": 91.15
+      "at": 91.14
     },
     {
       "do": "tip",

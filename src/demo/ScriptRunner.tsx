@@ -38,7 +38,8 @@ export interface ScriptAction {
   /** Seconds into the cut at which the action begins. */
   at: number;
   do: 'rest' | 'hover' | 'walk' | 'click' | 'loop' | 'circle' | 'rect' | 'ray' | 'orbit' | 'stem' | 'wander'
-    | 'demo' | 'slider' | 'box' | 'tip' | 'color' | 'scroll' | 'leave' | 'underline' | 'pip' | 'zigzag';
+    | 'demo' | 'slider' | 'box' | 'tip' | 'color' | 'scroll' | 'leave' | 'underline' | 'pip' | 'zigzag'
+    | 'drift';
   target?: string;
   targets?: string[];
   ms?: number;
@@ -185,10 +186,14 @@ const tipEl = () => {
  * can set it without replaying the drag, and so the panel's own markup is the
  * only thing that knows how it is moved.
  */
-const pipOffset = (el: HTMLElement) => Number(el.dataset.pipX ?? '0') || 0;
-function setPipOffset(el: HTMLElement, x: number) {
+const pipOffset = (el: HTMLElement): Point => ({
+  x: Number(el.dataset.pipX ?? '0') || 0,
+  y: Number(el.dataset.pipY ?? '0') || 0,
+});
+function setPipOffset(el: HTMLElement, x: number, y = 0) {
   el.dataset.pipX = String(Math.round(x));
-  el.style.transform = `translateX(${Math.round(x)}px)`;
+  el.dataset.pipY = String(Math.round(y));
+  el.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
 }
 
 /** Hue, in degrees, of each corner of the hexagon. */
@@ -356,6 +361,44 @@ const OFFSCREEN_BR = (): Point => ({ x: window.innerWidth + OFFSCREEN_REACH, y: 
 const PIP_GRIP_X = 28;
 const PIP_GRIP_Y = 14;
 const PIP_OFF_CLEAR = 8;
+/**
+ * The bow on the panel's own trip out through the right edge, as a fraction
+ * of the travel: at the home end, at the off-screen end, and how far below
+ * home the far end sits.
+ *
+ * Taylor, round 7: "while moving the video off the screen it's still a linear
+ * motion to the right; have the cursor AND video have an arc to their motion."
+ * Every other move the ghost makes curves (see `moveTo`), and this one did not,
+ * because the hand is on the panel and the panel was being run along a track of
+ * its own. Now the hand flies the arc and the panel's transform is read off the
+ * cursor every frame, so the two are one gesture.
+ *
+ * The far end gets the wider bow, the same rule a `moveTo` with an end off
+ * screen follows: the apex lands past the middle, so the panel rises, sweeps
+ * out to the right and comes down a little as it goes - and the drag back in
+ * is the same curve run backwards.
+ */
+const PIP_BOW_HOME = 0.18;
+const PIP_BOW_OFF = 0.26;
+const PIP_DROP = 0.05;
+const PIP_BOW_MAX = 140;
+/**
+ * `drift`: how far the hand wanders while it waits, in px along the line it is
+ * on and across it.
+ *
+ * The drift is a hand resting, not a gesture: 11 px back along what it just
+ * drew and home again over the whole `ms`, with a smaller ripple across it so
+ * it is not a pendulum. Anything larger reads as the cursor looking for
+ * something.
+ */
+const DRIFT_ALONG = 11;
+const DRIFT_ACROSS = 3;
+/**
+ * The bias, in degrees, the hue grip is nudged by when the app's own reading
+ * of it comes out on the wrong side of a whole degree, and how many nudges are
+ * tried. A third of a degree is about a pixel at the pill's radius.
+ */
+const HUE_SETTLE = [0.34, -0.34, 0.68, -0.68];
 /** `underline`: how far under the text the line runs, and how far it bows down in the middle, in px. */
 const UNDERLINE_GAP = 4;
 const UNDERLINE_BOW = 2;
@@ -1053,6 +1096,36 @@ function boxPoint(box: Element, s: number, b: number): Point {
 }
 
 /**
+ * The camera panel's path from home to off screen, as a cubic bezier read at
+ * `t` from 0 to 1 in client pixels. The drag back in is this same curve read
+ * from 1 to 0, so the two gestures are one shape travelled both ways.
+ *
+ * The control points lift it off the straight line - more at the off-screen
+ * end than at the home end, which puts the apex past the middle - and the far
+ * end sits a little below home, so what it draws is a rise, a sweep out to the
+ * right, and a gentle descent through the edge. See PIP_BOW_HOME.
+ */
+function pipArc(p0: Point, p1: Point): (t: number) => Point {
+  const dx = p1.x - p0.x;
+  const span = Math.abs(dx) || 1;
+  const lift = (f: number) => Math.min(PIP_BOW_MAX, span * f);
+  const c1 = { x: p0.x + dx * 0.25, y: p0.y - lift(PIP_BOW_HOME) };
+  const c2 = { x: p0.x + dx * 0.72, y: p0.y - lift(PIP_BOW_OFF) };
+  const end = { x: p1.x, y: p1.y + lift(PIP_DROP) };
+  return (t) => {
+    const u = 1 - t;
+    const a = u * u * u;
+    const b = 3 * u * u * t;
+    const c = 3 * u * t * t;
+    const dd = t * t * t;
+    return {
+      x: a * p0.x + b * c1.x + c * c2.x + dd * end.x,
+      y: a * p0.y + b * c1.y + c * c2.y + dd * end.y,
+    };
+  };
+}
+
+/**
  * The actions that never take the cursor, so they neither interrupt nor get
  * interrupted.
  *
@@ -1083,9 +1156,27 @@ export default function ScriptRunner({
   // Under an external clock the ghost is on screen from the start: it does
   // not wait for Space.
   const [started, setStarted] = useState(() => external !== undefined);
-  // On while an `over: "demo"` action is in hand, which is the one case the
-  // ghost is on screen with the built-in demo's own.
+  /*
+   * On from the moment an `over: "demo"` action starts until the demo closes,
+   * which is the one case the ghost is on screen while the built-in demo is.
+   *
+   * It used to go off with the action itself, and the demo took its cursor
+   * back for the goodbye: two cursors in a second and a half, the second of
+   * them walking off the bottom of the screen and the ghost then re-appearing
+   * from wherever it had left it. Taylor, round 7: "there should be one cursor
+   * and its motion should feel natural." So the hand that comes out for the
+   * gesture keeps the screen: the demo's own cursor stays hidden for the rest
+   * of its run and its state changes happen underneath, which is the named
+   * moment the design rule allows. Read as a ref too, by the clock, which is
+   * not a render.
+   */
   const [overDemo, setOverDemo] = useState(false);
+  const overDemoRef = useRef(false);
+  const takeOverDemo = (on: boolean) => {
+    overDemoRef.current = on;
+    setOverDemo(on);
+    setScriptOverDemo(on);
+  };
 
   // The schedule outlives any one render; it reaches the host through refs.
   const hostRef = useRef(host);
@@ -1114,7 +1205,15 @@ export default function ScriptRunner({
    */
   const wasDemoOpen = useRef(demoOpen);
   useEffect(() => {
-    if (wasDemoOpen.current && !demoOpen) placeGhostRef.current?.(handoverPoint('ghost'));
+    if (wasDemoOpen.current && !demoOpen) {
+      // Unless this hand never gave the screen back: after an `over: "demo"`
+      // gesture the ghost has been the visible cursor since, so putting it
+      // down on the demo's last point would teleport it - which is exactly
+      // the jump Taylor saw at the demo's close, the ghost arriving from the
+      // bottom edge the demo walked out through.
+      if (!overDemoRef.current) placeGhostRef.current?.(handoverPoint('ghost'));
+      takeOverDemo(false);
+    }
     wasDemoOpen.current = demoOpen;
   }, [demoOpen]);
 
@@ -1281,6 +1380,21 @@ export default function ScriptRunner({
           await d.bring(t.el);
           await d.moveTo(t.at);
           await d.wait(a.ms ?? 0);
+          return;
+        }
+        case 'drift': {
+          // Wait where the hand already is, without being a parked cursor.
+          // For the span the cut has nothing for the hand to do but has to
+          // keep it on screen: the countdown under the demo's "Have fun!",
+          // which the ghost sees out under the caption it has just underlined
+          // rather than handing the screen back and coming out again.
+          const p = { ...d.pos };
+          await d.path((u) => ({
+            // Every term is zero at both ends, so the hand neither jumps into
+            // the drift nor out of it.
+            x: p.x - DRIFT_ALONG * Math.sin(PI * u) + DRIFT_ACROSS * Math.sin(3 * PI * u),
+            y: p.y + DRIFT_ACROSS * Math.sin(2 * PI * u),
+          }), a.ms ?? 1200);
           return;
         }
         case 'walk': {
@@ -1542,7 +1656,34 @@ export default function ScriptRunner({
             // up without knowing where the last gesture left it.
             const degrees = a.degrees ?? (typeof a.to === 'number' ? ((a.to - h0 + 540) % 360) - 180 : 0);
             const c = t.at();
-            await d.drag(t.el, (u) => hueGripPoint(t.el, h0 + degrees * smooth(u)) ?? c, a.ms ?? 1000, true);
+            // An absolute `to` is a number the line says out loud, so it has to
+            // be the number on the pill when the drag lets go.
+            //
+            // The app reads hue as the whole degree nearest the pointer's own
+            // angle, and the grip comes back a tenth of a degree or so short of
+            // the ray it was computed for - which at 0 rounds the wrong way and
+            // shows 360, the number the turn that follows is supposed to arrive
+            // at. Taylor, round 7: "the cursor doesn't always get to 0 before
+            // making the route around to 360." So where the reading disagrees
+            // with the target, nudge the grip a third of a degree at a time,
+            // still pressed, until it agrees. A pixel of movement; nothing to
+            // see, and the readout is right.
+            const want = typeof a.to === 'number' && a.degrees === undefined
+              ? ((Math.round(a.to) % 360) + 360) % 360
+              : null;
+            const settle = want === null ? undefined : async () => {
+              for (const bias of HUE_SETTLE) {
+                if (hostRef.current.field().h === want) return;
+                const p = hueGripPoint(t.el, want + bias);
+                if (p) d.dragTo(p);
+                await d.wait(SETTLE_POLL_MS);
+              }
+              if (hostRef.current.field().h !== want) {
+                console.warn(`[script] t=${a.at}s tip: hue settled at ${hostRef.current.field().h}, wanted ${want}`);
+              }
+            };
+            await d.drag(t.el, (u) => hueGripPoint(t.el, h0 + degrees * smooth(u)) ?? c,
+              a.ms ?? 1000, true, settle);
             return;
           }
           const tip = tipEl();
@@ -1570,21 +1711,32 @@ export default function ScriptRunner({
           const from = pipOffset(el);
           const r = el.getBoundingClientRect();
           // Home is where the panel sits with no offset on it.
-          const homeLeft = r.left - from;
-          const to = a.to === 'on' ? 0 : window.innerWidth - homeLeft + PIP_OFF_CLEAR;
-          const grip = (x: number): Point => ({ x: homeLeft + PIP_GRIP_X + x, y: r.top + PIP_GRIP_Y });
+          const homeLeft = r.left - from.x;
+          const homeTop = r.top - from.y;
+          const off = window.innerWidth - homeLeft + PIP_OFF_CLEAR;
+          // Where the hand takes hold of the panel, as an offset from home.
+          const grip = (x: number, y: number): Point =>
+            ({ x: homeLeft + PIP_GRIP_X + x, y: homeTop + PIP_GRIP_Y + y });
+          const home = grip(0, 0);
+          // One curve, home to off screen; "on" reads it backwards. The panel
+          // is not on a track of its own any more: its transform is the
+          // cursor's own position less the grip, every frame, so the hand and
+          // the picture fly the same arc. See pipArc.
+          const arc = pipArc(home, grip(off, 0));
+          const going = a.to === 'on' ? -1 : 1;
           try {
-            await d.moveTo(() => grip(from), MOVE_MS);
+            await d.moveTo(() => arc(going > 0 ? 0 : 1), MOVE_MS);
             await d.drag(el, (u) => {
-              const x = from + (to - from) * smooth(u);
-              setPipOffset(el, x);
-              return grip(x);
+              const p = arc(going > 0 ? smooth(u) : 1 - smooth(u));
+              setPipOffset(el, p.x - home.x, p.y - home.y);
+              return p;
             }, a.ms ?? 1200, true);
           } finally {
             // Land exactly, interrupted or not: a drag cut a frame short of its
             // end leaves the panel a pixel off, and home is a place rather than
-            // nearly a place.
-            setPipOffset(el, to);
+            // nearly a place. The arc's own lift goes with it - the panel rides
+            // it while the hand is on it and sits square when the hand is not.
+            setPipOffset(el, going > 0 ? off : 0, 0);
           }
           // Having pushed the panel out through the right edge the hand is out
           // there with it, level with where the panel was. Curving away to the
@@ -1690,10 +1842,9 @@ export default function ScriptRunner({
       // It comes out on top of the demo's cursor, not at the ? button it was
       // parked on before the demo opened: the underline on "Have fun!" is the
       // same hand the demo has been using, taking one more step.
-      if (a.over === 'demo') {
+      if (a.over === 'demo' && !overDemoRef.current) {
         placeGhost(handoverPoint('ghost'));
-        setOverDemo(true);
-        setScriptOverDemo(true);
+        takeOverDemo(true);
       }
       run(a)
         .catch((err: unknown) => {
@@ -1702,7 +1853,8 @@ export default function ScriptRunner({
         })
         .finally(() => {
           running -= 1;
-          if (a.over === 'demo') { setOverDemo(false); setScriptOverDemo(false); }
+          // The flag is not this action's to clear: the hand keeps the screen
+          // until the demo is gone. See `overDemoRef`.
         });
     };
 
@@ -1729,7 +1881,13 @@ export default function ScriptRunner({
           // the help button a couple of seconds earlier) there is nothing for
           // it to do. Held, it would come due the moment the demo ended and
           // start the whole thing over.
-          if (demoOpenRef.current && actions[next].over !== 'demo' && actions[next].do !== 'demo') break;
+          // Nothing is held once this hand has taken the screen off the demo
+          // (`overDemoRef`): the ghost is up and in charge, so the cue after
+          // the gesture is the cue after it, not the cue after the demo. That
+          // is what lets the hand leave the caption for the hexagon on the
+          // word it is cued to rather than half a second after the panel goes.
+          if (demoOpenRef.current && !overDemoRef.current
+            && actions[next].over !== 'demo' && actions[next].do !== 'demo') break;
           dispatch(actions[next]);
           next += 1;
         }
@@ -1749,6 +1907,9 @@ export default function ScriptRunner({
     const seek = (t: number) => {
       if (running > 0) d.interrupt();
       callouts.clear();
+      // Whoever had the screen, this is a jump: the gesture that took it off
+      // the demo is not running any more. A scrub is not a performance.
+      if (overDemoRef.current) takeOverDemo(false);
       let i = 0;
       while (i < actions.length && actions[i].at < t) i += 1;
       next = i;
@@ -1766,8 +1927,8 @@ export default function ScriptRunner({
       // and without the gesture: a scrub is not a performance.
       const panel = document.getElementById('camera-pip');
       if (panel) {
-        const home = panel.getBoundingClientRect().left - pipOffset(panel);
-        setPipOffset(panel, pip && pip.to === 'off' ? window.innerWidth - home + PIP_OFF_CLEAR : 0);
+        const home = panel.getBoundingClientRect().left - pipOffset(panel).x;
+        setPipOffset(panel, pip && pip.to === 'off' ? window.innerWidth - home + PIP_OFF_CLEAR : 0, 0);
       }
       const target = pose?.target ? resolve(pose.target, hostRef.current) : null;
       if (!target) return;
@@ -1844,6 +2005,7 @@ export default function ScriptRunner({
       markScriptRunner(false);
       markCursor('ghost', false);
       placeGhostRef.current = null;
+      overDemoRef.current = false;
       setScriptOverDemo(false);
       onHandleRef.current?.(null);
       teardown();

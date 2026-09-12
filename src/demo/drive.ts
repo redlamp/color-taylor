@@ -415,8 +415,20 @@ export class Driver {
    * Press an element, walk `path` for `ms`, release. The press lands on `el`
    * so `holdKeyOf` reads the right tag; the moves go to `window` because that
    * is where the app's drag listeners are.
+   *
+   * `settle` runs after the path and before the release, with the press still
+   * down, for a gesture that has to land on a particular *reading* rather than
+   * at a particular place: it can look at what the app now says and put in a
+   * few more moves with `dragTo` until it says the right thing. See the hue
+   * pill's landing in ScriptRunner.
    */
-  async drag(el: Element, path: (t: number) => Point, ms: number, linear = false): Promise<void> {
+  async drag(
+    el: Element,
+    path: (t: number) => Point,
+    ms: number,
+    linear = false,
+    settle?: () => Promise<void>,
+  ): Promise<void> {
     this.guard();
     const p0 = path(0);
     this.place(p0);
@@ -430,9 +442,20 @@ export class Driver {
         this.place(p);
         window.dispatchEvent(pointerEvent('pointermove', p.x, p.y));
       }, linear);
+      if (settle) await settle();
     } finally {
       this.releaseNow();
     }
+  }
+
+  /**
+   * One more move inside a drag that is already pressed. A no-op when nothing
+   * is held, so a settle that outlives its own drag cannot press anything.
+   */
+  dragTo(p: Point): void {
+    if (!this.pressedEl) return;
+    this.place(p);
+    window.dispatchEvent(pointerEvent('pointermove', p.x, p.y));
   }
 
   /** Press and release in place - for buttons, which want a click. */

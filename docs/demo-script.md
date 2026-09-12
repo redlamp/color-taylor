@@ -120,6 +120,7 @@ Three shapes, and they are not the same shape:
 |---|---|
 | **The line a move takes** | A quadratic bezier bowing to one side, then the other: never a straight line, in `drive.ts`. The bow is 10% of the travel, so a hop to the next button over is very nearly straight and a trip across the tool visibly curves, capped at 140 px so a full-width move does not swing out of the window. A leg with an end off screen — the entrance, the exit, the reach out past the right edge for the camera panel — bows 22%, because most of its length is off screen and at the on-screen fraction 10% is the straight line it is trying not to be. |
 | **Travel** between one target and the next | Smootherstep, in `drive.ts`. It was easeInOutQuad, which lands from twice its average speed and does the whole deceleration in the last quarter — across the tool that is 44px per frame arriving in under a fifth of a second, and it reads as the hand being stopped rather than stopping. The quintic has zero acceleration as well as zero velocity at both ends. |
+| **A drag that carries something** | The camera panel's trip off the edge and back: a cubic bezier of its own, and the panel is written from the cursor's position every frame rather than run along a track, so both fly it. Nothing else the ghost drags moves on screen — a slider handle goes where its control puts it — so this is the one gesture that has a line of its own to draw. See `pip`. |
 | **Gestures** — every drag | Written as a function of `smooth(t)`, the plain cubic, with a linear clock so the shaping applies once. `sin(pi * t)` is at its fastest as it lands; `sin(pi * smooth(t))` traces the identical path at the same peak speed but starts and stops at rest. Not the quintic, whose steeper middle would speed up the turn as well as softening the ends. |
 | **Arriving and leaving** | The ghost starts parked below the bottom of the screen and travels up into its first target, fading in over `EXIT_MS` as it comes — the mirror of the fade it leaves on. The fade starts on the first frame it actually moves, not on mount: the opening pose waits before anything travels, and a fade spent while the thing is still off screen is a fade nobody sees. Measured at speed 1, full strength at 864ms, which is about when it arrives. |
 | **The lean** | A heavily damped spring on four frames of smoothed velocity, in `DemoRunner.tsx`. Sway, not spring: it follows the direction of travel and settles without ringing. Vertical travel counts for half of horizontal — the arrow's body runs from its point at (1,1) down to about (5,12), and a body trailing its point swings by the cross product of those two, which is about 0.36; half because it is meant to be fun. It used to count for nothing, so the brightness bar and the hue strip moved a perfectly rigid arrow down a track. |
@@ -330,6 +331,16 @@ stands still and quiet for the last 1.3 of the four; where there is not, it is
 just the 900ms walk off. Taking `SIGN_OFF_MS` any lower would start cutting into
 the goodbye rather than into the pause.
 
+**Where a video script is pointing at this caption, there is no goodbye at all.**
+An `over: "demo"` gesture takes the cursor off this demo for the rest of its run
+(see the runner section below), so the walk home, the colour riding the tip and
+the walk off are all skipped: they would be a hidden cursor travelling, and the
+exit would hold the panel up for its own length while the script's hand waited.
+What still happens is the restore — the colour, the groups, the blend, the
+sections — and the return to the top of the page. The wait itself ends with the
+tick that is visibly running down rather than when the script lets go, because
+the script does not let go until this panel is gone.
+
 ---
 
 ## Narration
@@ -420,27 +431,35 @@ ghost cursor, so every gesture goes through the real controls. Dev builds only
   new action interrupts whatever the hands were still doing.
 - The `demo` action starts the built-in demo; the runner's cursor hides while
   it runs and due actions are held until it exits.
-- An action marked `"over": "demo"` runs anyway, and for as long as it does
-  this runner's cursor is on screen and the demo's is hidden. The demo's
-  sign-off choreography — the walk home and the color tweening back — waits
-  for it, so the gesture is the only thing moving (`src/demo/handover.ts`).
+- An action marked `"over": "demo"` runs anyway, and **from the moment it
+  starts this runner's cursor has the screen for the rest of the demo**: the
+  demo's own cursor is hidden until it closes, its sign-off choreography — the
+  walk home, the color tweening back, the walk off — is left out, and the cues
+  behind the gesture stop being held, so the hand leaves on the word it is cued
+  to rather than when the panel goes (`src/demo/handover.ts`). The demo's state
+  changes still happen underneath: it hands the sections, the banks, the blend
+  and the color back exactly as before. Taylor, round 7: "there should be one
+  cursor and its motion should feel natural and match what I might be doing
+  with my cursor." Handing the screen back for the goodbye meant two cursors in
+  a second and a half, the second of them walking off the bottom of the window
+  and this one then re-appearing from wherever it had left. One gesture, one
+  hand, and the demo closes on its own countdown either way.
 - **The two cursors are one hand.** `src/demo/handover.ts` is the single place
   that knows which cursor is live and where each one last stood: both report
   their position every frame, and whichever is arriving is put down on top of
-  the one leaving, with no travel. That covers all four changes of hands in a
-  cut — the script's ghost presses `?` and the demo's picks up there (whether
+  the one leaving, with no travel. A cut that uses `over: "demo"` changes hands
+  twice — the script's ghost presses `?` and the demo's picks up there (whether
   the `demo` action opened it or, as in cut 02, the cut pressed the button for
-  real and the app opened it itself); the script's ghost comes back out on the
-  demo's cursor for an `over: "demo"` gesture; and at the demo's exit the
-  script's ghost picks up from wherever the demo's last was, which is off
-  screen through the edge it walked out by — so it is the last point the hand
-  was *seen* at, on the inside of that edge, that the ghost is put down on,
-  and the next gesture is a move across the screen rather than a flight in
-  from below the fold. A position outlives the component that had it, which is
-  what makes the last of those possible. The one handover
-  that is *not* seeded is the demo taking its own cursor back when an
-  `over: "demo"` gesture ends: the demo is mid-choreography and resumes it
-  where it paused, which is the rule that the demo is left alone.
+  real and the app opened it itself), and the script's ghost comes back out on
+  the demo's cursor for the `over: "demo"` gesture and keeps the screen from
+  there. There is no third change: the demo's close finds the ghost already
+  on screen, so it is left standing where it is rather than being put down on a
+  point the demo walked out through. Where a cut has no such gesture, the exit
+  still seeds the ghost, and from the last point the demo's hand was *seen* at
+  — on the inside of the edge it left by, not the hundred pixels past it where
+  it stopped — so the next gesture is a move across the screen rather than a
+  flight in from below the fold. A position outlives the component that had it,
+  which is what makes that possible.
 - Under `?script=` and `?present=` the app also mounts the camera panel
   (`src/demo/CameraPip.tsx`): a fixed 399x362 box in the bottom-right corner
   at a 20 px margin with a 12 px radius, matching the OBS picture-in-picture.
@@ -463,10 +482,11 @@ The JSON is `{ "actions": [ { "at": 9.1, "do": "rest", "target": "help-button" }
 | `stem` | `ch`, `amount`, `ms` | Grab the `r`, `g` or `b` stem at its midpoint and drag it along its own axis by `amount` x its length (+ outward, - inward), then let go. The channel changes by that fraction of its value. |
 | `wander` | `target`, `targets[]`, `ms` | A playful curved move to the target: a cubic bezier whose two control points sit 25% of the trip off the line, one to each side, eased. With `targets` instead of `target` it is one Catmull-Rom spline from where the cursor is through every named place in turn (default `ms` 2400), eased over the whole run — a single S across the region rather than a chain of moves that stops dead at each waypoint. Hover only. |
 | `demo` | | Start the built-in demo, its ghost picking up from where this one stands. |
-| `pip` | `to`, `ms` | Drag the camera panel off the right edge of the viewport (`"to": "off"`) or back to its home corner (`"to": "on"`) over `ms` (default 1200). The ghost travels to the panel's top-left corner, presses, and the panel moves with it; nothing listens, so the gesture is the whole effect. After an `"off"` the hand curves away to the off-screen bottom-right corner it came in through, rather than being left at the lip of the edge it just crossed. A seek puts the panel wherever the last `pip` before that moment left it, without the gesture. |
+| `pip` | `to`, `ms` | Drag the camera panel off the right edge of the viewport (`"to": "off"`) or back to its home corner (`"to": "on"`) over `ms` (default 1200). The ghost travels to the panel's top-left corner, presses, and the panel moves with it; nothing listens, so the gesture is the whole effect. **The trip is an arc, and the panel flies it with the hand**: one cubic bezier from home to off screen, bowing 18% of the travel at the home end and 26% at the off-screen end — so the apex is past the middle — and ending a twentieth of the travel below home, which reads as a rise, a sweep out to the right and a gentle descent through the edge. `"on"` is the same curve read backwards. The panel is not on a track of its own: its transform is the cursor's position less the grip, x and y, written every frame, so the two cannot come apart. `ms` is the whole drag either way — the arc is a few per cent longer than the straight line was, which is inside the pace either gesture was written at. After an `"off"` the hand curves away to the off-screen bottom-right corner it came in through, rather than being left at the lip of the edge it just crossed. A seek puts the panel wherever the last `pip` before that moment left it, square and without the gesture. |
+| `drift` | `ms` | Stay where the hand already is for `ms` (default 1200), wandering about ten pixels back along the line it is on and home again, with a smaller ripple across it. For a span the cut has nothing for the hand to do but has to keep it on screen — the countdown under the demo's "Have fun!" — where a parked cursor reads as a frozen frame. Every term is zero at both ends, so it neither jumps in nor out. No target: it drifts around wherever the last action left the hand. |
 | `slider` | `target`, `from`, `to`, `ms` | Press the track at `from` and drag to `to` (0-100 along the track) with smoothstep. Targets: `hex-sat`, `hex-bri`, `slider:<c>`, `editor-hue` (the Color Editor's hue strip, 0-360 down it; `from` defaults to the current hue, so the press lands on the marker). The travel to the track comes before `ms`, except on `editor-hue`, where it is inside `ms` (up to 400 ms; the drag gets the rest, never under 400 ms) so the drag lands before the next action takes the cursor. |
 | `box` | `target`, `from`, `to`, `ms` | Drag the Color Editor's saturation/brightness handle: press at `from` and drag to `to`, each an `[s, b]` pair (0-100), with smoothstep. `target` is `editor-sb`; `from` defaults to the current color. The travel is inside `ms`, as for `editor-hue`. |
-| `tip` | `degrees`, `to`, `ms`, `via` | Drag the hex tip so the hue turns by `degrees` at the current saturation; ends where the turn ends. With `"via": "hue-label"` the cursor takes the hexagon's hue pill (`hex-hue-label`) round the ring instead, and may be given `to` — an absolute hue, taken the short way round — in place of `degrees`, so a cue can say where the pill ends up without knowing where the last gesture left it (`degrees` wins if both are there). The grip is the pill's outer rim, on the ray from the hexagon's center, 2 px clear of it, and stays there as the pill moves with the hue. It cannot be a corner of the pill: the control reads hue as the pointer's angle from the center and draws the pill on that angle, so the pointer is always on the pill's own radial line and a pill held off to one side would swing under the cursor. With the tip on the rim the arrow's body trails away outside the pill, off the number for most of the ring (it crosses the pill for hues in the upper left, where outward is up-left and the body goes down-right). The pointer's angle is exactly the hue wanted at each frame, so pressing does not nudge the hue and a 360° turn lands back on the hue it started from. The travel to the pill scales with the distance and is nothing when the cursor is already there, so a turn cued 1.5 s before the next has its whole `ms`. |
+| `tip` | `degrees`, `to`, `ms`, `via` | Drag the hex tip so the hue turns by `degrees` at the current saturation; ends where the turn ends. With `"via": "hue-label"` the cursor takes the hexagon's hue pill (`hex-hue-label`) round the ring instead, and may be given `to` — an absolute hue, taken the short way round — in place of `degrees`, so a cue can say where the pill ends up without knowing where the last gesture left it (`degrees` wins if both are there). The grip is the pill's outer rim, on the ray from the hexagon's center, 2 px clear of it, and stays there as the pill moves with the hue. It cannot be a corner of the pill: the control reads hue as the pointer's angle from the center and draws the pill on that angle, so the pointer is always on the pill's own radial line and a pill held off to one side would swing under the cursor. With the tip on the rim the arrow's body trails away outside the pill, off the number for most of the ring (it crosses the pill for hues in the upper left, where outward is up-left and the body goes down-right). The pointer's angle is exactly the hue wanted at each frame, so pressing does not nudge the hue and a 360° turn lands back on the hue it started from. The travel to the pill scales with the distance and is nothing when the cursor is already there, so a turn cued 1.5 s before the next has its whole `ms`. **An absolute `to` lands on the number, not near it**: the app reads hue as the whole degree nearest the pointer's angle and the grip comes back about a tenth of a degree short of the ray it was computed for, which at 0 rounds the wrong way and shows 360. So when the drag ends the readout is checked, and while it disagrees the grip is nudged a third of a degree at a time — still pressed, about a pixel of movement — until it agrees; four tries, then a warning in the console. `degrees` is not settled: a relative turn is a distance travelled, and 4.1's own 359.8 means to stop a fifth of a degree short. |
 | `zigzag` | `ms`, `legs`, `degrees`, `sat`, | A zig-zag across the hexagon's field, worked on the tip handle: press where the handle already is, then cut across the field in `legs` legs (default 5) over `ms` (default 2400). The corners are values rather than places on screen — the hue steps evenly from `degrees` below the starting hue to `degrees` above it (default 70) while the saturation alternates between the two ends of `sat` (default `[35, 95]`) — so the path is a W laid over the hexagon whatever colour it starts from, and the brightness never moves. Eased leg by leg, because the corners are the one place a hand slows down. It ends on the last corner rather than back where it began: what follows reads the current hue and saturation as its own starting point. Where the tip is not on the page — the joints collapse into the middle at low saturation — the hue pill carries it instead, and the gesture is the hue half alone. |
 | `underline` | `target`, `ms` | Underline a link: travel to just under its bottom-left (4 px below the text), then sweep to just under its bottom-right over `ms`, bowing a couple of pixels down in the middle, and rest there. Hover only; nothing is pressed. The target is polled for up to 600 ms until it exists and its box stops moving, so a link in a panel that is still animating in is measured once it has landed. Targets: `about-author`, `figma-text`, `demo-caption`. |
 | `color` | `h`, `s`, `b` | Tween the app color (the app's own tween length; `ms` is ignored). |

@@ -474,13 +474,20 @@ export default function DemoRunner({ from = null, cursorFrom = null, onRestore, 
      * True once it has waited for one, which is the caller's cue to leave the
      * choreography out. See handover.ts for why the grace is needed.
      */
-    const yieldToScript = async (): Promise<boolean> => {
+    const yieldToScript = async (until: number): Promise<boolean> => {
       if (!scriptRunnerPresent()) return false;
       const grace = performance.now() + OVER_DEMO_GRACE_MS;
       while (!scriptOverRef.current && performance.now() < grace) await d.linger(48);
       if (!scriptOverRef.current) return false;
-      const deadline = performance.now() + SIGN_OFF_MS;
-      while (scriptOverRef.current && performance.now() < deadline) await d.linger(48);
+      /*
+       * `until` is the end of the countdown this sign-off is already running,
+       * not a fresh span of its own. The script keeps the cursor for the rest
+       * of the demo now - it does not hand it back between the gesture and the
+       * goodbye - so waiting for it to let go would be waiting for this demo to
+       * close, which is the thing being waited on. The tick that is visibly
+       * running down is what says when that is.
+       */
+      while (scriptOverRef.current && performance.now() < until) await d.linger(48);
       return true;
     };
 
@@ -502,6 +509,7 @@ export default function DemoRunner({ from = null, cursorFrom = null, onRestore, 
          * takes the colour home inside it, and the tick counts the whole thing
          * down. Both are cancellable, so Back or Skip still takes it apart.
          */
+        const countdownEnds = performance.now() + SIGN_OFF_MS;
         playhead.current = { index: STEPS.length, start: performance.now(), ms: SIGN_OFF_MS };
         // Real seconds however fast the rest ran; `?demospeed` does not shorten
         // the time it takes to read a line.
@@ -530,7 +538,7 @@ export default function DemoRunner({ from = null, cursorFrom = null, onRestore, 
          *
          * Capped at the hold, so the demo still comes down on time.
          */
-        const yielded = await yieldToScript();
+        const yielded = await yieldToScript(countdownEnds);
         if (!yielded && ctx.host.restoreMovesColour()) {
           await closingPose(ctx);
           restoreRef.current();
@@ -556,8 +564,20 @@ export default function DemoRunner({ from = null, cursorFrom = null, onRestore, 
         // home this is a no-op on a desktop and the difference between a
         // goodbye and a screenful of sliders on a phone.
         await d.toTop();
-        setGhostLeaving(true);
-        await exitPose(ctx);
+        /*
+         * The walk off, where there is a cursor to walk.
+         *
+         * Where the script took the screen this one has been hidden since its
+         * gesture began and stays hidden until the demo is gone, so the exit
+         * is a fade of nothing and a trip nobody watches - and it held the
+         * panel on screen for its own length while the script's hand was
+         * already waiting the countdown out. Taylor, round 7, on the handback:
+         * one cursor, and no second one leaving.
+         */
+        if (!yielded) {
+          setGhostLeaving(true);
+          await exitPose(ctx);
+        }
 
         // The demo is over; it should not sit on the screen waiting to be
         // dismissed.
