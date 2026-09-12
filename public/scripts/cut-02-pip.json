@@ -16,7 +16,7 @@
     }
   },
   "handle": 0.3,
-  "xfade": 0.133,
+  "xfade": 0,
   "spans": [
     {
       "id": "intro",
@@ -24,7 +24,7 @@
       "cutStart": 0,
       "cutEnd": 12.155,
       "clipOffset": 0,
-      "duration": 12.183333,
+      "duration": 12.166667,
       "lines": [
         {
           "id": "1.1",
@@ -62,9 +62,9 @@
       "id": "outro",
       "file": "pip/cut-02/outro.mp4",
       "cutStart": 177.33,
-      "cutEnd": 197.42,
+      "cutEnd": 199.52,
       "clipOffset": 0,
-      "duration": 20.116667,
+      "duration": 22.2,
       "lines": [
         {
           "id": "10.1",
