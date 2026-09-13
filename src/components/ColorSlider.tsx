@@ -303,7 +303,17 @@ function ColorSlider({ label, group, value, max, gradient, suffix, wrap, onChang
           it to keep the plus/minus targets from going narrow and tall. */}
       {/* Tagged like the track: a drag on the number field is still this
           slider being held, and a control never lights itself. */}
-      {stepperMode !== 'none' && <div id={`${sliderId}-stepper`} data-hold={`sl:${channel}`} className="flex items-center h-8 shrink-0">
+      {/* Below a 230px editor card - the same width at which the swatch moves
+          above the SB box - the stepper leaves the row and the track takes the
+          whole width. Hidden rather than unmounted: the ids and the `data-hold`
+          stay in the DOM, so useImpact's keyline bookkeeping and anything else
+          that queries a stepper by id behaves the same at every width, and the
+          control is whole again the moment the card grows back.
+
+          The variant resolves only against the container *named* `editor`, so
+          the presentation, which renders ColorSlider outside any such
+          container, is untouched. */}
+      {stepperMode !== 'none' && <div id={`${sliderId}-stepper`} data-hold={`sl:${channel}`} className="flex items-center h-8 shrink-0 @max-[230px]/editor:hidden">
         <div className={`flex items-center border border-input rounded-md overflow-hidden h-8 ${stepperMode === 'value' ? 'w-[52px]' : 'w-[92px]'}`}>
           {stepperMode === 'full' && (
             <Button
