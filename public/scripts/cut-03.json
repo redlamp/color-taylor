@@ -6,29 +6,29 @@
       "do": "pip",
       "to": "on",
       "ms": 1100,
-      "at": 0
+      "at": 3
     },
     {
       "do": "click",
       "target": "about-close",
-      "at": 4.7
+      "at": 7.7
     },
     {
       "do": "rest",
       "target": "between-panels",
-      "at": 6
+      "at": 9
     },
     {
       "do": "pip",
       "to": "off",
       "ms": 1100,
-      "at": 58.7
+      "at": 61.7
     },
     {
       "do": "loop",
       "target": "editor-top",
       "ms": 2400,
-      "at": 64.4
+      "at": 67.4
     },
     {
       "do": "loop",
@@ -36,27 +36,27 @@
       "turns": 1,
       "wobble": 0.3,
       "ms": 2000,
-      "at": 73.2
+      "at": 76.2
     },
     {
       "do": "hover",
       "target": "hex-hue-label",
       "ms": 600,
-      "at": 79.6
+      "at": 82.6
     },
     {
       "do": "tip",
       "via": "hue-label",
       "degrees": 360,
       "ms": 3000,
-      "at": 80.3
+      "at": 83.3
     },
     {
       "do": "tip",
       "via": "hue-label",
       "to": 0,
       "ms": 900,
-      "at": 85
+      "at": 88
     },
     {
       "do": "rect",
@@ -66,21 +66,21 @@
       "color": "#ff3333",
       "ms": 900,
       "hold": 14100,
-      "at": 85
+      "at": 88
     },
     {
       "do": "ray",
       "ch": "r",
       "ms": 900,
       "hold": 14100,
-      "at": 85
+      "at": 88
     },
     {
       "do": "tip",
       "via": "hue-label",
       "to": 120,
       "ms": 900,
-      "at": 86.7
+      "at": 89.7
     },
     {
       "do": "rect",
@@ -90,21 +90,21 @@
       "color": "#2ecc40",
       "ms": 900,
       "hold": 12400,
-      "at": 86.7
+      "at": 89.7
     },
     {
       "do": "ray",
       "ch": "g",
       "ms": 900,
       "hold": 12400,
-      "at": 86.7
+      "at": 89.7
     },
     {
       "do": "tip",
       "via": "hue-label",
       "to": 240,
       "ms": 900,
-      "at": 88.8
+      "at": 91.8
     },
     {
       "do": "rect",
@@ -114,42 +114,42 @@
       "color": "#3b82f6",
       "ms": 900,
       "hold": 10300,
-      "at": 88.8
+      "at": 91.8
     },
     {
       "do": "ray",
       "ch": "b",
       "ms": 900,
       "hold": 10300,
-      "at": 88.8
+      "at": 91.8
     },
     {
       "do": "tip",
       "via": "hue-label",
       "to": 60,
       "ms": 350,
-      "at": 105.6
+      "at": 108.6
     },
     {
       "do": "tip",
       "via": "hue-label",
       "to": 180,
       "ms": 350,
-      "at": 106
+      "at": 109
     },
     {
       "do": "tip",
       "via": "hue-label",
       "to": 300,
       "ms": 350,
-      "at": 106.8
+      "at": 109.8
     },
     {
       "do": "tip",
       "via": "hue-label",
       "to": 30,
       "ms": 1200,
-      "at": 116.7
+      "at": 119.7
     },
     {
       "do": "slider",
@@ -157,28 +157,28 @@
       "from": 69,
       "to": 90,
       "ms": 1000,
-      "at": 118.9
+      "at": 121.9
     },
     {
       "do": "circle",
       "target": "value:hsb-h",
       "ms": 1200,
       "hold": 2500,
-      "at": 124.1
+      "at": 127.1
     },
     {
       "do": "ray",
       "ch": "r",
       "ms": 900,
       "hold": 5700,
-      "at": 128.9
+      "at": 131.9
     },
     {
       "do": "ray",
       "ch": "g",
       "ms": 900,
       "hold": 2100,
-      "at": 132.5
+      "at": 135.5
     },
     {
       "do": "slider",
@@ -186,7 +186,7 @@
       "from": 90,
       "to": 100,
       "ms": 2400,
-      "at": 138.5
+      "at": 141.5
     },
     {
       "do": "rect",
@@ -195,7 +195,7 @@
       "live": true,
       "ms": 1200,
       "hold": 15500,
-      "at": 138.5
+      "at": 141.5
     },
     {
       "do": "slider",
@@ -203,7 +203,7 @@
       "from": 100,
       "to": 40,
       "ms": 2000,
-      "at": 143.7
+      "at": 146.7
     },
     {
       "do": "slider",
@@ -211,7 +211,7 @@
       "from": 40,
       "to": 0,
       "ms": 3000,
-      "at": 147
+      "at": 150
     },
     {
       "do": "slider",
@@ -219,7 +219,7 @@
       "from": 100,
       "to": 55,
       "ms": 1600,
-      "at": 158.8
+      "at": 161.8
     },
     {
       "do": "slider",
@@ -227,14 +227,14 @@
       "from": 55,
       "to": 100,
       "ms": 1500,
-      "at": 161.3
+      "at": 164.3
     },
     {
       "do": "circle",
       "target": "value:hsb-h",
       "ms": 1200,
       "hold": 2000,
-      "at": 163.6
+      "at": 166.6
     },
     {
       "do": "slider",
@@ -242,21 +242,21 @@
       "from": 0,
       "to": 90,
       "ms": 2600,
-      "at": 165.4
+      "at": 168.4
     },
     {
       "do": "circle",
       "target": "handle:r",
       "ms": 1200,
       "hold": 2600,
-      "at": 171.6
+      "at": 174.6
     },
     {
       "do": "circle",
       "target": "value:hsb-b",
       "ms": 1200,
       "hold": 2600,
-      "at": 171.6
+      "at": 174.6
     },
     {
       "do": "slider",
@@ -264,7 +264,7 @@
       "from": 100,
       "to": 40,
       "ms": 5000,
-      "at": 176.2
+      "at": 179.2
     },
     {
       "do": "rect",
@@ -273,7 +273,7 @@
       "hands": "free",
       "ms": 1200,
       "hold": 5200,
-      "at": 176.2
+      "at": 179.2
     },
     {
       "do": "slider",
@@ -281,7 +281,7 @@
       "from": 40,
       "to": 100,
       "ms": 3000,
-      "at": 185.2
+      "at": 188.2
     },
     {
       "do": "slider",
@@ -289,7 +289,7 @@
       "from": 100,
       "to": 40,
       "ms": 1600,
-      "at": 190.1
+      "at": 193.1
     },
     {
       "do": "slider",
@@ -297,7 +297,37 @@
       "from": 40,
       "to": 100,
       "ms": 1400,
-      "at": 191.9
+      "at": 194.9
+    },
+    {
+      "do": "rest",
+      "target": "swatches",
+      "at": 199.2
+    },
+    {
+      "do": "click",
+      "target": "swatches",
+      "at": 200
+    },
+    {
+      "do": "scroll",
+      "target": "swatches",
+      "at": 200.2
+    },
+    {
+      "do": "click",
+      "target": "swatches:recent",
+      "at": 201.6
+    },
+    {
+      "do": "click",
+      "target": "swatches:recent-clear",
+      "at": 202.6
+    },
+    {
+      "do": "rest",
+      "target": "editor-sb",
+      "at": 204.8
     },
     {
       "do": "box",
@@ -306,8 +336,8 @@
         25,
         100
       ],
-      "ms": 1000,
-      "at": 204
+      "ms": 800,
+      "at": 206.7
     },
     {
       "do": "box",
@@ -316,8 +346,8 @@
         40,
         95
       ],
-      "ms": 1000,
-      "at": 205.4
+      "ms": 400,
+      "at": 208.6
     },
     {
       "do": "box",
@@ -326,8 +356,8 @@
         55,
         85
       ],
-      "ms": 1000,
-      "at": 206.8
+      "ms": 400,
+      "at": 210.1
     },
     {
       "do": "box",
@@ -336,8 +366,8 @@
         70,
         72
       ],
-      "ms": 1000,
-      "at": 208.2
+      "ms": 400,
+      "at": 211.6
     },
     {
       "do": "box",
@@ -346,8 +376,8 @@
         85,
         58
       ],
-      "ms": 1000,
-      "at": 209.6
+      "ms": 400,
+      "at": 213.1
     },
     {
       "do": "box",
@@ -356,87 +386,111 @@
         95,
         42
       ],
-      "ms": 1000,
-      "at": 211
-    },
-    {
-      "do": "rest",
-      "target": "equations",
-      "at": 220.7
-    },
-    {
-      "do": "click",
-      "target": "equations",
-      "at": 221.4
+      "ms": 400,
+      "at": 214.6
     },
     {
       "do": "scroll",
-      "target": "equations:hue",
-      "at": 221.7
+      "target": "swatches:recent-row",
+      "at": 217
+    },
+    {
+      "do": "rect",
+      "target": "swatches:recent-row",
+      "from": "tl",
+      "hands": "free",
+      "ms": 700,
+      "hold": 1500,
+      "at": 217.8
     },
     {
       "do": "click",
-      "target": "equations",
-      "at": 223.9
+      "target": "swatches",
+      "at": 220.2
     },
     {
       "do": "scroll",
       "target": "top",
-      "at": 224.3
+      "at": 220.8
+    },
+    {
+      "do": "rest",
+      "target": "equations",
+      "at": 223.7
+    },
+    {
+      "do": "click",
+      "target": "equations",
+      "at": 224.4
+    },
+    {
+      "do": "scroll",
+      "target": "equations:hue",
+      "at": 224.7
+    },
+    {
+      "do": "click",
+      "target": "equations",
+      "at": 226.9
+    },
+    {
+      "do": "scroll",
+      "target": "top",
+      "at": 227.3
     },
     {
       "do": "rest",
       "target": "help-button",
-      "at": 244.9
+      "at": 247.9
     },
     {
       "do": "rest",
       "target": "help-button",
-      "at": 251.5
+      "at": 254.5
     },
     {
       "do": "click",
       "target": "help-button",
-      "at": 254.3
+      "at": 257.3
     },
     {
       "do": "demo",
-      "at": 254.9
+      "at": 257.9
     },
     {
       "do": "underline",
       "target": "demo-caption",
       "ms": 1400,
       "over": "demo",
-      "at": 286.3
+      "at": 289.3
     },
     {
       "do": "drift",
       "ms": 2200,
-      "at": 287.7
+      "at": 290.7
     },
     {
       "do": "scroll",
       "target": "top",
-      "at": 291.9
+      "at": 294.9
     },
     {
       "do": "underline",
       "target": "figma-text",
       "ms": 1000,
-      "at": 291.9
+      "at": 294.9
     },
     {
       "do": "hover",
       "target": "figma-button",
       "ms": 2100,
-      "at": 293.7
+      "at": 296.7
     },
     {
       "do": "pip",
       "to": "on",
       "ms": 1100,
-      "at": 298.5
+      "at": 301.5
     },
     {
       "do": "zigzag",
@@ -447,7 +501,7 @@
         35,
         95
       ],
-      "at": 302.5
+      "at": 305.5
     },
     {
       "do": "wander",
@@ -457,14 +511,14 @@
         "editor-top"
       ],
       "ms": 1100,
-      "at": 304.9
+      "at": 307.9
     },
     {
       "do": "slider",
       "target": "editor-hue",
       "to": 216,
       "ms": 900,
-      "at": 306.2
+      "at": 309.2
     },
     {
       "do": "box",
@@ -474,29 +528,29 @@
         100
       ],
       "ms": 900,
-      "at": 307.3
+      "at": 310.3
     },
     {
       "do": "click",
       "target": "settings-button",
-      "at": 308.7
+      "at": 311.7
     },
     {
       "do": "click",
       "target": "settings-about",
-      "at": 312.3
+      "at": 315.3
     },
     {
       "do": "underline",
       "target": "about-author",
       "ms": 1400,
-      "at": 313
+      "at": 316
     },
     {
       "do": "pip",
       "to": "off",
       "ms": 500,
-      "at": 320.4
+      "at": 323.4
     }
   ]
 }

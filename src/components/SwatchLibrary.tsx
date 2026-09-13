@@ -212,6 +212,7 @@ const SORT_LABELS: Record<SortMode, string> = {
  * out. Confirmation is the one place words beat a glyph.
  */
 function ActionButton({
+  id,
   label,
   icon: Icon,
   onClick,
@@ -219,6 +220,8 @@ function ActionButton({
   onDropSwatch,
   className = '',
 }: {
+  /** A stable handle for the presentation runner; see docs/demo-script.md. */
+  id?: string;
   label: string;
   icon: ComponentType<{ className?: string }>;
   onClick: (e: ReactMouseEvent) => void;
@@ -258,6 +261,7 @@ function ActionButton({
 
   return (
     <button
+      id={id}
       className={`${ACTION_BTN_CLASS} ${ACTION_BTN_W} transition-transform duration-100 ${className}`}
       // data-armed and data-drop-over share the danger styling: both mean the
       // next thing that happens removes a color.
@@ -804,6 +808,7 @@ export default function SwatchLibrary({ lib, layout, variant = 'card', collapsed
   const recentActions = (
     <div className="flex gap-1">
       <ActionButton
+        id="recent-clear"
         label="Clear"
         icon={Trash2}
         confirm
@@ -896,7 +901,8 @@ export default function SwatchLibrary({ lib, layout, variant = 'card', collapsed
   // CollapsibleSection started animating its height with a grid - see
   // figma/ui/figma.css.
   const recentGrid = (
-    <div data-swatch-grid className={gridClass}>
+    // id: the presentation runner boxes the row with it (`swatches:recent-row`).
+    <div id="recent-grid" data-swatch-grid className={gridClass}>
       {Array.from({ length: bank }, (_, i) => {
         const entry = recentColors[i];
         const color = entry?.hex;
@@ -946,7 +952,7 @@ export default function SwatchLibrary({ lib, layout, variant = 'card', collapsed
     </div>
   );
   const savedGrid = (
-    <div data-swatch-grid className={gridClass}>
+    <div id="saved-grid" data-swatch-grid className={gridClass}>
       {displaySlots.map(({ slot, userIdx }, displayIdx) => {
         const color = slot?.hex ?? null;
         const isSelected = !!slot && swatchKey(slot.hex, slot.alpha) === activeKey;

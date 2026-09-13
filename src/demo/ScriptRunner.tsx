@@ -248,6 +248,12 @@ const ROW_PAD = 4;
  * the card it is around without reaching the next one's text.
  */
 const EQUATION_PAD = 6;
+/**
+ * Padding around a row of swatches. A swatch is a 32px square in a grid with a
+ * 6px gutter, and the row is the only thing at that end of the panel, so the
+ * box wants a little air without reaching the section's own rule above it.
+ */
+const SWATCH_PAD = 8;
 /** How tall the header band of a section is taken to be, for `editor-top`. */
 const HEADER_BAND = 60;
 /** A circuit around a vertex letter, as a multiple of the letter's half-size. */
@@ -411,6 +417,12 @@ const HUE_SETTLE = [0.34, -0.34, 0.68, -0.68];
 /** `underline`: how far under the text the line runs, and how far it bows down in the middle, in px. */
 const UNDERLINE_GAP = 4;
 const UNDERLINE_BOW = 2;
+/**
+ * How long the hand waits between the two halves of a confirming click. Long
+ * enough for "Sure?" to be read as a word on the button rather than a flicker,
+ * and well inside the control's own three-second disarm.
+ */
+const CONFIRM_MS = 400;
 /** How long `underline` waits for its target to exist and stop moving. */
 const SETTLE_MS = 600;
 const SETTLE_POLL_MS = 32;
@@ -1070,6 +1082,29 @@ function resolve(name: string, host: DemoHost): Target | null {
     const rect = () => unionRect([el], EQUATION_PAD);
     return { el, at: () => rectCenter(rect()), rect };
   }
+  // The Swatches panel. The section and the Recent group inside it are both
+  // CollapsibleSections, so their header triggers follow the `<id>-trigger`
+  // convention the equations toggle already uses; the Clear action and the two
+  // grids carry ids of their own (see SwatchLibrary).
+  if (name === 'swatches') return byEl(q('#swatches-group-trigger'));
+  if (name === 'swatches:recent') return byEl(q('#recent-colors-trigger'));
+  if (name === 'swatches:recent-clear') return byEl(q('#recent-clear'));
+  if (name === 'swatches:recent-row' || name === 'swatches:saved-row') {
+    const grid = q(name === 'swatches:recent-row' ? '#recent-grid' : '#saved-grid');
+    if (!grid) return null;
+    const rect = () => {
+      // The slots that hold a color, not the whole bank: Recent is 24 wide in
+      // the app's panel and beat 7 fills a quarter of it, so a box round the
+      // grid would be mostly empty squares with the six the line is about off
+      // in one corner. An empty Recent slot is `disabled`, which is what tells
+      // the two apart without marking the buttons up. Saved's empty slots are
+      // clickable - that is how a color is saved - so there the box is the
+      // whole grid, which is what naming the Saved row means anyway.
+      const filled = Array.from(grid.querySelectorAll('button:not(:disabled)'));
+      return unionRect(filled.length ? filled : [grid], SWATCH_PAD);
+    };
+    return { el: grid, at: () => rectCenter(rect()), rect };
+  }
   if (name === 'figma-banner') return byEl(q('#plugin-banner'));
   if (name === 'figma-text') return byEl(q('#plugin-banner-text'));
   if (name === 'figma-button') return byEl(q('#plugin-banner-cta'));
@@ -1429,7 +1464,22 @@ export default function ScriptRunner({
           const p = t.at();
           const dist = Math.hypot(p.x - d.pos.x, p.y - d.pos.y);
           await d.moveTo(() => p, clamp(dist * 1.2, 160, 520));
+          // Recent's own toggle opens rather than toggles. The cut asks for the
+          // group to be open before it clears it, and CollapsibleSection
+          // remembers what the session has opened, so a replay or a scrub back
+          // into beat 7 finds it open already - and a press there would close
+          // the thing the next three cues are about. The hand still crosses to
+          // the header, which is the gesture; there is just nothing to press.
+          if (a.target === 'swatches:recent' && t.el.getAttribute('aria-expanded') === 'true') return;
           await d.click(t.el);
+          // Clear arms on the first click and says "Sure?"; the second inside
+          // three seconds is what empties the list. One cue is one gesture, so
+          // the confirm is the runner's to know rather than the cut's - a cue
+          // file should not have to carry a control's own protocol.
+          if (a.target === 'swatches:recent-clear') {
+            await d.wait(CONFIRM_MS);
+            await d.click(t.el);
+          }
           return;
         }
         case 'loop': {
