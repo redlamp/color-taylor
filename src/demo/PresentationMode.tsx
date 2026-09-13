@@ -14,6 +14,16 @@
  * points, and the gap before it. Applying there rebuilds the cut on disk and
  * this component re-fetches it in place.
  *
+ * Two props turn the same component into the shipped walkthrough. `mode`
+ * `'production'` reduces the transport to play/pause, the scrub and the clock,
+ * and mounts none of the authoring pieces - no notes, no clip editor, no
+ * `/__notes` call - and `voice` hands in an `<audio>` the host created and
+ * started inside its own click handler, which this component adopts as its
+ * clock rather than rendering one of its own. Playback needs that user
+ * gesture, and the host is the only place a `play()` can be synchronous with
+ * it. Which builds mount the component at all is the host's business: there is
+ * no dev guard in here.
+ *
  * This is a tool, not a surface of the app: the styling is deliberately not
  * the app's. See docs/demo-script.md, "Presentation mode".
  */
@@ -65,11 +75,24 @@ export interface PresentationModeProps {
   onDemo: (from?: { x: number; y: number } | null) => void;
   onColor: (hsb: { h: number; s: number; b: number }) => void;
   demoOpen: boolean;
+  /**
+   * The voice track, created and played by the host inside the click handler
+   * that started the walkthrough. Adopted as this transport's clock: its `src`
+   * is left alone when it already points at the cut's voice, and it is taken
+   * over whether it is already playing or still paused. Without it the
+   * component renders its own `<audio>`, as it always has.
+   */
+  voice?: HTMLAudioElement;
+  /**
+   * `'production'` is the shipped walkthrough: play/pause, scrub and clock, and
+   * nothing that writes to the repository. `'dev'`, the default, is the
+   * authoring tool - notes, the N and C keys, and the clip editor.
+   */
+  mode?: 'dev' | 'production';
 }
 
-/** Read the URL once: the presentation name, in dev builds only. */
+/** Read the URL once: the presentation name. */
 export function presentName(): string | null {
-  if (!import.meta.env.DEV) return null;
   try {
     const raw = new URLSearchParams(window.location.search).get('present');
     return raw && /^[\w-]+$/.test(raw) ? raw : null;
@@ -147,8 +170,23 @@ const notesMarkdown = (notes: Note[]) =>
     .map((n) => `- [${mmss(n.t)}] ${n.beat ?? '?'}.${n.line ?? '?'} — ${n.text}`)
     .join('\n');
 
-export default function PresentationMode({ name, host, onDemo, onColor, demoOpen }: PresentationModeProps) {
+/** Whether a media element is already pointed at `url`, resolved the same way. */
+function pointedAt(el: HTMLMediaElement, url: string): boolean {
+  if (!el.getAttribute('src') && !el.src) return false;
+  try {
+    return new URL(el.src, window.location.href).href === new URL(url, window.location.href).href;
+  } catch {
+    return false;
+  }
+}
+
+export default function PresentationMode({
+  name, host, onDemo, onColor, demoOpen, voice, mode = 'dev',
+}: PresentationModeProps) {
+  /** The authoring tool's half: notes, the clip editor, and the keys for them. */
+  const authoring = mode === 'dev';
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const voiceHostRef = useRef<HTMLSpanElement | null>(null);
   const timelineRef = useRef<HTMLDivElement | null>(null);
   const handleRef = useRef<ScriptRunnerHandle | null>(null);
   const noteInputRef = useRef<HTMLInputElement | null>(null);
@@ -190,6 +228,41 @@ export default function PresentationMode({ name, host, onDemo, onColor, demoOpen
   useEffect(() => {
     try { localStorage.setItem('present:collapsed', collapsed ? '1' : '0'); } catch { /* private mode */ }
   }, [collapsed]);
+  /** Collapsing is an authoring convenience; the shipped transport is one row. */
+  const shrunk = authoring && collapsed;
+
+  /**
+   * Adopting the host's `<audio>`.
+   *
+   * It is the same element the host called `play()` on inside the click that
+   * started the walkthrough, so writing its `src` again would drop that
+   * playback and re-download the track: it is only written when the element is
+   * pointed somewhere else. The element is put in the DOM here, wearing the
+   * `present-audio` test id, because the camera panel reads the clock off that
+   * selector and a `new Audio()` is in no document.
+   */
+  /* eslint-disable react-hooks/immutability -- the element is the host's, and
+     adopting it is exactly writing to it: the rule reads a DOM node arriving as
+     a prop as component state. */
+  useEffect(() => {
+    const holder = voiceHostRef.current;
+    const el: HTMLAudioElement | undefined = voice;
+    if (!el || !holder) return;
+    const url = scriptAudioUrl(name);
+    if (!pointedAt(el, url)) {
+      el.src = url;
+      el.load();
+    }
+    el.preload = 'auto';
+    el.setAttribute('data-testid', 'present-audio');
+    if (el.parentElement !== holder) holder.appendChild(el);
+    audioRef.current = el;
+    return () => {
+      if (el.parentElement === holder) holder.removeChild(el);
+      if (audioRef.current === el) audioRef.current = null;
+    };
+  }, [voice, name]);
+  /* eslint-enable react-hooks/immutability */
 
   /* The script and its lines; the lines are optional. */
   useEffect(() => {
@@ -241,7 +314,9 @@ export default function PresentationMode({ name, host, onDemo, onColor, demoOpen
         })
         .catch(() => { /* No lines file: the timeline just has no spans. */ });
     }
-    fetch(notesUrl(name))
+    // Notes live on the dev server's middleware; the shipped walkthrough never
+    // asks for them.
+    if (authoring) fetch(notesUrl(name))
       .then((res) => {
         if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
         return res.json() as Promise<NotesFile>;
@@ -253,7 +328,7 @@ export default function PresentationMode({ name, host, onDemo, onColor, demoOpen
         if (live) setNotesError(`notes: ${err instanceof Error ? err.message : String(err)}`);
       });
     return () => { live = false; };
-  }, [name, rebuilt, planMode]);
+  }, [name, rebuilt, planMode, authoring]);
 
   /* The clock: the audio element's position, or the plan clock, read every frame. */
   useEffect(() => {
@@ -375,11 +450,11 @@ export default function PresentationMode({ name, host, onDemo, onColor, demoOpen
         e.preventDefault();
         e.stopPropagation();
         toggle();
-      } else if (e.key === 'n' || e.key === 'N') {
+      } else if (authoring && (e.key === 'n' || e.key === 'N')) {
         e.preventDefault();
         e.stopPropagation();
         setNoting(true);
-      } else if (e.key === 'c' || e.key === 'C') {
+      } else if (authoring && (e.key === 'c' || e.key === 'C')) {
         e.preventDefault();
         e.stopPropagation();
         setCollapsed((v) => !v);
@@ -387,7 +462,7 @@ export default function PresentationMode({ name, host, onDemo, onColor, demoOpen
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
-  }, [toggle, editing]);
+  }, [toggle, editing, authoring]);
 
   useEffect(() => {
     if (noting) noteInputRef.current?.focus();
@@ -422,8 +497,9 @@ export default function PresentationMode({ name, host, onDemo, onColor, demoOpen
    */
   const onTimelineDouble = (e: ReactMouseEvent<HTMLDivElement>) => {
     // Nothing to edit on the plan clock: the lines are planned, not recorded,
-    // so there is no clip behind the span under the pointer.
-    if (planMode) return;
+    // so there is no clip behind the span under the pointer. And nothing to
+    // edit in the shipped walkthrough, which has no pipeline behind it.
+    if (planMode || !authoring) return;
     const t = timeFromPointer(e);
     const l = t === null ? null : lineAt(lines, t);
     if (l) setEditing(`${l.beat}.${l.line}`);
@@ -517,13 +593,15 @@ export default function PresentationMode({ name, host, onDemo, onColor, demoOpen
             font: '12px/1.4 ui-monospace, Consolas, monospace',
             borderTop: '2px solid #f5a623',
             boxShadow: '0 -4px 16px rgba(0,0,0,0.4)',
-            padding: collapsed ? '4px 12px' : '6px 12px 8px',
+            padding: shrunk ? '4px 12px' : '6px 12px 8px',
             userSelect: 'none',
           }}
         >
           {/* No element at all on the plan clock: there is no track to point it
-              at, and an <audio> with a missing src is a 404 on every load. */}
-          {!planMode && (
+              at, and an <audio> with a missing src is a 404 on every load. And
+              none when the host handed one in - that one is adopted into the
+              holder below, test id and all. */}
+          {!planMode && !voice && (
             <audio
               ref={audioRef}
               src={rebuilt ? `${scriptAudioUrl(name)}?v=${rebuilt}` : scriptAudioUrl(name)}
@@ -531,8 +609,10 @@ export default function PresentationMode({ name, host, onDemo, onColor, demoOpen
               data-testid="present-audio"
             />
           )}
+          {voice && <span ref={voiceHostRef} data-testid="present-voice-host" />}
 
-          <div style={{ display: collapsed ? 'none' : 'flex', gap: 16, alignItems: 'baseline', minHeight: 18 }}>
+          {authoring && (
+          <div style={{ display: shrunk ? 'none' : 'flex', gap: 16, alignItems: 'baseline', minHeight: 18 }}>
             <span data-testid="present-line" style={{ flex: 1, color: '#fff', fontSize: 13 }}>
               {line ? `${line.beat}.${line.line}  ${line.text}` : '—'}
             </span>
@@ -542,6 +622,7 @@ export default function PresentationMode({ name, host, onDemo, onColor, demoOpen
               {following ? `   next: ${describe(following)} @${following.at}` : '   next: —'}
             </span>
           </div>
+          )}
 
           <div
             ref={timelineRef}
@@ -550,7 +631,7 @@ export default function PresentationMode({ name, host, onDemo, onColor, demoOpen
             onPointerMove={onTimelineMove}
             onDoubleClick={onTimelineDouble}
             style={{
-              display: collapsed ? 'none' : 'block',
+              display: shrunk ? 'none' : 'block',
               position: 'relative',
               height: 28,
               margin: '6px 0',
@@ -657,12 +738,17 @@ export default function PresentationMode({ name, host, onDemo, onColor, demoOpen
             <span data-testid="present-time" style={{ minWidth: 110 }}>
               {mmssTenths(time)} / {mmss(duration)}
             </span>
+            {authoring && (
             <button type="button" data-testid="present-note" onClick={() => setNoting(true)} style={buttonStyle}>
               Note (N)
             </button>
+            )}
+            {authoring && (
             <button type="button" onClick={copyNotes} style={buttonStyle} disabled={!notes.length}>
               {copied ? 'Copied' : 'Copy as markdown'}
             </button>
+            )}
+            {authoring && (
             <button
               type="button"
               data-testid="present-clear"
@@ -674,6 +760,7 @@ export default function PresentationMode({ name, host, onDemo, onColor, demoOpen
             >
               {clearArmed ? 'Sure?' : 'Clear notes'}
             </button>
+            )}
             {noting && (
               <input
                 ref={noteInputRef}
@@ -699,27 +786,31 @@ export default function PresentationMode({ name, host, onDemo, onColor, demoOpen
                 }}
               />
             )}
-            {collapsed && !noting && (
+            {shrunk && !noting && (
               <span style={{ flex: 1, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {line ? `${line.beat}.${line.line}  ${line.text}` : '—'}
               </span>
             )}
+            {authoring && (
             <span style={{ marginLeft: 'auto', color: '#888', whiteSpace: 'nowrap' }}>
-              {collapsed ? '' : `present:${name}${planMode ? ' · clock=plan (no audio)' : ''} · Space play/pause · N note · C collapse`}
+              {shrunk ? '' : `present:${name}${planMode ? ' · clock=plan (no audio)' : ''} · Space play/pause · N note · C collapse`}
               {notesError ? `  · ${notesError}` : ''}
             </span>
+            )}
+            {authoring && (
             <button
               type="button"
               data-testid="present-collapse"
               onClick={() => setCollapsed((v) => !v)}
-              title={collapsed ? 'Expand (C)' : 'Collapse (C)'}
+              title={shrunk ? 'Expand (C)' : 'Collapse (C)'}
               style={{ ...buttonStyle, padding: '2px 6px' }}
             >
-              {collapsed ? '▴' : '▾'}
+              {shrunk ? '▴' : '▾'}
             </button>
+            )}
           </div>
 
-          {!collapsed && notes.length > 0 && (
+          {authoring && !shrunk && notes.length > 0 && (
             <ul
               data-testid="present-notes"
               style={{ listStyle: 'none', margin: '6px 0 0', padding: 0, maxHeight: 96, overflowY: 'auto' }}
@@ -745,7 +836,7 @@ export default function PresentationMode({ name, host, onDemo, onColor, demoOpen
         </div>,
         document.body,
       )}
-      {editing !== null && createPortal(
+      {authoring && editing !== null && createPortal(
         <ClipEditor
           key={`${name}:${editing}`}
           name={name}

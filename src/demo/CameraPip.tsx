@@ -27,8 +27,12 @@
  * of which one is opaque. With the single file there is only ever one entry,
  * so the second element never gets pointed at anything.
  *
- * Mounted only under `?script=` or `?present=` (dev), so nothing about it
- * reaches the app. It moves by `transform` alone, written by the script
+ * The shipped walkthrough hands its own `<video>` in as `webcam`: playback
+ * needs the user gesture that opened it, so the element is created and played
+ * in the host's click handler and adopted into the panel box here.
+ *
+ * Mounted under `?script=` or `?present=` in dev, and by the app's own
+ * walkthrough entry in production. It moves by `transform` alone, written by the script
  * runner's `pip` action, which drags it off the right edge and back; the
  * current offset lives on `data-pip-x` so a seek can put it back without
  * replaying the gesture.
@@ -37,6 +41,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Video } from 'lucide-react';
+import { CURRENT_CUT } from './currentCut';
 
 /** The OBS picture-in-picture box, to the pixel. Square since round 8. */
 export const PIP_WIDTH = 400;
@@ -86,9 +91,8 @@ const SETTLE = 0.02;
  */
 const JUMP = 0.5;
 
-/** Read the URL once, the way presentation mode does. Dev builds only. */
+/** Read the URL once, the way presentation mode does. */
 function presentName(): string | null {
-  if (!import.meta.env.DEV) return null;
   try {
     const raw = new URLSearchParams(window.location.search).get('present');
     return raw && /^[\w-]+$/.test(raw) ? raw : null;
@@ -119,10 +123,21 @@ interface Slot {
   parked: boolean;
 }
 
-export default function CameraPip() {
+export interface CameraPipProps {
+  /**
+   * The panel's front `<video>`, created and played by the host inside the
+   * click that started the walkthrough. Adopted into the panel box: it keeps
+   * its own `src` when it already has one, because the host may have started
+   * it, and takes the manifest's first file when it does not.
+   */
+  webcam?: HTMLVideoElement;
+}
+
+export default function CameraPip({ webcam }: CameraPipProps = {}) {
   // A is the one the webcam uses, and the one a span is shown on first; B is
   // its double, hidden, holding the span that comes next.
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const boxRef = useRef<HTMLDivElement | null>(null);
   const spareRef = useRef<HTMLVideoElement | null>(null);
   const [live, setLive] = useState(false);
   const [clips, setClips] = useState<PipClip[]>([]);
@@ -153,7 +168,9 @@ export default function CameraPip() {
 
   /* The cut's camera footage, when this presentation has any. */
   useEffect(() => {
-    const name = presentName();
+    // The app's own walkthrough has no `?present=` in the URL to read; the host
+    // handing an element in is what says the shipping cut is the one playing.
+    const name = presentName() ?? (webcam ? CURRENT_CUT : null);
     if (!name) return;
     let alive = true;
     fetch(`${import.meta.env.BASE_URL}scripts/${name}-pip.json`)
@@ -168,11 +185,47 @@ export default function CameraPip() {
       // No manifest: the cut has no camera clips yet, and the webcam stands in.
       .catch(() => { /* nothing to play */ });
     return () => { alive = false; };
-  }, []);
+  }, [webcam]);
+
+  /**
+   * Adopting the host's `<video>`: it is appended into the panel box and used
+   * as the front slot, so the raf loop below drives it exactly as it drives the
+   * element this component renders otherwise. Muted and inline are re-asserted
+   * because an unmuted element is not allowed to play itself, and a `src` it
+   * already carries is left alone - the host may have started it inside the
+   * click, and a rewrite would drop that.
+   */
+  /* eslint-disable react-hooks/immutability -- the element is the host's, and
+     adopting it is exactly writing to it: the rule reads a DOM node arriving as
+     a prop as component state. */
+  useEffect(() => {
+    const box = boxRef.current;
+    const el: HTMLVideoElement | undefined = webcam;
+    if (!el || !box) return;
+    el.muted = true;
+    el.playsInline = true;
+    el.preload = 'auto';
+    el.setAttribute('data-testid', 'camera-pip-video');
+    el.setAttribute('data-source', 'cut');
+    el.dataset.front = '1';
+    Object.assign(el.style, {
+      position: 'absolute', inset: '0', width: '100%', height: '100%',
+      objectFit: 'cover', display: 'block', transform: 'none',
+    });
+    if (el.parentElement !== box) box.appendChild(el);
+    videoRef.current = el;
+    return () => {
+      if (el.parentElement === box) box.removeChild(el);
+      if (videoRef.current === el) videoRef.current = null;
+    };
+  }, [webcam]);
+  /* eslint-enable react-hooks/immutability */
 
   /* The webcam, unless the cut's own footage is playing instead. */
   useEffect(() => {
-    if (clips.length) return;
+    // An adopted element is the walkthrough's own picture; asking for the
+    // camera there would be a permission prompt in the middle of a talk.
+    if (clips.length || webcam) return;
     let alive = true;
     let stream: MediaStream | null = null;
     const media = navigator.mediaDevices;
@@ -195,7 +248,7 @@ export default function CameraPip() {
       alive = false;
       stream?.getTracks().forEach((t) => t.stop());
     };
-  }, [clips.length]);
+  }, [clips.length, webcam]);
 
   /**
    * The footage against the presentation's clock.
@@ -238,7 +291,12 @@ export default function CameraPip() {
       if (!s.el || s.entry?.file === entry.file) return;
       s.entry = entry;
       s.parked = false;
-      s.el.src = base + entry.file;
+      const url = base + entry.file;
+      // An adopted element arrives already pointed at the file, and often
+      // already playing: writing the same `src` again would blank it and start
+      // the download over.
+      if (s.el.src && new URL(s.el.src, window.location.href).href === new URL(url, window.location.href).href) return;
+      s.el.src = url;
       s.el.load();
     };
     /**
@@ -339,6 +397,7 @@ export default function CameraPip() {
   };
   return createPortal(
     <div
+      ref={boxRef}
       id="camera-pip"
       data-testid="camera-pip"
       data-pip-x="0"
@@ -359,16 +418,20 @@ export default function CameraPip() {
         willChange: 'transform',
       }}
     >
-      <video
-        ref={videoRef}
-        muted
-        playsInline
-        preload="auto"
-        data-testid="camera-pip-video"
-        data-source={clips.length ? 'cut' : 'webcam'}
-        data-front="1"
-        style={{ ...shared, opacity: showVideo ? 1 : 0 }}
-      />
+      {/* The host's element stands in for this one when there is one: it is
+          appended into this box by the effect above. */}
+      {!webcam && (
+        <video
+          ref={videoRef}
+          muted
+          playsInline
+          preload="auto"
+          data-testid="camera-pip-video"
+          data-source={clips.length ? 'cut' : 'webcam'}
+          data-front="1"
+          style={{ ...shared, opacity: showVideo ? 1 : 0 }}
+        />
+      )}
       {/* The double, for the span after the one playing. It is never seen
           while it loads: it is opaque only once it is the one being played. */}
       {clips.length > 0 && (

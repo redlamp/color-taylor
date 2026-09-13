@@ -485,6 +485,17 @@ ghost cursor, so every gesture goes through the real controls. Dev builds only
   by running the file at 0.98 or 1.02 until it is inside 20 ms — a `currentTime`
   write mid-play restarts the decoder and shows as a stutter — and a pause or a
   scrub still lands on the exact frame.
+- **`webcam`**, its one prop, is how the shipped walkthrough hands its own
+  `<video>` in: playback needs the click that opened the walkthrough, so the
+  host creates the element and calls `play()` on it synchronously there, and
+  the panel adopts it — appended into the panel box, muted and `playsInline`
+  re-asserted, taking the manifest's file only when the element has none, and
+  never rewritten when it already points at it. The element it renders itself
+  is not mounted then; the hidden double still is. Without `?present=` in the
+  URL an adopted element means the shipping cut, `CURRENT_CUT`, so the manifest
+  is found with no query parameter to read. With neither prop and
+  `&clock=plan`, there is no manifest and no `<audio>` to read, and the webcam
+  or the plate stands in as before.
 
 The JSON is `{ "actions": [ { "at": 9.1, "do": "rest", "target": "help-button" }, ... ] }`.
 
@@ -615,8 +626,10 @@ channel tooltips the same way a pointer would.
 ## Presentation mode (`?present=`)
 
 The same script played against its voice track, for reviewing the cut and
-leaving notes: `src/demo/PresentationMode.tsx`. Dev builds only (`bun dev`);
-the production bundle never mounts it.
+leaving notes: `src/demo/PresentationMode.tsx`. `?present=` is dev only — the
+app mounts it from that query parameter in dev builds alone — but the component
+itself has no dev guard: the same one is the shipped walkthrough, mounted by
+the app's own entry with `mode="production"` (see "Shipping it" below).
 
 - `?present=<name>` (for example `?present=cut-01`) loads
   `public/scripts/<name>.json`, the voice track `<name>.m4a` (gitignored: the
@@ -666,9 +679,28 @@ the production bundle never mounts it.
     rows in the cut's lines doc;
   - the clip editor does not open: there is no clip behind a planned line.
     Notes still work, and land in the same file.
+- **Shipping it.** The component takes two more props, both optional, and both
+  only for the app's own walkthrough entry:
+
+  | prop | |
+  |---|---|
+  | `mode` | `'dev'` (the default) is the authoring tool as described above. `'production'` reduces the transport to play/pause, the scrub and the clock: no line and action readout, no notes, no Clear, no collapse, no **N** or **C** keys, no clip editor, and no `/__notes` request at all. **Space** still plays and pauses. |
+  | `voice` | An `<audio>` the host created and played inside the click that started the walkthrough — playback needs that gesture, and only the host can call `play()` synchronously with it. The component adopts it as its clock instead of rendering its own: it is appended into the transport wearing the `present-audio` test id (which is what the camera panel reads the clock off), and its `src` is written only when it does not already point at the cut's voice, so an element that is already playing is taken over mid-flight rather than restarted. |
+
+- **`src/demo/currentCut.ts`** is the one place the shipping cut is named
+  (`CURRENT_CUT`). The walkthrough entry passes it as `name`, the camera panel
+  falls back to it when there is no `?present=`, and only that cut's assets
+  ship: everything under `public/scripts/` for an older cut is removed before a
+  deploy.
 - Notes persist through a dev-server middleware in `vite.config.js`:
   `GET`/`POST /__notes/<name>` reads and writes
   `<PRESENTATION_NOTES_DIR>/<name>-notes.json` as
   `{ "source": "<name>", "notes": [...] }`. The default directory is the
   cut's cue folder in the videos repo,
   `C:\workspace\redlamp-videos\videos\color-taylor-demo-test\cues`.
+- **`public/scripts/` is not watched.** `server.watch.ignored` in
+  `vite.config.js` keeps chokidar off it: the pipeline replaces those files
+  while the dev server runs, and the unlink path took the server down with
+  `ERR_CLOSED_SERVER`. They are fetched rather than imported, so there is
+  nothing for HMR to do with them — a rebuilt cut is picked up by presentation
+  mode's own re-fetch.

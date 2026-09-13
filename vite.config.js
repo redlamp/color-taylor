@@ -346,6 +346,13 @@ const clipEditor = {
 export default defineConfig({
   base,
   plugins: [react(), tailwindcss(), siteUrlHtml, presentationNotes, clipEditor],
+  server: {
+    // The cut's assets are rebuilt and copied over while the server runs, and
+    // chokidar's unlink path kills it with ERR_CLOSED_SERVER when one of them
+    // is replaced or deleted. They are fetched rather than imported, so there
+    // is no module graph to invalidate and nothing to gain from watching them.
+    watch: { ignored: ['**/public/scripts/**'] },
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
