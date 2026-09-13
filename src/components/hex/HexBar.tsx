@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
 import { HEX_HIGHLIGHT_COLOR, HIGHLIGHT_IN, HIGHLIGHT_OUT } from '../../utils/highlight';
 import {
-  BAR_ARROW, BAR_LABEL_SPACE, BAR_TICK, BAR_TITLE_LIFT, BAR_TRACK, type PointerDownState,
+  BAR_ARROW, BAR_LABEL_INSET_H, BAR_LABEL_SPACE, BAR_TICK, BAR_TITLE_LIFT, BAR_TRACK,
+  type PointerDownState,
 } from './hexConstants';
 
 /**
@@ -13,8 +14,9 @@ const ARROW_HALF = 5;
 const TICK_BAND = 14;
 /** How far a horizontal bar's tick band reaches below the track. */
 const TICK_BAND_DEPTH = 24;
-/** Gap between the ticks and the numbers beside them. */
-const LABEL_INSET = { vertical: 8, horizontal: 6 };
+/** Gap between the ticks and the numbers beside them. The horizontal one is
+ *  shared with the stage, which budgets the room the row needs below it. */
+const LABEL_INSET = { vertical: 8, horizontal: BAR_LABEL_INSET_H };
 /**
  * The vertical title's right edge, measured back from the track's far side:
  * clear of the value arrow, not just of the track. The arrow rides to the top
@@ -28,6 +30,26 @@ const DRAG_TRIGGER_DISTANCE = 4;
 const CLICK_MAX_DURATION = 200;
 
 const MARKS = [0, 50, 100];
+
+/**
+ * The axis title's treatment, and the value readout's where the number joins
+ * the title's row - they are one line and have to be the same thing twice.
+ *
+ * bg-card, because a label over a rule should break the rule: the hue ray and
+ * the field's corners run behind this strip.
+ *
+ * px-1, not py-1, for the padding at the two ends of the word: Tailwind v4 maps
+ * px/py to padding-inline/padding-block, which are logical, and the vertical
+ * writing mode the standing title wears swaps which is which. The -4px at the
+ * callsites then cancels that padding so the glyphs, not the invisible chip,
+ * line up with the end of the bar.
+ *
+ * text-sm rather than the text-base this project defaults to: it is the size
+ * every other piece of furniture on these bars is set at - the 0/50/100 row,
+ * the hue caption - and the row has to fit across a 140px track at a 240px
+ * card with "Saturation" at one end of it.
+ */
+const TITLE_CLASS = 'absolute z-[6] select-none whitespace-nowrap bg-card px-1 text-sm leading-none text-muted-foreground pointer-events-none';
 
 export type HexBarOrientation = 'vertical' | 'horizontal';
 
@@ -81,19 +103,27 @@ interface HexBarProps {
    */
   markers?: boolean;
   /**
-   * Room the pill has beyond its anchor before it must slide back over the
-   * track, as a CSS length. The pill is fixed-size HTML on a bar that scales,
-   * so past this it outruns the card. Omit where nothing bounds it.
+   * Where the value is written: on a pill riding the track, or at the right-hand
+   * end of the title row.
    *
-   * Standing, the anchor is the track's far edge and this is one number. Laid
-   * down, the pill is centred on an anchor that slides with the value, so it
-   * has a bound at each end and both move - the host works them out per render
-   * and hands them in the same way.
+   * Stacked, both bars lie horizontal a short way apart and two pills hanging
+   * under two tracks is more furniture than the card has room for - so the
+   * number joins the word that names it and the arrow is left as the only
+   * handle. 'pill' everywhere else, unchanged.
+   */
+  readout?: 'pill' | 'title';
+  /**
+   * Room the pill has past the track's far edge before it must slide back over
+   * it, as a CSS length. The pill is fixed-size HTML on a bar that scales, so
+   * past this it outruns the card. Omit where nothing bounds it.
+   *
+   * The standing brightness bar's, and only its. A lying bar centres its pill
+   * on an anchor that runs along the track, so it needed a bound at each end -
+   * but the only lying bar that still has a pill is the saturation bar in the
+   * standing layout, whose narrowest card is now HEX_STACKED_BARS_MAX and where
+   * neither bound comes anywhere near biting.
    */
   pillGutter?: string;
-  /** The same, on the near side. Horizontal bars only: a standing pill hangs
-   *  off its anchor in one direction and cannot cross the near bound. */
-  pillGutterStart?: string;
   /** The pill was grabbed - a hold that has not moved yet is still a hold. */
   onGrab?: () => void;
   /** A drag has begun, from the pill, the arrow, or the track past the threshold. */
@@ -118,10 +148,11 @@ interface HexBarProps {
  */
 export default function HexBar({
   orientation, axis, value, title, stops, swatch, swatchText, unit, style,
-  lit = false, markers = true, pillGutter, pillGutterStart,
+  lit = false, markers = true, readout = 'pill', pillGutter,
   onGrab, onDragStart, onDrag, onTap, onPick, onRelease,
 }: HexBarProps) {
   const vertical = orientation === 'vertical';
+  const pill = readout === 'pill';
   /** n layout units, as a CSS length. */
   const u = (n: number) => `calc(${unit} * ${n})`;
   /** Where a value sits along the track, as a percentage of it. */
@@ -202,6 +233,8 @@ export default function HexBar({
 
   const pos = along(value);
   const labelInset = LABEL_INSET[orientation];
+  /** The band above a lying bar's track, shared by its title and its readout. */
+  const titleTop = `calc(0px - ${u(BAR_ARROW + 2)} - ${BAR_TITLE_LIFT}px)`;
 
   // The arrow points inboard at its own track: right at a vertical bar's left
   // edge, down at a horizontal bar's top one. A CSS triangle rather than a
@@ -262,7 +295,9 @@ export default function HexBar({
         data-hold={axis}
         className="absolute h-0 w-0 cursor-pointer"
         style={arrowStyle}
-        onPointerDown={(e) => grab(e)}
+        // With no pill the arrow is the only handle, so it takes over the hold
+        // the pill was reporting - a press that has not moved yet still sounds.
+        onPointerDown={(e) => grab(e, pill ? undefined : onGrab)}
       />
 
       {/* Ticks. The mark itself is 4x1 units - a target in name only - so a
@@ -294,7 +329,8 @@ export default function HexBar({
             Names what the bar drives, and which of the two models is live.
             The vertical form is set down the bar's inboard side, top-aligned
             with the track and reading bottom-to-top, so the word ends where
-            the bar begins; horizontally that lane becomes a strip above it.
+            the bar begins; horizontally that lane becomes a strip above it,
+            shared with the readout where there is one.
 
             vertical-rl + rotate-180 rather than a plain rotate(-90deg): it
             gives the element a layout box that is already narrow and tall, so
@@ -302,24 +338,39 @@ export default function HexBar({
             about its centre leaves the footprint offset by half the
             difference between its width and its height - by however long the
             word is.
-
-            bg-card, because a label over a rule should break the rule: the
-            hue ray and the field's corners run behind this strip.
-
-            px-1, not py-1, for the padding at the two ends of the word:
-            Tailwind v4 maps px/py to padding-inline/padding-block, which are
-            logical, and a vertical writing mode swaps which is which. The
-            -4px then cancels that padding so the glyphs, not the invisible
-            chip, line up with the end of the bar.
           */}
           <div
-            className={`absolute z-[6] select-none whitespace-nowrap bg-card px-1 text-sm leading-none text-muted-foreground pointer-events-none ${vertical ? 'rotate-180 [writing-mode:vertical-rl]' : ''}`}
+            id={`${axis}-title`}
+            className={`${TITLE_CLASS} ${vertical ? 'rotate-180 [writing-mode:vertical-rl]' : ''}`}
             style={vertical
               ? { right: `calc(${u(TITLE_CLEARANCE)} + 4px)`, top: '-4px' }
-              : { left: '-4px', top: `calc(0px - ${u(BAR_ARROW + 2)} - ${BAR_TITLE_LIFT}px)` }}
+              : { left: '-4px', top: titleTop }}
           >
             {title}
           </div>
+
+          {/*
+            The value, at the other end of the title's row.
+
+            It is the pill's job where there is no pill: the same number, over
+            the track's east end - the end the value counts up to - so the row
+            reads "Brightness ... 40%" across the control it belongs to. Exactly
+            the title's treatment, down to the chip behind it, because the two
+            are one line; a heavier or larger number here would read as a second
+            control beside the word rather than as its readout. What is lost
+            with the pill is the colour, and that is the point: on two tracks an
+            inch apart the two coloured pills were the loudest thing in the card
+            and said nothing the swatch above does not.
+          */}
+          {!pill && (
+            <div
+              id={`${axis}-value`}
+              className={`${TITLE_CLASS} tabular-nums`}
+              style={{ right: '-4px', top: titleTop }}
+            >
+              {Math.round(value)}%
+            </div>
+          )}
 
           {MARKS.map((v) => (
             <button
@@ -352,22 +403,22 @@ export default function HexBar({
             The value pill, on the track's outboard edge with its arrow
             pointing back at it.
 
-            Fixed-size HTML at a percentage offset, so on a narrowing bar its
-            far edge outruns the card. `pillGutter` is the room it has; past
-            that the whole handle slides back over the track rather than off
-            the screen. Written in CSS rather than measured, because in
+            Fixed-size HTML at a percentage offset, so on a narrowing standing
+            bar its far edge outruns the card. `pillGutter` is the room it has;
+            past that the whole handle slides back over the track rather than
+            off the screen. Written in CSS rather than measured, because in
             `translate` a percentage is the element's own width - which the
             readout changes between "0%" and "100%" - and this tracks it
             without a resize observer.
 
-            Laid down it is the same expression twice, once per end, with the
-            resting -50% in the middle: min() gives up the centring only as far
-            as the far bound demands, max() then does the same against the near
-            one. Where the pill already fits neither bites and the handle does
-            not move at all, which is what keeps every width at or above the
-            standing layout's byte-identical.
+            A lying bar's pill had a matching clamp at each end, for the card
+            widths where the two bars stack. There are no pills there any more,
+            and the one bar that still lies down with a pill - saturation, in
+            the standing layout - is only ever drawn on a card wider than
+            HEX_STACKED_BARS_MAX, where neither bound is within 17px of biting.
+            So it centres, and nothing computes bounds for it.
           */}
-          <div
+          {pill && <div
             id={`${axis}-handle`}
             data-hold={axis}
             className={`absolute z-10 flex cursor-pointer select-none touch-none ${vertical ? 'items-center' : 'flex-col items-center'}`}
@@ -377,13 +428,7 @@ export default function HexBar({
                   top: pos,
                   translate: pillGutter ? `min(0px, calc(${pillGutter} - 100%)) -50%` : '0 -50%',
                 }
-              : {
-                  left: pos,
-                  top: '100%',
-                  translate: pillGutter && pillGutterStart
-                    ? `max(calc(0px - ${pillGutterStart}), min(-50%, calc(${pillGutter} - 100%))) 0`
-                    : '-50% 0',
-                }}
+              : { left: pos, top: '100%', translate: '-50% 0' }}
             onPointerDown={(e) => grab(e, onGrab)}
           >
             <div
@@ -411,7 +456,7 @@ export default function HexBar({
                 {Math.round(value)}%
               </span>
             </div>
-          </div>
+          </div>}
         </>
       )}
     </div>
