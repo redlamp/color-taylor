@@ -54,7 +54,13 @@ const TOP_ROW_GAP_PX = 16;                // Tailwind gap-4
  * picker and already carries 20px of its own. Vertical stayed at py-1 (4px),
  * so app-stage is the only source of vertical breathing room above sm.
  */
-const ROOT_PADDING_X = 48;                // Tailwind sm:px-6, both sides
+const ROOT_PADDING_X = 48;                // 24px a side, both sides
+/*
+ * The floor the side padding falls to once the viewport is narrower than the
+ * content: 2px a side, the old `px-0.5`. Not zero, so the panel borders never
+ * sit flush against the edge of the screen.
+ */
+const MIN_ROOT_PADDING_X = 4;             // 2px a side, both sides
 
 /*
  * Resting height of the SB box.
@@ -82,12 +88,30 @@ const TOP_ROW_MAX_WIDTH =
  * capping the root at that plus the root's padding makes the grid column land
  * on exactly the same number.
  *
- * Only one padding figure enters here even though the root carries two
- * (px-0.5, then sm:px-6). Below sm the viewport is under 640, so the content
- * box is at most 586px and this cap can never bind; the sm figure is the only
- * one that is ever reached.
+ * The padding is at its full ROOT_PADDING_X wherever this cap binds - see
+ * ROOT_PADDING_CLAMP, which is built so that the two agree at every width.
  */
 const ONE_COL_MAX_WIDTH = HEX_PANEL_WIDTH + ROOT_PADDING_X;
+/*
+ * Side padding that never lets the column grow as the window shrinks.
+ *
+ * The root used to be `px-0.5 sm:px-6`, a step at Tailwind's 640: at a 630
+ * viewport the panels came out 586 wide and at 640 they dropped to 552, so the
+ * column got *wider* as the window got narrower. Visible, and backwards.
+ *
+ * The fix is to spend the padding only on width the content cannot use. `100%`
+ * in a padding resolves against the containing block - #app-stage's content
+ * box - so `(100% - HEX_PANEL_WIDTH) / 2` is exactly the slack either side of a
+ * full-width panel. Clamped to [MIN_ROOT_PADDING_X, ROOT_PADDING_X] per side it
+ * reads: pay the full 24px wherever there is 24px to spare (which is wherever
+ * ONE_COL_MAX_WIDTH binds, so the cap and the padding agree), then give the
+ * slack back to the panel as the viewport closes on the content, down to a 2px
+ * floor. Panel width is therefore a flat 614 from a 658 viewport up, and
+ * viewport minus 4 below - non-increasing throughout, and nothing above 800
+ * changes because the clamp is pinned at its maximum there.
+ */
+const ROOT_PADDING_CLAMP =
+  `clamp(${MIN_ROOT_PADDING_X / 2}px, calc((100% - ${HEX_PANEL_WIDTH}px) / 2), ${ROOT_PADDING_X / 2}px)`;
 import SBBox from './SBBox';
 import HSlider from './HSlider';
 import HexInput from './HexInput';
@@ -835,10 +859,11 @@ export default function ColorPicker() {
   return (
     <div
       id="color-picker-root"
-      className="mx-auto w-full px-0.5 py-1 sm:px-6 max-w-[var(--picker-one-col-max)] min-[800px]:max-w-[var(--picker-two-col-max)]"
+      className="mx-auto w-full py-1 px-[var(--picker-padding-x)] max-w-[var(--picker-one-col-max)] min-[800px]:max-w-[var(--picker-two-col-max)]"
       style={{
         '--picker-one-col-max': `${ONE_COL_MAX_WIDTH}px`,
         '--picker-two-col-max': `${TOP_ROW_MAX_WIDTH}px`,
+        '--picker-padding-x': ROOT_PADDING_CLAMP,
       } as CSSProperties}
     >
       {/*
