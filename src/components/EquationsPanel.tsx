@@ -84,7 +84,7 @@ function CopyableResult({ text, color }: { text: string; color: string }) {
         onClick={handleClick}
         title="Copy"
         aria-label={`Copy ${text}`}
-        className="inline cursor-pointer border-0 m-0 rounded px-1.5 py-0.5 font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+        className="inline cursor-pointer border-0 m-0 rounded px-1.5 py-0.5 outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
         style={{ backgroundColor: color, color: textOnColor(color) }}
       >
         {copied ? 'Copied' : text}
@@ -296,12 +296,13 @@ function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }: Equat
            */}
           {(['r', 'g', 'b'] as const).map((k) => {
             const letter = k === 'r' ? R : k === 'g' ? G : B_;
+            const channelColor = k === 'r' ? rc : k === 'g' ? gc : bc;
             const { high, low, hex } = hexDigits(rgb[k]);
             const highHex = hex[0].toUpperCase();
             const lowHex = hex[1].toUpperCase();
             return (
               <span key={k}>
-                {letter}: {pad(rgb[k])} = {highHex} (<b>{pad2(high)}</b>·16) + {lowHex} (<b>{pad2(low)}</b>) → <span className="text-foreground font-semibold">{hex.toUpperCase()}</span>
+                {letter}: {pad(rgb[k])} = {highHex} (<b>{pad2(high)}</b>·16) + {lowHex} (<b>{pad2(low)}</b>) → <span className="font-semibold" style={{ color: channelColor }}>{hex.toUpperCase()}</span>
               </span>
             );
           })}
@@ -312,9 +313,9 @@ function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }: Equat
             right={<CopyableResult text={normalizedValue} color={hexValue} />}
           />
           <hr className="border-border" />
-          <span>{R}: {pad(rgb.r)}/255 = <span className="text-foreground font-semibold">{normalizedChannel(rgb.r)}</span></span>
-          <span>{G}: {pad(rgb.g)}/255 = <span className="text-foreground font-semibold">{normalizedChannel(rgb.g)}</span></span>
-          <span>{B_}: {pad(rgb.b)}/255 = <span className="text-foreground font-semibold">{normalizedChannel(rgb.b)}</span></span>
+          <span>{R}: {pad(rgb.r)}/255 = <span className="font-semibold" style={{ color: rc }}>{normalizedChannel(rgb.r)}</span></span>
+          <span>{G}: {pad(rgb.g)}/255 = <span className="font-semibold" style={{ color: gc }}>{normalizedChannel(rgb.g)}</span></span>
+          <span>{B_}: {pad(rgb.b)}/255 = <span className="font-semibold" style={{ color: bc }}>{normalizedChannel(rgb.b)}</span></span>
         </div>
       </div>
     </div>
