@@ -32,6 +32,8 @@ Each stage should key on the card's own width (a container query), not the viewp
 
 - Stages 1 and 2: PR #108. Editor card content below 296px splits the toolbar; below 230px the swatch stacks above the SB box.
 - Stages 7 and 8: PR #110, on the bar refactor (#109, [[decision-hex-bars-outside-the-svg]]). Hexagon card content below 214px wraps the toggle; below 350px the brightness bar lies down under the saturation bar (350 rather than the geometric 468 so the two-column card at an 800px viewport, 353.98, keeps four pixels of margin).
+- Stage 3 and the padding step: PR #115. Steppers hide below a 230px editor card; the root's padding is `clamp(2px, (100% − 614)/2, 24px)`, so the column never widens as the window narrows.
+- Stacked bars, Taylor's calls: PR #118. Stack from a 468px card (chosen; the vertical pill's clamp actually first shifts near 565, so this is a choice, and the two-column card stacks from viewport 800 to 929); no pills while stacked, the value on the title row (`#bl-value`, `#sat-value`); the stacked budget re-derived, which also fixed the bottom label row hanging past the card.
 - One column is the hexagon's width: PR #114, on #113. Below 800 the root caps at 662 (614 + padding) and centres, so every panel is the hexagon card's width; the Equations cells stack at the layout's breakpoint instead of Tailwind's 640.
 - Below-260 tidy: PR #113, on #112. The horizontal pills clamp at both ends, "Hue" is hidden while stacked (it laps the field at every stacked width), "Saturation" clears the B and M letters through a px shortfall added to the stacked budget, and the lying bar's gradient follows its orientation.
 - Header icon buttons: PR #112, 25px to 32px with 20px icons, the title's line box.
@@ -39,12 +41,7 @@ Each stage should key on the card's own width (a container query), not the viewp
 
 ## Open
 
-Taylor's calls, 2026-09-13 evening:
+Taylor's calls, 2026-09-13 evening, all built (see above). Left as accepted: the hue badge over the R and C letters at hue 0 and 180 at every width; the badge over the "Saturation" title at hue 270 while stacked. Stage 4 (search and tags below) was not asked for.
 
-- **Hue badge over the R and C letters at hue 0 and 180: leave it.**
-- **Stacked bars, both horizontal: no value pills.** The number moves onto the same row as the "Saturation" / "Brightness" title. That also removes the badge-over-title overlap's worst case and the pill clamps' reason to exist in the horizontal case.
-- **Stack earlier, to keep the hexagon larger.** The threshold moves up from 350; the next measured break is 468 (where the vertical pill's clamp first shifts it). Consequence: the two-column hexagon at viewports 800 to about 915 shows stacked bars, since its card is 354 to 468 there.
-- **Smooth the 630/640 padding step** (`sm:px-6` to `px-0.5`).
-- **Stage 3 ties to stage 1:** when the swatch moves above the SB box (230px editor card), the steppers leave the RGB / HSB / HSL rows and the sliders take the width. Stage 4 (search and tags below) is not asked for.
 - The presentation's desktop-only gate stays at 900px regardless: it gates the walkthrough's entry, not the layout ([[presentation]]).
 - The two-column breakpoint moved first: 900 → **800px**, measured on `fix/column-breakpoint`; the hexagon's chrome is what bound it.
