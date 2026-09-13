@@ -296,7 +296,7 @@ function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }: Equat
             const lowHex = hex[1].toUpperCase();
             return (
               <span key={k}>
-                {letter}: {pad(rgb[k])} = {highHex} (<i>{pad2(high)}</i>·16) + {lowHex} (<i>{pad2(low)}</i>) → <span className="text-foreground font-semibold">{hex.toUpperCase()}</span>
+                {letter}: {pad(rgb[k])} = {highHex} (<b>{pad2(high)}</b>·16) + {lowHex} (<b>{pad2(low)}</b>) → <span className="text-foreground font-semibold">{hex.toUpperCase()}</span>
               </span>
             );
           })}
