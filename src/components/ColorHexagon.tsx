@@ -17,7 +17,7 @@ import {
   FIELD_SIZE, SIZE, HEX_PANEL_WIDTH, CENTER_X, CENTER_Y, RADIUS, PI, DIRS, DISPLAY_HEIGHT,
   BAR_TRACK, BL_BAR_X, BL_BAR_TOP, BL_BAR_SPAN, BL_PILL_OVERHANG,
   SAT_BAR_LEFT, SAT_BAR_TOP, SAT_BAR_SPAN, DISPLAY_HEIGHT_SAT, STAGE_TOP_CROP,
-  HUE_LABEL_OFFSET,
+  HUE_LABEL_OFFSET, HEX_STACKED_BARS_MAX, BL_BAR_TOP_H, BAR_PILL_DROP, DISPLAY_HEIGHT_STACKED,
   hexEdgeDist, shapePoints, colorAtPoint, getOrder, shapeLimitScale,
 } from './hex/hexConstants';
 import HexCanvas from './hex/HexCanvas';
@@ -247,8 +247,36 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
    * actually puts the hexagon in the middle; without the horizontal one the
    * span is the field's own height.
    */
-  const EXTENT = blBar ? SIZE : CENTER_X * 2;
-  const stageHeight = satBar ? DISPLAY_HEIGHT_SAT : DISPLAY_HEIGHT;
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  /**
+   * The card is too narrow for the hexagon with a bar standing beside it, so
+   * the brightness bar lies down under the saturation one.
+   *
+   * Measured here rather than asked for in CSS, though what is measured is the
+   * same content box `@container/hex` queries and the threshold is the same
+   * number: laying the bar down also turns its drag, and the axis a drag reads
+   * lives in HexBar's `valueAt`. A container query can restyle a control; it
+   * cannot tell one which way it now points. So the toggle's row (stage 7) is a
+   * `@max-*` variant and this one is a value React holds.
+   */
+  const [stacked, setStacked] = useState(false);
+  // Only where both bars are drawn. The plugin and the deck put brightness and
+  // saturation on their own sliders, so there is no saturation bar to sit under.
+  const stackable = blBar && satBar;
+  useLayoutEffect(() => {
+    const el = cardRef.current;
+    if (!el || !stackable) { setStacked(false); return; }
+    const ro = new ResizeObserver(([entry]) => {
+      setStacked(entry.contentRect.width <= HEX_STACKED_BARS_MAX);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [stackable]);
+
+  // Stacked, the field takes the whole stage: the gutter the vertical bar was
+  // reserving goes back to the hexagon, which is the width the switch buys.
+  const EXTENT = blBar && !stacked ? SIZE : CENTER_X * 2;
+  const stageHeight = stacked ? DISPLAY_HEIGHT_STACKED : (satBar ? DISPLAY_HEIGHT_SAT : DISPLAY_HEIGHT);
   // Units cropped off the top of the stage. With the saturation bar the box is
   // pinned to the stage's top and everything above the circle is cut; without
   // it the field is centred and loses half the slack at each end.
@@ -1029,6 +1057,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   return (
     <div
       id="color-hexagon"
+      ref={cardRef}
       // The demo frames whichever of these it is working in, rather than
       // centring one small target and leaving the card's top off screen.
       data-demo-section=""
@@ -1043,7 +1072,10 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
         // while closed, alongside p-2.5 rather than p-3 (2px less on every
         // side), which is what brings this card's collapsed height to the
         // same 50px as Color Editor, Equations and Swatches instead of 58.
-        `flex flex-col items-center ${hexOpen ? 'gap-1' : 'gap-0'} max-w-full`,
+        // @container/hex: every stage below keys on the card's own width, not
+        // the viewport's, so the Figma panel and the deck's fixed stage reflow
+        // by the same rules the page does. See plan-narrow-widths.
+        `@container/hex flex flex-col items-center ${hexOpen ? 'gap-1' : 'gap-0'} max-w-full`,
         bare ? 'w-full' : 'panel-frame border border-border rounded-lg p-2.5',
       ].join(' ')}
       // This card collapses on its own `hexOpen` rather than through
@@ -1067,8 +1099,14 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           headerLeft and no tabs still rendered the row and the gap under it,
           which pushed the stage down and left the hexagon's centre a dozen
           pixels below the wheel's on the slide before it. */}
+      {/* Stage 7: under 214px of card the row cannot hold the chevron, the
+          title and the toggle side by side - it needs 210, below which the
+          title's flex item stops shrinking and the toggle rides over the word.
+          flex-wrap here plus w-full on the toggle's column is the whole switch:
+          a full-width second item cannot share the line, so it takes its own
+          and the caption goes with it. */}
       {(!bare || headerLeft || (hexOpen && blModeTabs)) && (
-      <div className="relative z-10 flex items-start gap-1.5 w-full">
+      <div className="relative z-10 flex items-start gap-1.5 w-full @max-[214px]/hex:flex-wrap">
         {/* In `bare` hosts the surrounding chrome is the container, so the
             title and its collapse affordance are redundant. The Bright/Light
             tabs stay - they are a control, not decoration. */}
@@ -1093,7 +1131,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           which is a claim that cannot be wrong the way the old one was.
         */}
         {hexOpen && blModeTabs && (
-          <div className="flex flex-col items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
+          <div className="flex flex-col items-center gap-0.5 @max-[214px]/hex:w-full" onClick={(e) => e.stopPropagation()}>
             <Tabs value={blMode} onValueChange={onBlModeChange}>
               <TabsList>
                 <Tooltip>
@@ -1184,7 +1222,19 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           The stage is an inline-size container so the box below can take its
           crop in cqw: the crop is a fixed share of the width, and a percentage
           `top` would resolve against the stage's height, which grows. */}
-      <div id="hex-stage" className={`w-full relative grow ${satBar ? 'mx-4 mt-4 mb-1' : 'm-4'}`} style={{ maxWidth: EXTENT, aspectRatio: `${EXTENT} / ${stageHeight}`, containerType: 'inline-size' }}>
+      {/* Stacked, the lower bar's value pill hangs BAR_PILL_DROP px below a
+          stage whose last 32 units are worth half that at these widths, so the
+          margin under the stage is taken in px rather than in the span. */}
+      <div
+        id="hex-stage"
+        className={`w-full relative grow ${satBar ? 'mx-4 mt-4 mb-1' : 'm-4'}`}
+        style={{
+          maxWidth: EXTENT,
+          aspectRatio: `${EXTENT} / ${stageHeight}`,
+          containerType: 'inline-size',
+          ...(stacked ? { marginBottom: BAR_PILL_DROP } : null),
+        }}
+      >
       {/* The field's own box, pinned to the stage's top and pulled up by the
           crop so the circle's top lands on the stage's edge; the hue badge and
           the 100% pill overhang into the margin above. Top rather than bottom
@@ -1654,7 +1704,13 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           between 0 and 100, and this decides which axis that is. */}
       {blBar && (
         <HexBar
-          orientation="vertical"
+          /* Stage 8. Laid down, it is the saturation bar's twin a row lower:
+             same track, same corner-to-corner span, labels below and title
+             above. Nothing here but the box and the orientation changes - the
+             gesture, the furniture and the clamp are HexBar's, and the clamp
+             belongs to the standing case, where the pill hangs off the track's
+             right edge into whatever width is left. */
+          orientation={stacked ? 'horizontal' : 'vertical'}
           axis="bl"
           value={blValue}
           title={blMode === 'brightness' ? 'Brightness' : 'Lightness'}
@@ -1666,8 +1722,15 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           lit={blBarLit}
           // The pill is anchored to the track's outboard edge, so the room it
           // has is the stage's remaining width plus the card's own padding.
-          pillGutter={`calc(${u(EXTENT - BL_BAR_X - BAR_TRACK)} + ${BL_PILL_OVERHANG}px)`}
-          style={{
+          pillGutter={stacked ? undefined : `calc(${u(EXTENT - BL_BAR_X - BAR_TRACK)} + ${BL_PILL_OVERHANG}px)`}
+          style={stacked ? {
+            left: pct(SAT_BAR_LEFT),
+            // The px are the saturation pill's, which drops out of the stage's
+            // units and would otherwise land on this bar's title.
+            top: `calc(${u(BL_BAR_TOP_H - topCrop)} + ${BAR_PILL_DROP}px)`,
+            width: pct(SAT_BAR_SPAN),
+            height: u(BAR_TRACK),
+          } : {
             left: pct(BL_BAR_X),
             top: u(BL_BAR_TOP - topCrop),
             width: pct(BAR_TRACK),
