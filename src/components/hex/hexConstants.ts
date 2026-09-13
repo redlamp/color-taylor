@@ -119,6 +119,65 @@ export const STAGE_SPAN_SAT = SAT_BAR_TOP + BAR_TRACK + BAR_LABEL_SPACE_H + 2;
 export const STAGE_TOP_CROP = CENTER_Y - RADIUS;
 export const DISPLAY_HEIGHT_SAT = STAGE_SPAN_SAT - STAGE_TOP_CROP;
 
+// --- Narrow stages --------------------------------------------------------
+// Two widths at which the card reflows. Both are measured rather than chosen,
+// and both are of the card's *content* box - what `@container/hex` queries and
+// what a ResizeObserver reports, which is 22px inside the card's own width
+// here: a 1px border and 10px of padding on each side. See
+// wiki/notes/plan-narrow-widths.md.
+
+/**
+ * Under this, the HSB/HSL toggle takes a row of its own.
+ *
+ * The header needs 210px to hold the chevron, "Hexagon" and the toggle on one
+ * line; under that the title's flex item stops shrinking - a word has no
+ * narrower min-content - and the toggle rides over it.
+ *
+ * Recorded here but spelled out again as `@max-[214px]/hex:` in ColorHexagon,
+ * because Tailwind extracts candidates from source text and cannot read a
+ * constant. Change one and change the other. Its variant is a strict `<`, so
+ * the switch happens just under 214 rather than at it.
+ */
+export const HEX_TOGGLE_ROW_MAX = 214;
+/**
+ * At or under this, the brightness bar lies down under the saturation bar.
+ *
+ * The standing bar starts failing far wider than this: the value pill's clamp
+ * first has to shift it at a 468px card, and at 351px the pill and the hue
+ * badge overlap outright at hue 0, brightness 50. What holds the switch down
+ * here is the two-column layout, whose hexagon card measures 353.98px at an
+ * 800px viewport and must not reflow - so the widest the geometry would
+ * justify is not available, and the only question is how far under 353.98 to
+ * sit.
+ *
+ * 350 rather than 353, deliberately: 353 would clear that card by under a
+ * pixel, and a different scrollbar width or any future change to the column
+ * split would flip the two-column layout to stacked. The cost is a three-pixel
+ * window, 351 to 353, where the badge and the pill still overlap - which is a
+ * sub-pixel-grade nuisance at one width against a layout that silently
+ * reflows. The cushion is worth more.
+ */
+export const HEX_STACKED_BARS_MAX = 350;
+/**
+ * The horizontal brightness track, clear of the saturation bar's own labels.
+ *
+ * Same budget the saturation bar takes off the circle above it: its labels,
+ * the gap, the title band and the arrow.
+ */
+export const BL_BAR_TOP_H = SAT_BAR_TOP + BAR_TRACK + BAR_LABEL_SPACE_H + SAT_BAR_GAP + BAR_TITLE_SPACE + BAR_ARROW;
+/**
+ * How far a horizontal bar's value pill hangs below its own track, in px.
+ *
+ * The pill is fixed-size HTML - a 6px arrow overlapped 4px into a 28px pill -
+ * on a stage whose units shrink with the card, so the room it needs cannot be
+ * budgeted in units: at a 240px card the 30 units under the saturation track
+ * are 14px and the pill still wants 30. Added in px between the two stacked
+ * bars, and again under the lower one.
+ */
+export const BAR_PILL_DROP = 30;
+export const STAGE_SPAN_STACKED = BL_BAR_TOP_H + BAR_TRACK + BAR_LABEL_SPACE_H + 2;
+export const DISPLAY_HEIGHT_STACKED = STAGE_SPAN_STACKED - STAGE_TOP_CROP;
+
 /**
  * A pointer resting on a track, before it is known to be a drag.
  *
