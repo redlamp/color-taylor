@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useMemo, useEffect, Suspense, lazy } from 'react';
+import { useState, useRef, useCallback, useMemo, useEffect, Suspense, lazy, type CSSProperties } from 'react';
 import { hsbToRgb, rgbToHsb, rgbToHsl, rgbToHex, type HSB, type HSL, type RGB } from '../utils/colorConversions';
 import type { ColorSpace } from '../utils/sliderGradients';
 import type { HslOrigin } from '../utils/hslWrite';
@@ -99,7 +99,13 @@ const TOP_ROW_GAP_PX = 16;                // Tailwind gap-4
  * picker and already carries 20px of its own. Vertical stayed at py-1 (4px),
  * so app-stage is the only source of vertical breathing room above sm.
  */
-const ROOT_PADDING_X = 48;                // Tailwind sm:px-6, both sides
+const ROOT_PADDING_X = 48;                // 24px a side, both sides
+/*
+ * The floor the side padding falls to once the viewport is narrower than the
+ * content: 2px a side, the old `px-0.5`. Not zero, so the panel borders never
+ * sit flush against the edge of the screen.
+ */
+const MIN_ROOT_PADDING_X = 4;             // 2px a side, both sides
 
 /*
  * The two files the walkthrough entry has to start inside its click handler.
@@ -132,6 +138,38 @@ const walkthroughCameraUrl = () => `${import.meta.env.BASE_URL}scripts/pip/${CUR
 const SB_BOX_DEFAULT_HEIGHT = 143;
 const TOP_ROW_MAX_WIDTH =
   HEX_PANEL_WIDTH + SLIDERS_PANEL_WIDTH + TOP_ROW_GAP_PX + ROOT_PADDING_X;
+/*
+ * Below the breakpoint there is one column, and Taylor's rule is that the
+ * column's width is the hexagon card's width: every panel - hexagon, Color
+ * Editor, Swatches, Equations - is edge to edge with the card rather than
+ * standing wider than it. The card sets its own `width: HEX_PANEL_WIDTH`, so
+ * capping the root at that plus the root's padding makes the grid column land
+ * on exactly the same number.
+ *
+ * The padding is at its full ROOT_PADDING_X wherever this cap binds - see
+ * ROOT_PADDING_CLAMP, which is built so that the two agree at every width.
+ */
+const ONE_COL_MAX_WIDTH = HEX_PANEL_WIDTH + ROOT_PADDING_X;
+/*
+ * Side padding that never lets the column grow as the window shrinks.
+ *
+ * The root used to be `px-0.5 sm:px-6`, a step at Tailwind's 640: at a 630
+ * viewport the panels came out 586 wide and at 640 they dropped to 552, so the
+ * column got *wider* as the window got narrower. Visible, and backwards.
+ *
+ * The fix is to spend the padding only on width the content cannot use. `100%`
+ * in a padding resolves against the containing block - #app-stage's content
+ * box - so `(100% - HEX_PANEL_WIDTH) / 2` is exactly the slack either side of a
+ * full-width panel. Clamped to [MIN_ROOT_PADDING_X, ROOT_PADDING_X] per side it
+ * reads: pay the full 24px wherever there is 24px to spare (which is wherever
+ * ONE_COL_MAX_WIDTH binds, so the cap and the padding agree), then give the
+ * slack back to the panel as the viewport closes on the content, down to a 2px
+ * floor. Panel width is therefore a flat 614 from a 658 viewport up, and
+ * viewport minus 4 below - non-increasing throughout, and nothing above 800
+ * changes because the clamp is pinned at its maximum there.
+ */
+const ROOT_PADDING_CLAMP =
+  `clamp(${MIN_ROOT_PADDING_X / 2}px, calc((100% - ${HEX_PANEL_WIDTH}px) / 2), ${ROOT_PADDING_X / 2}px)`;
 import SBBox from './SBBox';
 import HSlider from './HSlider';
 import HexInput from './HexInput';
@@ -930,8 +968,24 @@ export default function ColorPicker() {
     playHeadingRef.current = (hex, forMs) => markSwatchPending(hex, 100, forMs);
   }, [markSwatchPending]);
 
+  /*
+   * The root's max-width is responsive, so it travels as two custom properties
+   * rather than as an inline `maxWidth`: an inline style cannot carry a media
+   * query, and the constants above stay the only place the numbers are written.
+   * A wrapper element would have done the same job, but it would have had to be
+   * unwrapped again above the breakpoint - this way the two-column layout is
+   * untouched, still 1098px.
+   */
   return (
-    <div id="color-picker-root" className="mx-auto w-full px-0.5 py-1 sm:px-6" style={{ maxWidth: TOP_ROW_MAX_WIDTH }}>
+    <div
+      id="color-picker-root"
+      className="mx-auto w-full py-1 px-[var(--picker-padding-x)] max-w-[var(--picker-one-col-max)] min-[800px]:max-w-[var(--picker-two-col-max)]"
+      style={{
+        '--picker-one-col-max': `${ONE_COL_MAX_WIDTH}px`,
+        '--picker-two-col-max': `${TOP_ROW_MAX_WIDTH}px`,
+        '--picker-padding-x': ROOT_PADDING_CLAMP,
+      } as CSSProperties}
+    >
       {/*
         One row wherever it fits, two where it does not - `flex-wrap` decides,
         not a breakpoint.
@@ -983,10 +1037,10 @@ export default function ColorPicker() {
                       aria-label={settings.synth.synthEnabled ? 'Disable color synth' : 'Enable color synth'}
                       aria-pressed={settings.synth.synthEnabled}
                     >
-                      <span className="relative inline-flex items-center justify-center size-4">
-                        <Music className="size-4" />
+                      <span className="relative inline-flex items-center justify-center size-5">
+                        <Music className="size-5" />
                         {!settings.synth.synthEnabled && (
-                          <Slash className="size-4 absolute inset-0 -scale-x-100" />
+                          <Slash className="size-5 absolute inset-0 -scale-x-100" />
                         )}
                       </span>
                     </button>
@@ -1015,7 +1069,7 @@ export default function ColorPicker() {
                   onClick={() => setAboutOpen(true)}
                   aria-label="About"
                 >
-                  <CircleHelp className="size-4" />
+                  <CircleHelp className="size-5" />
                 </button>
               }
             />
@@ -1042,7 +1096,7 @@ export default function ColorPicker() {
                   {/* A menu, not a gear: the sheet is where everything that
                       is not the picker lives - About included - and a gear
                       promises only preferences. */}
-                  <Menu className="size-4" />
+                  <Menu className="size-5" />
                 </button>
               }
             />
@@ -1076,16 +1130,25 @@ export default function ColorPicker() {
         the root's max-width lets them land exactly on 614 and 420 when there is
         room, and the 320px min still stops the sliders going too tight.
 
-        The columns start at 900px, not at md's 768. The Color Editor's content
-        (the SB box beside the hue strip, the slider rows with their 92px
-        steppers) needs a 317px card, and the fr share only reaches that at an
-        884px window: from 768 to 883 the hue strip and every stepper ran past
-        the card's right edge, by 37px at 768. 900 is that measurement rounded
-        up. The 320px floor is the same number from the other side, so the
-        column cannot be squeezed below its content even at the breakpoint. The
-        two `col-span-2` panels below use the same breakpoint.
+        The columns start at 800px, not at md's 768. The breakpoint used to be
+        900, set by the Color Editor: its content needed a 317px card and the fr
+        share only reached that at an 884px window. That is no longer what binds
+        - the 320px floor above answers the same question from the other side,
+        so the editor column can never be squeezed below its content at any
+        width. Measured: from 760 to 880 that column sits pinned at exactly
+        320px and nothing in it leaves the card, wraps or scrolls.
+
+        So the hexagon column is what sets the breakpoint now. It keeps
+        narrowing, and #hex-stage scales the field with it, but the hue badge
+        and the brightness pill do not scale - they are fixed-size chrome riding
+        a shrinking hexagon, and eventually they meet. Swept 12 hues x 9
+        brightnesses at each width: clean at 796 and above, and at 794 the badge
+        and the pill collide by 0.6px at h0/b40, growing to 2.3px at 784 and
+        worse below. 800 is that 796 rounded up. md's 768 is 28px the wrong side
+        of it, so the natural Tailwind step is not available here. The two
+        `col-span-2` panels below use the same breakpoint.
       */}
-      <div className="grid grid-cols-1 min-[900px]:grid-cols-[minmax(0,614fr)_minmax(320px,420fr)] gap-x-4 gap-y-3 items-stretch">
+      <div className="grid grid-cols-1 min-[800px]:grid-cols-[minmax(0,614fr)_minmax(320px,420fr)] gap-x-4 gap-y-3 items-stretch">
           <ColorHexagon
             rgb={rgb}
             hue={hsb.h}
@@ -1123,7 +1186,11 @@ export default function ColorPicker() {
         <div
           id="picker-layout"
           data-demo-section=""
-          className="panel-frame flex flex-col border border-border rounded-lg p-2.5"
+          // @container/editor: the reflow stages below key on this card's own
+          // width, not the viewport, so the Figma plugin and the presentation -
+          // which render the picker at widths the page never takes - get the
+          // same rules. See wiki/notes/plan-narrow-widths.md.
+          className="panel-frame @container/editor flex flex-col border border-border rounded-lg p-2.5"
         >
         {/* Named for the whole panel rather than for one of its parts. It was
             "Sliders", which undersold it: two of the four things below are
@@ -1154,7 +1221,7 @@ export default function ColorPicker() {
 
             That is no longer what binds. #hex-stage absorbs on the hexagon side
             now, so both columns give and they meet in the middle: measured flush
-            at every width from 1100px down to the 900px breakpoint where they
+            at every width from 1100px down to the 800px breakpoint where they
             stop being columns at all. Below ~1000px both settle at 715px, the
             hexagon having reached the natural size of its fixed-width card, and
             the box bottoms out at 143px - comfortably above the 96px floor. So
@@ -1167,39 +1234,74 @@ export default function ColorPicker() {
           // ring reads as a rendering fault rather than as "as bright as it
           // goes". Nothing else in here overflows: min-w-0 is what keeps the
           // flex children honest, and it is still on.
-          className="flex flex-1 min-h-24 gap-3 min-w-0"
+          //
+          // Below a 230px card the swatch cannot keep a column of its own: it
+          // and the hue strip are fixed-width, so every px they take comes off
+          // the SB box, which stops being usable at about 120px wide (card 226,
+          // measured). Stacking the swatch as a band on top hands its 50px and
+          // the gap back to the box. Column here, so the box + strip row below
+          // is still the flex child that takes the slack.
+          className="flex flex-1 min-h-24 gap-3 min-w-0 @max-[230px]/editor:flex-col"
           // Overrides flex-1's `flex-basis: 0%`. Inline because the value is a
           // layout constant shared with the note above, not a magic number.
           style={{ flexBasis: SB_BOX_DEFAULT_HEIGHT }}
         >
-          <PreviewSwatch hex={hex} />
-          <SBBox
-            hue={hsb.h}
-            saturation={hsb.s}
-            brightness={hsb.b}
-            onChange={handleSbBoxChange}
-          />
-          <HSlider
-            hue={hsb.h}
-            onChange={handleHSliderChange}
-          />
+          {/* Stacked, the swatch is a short band across the top rather than a
+              tall block - full width, and its own height so it does not eat
+              the box's. */}
+          <PreviewSwatch hex={hex} className="@max-[230px]/editor:h-8 @max-[230px]/editor:w-full" />
+          {/* The box and its hue strip stay a row in both layouts; this wrapper
+              is what the swatch moves above. Unwrapped in the wide layout it
+              costs nothing: flex-1 and the same gap put all three where they
+              were. */}
+          <div className="flex flex-1 min-w-0 gap-3">
+            <SBBox
+              hue={hsb.h}
+              saturation={hsb.s}
+              brightness={hsb.b}
+              onChange={handleSbBoxChange}
+            />
+            <HSlider
+              hue={hsb.h}
+              onChange={handleHSliderChange}
+            />
+          </div>
         </div>
 
         {/* The slider banks, one flat block of the panel rather than two cards:
             the models are the same colour read three ways, and a card each made
             them look like three tools. The toolbar is the plugin's - which
-            blocks show, and whether tracks blend - with the hex readout at its
-            right end, stepper-wide so it lines up with the number fields
-            below. It used to sit in a card of its own under the sliders, with
-            a second swatch beside it; the swatch at the top is the swatch. */}
+            blocks show, and whether tracks blend - plus the hex readout. It
+            used to sit in a card of its own under the sliders, with a second
+            swatch beside it; the swatch at the top is the swatch.
+
+            The toolbar is one row while it fits and two below a 296px card: the
+            three selectors are 48px each and the readout is 92px, so the row's
+            own minimum is 306px (measured) and below that the readout leaves
+            the card. 296 rather than 306 because the two-column layout holds
+            this card at 298px of content from 800px of viewport all the way to
+            about 950px - a threshold above that would split the toolbar across
+            that whole band of desktop widths to save an overflow that is 8px at
+            its worst. So one-column widths 363-372 keep the old few-px spill,
+            and everything narrower reflows. Split, the readout and the blend
+            toggle take the upper row and the selectors the lower. The
+            readout was stepper-wide to line up with the number fields below;
+            on a row of its own there is nothing to line up with, so it takes
+            the width instead of trailing a gap.
+
+            A grid rather than a flex row because the split is an order change,
+            not a wrap: wide, the columns are selectors / blend / readout with
+            the readout at the right end; narrow, `order` puts blend and the
+            readout on the first row and the selectors span both columns
+            underneath. */}
         <div className="flex flex-col gap-3" id="slider-banks">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
+          <div className="grid grid-cols-[auto_auto_1fr] items-center gap-2 @max-[296px]/editor:grid-cols-[auto_1fr]">
             <ToggleGroup
               multiple
               value={groups}
               onValueChange={(v) => setGroups(SLIDER_GROUPS.filter((g) => (v as SliderGroup[]).includes(g)))}
               aria-label="Slider groups"
+              className="@max-[296px]/editor:order-3 @max-[296px]/editor:col-span-2"
             >
               {SLIDER_GROUPS.map((g) => (
                 <Tooltip key={g}>
@@ -1212,6 +1314,7 @@ export default function ColorPicker() {
               multiple
               value={blend ? ['blend'] : []}
               onValueChange={(v) => setBlend(v.length > 0)}
+              className="@max-[296px]/editor:order-1"
             >
               {/*
                 Controlled, unlike every other tooltip here, because this one
@@ -1249,8 +1352,7 @@ export default function ColorPicker() {
                 <TooltipContent className={TOOLBAR_TIP_CLASS}>{blend ? 'Mixed Colors' : 'Source Colors'}</TooltipContent>
               </Tooltip>
             </ToggleGroup>
-            </div>
-            <div className="w-[92px] shrink-0">
+            <div className="w-[92px] justify-self-end @max-[296px]/editor:order-2 @max-[296px]/editor:w-full">
               <HexInput
                 hex={hex}
                 onChange={handleHexInput}
@@ -1379,13 +1481,13 @@ export default function ColorPicker() {
       {/* Swatches: Recent and Saved, out of the Hexagon card and into a panel
           of their own across both tracks, where a row holds 24. See
           wiki/notes/decision-swatches-panel.md. */}
-      <div className="min-[900px]:col-span-2 panel-frame border border-border rounded-lg p-2.5">
+      <div className="min-[800px]:col-span-2 panel-frame border border-border rounded-lg p-2.5">
         <SwatchLibrary lib={swatches} layout="panel" collapsed play={{ active: play?.section ?? null, onToggle: togglePlay }} />
       </div>
 
       {/* Equations panel. Spanning both tracks is what makes it match the width
           of the row above; nothing measures anything. */}
-      <div className="min-[900px]:col-span-2 panel-frame border border-border rounded-lg p-2.5">
+      <div className="min-[800px]:col-span-2 panel-frame border border-border rounded-lg p-2.5">
         <CollapsibleSection id="equations-group" title="Equations" level="h2" defaultOpen={false}>
           <EquationsPanel
             rgb={rgb}

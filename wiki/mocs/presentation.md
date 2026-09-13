@@ -38,6 +38,12 @@ silent alias.
   alongside the deck. Issues #77 (playback) and #78 (recording).
   Recorded first and transcribed, not scripted first and read.
 
+## The walkthrough
+
+Not this deck: the narrated walkthrough that runs inside the picker (`src/demo`, `prez/cut-03`, draft PR #104), whose script and cues live in the redlamp-videos repo.
+
+- [[plan-walkthrough-entry]] - how it ships in production: entry from the About panel, `?present=` paused, the 900px gate, the play() gesture. Questions open for Taylor and the presentation side.
+
 ## Open
 
 - #52 - polish, and flipping the button on. Narrowed since the route stopped

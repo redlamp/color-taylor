@@ -771,10 +771,43 @@ export default function SwatchLibrary({ lib, layout, variant = 'card', collapsed
   } = lib;
   const flushSections = variant === 'flush';
   const panel = layout === 'panel';
-  // The plugin's 6/12 columns keep their breakpoint; the panel is one row of the bank.
-  const gridClass = panel ? 'grid grid-cols-12 md:grid-cols-24 gap-1.5' : 'grid grid-cols-6 md:grid-cols-12 gap-1.5';
+  /*
+   * The plugin's 6/12 columns keep their viewport breakpoint. The panel's row
+   * falls 24 -> 12 -> 6 on its own width instead, because the panel is what
+   * narrows - the Figma host and the presentation size it independently of the
+   * window. See wiki/notes/plan-narrow-widths.md, stage 5.
+   *
+   * The two switches are arithmetic, not taste. A swatch is `h-8`, a flat 32px
+   * at every column count, and the gap is `gap-1.5`/6px, so an N-across cell is
+   * square when the grid is N*32 + (N-1)*6 wide: 906px at 24 across, 450px at
+   * 12. A swatch stays wider than tall as the row narrows, and at the square it
+   * halves - Taylor's rule. Six is the floor: below 450 there is no halving
+   * left that keeps a usable target, so the cells go narrower than square
+   * instead.
+   *
+   * The capacity is untouched by any of this. `bank` still sets how many slots
+   * Saved holds, so 36 colors are 36 colors - 1.5 rows at 24 across, 3 at 12,
+   * 6 at 6.
+   */
+  const gridClass = panel
+    ? 'grid grid-cols-24 @max-[906px]/swatches:grid-cols-12 @max-[450px]/swatches:grid-cols-6 gap-1.5'
+    : 'grid grid-cols-6 md:grid-cols-12 gap-1.5';
   // Header actions match the toggle pills beside them in the panel, not the 32px control.
   const actionClass = panel ? PILL_H : '';
+  /*
+   * The actions group. In the panel it may wrap, which only ever matters once
+   * the header has already gone to two rows and that second row is still too
+   * narrow for three buttons abreast - around 296px, where Sort, Defaults and
+   * Clear plus the play button beside them stop fitting. Unconditional rather
+   * than a third measured threshold: the buttons hold floor widths so their
+   * labels cannot clip, so the only question is how many fit on a line, and
+   * that is the one thing flex-wrap answers better than a number would.
+   *
+   * The plugin's string stays exactly `flex gap-1`. Its sections layout has no
+   * /swatches container to match, so the variants would be inert there anyway,
+   * but the rendered class attribute has to be untouched all the same.
+   */
+  const actionsClass = panel ? 'flex gap-1 flex-wrap justify-end grow' : 'flex gap-1';
 
   // One play button per list, after its title. The list goes over in display
   // order, filled slots only, starting from the selected swatch when there is
@@ -806,7 +839,7 @@ export default function SwatchLibrary({ lib, layout, variant = 'card', collapsed
   const recentPlay = playButton('recent', recentColors);
 
   const recentActions = (
-    <div className="flex gap-1">
+    <div className={actionsClass}>
       <ActionButton
         id="recent-clear"
         label="Clear"
@@ -818,7 +851,7 @@ export default function SwatchLibrary({ lib, layout, variant = 'card', collapsed
     </div>
   );
   const savedActions = (
-    <div className="flex gap-1">
+    <div className={actionsClass}>
       {/* Sort sits with the other header actions rather than opposite
           them. It is the only one that reads rather than destroys, so
           it leads the group and the two confirming actions follow. */}
@@ -1116,24 +1149,71 @@ export default function SwatchLibrary({ lib, layout, variant = 'card', collapsed
   if (panel) {
     // Saved has no caption of its own: the panel's title is its title, and its
     // actions ride on that row. Recent keeps its caption and sits under a rule.
+    //
+    // Both reflow stages key on the panel's own width, so the container is the
+    // panel's content - everything the card frames, and nothing outside it. The
+    // poofs stay deliberately outside: `container-type: inline-size` brings
+    // layout containment with it, which would make this div the containing
+    // block for their `position: fixed` and land the particles at the wrong end
+    // of the page.
+    //
+    // Stage 6, and where its two numbers come from. `headerRight` falls to a
+    // row of its own once the header cannot hold the title, the play button and
+    // the actions abreast. That width is the sum of the parts, all of which are
+    // pinned: Saved is the 97.9px trigger, a 56px play button, three actions at
+    // 104 + 56 + 56 with 4px between them, and three 8px header gaps - 401.9px,
+    // so 402. Recent's row is the shorter one, a 67.6px trigger and two of the
+    // same buttons - 203.6px, so 204. They are two numbers rather than one
+    // because the two rows hold different things; each breaks where it breaks.
+    //
+    // flex-wrap is what moves the row, so the browser does the fitting and the
+    // query only has to release the header's pinned height at the same width.
+    // Both live on the header row, which CollapsibleSection renders only the
+    // actions into while open - so the second row is absent when the section is
+    // closed, with nothing extra to keep in step.
     return (
       <>
-        <CollapsibleSection id="swatches-group" title="Swatches" level="h2" defaultOpen={!collapsed} afterTitle={savedPlay} headerRight={savedActions}>
-          <div className="flex flex-col">
-            <div id="saved-colors">{savedGrid}</div>
-            <CollapsibleSection
-              id="recent-colors"
-              title="Recent"
-              variant="plain"
-              defaultOpen={!collapsed}
-              afterTitle={recentPlay}
-              headerRight={recentActions}
-              className="mt-3 border-t border-input pt-3"
-            >
-              {recentGrid}
-            </CollapsibleSection>
-          </div>
-        </CollapsibleSection>
+        <div className="@container/swatches">
+          <CollapsibleSection
+            id="swatches-group"
+            title="Swatches"
+            level="h2"
+            defaultOpen={!collapsed}
+            afterTitle={savedPlay}
+            headerRight={savedActions}
+            headerReflow={{
+              row: '@max-[402px]/swatches:h-auto @max-[402px]/swatches:flex-wrap',
+              trigger: '@max-[402px]/swatches:basis-full',
+              spacer: '@max-[402px]/swatches:hidden',
+              // 288 is where the play button and the three actions stop fitting
+              // on the second row together - 56 + 8 + 224 - so below it the
+              // actions take a line of their own rather than leaving Clear
+              // stranded under the other two.
+              actions: '@max-[402px]/swatches:basis-0 @max-[402px]/swatches:grow @max-[288px]/swatches:basis-full',
+            }}
+          >
+            <div className="flex flex-col">
+              <div id="saved-colors">{savedGrid}</div>
+              <CollapsibleSection
+                id="recent-colors"
+                title="Recent"
+                variant="plain"
+                defaultOpen={!collapsed}
+                afterTitle={recentPlay}
+                headerRight={recentActions}
+                headerReflow={{
+                  row: '@max-[204px]/swatches:h-auto @max-[204px]/swatches:flex-wrap',
+                  trigger: '@max-[204px]/swatches:basis-full',
+                  spacer: '@max-[204px]/swatches:hidden',
+                  actions: '@max-[204px]/swatches:basis-0 @max-[204px]/swatches:grow',
+                }}
+                className="mt-3 border-t border-input pt-3"
+              >
+                {recentGrid}
+              </CollapsibleSection>
+            </div>
+          </CollapsibleSection>
+        </div>
         {poofsJsx}
       </>
     );

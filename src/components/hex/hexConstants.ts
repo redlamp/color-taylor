@@ -1,58 +1,101 @@
 import { hsbToRgb, hslToRgb, type RGB } from '../../utils/colorConversions';
 
 export const HEX_SIZE = 540;
+/**
+ * The field's viewBox: square, and the hexagon alone.
+ *
+ * The bars used to be drawn inside it, which made the box a different shape in
+ * each host and tied two separate controls to the hexagon's coordinate space.
+ * They are laid out by the stage now (see the block below), so the field's box
+ * is one constant everywhere - the 540-unit square the shader paints.
+ */
+export const FIELD_SIZE = HEX_SIZE;
 // Visible vertical extent of the hex panel. The hex polygon is only
 // RADIUS·√3 ≈ 363.7 tall inside HEX_SIZE=540, so the rest is empty SVG
 // canvas. Crop the top/bottom with an overflow-hidden wrapper to make
 // the panel snug; internal coords stay anchored to HEX_SIZE.
 export const DISPLAY_HEIGHT = 460;
-export const BL_BAR_WIDTH = 22;
+
+// --- Bar geometry ---------------------------------------------------------
+// One set of numbers for both bars, since one component draws both: a track,
+// a value arrow on its inboard side, ticks and a label gutter on the outboard
+// one. HexBar reads these as its own proportions; the block after this one
+// uses them only to budget the room the stage has to reserve.
+
+/** Track thickness, across the bar. */
+export const BAR_TRACK = 22;
+/** Depth of the value arrow, inboard of the track. */
+export const BAR_ARROW = 8;
+/** Length of a tick mark, outboard of the track. */
+export const BAR_TICK = 4;
+/** Gutter past the vertical bar's ticks, shared by its labels and its pill. */
+export const BAR_LABEL_SPACE = 40;
+/** The same gutter under a horizontal bar, where the labels sit on one line. */
+export const BAR_LABEL_SPACE_H = 30;
+/** Band holding a horizontal bar's axis title. The vertical bar's title runs
+ *  down its inboard side and needs no band of its own. */
+export const BAR_TITLE_SPACE = 20;
+/**
+ * How far above its arrow a horizontal bar's title sits, in px.
+ *
+ * Px and not units because it is set at a fixed text size: the band above the
+ * track is budgeted in units and the word inside it is not, which is what the
+ * stacked stage has to pay for at narrow widths. HexBar places the title with
+ * it; SAT_TITLE_LETTER_SPAN is the room it has to come out of.
+ */
+export const BAR_TITLE_LIFT = 18;
+
+// --- Stage layout ---------------------------------------------------------
+// The card's stage is one coordinate space holding three controls: the
+// hexagon's field, the vertical brightness/lightness bar to its right and the
+// horizontal saturation bar beneath. Only the boxes are here; what goes inside
+// each bar is HexBar's.
+
 export const BL_BAR_GAP = -20;
-export const BL_ARROW_SIZE = 8;
-export const BL_LABEL_SPACE = 40;
-export const SIZE = HEX_SIZE + BL_BAR_GAP + BL_BAR_WIDTH + BL_ARROW_SIZE + BL_LABEL_SPACE;
+/** Stage width with both bars on. */
+export const SIZE = HEX_SIZE + BL_BAR_GAP + BAR_TRACK + BAR_ARROW + BAR_LABEL_SPACE;
 // Hex panel width plus room for its padding on both sides. The card wears
 // p-2.5 now (10 + 10); the 24 dates from p-3 and the 4px spare is harmless -
-// this only has to be wide enough to keep the hue badge and brightness pill,
-// sized in px and positioned by percentage, on screen.
+// this only has to be wide enough to keep the hue badge, sized in px and
+// positioned by percentage, on screen. The brightness pill clamps itself; see
+// BL_PILL_OVERHANG.
 export const HEX_PANEL_WIDTH = SIZE + 24;
+/**
+ * How far the brightness pill may hang past the stage's right edge, in px.
+ *
+ * The pill is fixed-size HTML at a percentage `left`, so below full width it
+ * outruns the gutter drawn for it in SIZE. The card's p-2.5 is the only room
+ * beyond the stage, and the pill already uses 9px of it at full width - so the
+ * bound is that padding, not the stage edge, or the layout would shift where
+ * it fits today. Past the bound the pill slides left onto the bar instead.
+ */
+export const BL_PILL_OVERHANG = 10;
 export const CENTER_X = 260;
 export const CENTER_Y = HEX_SIZE / 2;
 export const RADIUS = 210;
+/** The vertical bar's track: hard against the field's right edge, spanning the
+ *  hexagon's full height. */
 export const BL_BAR_X = HEX_SIZE + BL_BAR_GAP;
 export const BL_BAR_TOP = CENTER_Y - RADIUS;
-export const BL_BAR_HEIGHT = RADIUS * 2;
+export const BL_BAR_SPAN = RADIUS * 2;
 export const SQRT3_2 = Math.sqrt(3) / 2;
 export const PI = Math.PI;
 
-// --- Saturation bar -------------------------------------------------------
-// The horizontal mirror of the brightness bar, hung under the hexagon. Every
-// constant below is a deliberate echo of a BL_* one: SAT_BAR_HEIGHT is
-// BL_BAR_WIDTH, SAT_BAR_WIDTH is BL_BAR_HEIGHT, and so on. Keep them paired.
-
 /**
- * The bar clears the circumscribed circle, not the hexagon.
+ * The horizontal bar clears the circumscribed circle, not the hexagon.
  *
  * The hexagon's flat bottom edge is at RADIUS * sin(60), some 28 units higher,
  * and budgeting from there puts the track visibly against the circle - which is
  * the widest thing actually drawn down here.
  */
 export const SAT_CIRCLE_BOTTOM = CENTER_Y + RADIUS;
-export const SAT_ARROW_SIZE = 8;
 /** Breathing room between the circle and the title above the bar. */
 export const SAT_BAR_GAP = 6;
-/** Band holding the axis title. The brightness title runs vertically down its
- *  bar's inboard side; horizontally that lane becomes a strip above the bar. */
-export const SAT_TITLE_SPACE = 20;
-export const SAT_BAR_TOP = SAT_CIRCLE_BOTTOM + SAT_BAR_GAP + SAT_TITLE_SPACE + SAT_ARROW_SIZE;
-export const SAT_BAR_HEIGHT = 22;
+export const SAT_BAR_TOP = SAT_CIRCLE_BOTTOM + SAT_BAR_GAP + BAR_TITLE_SPACE + BAR_ARROW;
 /** Spans the hexagon corner to corner, the way the brightness bar spans its
  *  full height. 0% sits under the west corner, 100% under the east one. */
 export const SAT_BAR_LEFT = CENTER_X - RADIUS;
-export const SAT_BAR_WIDTH = RADIUS * 2;
-/** Row under the bar, shared by the 0/50/100 labels and the value pill - the
- *  same doubling-up the brightness bar does in its right-hand gutter. */
-export const SAT_LABEL_SPACE = 30;
+export const SAT_BAR_SPAN = RADIUS * 2;
 /**
  * How far past the circumscribed circle the hue badge's centre sits.
  *
@@ -62,17 +105,21 @@ export const SAT_LABEL_SPACE = 30;
  * worst case is CENTER_Y + RADIUS + this + 14 against SAT_BAR_TOP.
  */
 export const HUE_LABEL_OFFSET = 16;
+/** The vertex letters' anchors, just past the hexagon's corners. ColorLabels
+ *  places them; the stage budget below has to know where they end up. */
+export const LETTER_OFFSET = 20;
+/** Half a vertex letter's button (ColorLabels' h-6), centred on its anchor. */
+export const LETTER_HALF = 12;
 
 /**
- * A taller viewBox, used only while the saturation bar is on.
+ * A taller stage, used only while the saturation bar is on.
  *
  * The 88 units of empty canvas under the hexagon are not enough once the track
- * clears the circle, and a root <svg> clips at its viewBox - so the canvas has
- * to grow rather than the crop widen. Everything that converts a user-space y
- * into a percentage takes this as `svgHeight`; HEX_SIZE alone is only correct
- * when the bar is off.
+ * clears the circle, so the stage's own coordinate span grows rather than the
+ * crop widening. Everything the stage places by percentage divides by this;
+ * HEX_SIZE alone is only correct when the bar is off.
  */
-export const SVG_HEIGHT_SAT = SAT_BAR_TOP + SAT_BAR_HEIGHT + SAT_LABEL_SPACE + 2;
+export const STAGE_SPAN_SAT = SAT_BAR_TOP + BAR_TRACK + BAR_LABEL_SPACE_H + 2;
 /**
  * Units cropped off the top of the stage: everything above the circumscribed
  * circle, whose top is CENTER_Y - RADIUS. Nothing is drawn up there, and the
@@ -84,7 +131,107 @@ export const SVG_HEIGHT_SAT = SAT_BAR_TOP + SAT_BAR_HEIGHT + SAT_LABEL_SPACE + 2
  * every hue.
  */
 export const STAGE_TOP_CROP = CENTER_Y - RADIUS;
-export const DISPLAY_HEIGHT_SAT = SVG_HEIGHT_SAT - STAGE_TOP_CROP;
+export const DISPLAY_HEIGHT_SAT = STAGE_SPAN_SAT - STAGE_TOP_CROP;
+
+// --- Narrow stages --------------------------------------------------------
+// Two widths at which the card reflows. Both are measured rather than chosen,
+// and both are of the card's *content* box - what `@container/hex` queries and
+// what a ResizeObserver reports, which is 22px inside the card's own width
+// here: a 1px border and 10px of padding on each side. See
+// wiki/notes/plan-narrow-widths.md.
+
+/**
+ * Under this, the HSB/HSL toggle takes a row of its own.
+ *
+ * The header needs 210px to hold the chevron, "Hexagon" and the toggle on one
+ * line; under that the title's flex item stops shrinking - a word has no
+ * narrower min-content - and the toggle rides over it.
+ *
+ * Recorded here but spelled out again as `@max-[214px]/hex:` in ColorHexagon,
+ * because Tailwind extracts candidates from source text and cannot read a
+ * constant. Change one and change the other. Its variant is a strict `<`, so
+ * the switch happens just under 214 rather than at it.
+ */
+export const HEX_TOGGLE_ROW_MAX = 214;
+/**
+ * At or under this, the brightness bar lies down under the saturation bar.
+ *
+ * The geometric break, not a layout one. It is the widest card at which the
+ * standing bar is still honestly standing: below it the value pill's clamp has
+ * to start dragging the handle back over its own track, and further down the
+ * pill and the hue badge overlap outright at hue 0, brightness 50.
+ *
+ * It used to be 350, held down by the two-column layout - whose hexagon card is
+ * 353.98px at an 800px viewport - so that card would not reflow. Taylor's call
+ * is the other way round: the hexagon itself is what the card is for, and the
+ * bar lying down is what gives it the vertical bar's gutter back, so the
+ * two-column card takes the stacked layout from an 800px viewport up to about
+ * 929, where it finally measures more than this.
+ */
+export const HEX_STACKED_BARS_MAX = 468;
+/**
+ * The horizontal brightness track, clear of the saturation bar's own labels.
+ *
+ * Same budget the saturation bar takes off the circle above it: its labels,
+ * the gap, the title band and the arrow.
+ */
+export const BL_BAR_TOP_H = SAT_BAR_TOP + BAR_TRACK + BAR_LABEL_SPACE_H + SAT_BAR_GAP + BAR_TITLE_SPACE + BAR_ARROW;
+/**
+ * A horizontal bar's 0/50/100 row, in px: how far below the track it reaches.
+ *
+ * The buttons are text-sm with py-1, placed BAR_LABEL_INSET_H units under the
+ * track less 4px of that padding - so what they occupy below it is that offset
+ * plus this. Fixed text on a stage whose units shrink with the card, which is
+ * why the stacked budget below is written in px against units.
+ */
+export const BAR_LABEL_TEXT_PX = 18;
+/** Where a horizontal bar's labels start, in units, below its track. HexBar
+ *  places them with it and the budget below has to subtract the same number. */
+export const BAR_LABEL_INSET_H = 6;
+/**
+ * The units between one stacked bar's label row and the next bar's title.
+ *
+ * From the upper track's bottom down to the lower bar's title band: the stage's
+ * own spacing, less the arrow above the lower track and the inset the labels
+ * already start at.
+ */
+export const BAR_STACK_SPAN = BL_BAR_TOP_H - (SAT_BAR_TOP + BAR_TRACK) - (BAR_ARROW + 2) - BAR_LABEL_INSET_H;
+/**
+ * The px that span has to hold: the upper bar's label row, a gap, and the
+ * lower bar's title riding above its arrow.
+ *
+ * This replaced BAR_PILL_DROP, a flat 30px added between the stacked bars and
+ * again beneath them because the saturation pill hung under its track. With no
+ * pills while stacked the room needed is the text's, and text is the only thing
+ * down here that does not scale - so the stage adds the shortfall rather than a
+ * constant, and adds nothing at all at the widest stacked card.
+ */
+export const BAR_STACK_TEXT_PX = BAR_LABEL_TEXT_PX + 4 + BAR_TITLE_LIFT;
+/** The same question under the lowest track: the units the stage keeps past it
+ *  (BAR_LABEL_SPACE_H plus the stage's 2-unit tail), less the label inset. */
+export const BAR_TAIL_SPAN = BAR_LABEL_SPACE_H + 2 - BAR_LABEL_INSET_H;
+/** And the px that has to hold - the label row, and 2px off the card's edge. */
+export const BAR_TAIL_TEXT_PX = BAR_LABEL_TEXT_PX + 2;
+/**
+ * Fixed chrome between the lowest vertex letters and the saturation title.
+ *
+ * The B and M letters hang LETTER_HALF px below their anchors and the title
+ * rides BAR_TITLE_LIFT px above its arrow. Neither scales with the card, so at
+ * narrow widths the word lands across the two letters - it was 14px into them
+ * at a 174px card, which is the whole title.
+ */
+export const SAT_TITLE_LETTER_PX = LETTER_HALF + BAR_TITLE_LIFT;
+/**
+ * The units that chrome has to fit into: from the two lowest letters' anchors,
+ * on the 240 and 300 degree corners, down to the top of the title's band.
+ *
+ * Under SAT_TITLE_LETTER_PX / this many px per unit the two meet, which is
+ * every width the bars stack at - so the stacked stage adds the difference in
+ * px, the same shape BAR_STACK_TEXT_PX takes and for the same reason.
+ */
+export const SAT_TITLE_LETTER_SPAN = SAT_BAR_TOP - (BAR_ARROW + 2) - (CENTER_Y + (RADIUS + LETTER_OFFSET) * SQRT3_2);
+export const STAGE_SPAN_STACKED = BL_BAR_TOP_H + BAR_TRACK + BAR_LABEL_SPACE_H + 2;
+export const DISPLAY_HEIGHT_STACKED = STAGE_SPAN_STACKED - STAGE_TOP_CROP;
 
 /**
  * A pointer resting on a track, before it is known to be a drag.

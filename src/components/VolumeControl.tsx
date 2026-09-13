@@ -45,7 +45,7 @@ export function VolumeControl({ muted, onToggleMute, masterGain, onMasterGainCha
               aria-label={muted ? 'Unmute sounds' : 'Mute sounds'}
               aria-expanded={open}
             >
-              <Icon className="size-4" />
+              <Icon className="size-5" />
             </button>
           }
         />
