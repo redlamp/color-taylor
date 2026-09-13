@@ -14,15 +14,21 @@
  * points, and the gap before it. Applying there rebuilds the cut on disk and
  * this component re-fetches it in place.
  *
- * Two props turn the same component into the shipped walkthrough. `mode`
- * `'production'` reduces the transport to play/pause, the scrub and the clock,
- * and mounts none of the authoring pieces - no notes, no clip editor, no
- * `/__notes` call - and `voice` hands in an `<audio>` the host created and
- * started inside its own click handler, which this component adopts as its
- * clock rather than rendering one of its own. Playback needs that user
- * gesture, and the host is the only place a `play()` can be synchronous with
- * it. Which builds mount the component at all is the host's business: there is
- * no dev guard in here.
+ * Three props turn the same component into the shipped walkthrough. `mode`
+ * `'production'` mounts none of the authoring pieces - no notes, no clip
+ * editor, no `/__notes` (or any other `/__`) request, no collapse chrome -
+ * regardless of `transport`. `transport` is the separate, orthogonal knob for
+ * how much of the transport itself shows: `'full'` is the timeline with line
+ * spans and cue ticks, the beat band on the plan clock, the line/action
+ * readout, and arrow-key seeking; `'reduced'` is play/pause, a bare scrub bar
+ * and the time readout, nothing else. It defaults to `'full'` when `mode` is
+ * `'dev'` and `'reduced'` when `mode` is `'production'`, so the shipped
+ * walkthrough is reduced unless told otherwise. `voice` hands in an `<audio>`
+ * the host created and started inside its own click handler, which this
+ * component adopts as its clock rather than rendering one of its own.
+ * Playback needs that user gesture, and the host is the only place a `play()`
+ * can be synchronous with it. Which builds mount the component at all is the
+ * host's business: there is no dev guard in here.
  *
  * This is a tool, not a surface of the app: the styling is deliberately not
  * the app's. See docs/demo-script.md, "Presentation mode".
@@ -84,12 +90,26 @@ export interface PresentationModeProps {
    */
   voice?: HTMLAudioElement;
   /**
-   * `'production'` is the shipped walkthrough: play/pause, scrub and clock, and
-   * nothing that writes to the repository. `'dev'`, the default, is the
-   * authoring tool - notes, the N and C keys, and the clip editor.
+   * `'production'` mounts none of the authoring tool - no notes, no clip
+   * editor, no N or C keys, no collapse chrome, no `/__notes` (or any other
+   * `/__`) request - regardless of `transport`. `'dev'`, the default, mounts
+   * all of it.
    */
   mode?: 'dev' | 'production';
+  /**
+   * How much of the transport shows, independent of `mode`. `'full'` is the
+   * timeline with line spans and cue ticks, scrub, the time readout, the beat
+   * band on the plan clock, the line/action readout, and the keyboard
+   * transport (Space play/pause, arrow seeks). `'reduced'` is play/pause, a
+   * bare scrub bar and the time readout - nothing else - with Space still
+   * working. Defaults to `'full'` when `mode` is `'dev'` and `'reduced'` when
+   * `mode` is `'production'`.
+   */
+  transport?: 'full' | 'reduced';
 }
+
+/** How far an arrow key moves the playhead when the full transport is up. */
+const SEEK_STEP = 5;
 
 /** Read the URL once: the presentation name. */
 export function presentName(): string | null {
@@ -181,10 +201,13 @@ function pointedAt(el: HTMLMediaElement, url: string): boolean {
 }
 
 export default function PresentationMode({
-  name, host, onDemo, onColor, demoOpen, voice, mode = 'dev',
+  name, host, onDemo, onColor, demoOpen, voice, mode = 'dev', transport,
 }: PresentationModeProps) {
   /** The authoring tool's half: notes, the clip editor, and the keys for them. */
   const authoring = mode === 'dev';
+  /** The rich transport's half: line spans, cue ticks, the beat band, the
+   *  line/action readout and arrow-key seeking. Independent of `authoring`. */
+  const fullTransport = (transport ?? (mode === 'dev' ? 'full' : 'reduced')) === 'full';
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const voiceHostRef = useRef<HTMLSpanElement | null>(null);
   const timelineRef = useRef<HTMLDivElement | null>(null);
@@ -389,6 +412,13 @@ export default function PresentationMode({
     handleRef.current?.seek(clamped);
   }, [planMode]);
 
+  /** Arrow-key seeking: reads the live position rather than closing over
+   *  `time`, so the keydown effect below does not need to churn every frame. */
+  const seekBy = useCallback((delta: number) => {
+    const t = planMode ? planTime() : (audioRef.current?.currentTime ?? 0);
+    seek(t + delta);
+  }, [planMode, planTime, seek]);
+
   /**
    * After the clip editor's Apply: the audio, the lines and the cues have all
    * been rebuilt on disk. Re-fetch them rather than reloading the page, so the
@@ -450,6 +480,10 @@ export default function PresentationMode({
         e.preventDefault();
         e.stopPropagation();
         toggle();
+      } else if (fullTransport && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+        e.preventDefault();
+        e.stopPropagation();
+        seekBy(e.key === 'ArrowRight' ? SEEK_STEP : -SEEK_STEP);
       } else if (authoring && (e.key === 'n' || e.key === 'N')) {
         e.preventDefault();
         e.stopPropagation();
@@ -462,7 +496,7 @@ export default function PresentationMode({
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
-  }, [toggle, editing, authoring]);
+  }, [toggle, editing, authoring, fullTransport, seekBy]);
 
   useEffect(() => {
     if (noting) noteInputRef.current?.focus();
@@ -611,7 +645,7 @@ export default function PresentationMode({
           )}
           {voice && <span ref={voiceHostRef} data-testid="present-voice-host" />}
 
-          {authoring && (
+          {fullTransport && (
           <div style={{ display: shrunk ? 'none' : 'flex', gap: 16, alignItems: 'baseline', minHeight: 18 }}>
             <span data-testid="present-line" style={{ flex: 1, color: '#fff', fontSize: 13 }}>
               {line ? `${line.beat}.${line.line}  ${line.text}` : '—'}
@@ -643,8 +677,10 @@ export default function PresentationMode({
             }}
           >
             {/* The plan's beats, as a band along the top: the spans below are
-                sentences, and a beat is the unit the pauses are built around. */}
-            {beats.map((b) => (
+                sentences, and a beat is the unit the pauses are built around.
+                Reduced transport is a bare scrub bar, so none of this decoration
+                mounts there. */}
+            {fullTransport && beats.map((b) => (
               <div
                 key={`beat-${b.n}`}
                 data-testid="present-beat"
@@ -668,7 +704,7 @@ export default function PresentationMode({
                 {b.n}
               </div>
             ))}
-            {lines.map((l, i) => (
+            {fullTransport && lines.map((l, i) => (
               <div
                 key={`line-${i}`}
                 data-testid="present-line-span"
@@ -685,7 +721,7 @@ export default function PresentationMode({
                 }}
               />
             ))}
-            {actions.map((a, i) => (
+            {fullTransport && actions.map((a, i) => (
               <div
                 key={`tick-${i}`}
                 data-testid="present-tick"
@@ -700,7 +736,7 @@ export default function PresentationMode({
                 }}
               />
             ))}
-            {notes.map((n, i) => (
+            {fullTransport && notes.map((n, i) => (
               <div
                 key={`note-${i}`}
                 title={n.text}

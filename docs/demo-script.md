@@ -679,12 +679,13 @@ the app's own entry with `mode="production"` (see "Shipping it" below).
     rows in the cut's lines doc;
   - the clip editor does not open: there is no clip behind a planned line.
     Notes still work, and land in the same file.
-- **Shipping it.** The component takes two more props, both optional, and both
+- **Shipping it.** The component takes three more props, all optional, and all
   only for the app's own walkthrough entry:
 
   | prop | |
   |---|---|
-  | `mode` | `'dev'` (the default) is the authoring tool as described above. `'production'` reduces the transport to play/pause, the scrub and the clock: no line and action readout, no notes, no Clear, no collapse, no **N** or **C** keys, no clip editor, and no `/__notes` request at all. **Space** still plays and pauses. |
+  | `mode` | `'dev'` (the default) is the authoring tool as described above: notes, Note/Copy/Clear, the **N** and **C** keys, the clip editor and its double-click, the `/__notes` fetch (and any other `/__` request), and the collapse chrome. `'production'` mounts none of it, **regardless of `transport`**. |
+  | `transport` | The separate, orthogonal knob for how much of the transport itself shows. `'full'` is the timeline with line spans and cue ticks, scrub, the time readout, the beat band on the plan clock, the line/action readout, and the keyboard transport (**Space** play/pause, arrow-left/right seek `±5s`). `'reduced'` is play/pause, a bare scrub bar and the time readout — nothing else — with **Space** still working. Defaults to `'full'` when `mode` is `'dev'` and `'reduced'` when `mode` is `'production'`, so the shipped walkthrough is reduced unless told otherwise; production with `transport="full"` still makes zero `/__` requests, since that gate is `mode` alone. |
   | `voice` | An `<audio>` the host created and played inside the click that started the walkthrough — playback needs that gesture, and only the host can call `play()` synchronously with it. The component adopts it as its clock instead of rendering its own: it is appended into the transport wearing the `present-audio` test id (which is what the camera panel reads the clock off), and its `src` is written only when it does not already point at the cut's voice, so an element that is already playing is taken over mid-flight rather than restarted. |
 
 - **`src/demo/currentCut.ts`** is the one place the shipping cut is named
