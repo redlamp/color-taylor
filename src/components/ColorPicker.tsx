@@ -951,16 +951,25 @@ export default function ColorPicker() {
         the root's max-width lets them land exactly on 614 and 420 when there is
         room, and the 320px min still stops the sliders going too tight.
 
-        The columns start at 900px, not at md's 768. The Color Editor's content
-        (the SB box beside the hue strip, the slider rows with their 92px
-        steppers) needs a 317px card, and the fr share only reaches that at an
-        884px window: from 768 to 883 the hue strip and every stepper ran past
-        the card's right edge, by 37px at 768. 900 is that measurement rounded
-        up. The 320px floor is the same number from the other side, so the
-        column cannot be squeezed below its content even at the breakpoint. The
-        two `col-span-2` panels below use the same breakpoint.
+        The columns start at 800px, not at md's 768. The breakpoint used to be
+        900, set by the Color Editor: its content needed a 317px card and the fr
+        share only reached that at an 884px window. That is no longer what binds
+        - the 320px floor above answers the same question from the other side,
+        so the editor column can never be squeezed below its content at any
+        width. Measured: from 760 to 880 that column sits pinned at exactly
+        320px and nothing in it leaves the card, wraps or scrolls.
+
+        So the hexagon column is what sets the breakpoint now. It keeps
+        narrowing, and #hex-stage scales the field with it, but the hue badge
+        and the brightness pill do not scale - they are fixed-size chrome riding
+        a shrinking hexagon, and eventually they meet. Swept 12 hues x 9
+        brightnesses at each width: clean at 796 and above, and at 794 the badge
+        and the pill collide by 0.6px at h0/b40, growing to 2.3px at 784 and
+        worse below. 800 is that 796 rounded up. md's 768 is 28px the wrong side
+        of it, so the natural Tailwind step is not available here. The two
+        `col-span-2` panels below use the same breakpoint.
       */}
-      <div className="grid grid-cols-1 min-[900px]:grid-cols-[minmax(0,614fr)_minmax(320px,420fr)] gap-x-4 gap-y-3 items-stretch">
+      <div className="grid grid-cols-1 min-[800px]:grid-cols-[minmax(0,614fr)_minmax(320px,420fr)] gap-x-4 gap-y-3 items-stretch">
           <ColorHexagon
             rgb={rgb}
             hue={hsb.h}
@@ -1029,7 +1038,7 @@ export default function ColorPicker() {
 
             That is no longer what binds. #hex-stage absorbs on the hexagon side
             now, so both columns give and they meet in the middle: measured flush
-            at every width from 1100px down to the 900px breakpoint where they
+            at every width from 1100px down to the 800px breakpoint where they
             stop being columns at all. Below ~1000px both settle at 715px, the
             hexagon having reached the natural size of its fixed-width card, and
             the box bottoms out at 143px - comfortably above the 96px floor. So
@@ -1254,13 +1263,13 @@ export default function ColorPicker() {
       {/* Swatches: Recent and Saved, out of the Hexagon card and into a panel
           of their own across both tracks, where a row holds 24. See
           wiki/notes/decision-swatches-panel.md. */}
-      <div className="min-[900px]:col-span-2 panel-frame border border-border rounded-lg p-2.5">
+      <div className="min-[800px]:col-span-2 panel-frame border border-border rounded-lg p-2.5">
         <SwatchLibrary lib={swatches} layout="panel" collapsed play={{ active: play?.section ?? null, onToggle: togglePlay }} />
       </div>
 
       {/* Equations panel. Spanning both tracks is what makes it match the width
           of the row above; nothing measures anything. */}
-      <div className="min-[900px]:col-span-2 panel-frame border border-border rounded-lg p-2.5">
+      <div className="min-[800px]:col-span-2 panel-frame border border-border rounded-lg p-2.5">
         <CollapsibleSection id="equations-group" title="Equations" level="h2" defaultOpen={false}>
           <EquationsPanel
             rgb={rgb}
