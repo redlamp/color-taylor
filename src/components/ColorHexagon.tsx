@@ -17,8 +17,9 @@ import {
   FIELD_SIZE, SIZE, HEX_PANEL_WIDTH, CENTER_X, CENTER_Y, RADIUS, PI, DIRS, DISPLAY_HEIGHT,
   BAR_TRACK, BL_BAR_X, BL_BAR_TOP, BL_BAR_SPAN, BL_PILL_OVERHANG,
   SAT_BAR_LEFT, SAT_BAR_TOP, SAT_BAR_SPAN, DISPLAY_HEIGHT_SAT, STAGE_TOP_CROP,
-  HUE_LABEL_OFFSET, HEX_STACKED_BARS_MAX, BL_BAR_TOP_H, BAR_PILL_DROP, DISPLAY_HEIGHT_STACKED,
+  HUE_LABEL_OFFSET, HEX_STACKED_BARS_MAX, BL_BAR_TOP_H, DISPLAY_HEIGHT_STACKED,
   SAT_TITLE_LETTER_PX, SAT_TITLE_LETTER_SPAN,
+  BAR_STACK_SPAN, BAR_STACK_TEXT_PX, BAR_TAIL_SPAN, BAR_TAIL_TEXT_PX,
   hexEdgeDist, shapePoints, colorAtPoint, getOrder, shapeLimitScale,
 } from './hex/hexConstants';
 import HexCanvas from './hex/HexCanvas';
@@ -1068,21 +1069,17 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
    */
   const satTitleDrop = `max(0px, calc(${SAT_TITLE_LETTER_PX}px - ${u(SAT_TITLE_LETTER_SPAN)}))`;
   /**
-   * The room a horizontal bar's pill has either side of its anchor, in stage
-   * units.
+   * Extra room between the two stacked bars, and again under the lower one.
    *
-   * The standing bar's gutter is one fixed number because its pill hangs off
-   * the track's far edge. Laid down the pill is centred on an anchor that runs
-   * along the track, so each bound is the track's own remainder plus whatever
-   * the stage keeps outside it - and the stage's edges are the card's content
-   * box at these widths, which is where the pill has to stop.
+   * Both are the same shape as satTitleDrop above and exist for the same
+   * reason: what has to fit down here is text, text does not scale with the
+   * card, and the units it has to fit into do. So the stage adds the shortfall
+   * and nothing more - at the widest stacked card the units already hold it and
+   * both are zero. What this replaced was a flat 30px in each place, paid to
+   * the value pills that used to hang under these tracks.
    */
-  const hPillGutter = (v: number) => ({
-    start: u(SAT_BAR_LEFT + (v / 100) * SAT_BAR_SPAN),
-    end: u(EXTENT - SAT_BAR_LEFT - SAT_BAR_SPAN + (1 - v / 100) * SAT_BAR_SPAN),
-  });
-  const satGutter = hPillGutter(satValue);
-  const blGutter = hPillGutter(blValue);
+  const barStackDrop = `max(0px, calc(${BAR_STACK_TEXT_PX}px - ${u(BAR_STACK_SPAN)}))`;
+  const barTailDrop = `max(0px, calc(${BAR_TAIL_TEXT_PX}px - ${u(BAR_TAIL_SPAN)}))`;
 
   return (
     <div
@@ -1252,9 +1249,10 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           The stage is an inline-size container so the box below can take its
           crop in cqw: the crop is a fixed share of the width, and a percentage
           `top` would resolve against the stage's height, which grows. */}
-      {/* Stacked, the lower bar's value pill hangs BAR_PILL_DROP px below a
-          stage whose last 32 units are worth half that at these widths, so the
-          margin under the stage is taken in px rather than in the span. */}
+      {/* Stacked, the fixed text under the lower track outgrows the stage's own
+          last 32 units at these widths, and the px the two drops above add to
+          everything below the field push the whole tail past the stage's box -
+          so the margin under it carries all three. */}
       <div
         id="hex-stage"
         className={`w-full relative grow ${satBar ? 'mx-4 mt-4 mb-1' : 'm-4'}`}
@@ -1262,7 +1260,9 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           maxWidth: EXTENT,
           aspectRatio: `${EXTENT} / ${stageHeight}`,
           containerType: 'inline-size',
-          ...(stacked ? { marginBottom: `calc(${BAR_PILL_DROP}px + ${satTitleDrop})` } : null),
+          ...(stacked
+            ? { marginBottom: `calc(${barStackDrop} + ${satTitleDrop} + ${barTailDrop})` }
+            : null),
         }}
       >
       {/* The field's own box, pinned to the stage's top and pulled up by the
@@ -1736,11 +1736,10 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       {blBar && (
         <HexBar
           /* Stage 8. Laid down, it is the saturation bar's twin a row lower:
-             same track, same corner-to-corner span, labels below and title
-             above. Nothing here but the box and the orientation changes - the
-             gesture, the furniture and the clamp are HexBar's, and the clamp
-             belongs to the standing case, where the pill hangs off the track's
-             right edge into whatever width is left. */
+             same track, same corner-to-corner span, labels below, and a title
+             row that carries the value at its far end. Nothing here but the
+             box, the orientation and where the number is written - the gesture
+             and the furniture are HexBar's. */
           orientation={stacked ? 'horizontal' : 'vertical'}
           axis="bl"
           value={blValue}
@@ -1751,15 +1750,16 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           unit={unit}
           markers={blMarkers}
           lit={blBarLit}
-          // The pill is anchored to the track's outboard edge, so the room it
-          // has is the stage's remaining width plus the card's own padding.
-          pillGutter={stacked ? blGutter.end : `calc(${u(EXTENT - BL_BAR_X - BAR_TRACK)} + ${BL_PILL_OVERHANG}px)`}
-          pillGutterStart={stacked ? blGutter.start : undefined}
+          readout={stacked ? 'title' : 'pill'}
+          // Standing only. The pill is anchored to the track's outboard edge,
+          // so the room it has is the stage's remaining width plus the card's
+          // own padding; lying down it has no pill to bound.
+          pillGutter={stacked ? undefined : `calc(${u(EXTENT - BL_BAR_X - BAR_TRACK)} + ${BL_PILL_OVERHANG}px)`}
           style={stacked ? {
             left: pct(SAT_BAR_LEFT),
-            // The px are the saturation pill's, which drops out of the stage's
-            // units and would otherwise land on this bar's title.
-            top: `calc(${u(BL_BAR_TOP_H - topCrop)} + ${BAR_PILL_DROP}px + ${satTitleDrop})`,
+            // The px are the saturation bar's label row and this bar's title,
+            // neither of which shrinks with the stage's units.
+            top: `calc(${u(BL_BAR_TOP_H - topCrop)} + ${barStackDrop} + ${satTitleDrop})`,
             width: pct(SAT_BAR_SPAN),
             height: u(BAR_TRACK),
           } : {
@@ -1791,8 +1791,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           swatchText={pillText}
           unit={unit}
           lit={satBarLit}
-          pillGutter={satGutter.end}
-          pillGutterStart={satGutter.start}
+          readout={stacked ? 'title' : 'pill'}
           style={{
             left: pct(SAT_BAR_LEFT),
             top: stacked ? `calc(${u(SAT_BAR_TOP - topCrop)} + ${satTitleDrop})` : u(SAT_BAR_TOP - topCrop),

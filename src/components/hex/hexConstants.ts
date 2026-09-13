@@ -156,22 +156,19 @@ export const HEX_TOGGLE_ROW_MAX = 214;
 /**
  * At or under this, the brightness bar lies down under the saturation bar.
  *
- * The standing bar starts failing far wider than this: the value pill's clamp
- * first has to shift it at a 468px card, and at 351px the pill and the hue
- * badge overlap outright at hue 0, brightness 50. What holds the switch down
- * here is the two-column layout, whose hexagon card measures 353.98px at an
- * 800px viewport and must not reflow - so the widest the geometry would
- * justify is not available, and the only question is how far under 353.98 to
- * sit.
+ * The geometric break, not a layout one. It is the widest card at which the
+ * standing bar is still honestly standing: below it the value pill's clamp has
+ * to start dragging the handle back over its own track, and further down the
+ * pill and the hue badge overlap outright at hue 0, brightness 50.
  *
- * 350 rather than 353, deliberately: 353 would clear that card by under a
- * pixel, and a different scrollbar width or any future change to the column
- * split would flip the two-column layout to stacked. The cost is a three-pixel
- * window, 351 to 353, where the badge and the pill still overlap - which is a
- * sub-pixel-grade nuisance at one width against a layout that silently
- * reflows. The cushion is worth more.
+ * It used to be 350, held down by the two-column layout - whose hexagon card is
+ * 353.98px at an 800px viewport - so that card would not reflow. Taylor's call
+ * is the other way round: the hexagon itself is what the card is for, and the
+ * bar lying down is what gives it the vertical bar's gutter back, so the
+ * two-column card takes the stacked layout from an 800px viewport up to about
+ * 929, where it finally measures more than this.
  */
-export const HEX_STACKED_BARS_MAX = 350;
+export const HEX_STACKED_BARS_MAX = 468;
 /**
  * The horizontal brightness track, clear of the saturation bar's own labels.
  *
@@ -180,15 +177,41 @@ export const HEX_STACKED_BARS_MAX = 350;
  */
 export const BL_BAR_TOP_H = SAT_BAR_TOP + BAR_TRACK + BAR_LABEL_SPACE_H + SAT_BAR_GAP + BAR_TITLE_SPACE + BAR_ARROW;
 /**
- * How far a horizontal bar's value pill hangs below its own track, in px.
+ * A horizontal bar's 0/50/100 row, in px: how far below the track it reaches.
  *
- * The pill is fixed-size HTML - a 6px arrow overlapped 4px into a 28px pill -
- * on a stage whose units shrink with the card, so the room it needs cannot be
- * budgeted in units: at a 240px card the 30 units under the saturation track
- * are 14px and the pill still wants 30. Added in px between the two stacked
- * bars, and again under the lower one.
+ * The buttons are text-sm with py-1, placed BAR_LABEL_INSET_H units under the
+ * track less 4px of that padding - so what they occupy below it is that offset
+ * plus this. Fixed text on a stage whose units shrink with the card, which is
+ * why the stacked budget below is written in px against units.
  */
-export const BAR_PILL_DROP = 30;
+export const BAR_LABEL_TEXT_PX = 18;
+/** Where a horizontal bar's labels start, in units, below its track. HexBar
+ *  places them with it and the budget below has to subtract the same number. */
+export const BAR_LABEL_INSET_H = 6;
+/**
+ * The units between one stacked bar's label row and the next bar's title.
+ *
+ * From the upper track's bottom down to the lower bar's title band: the stage's
+ * own spacing, less the arrow above the lower track and the inset the labels
+ * already start at.
+ */
+export const BAR_STACK_SPAN = BL_BAR_TOP_H - (SAT_BAR_TOP + BAR_TRACK) - (BAR_ARROW + 2) - BAR_LABEL_INSET_H;
+/**
+ * The px that span has to hold: the upper bar's label row, a gap, and the
+ * lower bar's title riding above its arrow.
+ *
+ * This replaced BAR_PILL_DROP, a flat 30px added between the stacked bars and
+ * again beneath them because the saturation pill hung under its track. With no
+ * pills while stacked the room needed is the text's, and text is the only thing
+ * down here that does not scale - so the stage adds the shortfall rather than a
+ * constant, and adds nothing at all at the widest stacked card.
+ */
+export const BAR_STACK_TEXT_PX = BAR_LABEL_TEXT_PX + 4 + BAR_TITLE_LIFT;
+/** The same question under the lowest track: the units the stage keeps past it
+ *  (BAR_LABEL_SPACE_H plus the stage's 2-unit tail), less the label inset. */
+export const BAR_TAIL_SPAN = BAR_LABEL_SPACE_H + 2 - BAR_LABEL_INSET_H;
+/** And the px that has to hold - the label row, and 2px off the card's edge. */
+export const BAR_TAIL_TEXT_PX = BAR_LABEL_TEXT_PX + 2;
 /**
  * Fixed chrome between the lowest vertex letters and the saturation title.
  *
@@ -204,7 +227,7 @@ export const SAT_TITLE_LETTER_PX = LETTER_HALF + BAR_TITLE_LIFT;
  *
  * Under SAT_TITLE_LETTER_PX / this many px per unit the two meet, which is
  * every width the bars stack at - so the stacked stage adds the difference in
- * px, the same shape BAR_PILL_DROP takes and for the same reason.
+ * px, the same shape BAR_STACK_TEXT_PX takes and for the same reason.
  */
 export const SAT_TITLE_LETTER_SPAN = SAT_BAR_TOP - (BAR_ARROW + 2) - (CENTER_Y + (RADIUS + LETTER_OFFSET) * SQRT3_2);
 export const STAGE_SPAN_STACKED = BL_BAR_TOP_H + BAR_TRACK + BAR_LABEL_SPACE_H + 2;
