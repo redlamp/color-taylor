@@ -36,8 +36,8 @@ import { openDemoSections, restoreDemoSections } from '@/utils/demoSections';
 const DemoRunner = lazy(() => import('@/demo/DemoRunner'));
 
 // Top-row layout constants — root max-width and shrink behavior derive from these
-const SLIDERS_PANEL_WIDTH = 420;          // px, target width of the right column on md+
-const SLIDERS_PANEL_MIN_WIDTH = 280;      // px, floor before sliders content gets too tight
+const SLIDERS_PANEL_WIDTH = 420;          // px, target width of the right column in two-column layout
+const SLIDERS_PANEL_MIN_WIDTH = 320;      // px, floor: the Color Editor's content needs a 317px card
 const TOP_ROW_GAP_PX = 16;                // Tailwind gap-4
 /*
  * The root's own horizontal padding, which has to be added on top of the two
@@ -940,7 +940,7 @@ export default function ColorPicker() {
         every resize, replaced by `col-span-2`.
 
         The tracks carry the same numbers the flex bases did: HEX_PANEL_WIDTH
-        (614) and SLIDERS_PANEL_WIDTH (420), with SLIDERS_PANEL_MIN_WIDTH (280)
+        (614) and SLIDERS_PANEL_WIDTH (420), with SLIDERS_PANEL_MIN_WIDTH (320)
         as the second one's floor. Keep them in sync with the constants above.
 
         They are `fr` rather than `px` on purpose. With px maxima the tracks do
@@ -949,9 +949,18 @@ export default function ColorPicker() {
         collapsed to 244px while the sliders kept full width. As flex factors in
         a 614:420 ratio they divide the space the way the flex bases used to,
         the root's max-width lets them land exactly on 614 and 420 when there is
-        room, and the 280px min still stops the sliders going too tight.
+        room, and the 320px min still stops the sliders going too tight.
+
+        The columns start at 900px, not at md's 768. The Color Editor's content
+        (the SB box beside the hue strip, the slider rows with their 92px
+        steppers) needs a 317px card, and the fr share only reaches that at an
+        884px window: from 768 to 883 the hue strip and every stepper ran past
+        the card's right edge, by 37px at 768. 900 is that measurement rounded
+        up. The 320px floor is the same number from the other side, so the
+        column cannot be squeezed below its content even at the breakpoint. The
+        two `col-span-2` panels below use the same breakpoint.
       */}
-      <div className="grid grid-cols-1 md:grid-cols-[minmax(0,614fr)_minmax(280px,420fr)] gap-x-4 gap-y-3 items-stretch">
+      <div className="grid grid-cols-1 min-[900px]:grid-cols-[minmax(0,614fr)_minmax(320px,420fr)] gap-x-4 gap-y-3 items-stretch">
           <ColorHexagon
             rgb={rgb}
             hue={hsb.h}
@@ -1020,7 +1029,7 @@ export default function ColorPicker() {
 
             That is no longer what binds. #hex-stage absorbs on the hexagon side
             now, so both columns give and they meet in the middle: measured flush
-            at every width from 1100px down to the 768px breakpoint where they
+            at every width from 1100px down to the 900px breakpoint where they
             stop being columns at all. Below ~1000px both settle at 715px, the
             hexagon having reached the natural size of its fixed-width card, and
             the box bottoms out at 143px - comfortably above the 96px floor. So
@@ -1245,13 +1254,13 @@ export default function ColorPicker() {
       {/* Swatches: Recent and Saved, out of the Hexagon card and into a panel
           of their own across both tracks, where a row holds 24. See
           wiki/notes/decision-swatches-panel.md. */}
-      <div className="md:col-span-2 panel-frame border border-border rounded-lg p-2.5">
+      <div className="min-[900px]:col-span-2 panel-frame border border-border rounded-lg p-2.5">
         <SwatchLibrary lib={swatches} layout="panel" collapsed play={{ active: play?.section ?? null, onToggle: togglePlay }} />
       </div>
 
       {/* Equations panel. Spanning both tracks is what makes it match the width
           of the row above; nothing measures anything. */}
-      <div className="md:col-span-2 panel-frame border border-border rounded-lg p-2.5">
+      <div className="min-[900px]:col-span-2 panel-frame border border-border rounded-lg p-2.5">
         <CollapsibleSection id="equations-group" title="Equations" level="h2" defaultOpen={false}>
           <EquationsPanel
             rgb={rgb}
