@@ -1430,14 +1430,15 @@ export default function ColorPicker() {
           parameter is a tool: full transport, nothing playing, because a link
           cannot satisfy the gesture rule. The About panel's entry is the
           shipped walkthrough: the reduced transport, already playing, on the
-          elements the click started. Neither is the authoring mode. */}
+          elements the click started. On the Vite dev server the URL is also the
+          authoring tool (notes, clip editor); a build never mounts that half. */}
       {presentName() && (
         <Suspense fallback={null}>
           <PresentationMode
             name={presentName() as string}
             host={demoHost}
             demoOpen={demoOpen}
-            mode="production"
+            mode={import.meta.env.DEV ? 'dev' : 'production'}
             transport="full"
             onDemo={(cursorFrom) => startDemo(null, cursorFrom ?? null)}
             onColor={(target) => { if (colorAnimActiveRef.current) colorAnimActiveRef.current = 'stop'; animateToHsb(target); }}
