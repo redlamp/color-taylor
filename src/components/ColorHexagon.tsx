@@ -1197,12 +1197,13 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
         inert={!hexOpen}
         className={`flex w-full min-h-0 flex-col items-center gap-1 ${hexClipped ? 'overflow-clip' : ''}`}
       >
-      {/* id is a styling hook for narrow hosts. The hue badge and brightness
-          pill are absolutely positioned against this element at percentage
-          offsets but sized in fixed px, so anything narrower than
-          HEX_PANEL_WIDTH must cap this width to keep them on screen. Padding
-          cannot do it - abs-positioned children resolve against the padding
-          box. See figma/ui/figma.css.
+      {/* id is a styling hook for narrow hosts. The hue badge is absolutely
+          positioned against this element at a percentage offset but sized in
+          fixed px, so anything narrower than HEX_PANEL_WIDTH must cap this
+          width to keep it on screen. Padding cannot do it - abs-positioned
+          children resolve against the padding box. See figma/ui/figma.css.
+          The brightness pill has the same shape but clamps itself against
+          this element's right edge, in cqw; see BrightnessHandle.
 
           `grow` makes this the panel's slack absorber, so whatever the card has
           spare over its content lands here and Recent and Saved sit at the

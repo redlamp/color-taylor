@@ -13,9 +13,20 @@ export const BL_LABEL_SPACE = 40;
 export const SIZE = HEX_SIZE + BL_BAR_GAP + BL_BAR_WIDTH + BL_ARROW_SIZE + BL_LABEL_SPACE;
 // Hex panel width plus room for its padding on both sides. The card wears
 // p-2.5 now (10 + 10); the 24 dates from p-3 and the 4px spare is harmless -
-// this only has to be wide enough to keep the hue badge and brightness pill,
-// sized in px and positioned by percentage, on screen.
+// this only has to be wide enough to keep the hue badge, sized in px and
+// positioned by percentage, on screen. The brightness pill clamps itself; see
+// BL_PILL_OVERHANG.
 export const HEX_PANEL_WIDTH = SIZE + 24;
+/**
+ * How far the brightness pill may hang past the stage's right edge, in px.
+ *
+ * The pill is fixed-size HTML at a percentage `left`, so below full width it
+ * outruns the gutter drawn for it in SIZE. The card's p-2.5 is the only room
+ * beyond the stage, and the pill already uses 9px of it at full width - so the
+ * bound is that padding, not the stage edge, or the layout would shift where
+ * it fits today. Past the bound the pill slides left onto the bar instead.
+ */
+export const BL_PILL_OVERHANG = 10;
 export const CENTER_X = 260;
 export const CENTER_Y = HEX_SIZE / 2;
 export const RADIUS = 210;
