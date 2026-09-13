@@ -275,7 +275,9 @@ function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }: Equat
        * the six cells stack as one list with that same gap.
        */}
       <div className="col-span-full grid grid-cols-1 min-[800px]:grid-cols-2 gap-2">
-        <div className="flex flex-col gap-1 border border-border rounded-lg p-1.5 min-w-0">
+        {/* The id is a target for the walkthrough's cursor, which highlights
+            this block while it hovers the editor's hex field. */}
+        <div id="equations-hex" className="flex flex-col gap-1 border border-border rounded-lg p-1.5 min-w-0">
           <Row
             left={<span className="text-sm font-semibold font-sans text-foreground" title="Hexadecimal: each channel written as two base-16 digits">Hex</span>}
             right={<CopyableResult text={hexValue} />}
