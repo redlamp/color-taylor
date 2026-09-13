@@ -28,12 +28,12 @@ Ownership: `src/components` and `App.tsx` are the app session's; `src/demo`, `pu
 6. **Three buttons.** Demo (the built-in tour, about 40 s, silent), Presentation (about 4 min, voice and webcam, desktop only), Get started. Labels are Taylor's to write. On a phone only two render, in the existing stacked grid.
 7. **Bumpers.** `?bumpers=youtube` is read by the presentation side; the About button never sets it. Name agreed as given.
 
-## Questions for Taylor
+## Taylor's answers (2026-09-13)
 
-1. Button labels and order for the three entries. The spec says "Demo", "Presentation", "Get started"; today's are "Watch Demo" and "Get Started".
-2. Does the shareable link (`?present=cut-03`, paused, transport up) ship, or is the About panel the only door for now?
-3. In production, does the full transport show (timeline, scrub, time readout) or a minimal play/pause and progress? Notes and the clip editor stay dev either way.
-4. When the presentation ends, what does the visitor see: the About panel, as the cut's last frame has it, or the picker?
+1. **Labels and order: Demo, Presentation, Get started.** Under Demo and Presentation a small caption with the running time, "40 seconds" and "four minutes", to be dialed in as the cut settles.
+2. **`?present=<cut>` works in production**, paused with the transport up. Not something he expects to send around, but it stays.
+3. **The transport is a tool worth showing.** Under the URL parameter the full transport shows (timeline, scrub, time, keys); the About panel's Presentation button gets the reduced one. The dev-only tools (notes, clip editor) stay dev-only either way. This needs the presentation side to separate "full transport" from "dev tools" in `PresentationMode`'s `mode`.
+4. **It ends on the About panel**, so the visitor can choose the presentation again, the demo, Get started, or click outside to dismiss.
 
 ## Agreed with the presentation side (2026-09-13)
 

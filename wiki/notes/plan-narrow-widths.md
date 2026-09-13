@@ -39,10 +39,12 @@ Each stage should key on the card's own width (a container query), not the viewp
 
 ## Open
 
-- Two overlaps on the hexagon are design calls, not bugs, left for Taylor: the hue badge sits on the R and C letters at hue 0 and 180 at every width including 1376 (its centre is four units inside the letter ring, so it lands on whichever letter it points at); and on the "Saturation" title at hue 270 while the bars are stacked, by about 11px at a 240px viewport (clearing it costs about 11px more card height there).
-- At a 630px viewport the panels are wider (586) than at 640 (552): the root's padding drops from `sm:px-6` to `px-0.5` at 640, a visible step. Pre-existing; a follow-up if it bothers.
-- Stages 3 and 4 (steppers off, search and tags below) are not started.
-- Where each stage switches. The widths are to be measured, not chosen; see the breakpoint measurement on `fix/column-breakpoint`.
-- Order, Taylor's call: the two-column breakpoint moves first, then the stages in the order above.
-- The two-column breakpoint moved first: 900 → **800px**, measured on `fix/column-breakpoint`. What stops it going lower is the hexagon, stages 7 and 8: the hue badge and the brightness pill collide at 794px because they are fixed-size chrome on a shrinking hexagon. So the remaining stages are what buy any width below 800, not the breakpoint.
+Taylor's calls, 2026-09-13 evening:
+
+- **Hue badge over the R and C letters at hue 0 and 180: leave it.**
+- **Stacked bars, both horizontal: no value pills.** The number moves onto the same row as the "Saturation" / "Brightness" title. That also removes the badge-over-title overlap's worst case and the pill clamps' reason to exist in the horizontal case.
+- **Stack earlier, to keep the hexagon larger.** The threshold moves up from 350; the next measured break is 468 (where the vertical pill's clamp first shifts it). Consequence: the two-column hexagon at viewports 800 to about 915 shows stacked bars, since its card is 354 to 468 there.
+- **Smooth the 630/640 padding step** (`sm:px-6` to `px-0.5`).
+- **Stage 3 ties to stage 1:** when the swatch moves above the SB box (230px editor card), the steppers leave the RGB / HSB / HSL rows and the sliders take the width. Stage 4 (search and tags below) is not asked for.
 - The presentation's desktop-only gate stays at 900px regardless: it gates the walkthrough's entry, not the layout ([[presentation]]).
+- The two-column breakpoint moved first: 900 → **800px**, measured on `fix/column-breakpoint`; the hexagon's chrome is what bound it.
