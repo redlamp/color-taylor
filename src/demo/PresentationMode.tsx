@@ -111,6 +111,34 @@ export interface PresentationModeProps {
 /** How far an arrow key moves the playhead when the full transport is up. */
 const SEEK_STEP = 5;
 
+/** Transport icons, sized to the row and matching the button text's color via
+ *  `currentColor`. Kept as plain inline SVG rather than a dependency. */
+const PlayIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+    <path d="M3 1.5 L14 8 L3 14.5 Z" fill="currentColor" />
+  </svg>
+);
+const PauseIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+    <rect x="3" y="1.5" width="3.5" height="13" fill="currentColor" />
+    <rect x="9.5" y="1.5" width="3.5" height="13" fill="currentColor" />
+  </svg>
+);
+/** A chevron with a bar at its point: the beat transport's "skip to the edge
+ *  of the adjacent beat" gesture, distinct from a plain play/seek chevron. */
+const PrevBeatIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+    <rect x="2" y="1.5" width="2" height="13" fill="currentColor" />
+    <path d="M14 1.5 L14 14.5 L5 8 Z" fill="currentColor" />
+  </svg>
+);
+const NextBeatIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+    <rect x="12" y="1.5" width="2" height="13" fill="currentColor" />
+    <path d="M2 1.5 L2 14.5 L11 8 Z" fill="currentColor" />
+  </svg>
+);
+
 /** Read the URL once: the presentation name. */
 export function presentName(): string | null {
   try {
@@ -702,14 +730,34 @@ export default function PresentationMode({
               were a second line of chrome for the same job. The timeline takes
               whatever the row leaves. */}
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', margin: '2px 0' }}>
-            <button type="button" data-testid="present-prev-beat" onClick={() => toBeat(-1)} title="Previous beat" style={buttonStyle}>
-              ⏮
+            <button
+              type="button"
+              data-testid="present-prev-beat"
+              onClick={() => toBeat(-1)}
+              title="Previous beat"
+              aria-label="Previous beat"
+              style={buttonStyle}
+            >
+              <PrevBeatIcon />
             </button>
-            <button type="button" data-testid="present-play" onClick={toggle} style={buttonStyle}>
-              {playing ? 'Pause' : 'Play'}
+            <button
+              type="button"
+              data-testid="present-play"
+              onClick={toggle}
+              aria-label={playing ? 'Pause' : 'Play'}
+              style={buttonStyle}
+            >
+              {playing ? <PauseIcon /> : <PlayIcon />}
             </button>
-            <button type="button" data-testid="present-next-beat" onClick={() => toBeat(1)} title="Next beat" style={buttonStyle}>
-              ⏭
+            <button
+              type="button"
+              data-testid="present-next-beat"
+              onClick={() => toBeat(1)}
+              title="Next beat"
+              aria-label="Next beat"
+              style={buttonStyle}
+            >
+              <NextBeatIcon />
             </button>
             <span data-testid="present-time" style={{ minWidth: 96, whiteSpace: 'nowrap' }}>
               {mmssTenths(time)} / {mmss(duration)}
