@@ -24,8 +24,9 @@ Ownership: `src/components` and `App.tsx` are the app session's; `src/demo`, `pu
 2. **`?present=<cut>` also works in production, but mounts paused.** A link cannot satisfy the play() gesture rule, so it opens the app with presentation mode up and the transport showing, and the transport's play button is the gesture. `presentName()` drops its DEV guard; `PresentationMode` drops its own (their file). `?script=`, the notes endpoint and the clip editor stay DEV-only.
 3. **The gate is on the About panel.** `matchMedia('(min-width: 900px)')`, subscribed so it re-checks on resize; below it the presentation button is not rendered. The built-in demo has no gate. A presentation already running is not stopped by a resize.
 4. **The gesture.** The About button's click handler creates the voice `Audio` and the webcam `<video>` and calls `play()` on both synchronously, before any `await` or lazy import resolves, then hands the pre-activated elements to `PresentationMode` and `CameraPip` as props. That is a `src/demo` API change and needs the presentation side to accept elements from the host instead of creating its own.
-5. **Three buttons.** Demo (the built-in tour, about 40 s, silent), Presentation (about 4 min, voice and webcam, desktop only), Get started. Labels are Taylor's to write. On a phone only two render, in the existing stacked grid.
-6. **Bumpers.** `?bumpers=youtube` is read by the presentation side; the About button never sets it. Name agreed as given.
+5. **The `?` button opens the About panel.** Taylor, 2026-09-13: the header's `?` (`#demo-button`) opens the About panel rather than starting the demo, so the panel is the one door to Demo, Presentation and Get started. The "About the app" entry in Settings stays as it is.
+6. **Three buttons.** Demo (the built-in tour, about 40 s, silent), Presentation (about 4 min, voice and webcam, desktop only), Get started. Labels are Taylor's to write. On a phone only two render, in the existing stacked grid.
+7. **Bumpers.** `?bumpers=youtube` is read by the presentation side; the About button never sets it. Name agreed as given.
 
 ## Questions for Taylor
 
