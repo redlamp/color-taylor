@@ -91,7 +91,7 @@ export function AboutPanel({ open, onClose, onWatchDemo, onPresentation }: About
               it loses its own colour. Same reason as the header's title. */}
           {/* Wide enough to hold this on one line: the wordmark breaking off
               its emoji reads as a layout fault rather than as a title. */}
-          <DialogPrimitive.Title className="text-3xl font-semibold whitespace-nowrap sm:text-5xl">
+          <DialogPrimitive.Title id="about-title" className="text-3xl font-semibold whitespace-nowrap sm:text-5xl">
             <span className="wordmark">Color Taylor</span>{' '}
             <span className="whitespace-nowrap">🎨🧵</span>
           </DialogPrimitive.Title>
@@ -109,60 +109,59 @@ export function AboutPanel({ open, onClose, onWatchDemo, onPresentation }: About
             </em>
           </DialogPrimitive.Description>
 
-          {/* A grid, so the entries are the same width whatever their labels
-              are: one column on a phone, where they stack, and one equal
-              column each from `sm` up. Capped and centred so they do not
-              stretch the width of the card on a desktop; the three-up row
-              needs a little more of it than the two-up row does.
+          {/* Get Started is the way out, so it gets the row to itself; Demo
+              and Presentation are the two things to watch, so they share the
+              second row instead of competing with a decision for space. Both
+              rows sit in one capped, centred column so row two - one button
+              wide when gated, two when not - always measures out to exactly
+              what row one has.
 
-              `xl` rather than the `2xl` the two-up row used to wear: at
-              `2xl` the word "Presentation" alone is wider than a third of
-              this card, and three equal columns is the arrangement worth
-              keeping. `xl` is the size the variants file already calls the
-              call-to-action one. */}
-          <div
-            className={
-              'mx-auto mt-9 grid gap-3 ' +
-              (roomForPresentation ? 'max-w-[30rem] sm:grid-cols-3' : 'max-w-[26rem] sm:grid-cols-2')
-            }
-          >
-            {/* The ids are for the video script runner, which points at these
-                by name (about-watch-demo, about-close). */}
+              `2xl` again, now that row two never holds more than two: it is
+              only "Presentation" set against three columns that overflowed,
+              and that arrangement is gone. */}
+          <div className="mx-auto mt-9 max-w-[26rem] space-y-3">
             <div>
-              <Button
-                id="about-watch-demo"
-                variant="secondary"
-                size="xl"
-                className="w-full"
-                onClick={(e) => { e.stopPropagation(); onWatchDemo(); }}
-              >
-                <Play />
-                Demo
-              </Button>
-              <Caption>40 seconds</Caption>
-            </div>
-            {/* Not disabled below 900: an entry that cannot be taken is a
-                question the visitor has to answer, and there is nothing they
-                could do about this one. */}
-            {roomForPresentation && (
-              <div>
-                <Button
-                  id="about-presentation"
-                  variant="secondary"
-                  size="xl"
-                  className="w-full"
-                  onClick={(e) => { e.stopPropagation(); onPresentation(); }}
-                >
-                  <Film />
-                  Presentation
-                </Button>
-                <Caption>four minutes</Caption>
-              </div>
-            )}
-            <div>
-              <Button id="about-close" size="xl" className="w-full" onClick={(e) => { e.stopPropagation(); onClose(); }}>
+              <Button id="about-close" size="2xl" className="w-full" onClick={(e) => { e.stopPropagation(); onClose(); }}>
                 Get Started
               </Button>
+            </div>
+            {/* The ids are for the video script runner, which points at these
+                by name (about-watch-demo, about-presentation). One column
+                below `sm`, where everything stacks; two from `sm` up, unless
+                the walkthrough is gated out, in which case Demo alone still
+                fills the row rather than sitting half-width. */}
+            <div className={'grid gap-3 ' + (roomForPresentation ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1')}>
+              <div>
+                <Button
+                  id="about-watch-demo"
+                  variant="secondary"
+                  size="2xl"
+                  className="w-full"
+                  onClick={(e) => { e.stopPropagation(); onWatchDemo(); }}
+                >
+                  <Play />
+                  Demo
+                </Button>
+                <Caption>40 seconds</Caption>
+              </div>
+              {/* Not disabled below 900: an entry that cannot be taken is a
+                  question the visitor has to answer, and there is nothing they
+                  could do about this one. */}
+              {roomForPresentation && (
+                <div>
+                  <Button
+                    id="about-presentation"
+                    variant="secondary"
+                    size="2xl"
+                    className="w-full"
+                    onClick={(e) => { e.stopPropagation(); onPresentation(); }}
+                  >
+                    <Film />
+                    Presentation
+                  </Button>
+                  <Caption>four minutes</Caption>
+                </div>
+              )}
             </div>
           </div>
 
