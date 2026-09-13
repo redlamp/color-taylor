@@ -65,6 +65,26 @@ interface CollapsibleSectionProps {
    */
   afterTitle?: ReactNode;
   className?: string;
+  /**
+   * Classes that let the header fall to two rows once it is too narrow to hold
+   * the title, `afterTitle` and `headerRight` abreast - the title keeping the
+   * first row and the controls taking a second. The Swatches panel is the only
+   * caller that wants it (wiki/notes/plan-narrow-widths.md, stage 6).
+   *
+   * Four slots because every part of the row has to agree, and leaving any one
+   * of them out costs a row. The row releases its pinned height and is allowed
+   * to wrap; the trigger claims a full line so the controls land below it
+   * rather than beside it; the spacer goes, because a flex item that grows will
+   * hold the second line open and push the actions onto a third; and the
+   * actions drop to a zero basis so they grow into what is left instead of
+   * forcing a line break at their full width - which is what lets them wrap
+   * among themselves at the very bottom of the range rather than overflowing.
+   *
+   * Classes rather than a `wrap` flag because the widths are container queries,
+   * and Tailwind only emits a variant it can read literally in the source - so
+   * the caller has to spell `@max-[402px]/swatches:` out itself.
+   */
+  headerReflow?: { row?: string; trigger?: string; spacer?: string; actions?: string };
   variant?: Variant;
   /**
    * Take the leftover height of the parent flex column, but only while open. The
@@ -91,7 +111,7 @@ interface CollapsibleSectionProps {
  * the attribute and the CSS rule that read it all went with it.
  */
 
-export default function CollapsibleSection({ id, title, level = 'h3', defaultOpen = true, headerLeft, headerRight, afterTitle, className: extraClass, variant = 'card', fill, children }: CollapsibleSectionProps) {
+export default function CollapsibleSection({ id, title, level = 'h3', defaultOpen = true, headerLeft, headerRight, afterTitle, className: extraClass, headerReflow, variant = 'card', fill, children }: CollapsibleSectionProps) {
   const [open, setOpen] = useState(
     () => (id !== undefined && OPEN_STATE.has(id) ? OPEN_STATE.get(id)! : defaultOpen),
   );
@@ -259,7 +279,7 @@ export default function CollapsibleSection({ id, title, level = 'h3', defaultOpe
       <div
         className={`relative z-10 box-content flex ${level === 'h2' ? 'h-8 sm:h-7' : 'h-8'} items-center gap-2 ${
           flush ? '-mt-2 pt-2' : level === 'h3' && variant === 'card' ? '-mt-2 -mx-3 px-3 pt-2' : ''
-        }`}
+        } ${headerReflow?.row || ''}`}
       >
         <button
           type="button"
@@ -269,7 +289,7 @@ export default function CollapsibleSection({ id, title, level = 'h3', defaultOpe
           onClick={toggle}
           // No keydown handler: a real button already activates on Enter and
           // Space. The div it replaced needed one.
-          className={`flex h-full ${afterTitle ? 'shrink-0' : 'flex-1'} min-w-0 items-center gap-2 cursor-pointer select-none rounded-sm text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring`}
+          className={`flex h-full ${afterTitle ? 'shrink-0' : 'flex-1'} min-w-0 items-center gap-2 cursor-pointer select-none rounded-sm text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${headerReflow?.trigger || ''}`}
         >
           <ChevronRight
             className={`${flush ? '!size-4' : chevronSize[level]} shrink-0 text-muted-foreground transition-transform duration-200 ${open ? 'rotate-90' : ''}`}
@@ -282,10 +302,10 @@ export default function CollapsibleSection({ id, title, level = 'h3', defaultOpe
         {afterTitle && (
           // The rest of the row still toggles; the button above is what the
           // keyboard and the accessibility tree get.
-          <div className="h-full flex-1 min-w-0 cursor-pointer" aria-hidden="true" onClick={toggle} />
+          <div className={`h-full flex-1 min-w-0 cursor-pointer ${headerReflow?.spacer || ''}`} aria-hidden="true" onClick={toggle} />
         )}
         {open && headerLeft}
-        {open && headerRight && <div className="flex shrink-0 items-center">{headerRight}</div>}
+        {open && headerRight && <div className={`flex shrink-0 items-center ${headerReflow?.actions || ''}`}>{headerRight}</div>}
       </div>
 
       {/*
