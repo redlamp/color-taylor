@@ -863,10 +863,10 @@ export default function ColorPicker() {
                       aria-label={settings.synth.synthEnabled ? 'Disable color synth' : 'Enable color synth'}
                       aria-pressed={settings.synth.synthEnabled}
                     >
-                      <span className="relative inline-flex items-center justify-center size-4">
-                        <Music className="size-4" />
+                      <span className="relative inline-flex items-center justify-center size-5">
+                        <Music className="size-5" />
                         {!settings.synth.synthEnabled && (
-                          <Slash className="size-4 absolute inset-0 -scale-x-100" />
+                          <Slash className="size-5 absolute inset-0 -scale-x-100" />
                         )}
                       </span>
                     </button>
@@ -891,7 +891,7 @@ export default function ColorPicker() {
                   onClick={() => startDemo()}
                   aria-label="Show the demo"
                 >
-                  <CircleHelp className="size-4" />
+                  <CircleHelp className="size-5" />
                 </button>
               }
             />
@@ -917,7 +917,7 @@ export default function ColorPicker() {
                   {/* A menu, not a gear: the sheet is where everything that
                       is not the picker lives - About included - and a gear
                       promises only preferences. */}
-                  <Menu className="size-4" />
+                  <Menu className="size-5" />
                 </button>
               }
             />
