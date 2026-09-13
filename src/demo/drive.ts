@@ -57,6 +57,16 @@ export interface DriverOptions {
    * against.
    */
   maxSpeed?: number;
+  /**
+   * Told about every move the ceiling had to stretch: what the cue asked for,
+   * what it was given, and how far it had to travel.
+   *
+   * A stretched move is a cue whose `ms` is too short for the ground it covers,
+   * and the runner has to overrun it rather than teleport - so the next cue can
+   * arrive while this one is still going. That is a fact about the plan being
+   * too tight, not about the hand, and it is only visible from in here.
+   */
+  onStretch?: (info: { asked: number; given: number; distance: number }) => void;
 }
 
 /** How long a press is held before it becomes a click. Steps total themselves with it. */
@@ -315,6 +325,7 @@ export class Driver {
     // The speed ceiling, where there is one: the distance decides the time
     // rather than the time deciding the speed. See DriverOptions.maxSpeed.
     const span = this.opts.maxSpeed ? Math.max(ms, (d / this.opts.maxSpeed) * 1000) : ms;
+    if (span > ms + 1) this.opts.onStretch?.({ asked: ms, given: span, distance: d });
     await this.animate(span, (t) => {
       const u = 1 - t;
       this.place({

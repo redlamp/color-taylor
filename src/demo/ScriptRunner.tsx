@@ -39,10 +39,23 @@ export interface ScriptAction {
   at: number;
   do: 'rest' | 'hover' | 'walk' | 'click' | 'loop' | 'circle' | 'rect' | 'ray' | 'orbit' | 'stem' | 'wander'
     | 'demo' | 'slider' | 'box' | 'tip' | 'color' | 'scroll' | 'leave' | 'underline' | 'pip' | 'zigzag'
-    | 'drift' | 'line';
+    | 'drift' | 'line' | 'arrow';
   target?: string;
   targets?: string[];
   ms?: number;
+  /**
+   * `rest`/`hover`: where on the target to stand, instead of its middle.
+   * Named `anchor` rather than `at`, which is the cue's own time.
+   *
+   * A cursor parked on the middle of a small thing covers it, and beat 3.6
+   * hovers the Y, C and M letters while a ring is being drawn round each -
+   * the letter being named was underneath the hand naming it. `below` stands
+   * the hotspot clear of the target's own box; `dx`/`dy` nudge from wherever
+   * the anchor put it.
+   */
+  anchor?: 'below' | 'above' | 'left' | 'right';
+  dx?: number;
+  dy?: number;
   /** `tip`: take the hexagon's hue pill round the ring instead of the tip handle. */
   via?: 'hue-label';
   /**
@@ -103,8 +116,15 @@ export interface ScriptAction {
    * absolute hue to take the pill to, the short way round (`degrees` is the
    * relative form, and wins where both are given). `pip`: which side of the
    * screen edge the camera panel ends up on.
+   *
+   * `stem`: the channel value, 0-255, to drag that stem to - or `"start"`,
+   * the value the channel had when the cut began. The walkthrough hands the
+   * app back the way it found it (beat 11.3), and the cut cannot know what
+   * that was: a visitor may have been playing with the color before pressing
+   * Presentation. The runner reads it at t=0 and a cue names it. Every
+   * channel still moves because the hand is on the stem that owns it.
    */
-  to?: number | [number, number] | 'off' | 'on';
+  to?: number | [number, number] | 'off' | 'on' | 'start';
   /** `rect`/`circle`: how long the drawn shape stands after the gesture, before it fades (default 900). */
   hold?: number;
   degrees?: number;
@@ -364,12 +384,16 @@ const CHANNEL_COLOR: Record<string, string> = { r: '#ff3333', g: '#2ecc40', b: '
  * gesture whose `ms` was written for a hop within one panel was being handed a
  * trip across the whole tool and covering it in the same fifth of a second.
  *
- * 1200 is a little under what a `click` already travels at (its own budget is
- * 1.2 ms per px, so 833 px/s), and above the pace of the cut's deliberate long
- * moves - the walk off screen is 900 ms for at most about 1030 px - so it binds
- * on the accidents rather than on the choreography.
+ * Round 2 of cut 04 took it from 1200 to 700. At 1200 it only bound on the
+ * accidents; Taylor wants a stated maximum that the fast moves are dialed
+ * against, so the ceiling is now below a `click`'s own budget (1.2 ms per px,
+ * 833 px/s) and below most of the cut's written `ms`. That means it binds on
+ * the choreography too - which is the point: 700 px/s is a hand crossing the
+ * tool in about a second, and the cues it stretches are the cues that were
+ * asking for more ground than their line had time for. See `onStretch`, which
+ * names them in the console so the plan can be widened where it matters.
  */
-const MAX_MOVE_PX_PER_S = 1200;
+const MAX_MOVE_PX_PER_S = 700;
 /** How long a finished callout stands before it fades, and how long the fade takes. */
 const HOLD_MS = 900;
 const FADE_MS = 300;
@@ -379,6 +403,34 @@ const ORBIT_SAT_MIN = 0.55;
 const ORBIT_SAT_MAX = 1.0;
 /** `wander`: how far the control points sit off the travel line, as a fraction of its length. */
 const WANDER_BOW = 0.25;
+/**
+ * `wander` over a target that has a box: where inside it the hand goes, as
+ * fractions of the box, and how far it stays in from the edges.
+ *
+ * Beat 3.1 is what it is for. "The color editor on the right should be
+ * familiar" is about the whole card - the hex field, the saturation/brightness
+ * rect and the hue strip together - and a wander to a single point only names
+ * wherever that point lands. These five stops are a fixed meander rather than
+ * anything random, so the shot is the same in every take, and the spline
+ * through them reads as one unhurried drift rather than five decisions.
+ */
+const WANDER_STOPS: [number, number][] = [[0.24, 0.30], [0.72, 0.19], [0.82, 0.64], [0.33, 0.80], [0.56, 0.46]];
+const WANDER_INSET = 12;
+/**
+ * `arrow`: the head's length in client px and its half-angle in radians.
+ *
+ * The head rides the tip while the shaft grows, so a partial arrow is an arrow
+ * rather than a line that sprouts a point at the end. Everything else about it
+ * is the callout layer's own - the 8px stroke, the round caps, the red.
+ */
+const ARROW_HEAD = 22;
+const ARROW_SPREAD = 0.48;
+/**
+ * How far clear of a target's own box a `rest`/`hover` anchor stands. Enough
+ * that the cursor's arrow does not touch the thing it is pointing at; see
+ * ScriptAction.at.
+ */
+const ANCHOR_CLEAR = 12;
 /** How far outside the hue pill's rim the arrow's tip sits while holding it, in px. */
 const HUE_GRIP_CLEAR = 2;
 /**
@@ -608,6 +660,48 @@ class Callouts {
       const t = smoothstep(clamp((now - t0) / Math.max(1, ms), 0, 1));
       const p = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
       el.setAttribute('points', `${a.x.toFixed(1)},${a.y.toFixed(1)} ${p.x.toFixed(1)},${p.y.toFixed(1)}`);
+      if (t < 1) this.nextFrame(step);
+      else this.retire(el, hold);
+    };
+    this.nextFrame(step);
+  }
+
+  /**
+   * A ray with an arrowhead, from `a` to `b`, drawn out over `ms`: the same
+   * bar a `line` is, pointed at one end, so a callout can say "from here" as
+   * well as "between these two".
+   *
+   * Beat 3.6 is what it is for: yellow is named as red and green combined, and
+   * two arrows coming off the R and the G letters and landing on the Y say
+   * that in the picture. Self-drawn like a `line`, so the cursor is free to be
+   * hovering the letter the arrows are aimed at.
+   *
+   * The head is drawn as part of the same polyline - shaft to the tip, out to
+   * one barb, back to the tip, out to the other - so the round joins that make
+   * the rest of the callouts look drawn rather than plotted make this one too.
+   */
+  arrow(a: Point, b: Point, ms: number, hold: number, color?: string) {
+    const el = this.add('polyline', color);
+    el.setAttribute('fill', 'none');
+    const t0 = performance.now();
+    const step = (now: number) => {
+      const t = smoothstep(clamp((now - t0) / Math.max(1, ms), 0, 1));
+      const p = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+      const len = Math.hypot(p.x - a.x, p.y - a.y) || 1;
+      const ux = (p.x - a.x) / len;
+      const uy = (p.y - a.y) / len;
+      // The head is capped at a third of what is drawn so far, so it grows
+      // with the shaft instead of standing full size on a two-pixel stub.
+      const head = Math.min(ARROW_HEAD, len / 3);
+      const barb = (sign: number): Point => {
+        const c = Math.cos(ARROW_SPREAD);
+        const s = Math.sin(ARROW_SPREAD) * sign;
+        return { x: p.x - head * (ux * c - uy * s), y: p.y - head * (uy * c + ux * s) };
+      };
+      const l = barb(1);
+      const r = barb(-1);
+      const at = (q: Point) => `${q.x.toFixed(1)},${q.y.toFixed(1)}`;
+      el.setAttribute('points', `${at(a)} ${at(p)} ${at(l)} ${at(p)} ${at(r)}`);
       if (t < 1) this.nextFrame(step);
       else this.retire(el, hold);
     };
@@ -901,6 +995,30 @@ function stemEnds(el: Element): { a: Point; b: Point } | null {
 }
 
 /**
+ * The three channel values, 0-255, of an HSB color.
+ *
+ * The runner reads the app's color as h/s/b (that is what `field()` answers
+ * with) and the hexagon's stems are the RGB channels, so a cue that asks a
+ * stem to go back to where the cut started has to cross between the two. The
+ * app's own conversion is in src/components, which this side does not own and
+ * does not import; this is the textbook one, which agrees with it to the
+ * rounding.
+ */
+function hsbToRgb(h: number, s: number, b: number): Record<'r' | 'g' | 'b', number> {
+  const sat = clamp(s, 0, 100) / 100;
+  const val = clamp(b, 0, 100) / 100;
+  const sector = (((h % 360) + 360) % 360) / 60;
+  const c = val * sat;
+  const x = c * (1 - Math.abs((sector % 2) - 1));
+  const m = val - c;
+  const table: [number, number, number][] = [
+    [c, x, 0], [x, c, 0], [0, c, x], [0, x, c], [x, 0, c], [c, 0, x],
+  ];
+  const [r, g, bl] = table[Math.floor(sector) % 6];
+  return { r: Math.round((r + m) * 255), g: Math.round((g + m) * 255), b: Math.round((bl + m) * 255) };
+}
+
+/**
  * Read the URL once: the script name, the optional auto-start delay, and
  * whether to play the voice track alongside (`&audio=1`, for checking a take
  * by ear; the recording itself is silent).
@@ -1039,6 +1157,18 @@ function resolve(name: string, host: DemoHost): Target | null {
     const channels = bank === 'rgb' ? ['r', 'g', 'b'] : ['h', 's', 'b'];
     const els = channels.map((c) => q(`#slider-${bank}-${c}`)).filter((el): el is Element => !!el);
     if (els.length < 3) return null;
+    const rect = () => unionRect(els, GROUP_PAD);
+    return { el: els[0], at: () => rectCenter(rect()), rect };
+  }
+  if (name === 'editor-card') {
+    // The editor's working area: the saturation/brightness rect and the hue
+    // strip (`#sb-wrapper`) together with the banks and the hex field
+    // (`#slider-banks`). Beat 3.1 names the card as a whole, and neither half
+    // on its own is the card - the header band above them is not it either.
+    // Two ids rather than the section, because the section is a
+    // CollapsibleSection whose box includes its own chrome.
+    const els = [q('#sb-wrapper'), q('#slider-banks')].filter((el): el is Element => !!el);
+    if (!els.length) return null;
     const rect = () => unionRect(els, GROUP_PAD);
     return { el: els[0], at: () => rectCenter(rect()), rect };
   }
@@ -1200,6 +1330,25 @@ function resolve(name: string, host: DemoHost): Target | null {
 }
 
 /**
+ * Where a `rest`/`hover` actually stands on its target: its middle, unless the
+ * cue asked for an edge (`at`) or a nudge (`dx`/`dy`). A thunk, like every
+ * other target point, because the page scrolls under it.
+ */
+function anchoredPoint(t: Target, a: ScriptAction): () => Point {
+  if (!a.anchor && a.dx === undefined && a.dy === undefined) return t.at;
+  return () => {
+    const p = t.at();
+    const r = t.rect ? t.rect() : t.el.getBoundingClientRect();
+    let { x, y } = p;
+    if (a.anchor === 'below') y = r.bottom + ANCHOR_CLEAR;
+    else if (a.anchor === 'above') y = r.top - ANCHOR_CLEAR;
+    else if (a.anchor === 'left') x = r.left - ANCHOR_CLEAR;
+    else if (a.anchor === 'right') x = r.right + ANCHOR_CLEAR;
+    return { x: x + (a.dx ?? 0), y: y + (a.dy ?? 0) };
+  };
+}
+
+/**
  * Where on a track a value sits, 0-100 along its axis. Slider tracks inset
  * their usable span by the handle's radius, so the handle is measured where
  * there is one; the hexagon's bars run edge to edge.
@@ -1263,8 +1412,21 @@ function pipArc(p0: Point, p1: Point): (t: number) => Point {
  * being worked framed as the drag starts.
  */
 const handsFree = (a: ScriptAction) =>
-  a.do === 'circle' || a.do === 'ray' || a.do === 'scroll' || a.do === 'line'
+  a.do === 'circle' || a.do === 'ray' || a.do === 'scroll' || a.do === 'line' || a.do === 'arrow'
   || (a.do === 'rect' && a.hands === 'free');
+
+/**
+ * The camera panel's state before the first `pip` cue fires.
+ *
+ * The panel is rendered at home, and until round 2 of cut 04 nothing put it
+ * anywhere else: a cut whose first cue drags it *on* therefore opened with it
+ * already on screen, and the 400 ms the hand spends reaching off the right
+ * edge for its corner played over a panel sitting in the corner. The cut's own
+ * first `pip` says which it should be - `to: "on"` means it has to start off -
+ * so the schedule can park it before a frame is drawn, and a seek back to t=0
+ * can put it back there.
+ */
+const opensOffScreen = (actions: ScriptAction[]) => actions.find((a) => a.do === 'pip')?.to === 'on';
 
 function warnMissing(action: ScriptAction, name: string | undefined) {
   console.warn(`[script] t=${action.at}s ${action.do}: no target for "${name ?? '(none)'}"`);
@@ -1394,8 +1556,65 @@ export default function ScriptRunner({
       setPressed(v) { pressed = v; },
       ripple(p) { ring = { x: p.x, y: p.y, start: performance.now() }; },
     };
-    const d = new Driver(stage, { reduced: false, speed: 1, maxSpeed: MAX_MOVE_PX_PER_S }, start);
+    /*
+     * Which cue is holding the hands, so a stretched move can be named. Only
+     * one action ever has them - the hands-free ones do not move the cursor -
+     * so a single slot is enough.
+     */
+    let holding: ScriptAction | null = null;
+    const d = new Driver(stage, {
+      reduced: false,
+      speed: 1,
+      maxSpeed: MAX_MOVE_PX_PER_S,
+      onStretch: ({ asked, given, distance }) => {
+        const a = holding;
+        console.warn(`[script] t=${a ? a.at : '?'}s ${a ? a.do : 'move'}${a?.target ? ` ${a.target}` : ''}:`
+          + ` move stretched by the speed cap - ${Math.round(distance)}px asked for in ${Math.round(asked)}ms,`
+          + ` given ${Math.round(given)}ms at ${MAX_MOVE_PX_PER_S}px/s`);
+      },
+    }, start);
     const callouts = new Callouts(shapesRef.current);
+
+    /** The app's color right now, as the three numbers `hsbToRgb` wants. */
+    const fieldHsb = (): [number, number, number] => {
+      const f = hostRef.current.field();
+      return [f.h, f.s, f.b];
+    };
+    /*
+     * The color the app was showing when the cut started, read on the first
+     * frame the schedule is up. Beat 11.3 hands it back - "go play with it"
+     * ends with the tool the way the visitor found it - and the cut cannot
+     * write the number down, because a visitor may have been playing with the
+     * color before pressing Presentation. See ScriptAction.to.
+     */
+    let startColor: [number, number, number] | null = null;
+    const startRgb = () => (startColor ? hsbToRgb(...startColor) : null);
+    requestAnimationFrame(() => { startColor = fieldHsb(); });
+
+    /*
+     * Park the camera panel where the cut opens, before anything is drawn: off
+     * screen when the first `pip` cue drags it on. The panel mounts on its own
+     * schedule, so this keeps asking for a few frames rather than assuming it
+     * is already there. See `opensOffScreen`.
+     */
+    const pipHome = (el: HTMLElement) =>
+      el.getBoundingClientRect().left - pipOffset(el).x;
+    const parkPip = (off: boolean) => {
+      const el = document.getElementById('camera-pip');
+      if (!el) return false;
+      const home = pipHome(el);
+      setPipOffset(el, off ? window.innerWidth - home + PIP_OFF_CLEAR : 0, off ? PIP_OFF_DROP : 0);
+      return true;
+    };
+    const opensOff = opensOffScreen(script.actions);
+    if (opensOff) {
+      let tries = 0;
+      const park = () => {
+        if (parkPip(true) || tries++ > 30) return;
+        requestAnimationFrame(park);
+      };
+      park();
+    }
 
     /*
      * Put this hand down at `p` with no travel: the driver's idea of where it
@@ -1498,14 +1717,14 @@ export default function ScriptRunner({
           const t = need(a.target);
           if (!t) return;
           await d.bring(t.el);
-          await d.moveTo(t.at);
+          await d.moveTo(anchoredPoint(t, a));
           return;
         }
         case 'hover': {
           const t = need(a.target);
           if (!t) return;
           await d.bring(t.el);
-          await d.moveTo(t.at);
+          await d.moveTo(anchoredPoint(t, a));
           await d.wait(a.ms ?? 0);
           return;
         }
@@ -1687,6 +1906,27 @@ export default function ScriptRunner({
           callouts.line(from.at(), to.at(), a.ms ?? CIRCLE_MS, a.hold ?? HOLD_MS, a.color);
           return;
         }
+        case 'arrow': {
+          // A `line` with a point on it: `targets` is [from, to], and the head
+          // lands on the second. Hands-free, so beat 3.6 can hover the letter
+          // the arrows are aimed at while they go up.
+          const names = a.targets ?? [];
+          if (names.length !== 2) { warnMissing(a, names.join(' -> ') || a.target); return; }
+          const from = need(names[0]);
+          const to = need(names[1]);
+          if (!from || !to) return;
+          // Stopped short of the target's own middle, so the head points at
+          // the letter rather than sitting on top of it. Measured once: the
+          // hexagon's letters do not move while the arrow stands.
+          const a0 = from.at();
+          const b0 = to.at();
+          const len = Math.hypot(b0.x - a0.x, b0.y - a0.y) || 1;
+          const clear = Math.min(len / 3, (to.radius?.() ?? ANCHOR_CLEAR) + ANCHOR_CLEAR);
+          const tip = { x: b0.x - ((b0.x - a0.x) / len) * clear, y: b0.y - ((b0.y - a0.y) / len) * clear };
+          const root = { x: a0.x + ((b0.x - a0.x) / len) * clear, y: a0.y + ((b0.y - a0.y) / len) * clear };
+          callouts.arrow(root, tip, a.ms ?? CIRCLE_MS, a.hold ?? HOLD_MS, a.color);
+          return;
+        }
         case 'wander': {
           // `targets` is a wander through several places rather than to one:
           // a single smooth spline over the whole list, so the hand sweeps an
@@ -1702,8 +1942,22 @@ export default function ScriptRunner({
           if (!stops.length) return;
           for (const t of stops) await d.bring(t.el);
           const here = { ...d.pos };
+          if (stops.length === 1 && stops[0].rect && !a.anchor) {
+            // A target with a box is a region rather than a place: the hand
+            // meanders over it on one spline instead of arriving at its
+            // middle. See WANDER_STOPS - beat 3.1's drift round the editor
+            // card is this case.
+            const box = stops[0].rect();
+            const inset = Math.min(WANDER_INSET, box.width / 4, box.height / 4);
+            const pts = WANDER_STOPS.map(([fx, fy]) => ({
+              x: box.left + inset + fx * Math.max(0, box.width - inset * 2),
+              y: box.top + inset + fy * Math.max(0, box.height - inset * 2),
+            }));
+            await d.path(splinePoint([here, ...pts]), a.ms ?? 2400);
+            return;
+          }
           if (stops.length === 1) {
-            await d.path(wanderPoint(here, stops[0].at()), a.ms ?? 1500);
+            await d.path(wanderPoint(here, anchoredPoint(stops[0], a)()), a.ms ?? 1500);
             return;
           }
           await d.path(splinePoint([here, ...stops.map((t) => t.at())]), a.ms ?? 2400);
@@ -1740,10 +1994,45 @@ export default function ScriptRunner({
           // projects the pointer onto the channel's direction, so a move of
           // `amount` x the stem's length changes the channel by that fraction.
           const mid = { x: (ends.a.x + ends.b.x) / 2, y: (ends.a.y + ends.b.y) / 2 };
-          const vx = (ends.b.x - ends.a.x) * (a.amount ?? 0);
-          const vy = (ends.b.y - ends.a.y) * (a.amount ?? 0);
+          const ch = a.ch ?? 'r';
+          const len = Math.hypot(ends.b.x - ends.a.x, ends.b.y - ends.a.y);
+          const here = hsbToRgb(...fieldHsb())[ch];
+          // The stem's length *is* its channel's value, so a pixel is worth
+          // the same everywhere along it: to go to a value, travel the
+          // difference at that rate. `amount` is the old relative form, a
+          // fraction of the stem's own length, and still what a gesture that
+          // is only meant to wobble uses.
+          const want = a.to === 'start' ? startRgb()?.[ch] ?? here
+            : typeof a.to === 'number' ? a.to : null;
+          let fraction = a.amount ?? 0;
+          if (want !== null) {
+            if (here < 1 || len < 1) {
+              console.warn(`[script] t=${a.at}s stem: ${ch} is at ${here}, nothing to take hold of`);
+              return;
+            }
+            fraction = (want - here) / here;
+          }
+          const vx = (ends.b.x - ends.a.x) * fraction;
+          const vy = (ends.b.y - ends.a.y) * fraction;
           await d.moveTo(() => mid);
-          await d.drag(t.el, (u) => ({ x: mid.x + vx * smooth(u), y: mid.y + vy * smooth(u) }), a.ms ?? 1000, true);
+          // A value the line is about has to be the value the app reads, the
+          // way the hue pill's landing is: nudge a pixel at a time, still
+          // pressed, until the channel says the number asked for.
+          const settle = want === null ? undefined : async () => {
+            const step = len / Math.max(1, here) / 2;
+            for (let i = 0; i < 6; i++) {
+              const now = hsbToRgb(...fieldHsb())[ch];
+              if (now === want) return;
+              const sign = want > now ? 1 : -1;
+              d.dragTo({
+                x: d.pos.x + ((ends.b.x - ends.a.x) / len) * step * sign,
+                y: d.pos.y + ((ends.b.y - ends.a.y) / len) * step * sign,
+              });
+              await d.wait(SETTLE_POLL_MS);
+            }
+          };
+          await d.drag(t.el, (u) => ({ x: mid.x + vx * smooth(u), y: mid.y + vy * smooth(u) }),
+            a.ms ?? 1000, true, settle);
           return;
         }
         case 'demo': {
@@ -1764,7 +2053,12 @@ export default function ScriptRunner({
           // so the drag is done before the next action takes the hands. The
           // hexagon's bars and the slider banks keep the travel outside.
           const hueStrip = name === 'editor-hue';
-          const current = hueStrip ? hostRef.current.field().h : 0;
+          // Where the handle is now, for a cue that does not say. The bank
+          // sliders have no reading here, so they still start from 0 unless
+          // the cue gives a `from`; the three controls that carry a whole
+          // channel of the app's own color do.
+          const f = hostRef.current.field();
+          const current = hueStrip ? f.h : name === 'hex-sat' ? f.s : name === 'hex-bri' ? f.b : 0;
           const from = typeof a.from === 'number' ? a.from : current;
           const to = typeof a.to === 'number' ? a.to : from;
           const budget = a.ms ?? 1000;
@@ -1881,6 +2175,11 @@ export default function ScriptRunner({
           // the picture fly the same arc. See pipArc.
           const arc = pipArc(home, grip(off, PIP_OFF_DROP));
           const going = a.to === 'on' ? -1 : 1;
+          // Dragging it on means it is off to begin with. Set that before the
+          // hand reaches for it rather than on the drag's first frame: the
+          // reach is 400 ms, and for those 400 ms the panel was sitting at
+          // home in full view of a cut that opens without it.
+          if (going < 0) setPipOffset(el, off, PIP_OFF_DROP);
           try {
             await d.moveTo(() => arc(going > 0 ? 0 : 1), MOVE_MS);
             await d.drag(el, (u) => {
@@ -1995,6 +2294,7 @@ export default function ScriptRunner({
       }
       if (running > 0) d.interrupt();
       running += 1;
+      holding = a;
       // An over-demo gesture brings the ghost out for as long as it lasts;
       // the rest of the demo's span it is the demo's cursor on screen alone.
       // It comes out on top of the demo's cursor, not at the ? button it was
@@ -2083,12 +2383,10 @@ export default function ScriptRunner({
       if (color) onColorRef.current({ h: color.h ?? 0, s: color.s ?? 0, b: color.b ?? 0 });
       // The camera panel is where the last `pip` before `t` put it, at once
       // and without the gesture: a scrub is not a performance.
-      const panel = document.getElementById('camera-pip');
-      if (panel) {
-        const home = panel.getBoundingClientRect().left - pipOffset(panel).x;
-        const isOff = pip && pip.to === 'off';
-        setPipOffset(panel, isOff ? window.innerWidth - home + PIP_OFF_CLEAR : 0, isOff ? PIP_OFF_DROP : 0);
-      }
+      // With no `pip` behind `t` the panel goes back to how the cut opens,
+      // which for a cut whose first gesture drags it on is off screen - not
+      // home. A scrub to the top used to put it back in the corner.
+      parkPip(pip ? pip.to === 'off' : opensOff);
       const target = pose?.target ? resolve(pose.target, hostRef.current) : null;
       if (!target) return;
       running += 1;
