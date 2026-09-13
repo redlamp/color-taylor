@@ -44,6 +44,7 @@ HSL is derived and written back within its own model — HSL's saturation is not
 - **Slider ids are namespaced by color model.** Labels are single letters and collide across models — [[decision-scoped-slider-ids]].
 - **The plugin build is a canary.** `bun run build:figma` belongs in the gate set: it's what catches an app change the Preact runtime can't support — [[decision-preact-for-the-panel]].
 - **Every column owns an absorber.** The picker's two columns stretch to a shared row height, so each needs something that soaks up the difference — `#hex-stage` left, `#sb-wrapper` right. A change to either column's content moves that difference, and nothing errors when it goes wrong — [[decision-both-columns-absorb-slack]].
+- **Width.** The columns start at 800px. The editor column's 320px floor (#103) protects it at any width, so the hexagon column sets the breakpoint: below ~796px the hue badge and the brightness pill — fixed-size chrome on a shrinking hexagon — collide. How each card reflows below that, down to 240px, is [[plan-narrow-widths]].
 
 ## Gates
 
