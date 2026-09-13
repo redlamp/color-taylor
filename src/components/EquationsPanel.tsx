@@ -1,4 +1,4 @@
-import { memo, type CSSProperties, type ReactNode } from 'react';
+import { memo, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { rgbToHex, hexDigits, normalizedChannel, type RGB, type HSL } from '../utils/colorConversions';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { useTheme } from '../hooks/useTheme';
@@ -49,9 +49,52 @@ function T({ color, title, bold, children }: { color: string; title: string; bol
   );
 }
 
-function Row({ left, right }: { left: ReactNode; right: ReactNode }) {
+/**
+ * The Hex and Normalized cells' underlined result doubles as a copy button —
+ * everywhere else in this panel the result is inert, but the final value is
+ * the one thing worth grabbing straight from the equation. "Copied" swaps in
+ * for the text rather than appearing beside it, so the row never reflows.
+ */
+function CopyableResult({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+  }, []);
+
+  const handleClick = () => {
+    if (!navigator.clipboard) return;
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => setCopied(false), 1200);
+    }).catch(() => { /* clipboard blocked or unavailable: leave the text as is, no error UI */ });
+  };
+
   return (
-    <div className="flex justify-between items-baseline">
+    <>
+      <button
+        type="button"
+        onClick={handleClick}
+        title="Copy"
+        aria-label={`Copy ${text}`}
+        className={`${RESULT_CLASS} inline cursor-pointer border-0 bg-transparent p-0 m-0 outline-none rounded-sm focus-visible:ring-2 focus-visible:ring-ring/50`}
+        style={RESULT_STYLE}
+      >
+        {copied ? 'Copied' : text}
+      </button>
+      {copied && <span aria-live="polite" className="sr-only">Copied</span>}
+    </>
+  );
+}
+
+function Row({ left, right }: { left: ReactNode; right: ReactNode }) {
+  // flex-wrap so a title-row value too wide for a narrow card (the Hex and
+  // Normalized cells' copy buttons) drops under the title instead of
+  // overflowing; the short °/%  values the other cells pass never trigger it.
+  return (
+    <div className="flex flex-wrap justify-between items-baseline gap-x-2 gap-y-0.5">
       <span>{left}</span>
       <span className="text-foreground font-semibold">{right}</span>
     </div>
@@ -113,6 +156,13 @@ function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }: Equat
 
   // The underline takes the channel's own colour - white vanished on the light theme.
   const ulStyle = { textDecorationColor: 'currentColor', textUnderlineOffset: '2px', textDecorationThickness: '2px' };
+
+  // Through the shared conversion helpers so neither answer can drift from
+  // what the rest of the app shows. CSS Color 4 syntax for the normalized
+  // form - space-separated, no commas - so what is shown is also valid CSS
+  // once copied.
+  const hexValue = rgbToHex(rgb.r, rgb.g, rgb.b).toUpperCase();
+  const normalizedValue = `color(srgb ${normalizedChannel(rgb.r)} ${normalizedChannel(rgb.g)} ${normalizedChannel(rgb.b)})`;
 
   const maxMinList = (isMaxMode: boolean) => (['r', 'g', 'b'] as const).map((k, i) => {
     const raw = String(rgb[k]);
@@ -226,26 +276,38 @@ function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }: Equat
        */}
       <div className="col-span-full grid grid-cols-1 min-[800px]:grid-cols-2 gap-2">
         <div className="flex flex-col gap-1 border border-border rounded-lg p-1.5 min-w-0">
-          <span className="text-sm font-semibold font-sans text-foreground" title="Hexadecimal: each channel written as two base-16 digits">Hex</span>
+          <Row
+            left={<span className="text-sm font-semibold font-sans text-foreground" title="Hexadecimal: each channel written as two base-16 digits">Hex</span>}
+            right={<CopyableResult text={hexValue} />}
+          />
           <hr className="border-border" />
           {/*
-           * The split is spelled in decimal on both sides - 15·16 + 15, not
-           * F·16 + F - because the point of the line is that the arithmetic
-           * checks out, and only one of those two reads as a sum.
+           * The hex digit leads, its decimal in parentheses right behind it -
+           * F (15·16), not 15·16 - so the line reads digit-first the way the
+           * result does, with the arithmetic that justifies it kept alongside
+           * rather than out front.
            */}
-          <span>{R}: {pad(rgb.r)} = {pad2(hexDigits(rgb.r).high)}·16 + {pad2(hexDigits(rgb.r).low)} → <span className="text-foreground font-semibold">{hexDigits(rgb.r).hex.toUpperCase()}</span></span>
-          <span>{G}: {pad(rgb.g)} = {pad2(hexDigits(rgb.g).high)}·16 + {pad2(hexDigits(rgb.g).low)} → <span className="text-foreground font-semibold">{hexDigits(rgb.g).hex.toUpperCase()}</span></span>
-          <span>{B_}: {pad(rgb.b)} = {pad2(hexDigits(rgb.b).high)}·16 + {pad2(hexDigits(rgb.b).low)} → <span className="text-foreground font-semibold">{hexDigits(rgb.b).hex.toUpperCase()}</span></span>
-          {/* Through rgbToHex so the answer cannot drift from the one the rest of the app shows. */}
-          <span className={RESULT_CLASS} style={RESULT_STYLE}>{rgbToHex(rgb.r, rgb.g, rgb.b).toUpperCase()}</span>
+          {(['r', 'g', 'b'] as const).map((k) => {
+            const letter = k === 'r' ? R : k === 'g' ? G : B_;
+            const { high, low, hex } = hexDigits(rgb[k]);
+            const highHex = hex[0].toUpperCase();
+            const lowHex = hex[1].toUpperCase();
+            return (
+              <span key={k}>
+                {letter}: {pad(rgb[k])} = {highHex} (<i>{pad2(high)}</i>·16) + {lowHex} (<i>{pad2(low)}</i>) → <span className="text-foreground font-semibold">{hex.toUpperCase()}</span>
+              </span>
+            );
+          })}
         </div>
         <div className="flex flex-col gap-1 border border-border rounded-lg p-1.5 min-w-0">
-          <span className="text-sm font-semibold font-sans text-foreground" title="Normalized RGB: each channel over 255, 0 to 1">Normalized</span>
+          <Row
+            left={<span className="text-sm font-semibold font-sans text-foreground" title="Normalized RGB: each channel over 255, 0 to 1 - copied as CSS color(srgb …)">Normalized</span>}
+            right={<CopyableResult text={normalizedValue} />}
+          />
           <hr className="border-border" />
           <span>{R}: {pad(rgb.r)}/255 = <span className="text-foreground font-semibold">{normalizedChannel(rgb.r)}</span></span>
           <span>{G}: {pad(rgb.g)}/255 = <span className="text-foreground font-semibold">{normalizedChannel(rgb.g)}</span></span>
           <span>{B_}: {pad(rgb.b)}/255 = <span className="text-foreground font-semibold">{normalizedChannel(rgb.b)}</span></span>
-          <span className={RESULT_CLASS} style={RESULT_STYLE}>rgb({normalizedChannel(rgb.r)}, {normalizedChannel(rgb.g)}, {normalizedChannel(rgb.b)})</span>
         </div>
       </div>
     </div>
