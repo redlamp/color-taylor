@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTheme } from '../../hooks/useTheme';
-import { CENTER_X, CENTER_Y, RADIUS, PI, FIELD_SIZE } from './hexConstants';
+import { CENTER_X, CENTER_Y, RADIUS, PI, FIELD_SIZE, LETTER_OFFSET } from './hexConstants';
 
 const COLORS = [
   { label: 'R', name: 'Red', deg: 0, color: '#ff0000', lightColor: '#e00000' },
@@ -47,7 +47,7 @@ export default function ColorLabels({ onColorClick }: { onColorClick: (deg: numb
   return COLORS.map(({ label, name, deg, color, lightColor }) => {
     const displayColor = isDark ? color : lightColor;
     const rad = (deg * PI) / 180;
-    const offset = RADIUS + 20;
+    const offset = RADIUS + LETTER_OFFSET;
     const x = CENTER_X + offset * Math.cos(rad);
     const y = CENTER_Y - offset * Math.sin(rad);
     return (

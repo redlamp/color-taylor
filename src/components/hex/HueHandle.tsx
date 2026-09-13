@@ -13,6 +13,16 @@ interface HueHandleProps {
    * background-coloured border read as a dark gap inside the highlight.
    */
   lit?: boolean;
+  /**
+   * Draw the "Hue" caption above the badge.
+   *
+   * Off where the badge has left the field behind it. The caption sits a fixed
+   * 18px above a badge whose own distance from the centre scales with the
+   * card, so below about a 430px card it is inside the drawn hexagon at hue
+   * 270 - up to the whole of it at 240, where there is no room to move it to
+   * either. Hidden rather than unmounted: #hue-label is a stable target.
+   */
+  caption?: boolean;
 }
 
 /**
@@ -23,7 +33,7 @@ interface HueHandleProps {
  * stage's level is what keeps it over the bar rather than under it, the same
  * reason the value pills sit where they do.
  */
-export default function HueHandle({ hue, at, onMouseDown, lit = false }: HueHandleProps) {
+export default function HueHandle({ hue, at, onMouseDown, lit = false, caption = true }: HueHandleProps) {
   const rgb = hsbToRgb(hue, 100, 100);
   return (<>
     {/* The axis label, above the badge, in the treatment the Saturation and
@@ -31,6 +41,7 @@ export default function HueHandle({ hue, at, onMouseDown, lit = false }: HueHand
         corners, where a card-coloured block would read as a hole. */}
     <div
       id="hue-label"
+      hidden={!caption}
       className="absolute z-10 -translate-x-1/2 -translate-y-full select-none whitespace-nowrap text-sm leading-none text-muted-foreground pointer-events-none"
       style={{ left: at.left, top: `calc(${at.top} - 18px)` }}
     >

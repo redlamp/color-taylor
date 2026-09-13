@@ -35,6 +35,15 @@ export const BAR_LABEL_SPACE_H = 30;
 /** Band holding a horizontal bar's axis title. The vertical bar's title runs
  *  down its inboard side and needs no band of its own. */
 export const BAR_TITLE_SPACE = 20;
+/**
+ * How far above its arrow a horizontal bar's title sits, in px.
+ *
+ * Px and not units because it is set at a fixed text size: the band above the
+ * track is budgeted in units and the word inside it is not, which is what the
+ * stacked stage has to pay for at narrow widths. HexBar places the title with
+ * it; SAT_TITLE_LETTER_SPAN is the room it has to come out of.
+ */
+export const BAR_TITLE_LIFT = 18;
 
 // --- Stage layout ---------------------------------------------------------
 // The card's stage is one coordinate space holding three controls: the
@@ -96,6 +105,11 @@ export const SAT_BAR_SPAN = RADIUS * 2;
  * worst case is CENTER_Y + RADIUS + this + 14 against SAT_BAR_TOP.
  */
 export const HUE_LABEL_OFFSET = 16;
+/** The vertex letters' anchors, just past the hexagon's corners. ColorLabels
+ *  places them; the stage budget below has to know where they end up. */
+export const LETTER_OFFSET = 20;
+/** Half a vertex letter's button (ColorLabels' h-6), centred on its anchor. */
+export const LETTER_HALF = 12;
 
 /**
  * A taller stage, used only while the saturation bar is on.
@@ -175,6 +189,24 @@ export const BL_BAR_TOP_H = SAT_BAR_TOP + BAR_TRACK + BAR_LABEL_SPACE_H + SAT_BA
  * bars, and again under the lower one.
  */
 export const BAR_PILL_DROP = 30;
+/**
+ * Fixed chrome between the lowest vertex letters and the saturation title.
+ *
+ * The B and M letters hang LETTER_HALF px below their anchors and the title
+ * rides BAR_TITLE_LIFT px above its arrow. Neither scales with the card, so at
+ * narrow widths the word lands across the two letters - it was 14px into them
+ * at a 174px card, which is the whole title.
+ */
+export const SAT_TITLE_LETTER_PX = LETTER_HALF + BAR_TITLE_LIFT;
+/**
+ * The units that chrome has to fit into: from the two lowest letters' anchors,
+ * on the 240 and 300 degree corners, down to the top of the title's band.
+ *
+ * Under SAT_TITLE_LETTER_PX / this many px per unit the two meet, which is
+ * every width the bars stack at - so the stacked stage adds the difference in
+ * px, the same shape BAR_PILL_DROP takes and for the same reason.
+ */
+export const SAT_TITLE_LETTER_SPAN = SAT_BAR_TOP - (BAR_ARROW + 2) - (CENTER_Y + (RADIUS + LETTER_OFFSET) * SQRT3_2);
 export const STAGE_SPAN_STACKED = BL_BAR_TOP_H + BAR_TRACK + BAR_LABEL_SPACE_H + 2;
 export const DISPLAY_HEIGHT_STACKED = STAGE_SPAN_STACKED - STAGE_TOP_CROP;
 
