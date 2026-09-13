@@ -36,7 +36,7 @@ Ownership: `src/components` and `App.tsx` are the app session's; `src/demo`, `pu
 
 ## Agreed with the presentation side (2026-09-13)
 
-Their `src/demo` API, to be built on `prez/cut-03` this week; plan against these names now:
+Their `src/demo` API, landed on `prez/cut-03` at `64b2c40` (details in `docs/demo-script.md` under Presentation mode). The constant is `CURRENT_CUT` in `src/demo/currentCut.ts`; an adopted element's `src` is left alone if it already points at the cut's file, so a host that called `play()` in its click handler keeps playing. The same commit adds `server.watch.ignored: ['**/public/scripts/**']` to `vite.config.js`, because replacing cut files crashed the dev server. Because `src/demo` exists only on `prez/cut-03`, the About panel work has to branch from that branch (or from `dev` after #104 merges), not from `dev` as it is.
 
 1. `PresentationMode` takes `voice?: HTMLAudioElement` and `CameraPip` takes `webcam?: HTMLVideoElement`. When given, the component adopts the host's element, playing or not, instead of creating its own; clock, drift nudge and seek are unchanged. This is what lets the About button call `play()` synchronously in its click handler.
 2. `src/demo/currentCut.ts` exports the shipping cut id (`'cut-03'`), and is the one place it is named.
