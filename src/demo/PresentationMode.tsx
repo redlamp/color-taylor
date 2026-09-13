@@ -600,6 +600,37 @@ export default function PresentationMode({
 
   const pct = (t: number) => (duration ? `${(100 * t) / duration}%` : '0%');
 
+  /*
+   * Where each beat starts, for the markers and for the prev/next buttons.
+   *
+   * The plan says so outright; a recorded cut does not, so the beat's start is
+   * its first line's, which is what the ids in `<cut>-lines.json` are for. Both
+   * transports get them: on the reduced one, where there are no line spans and
+   * no cue ticks, the beats are the only landmarks there are.
+   */
+  const beatMarks: { n: number; t: number }[] = beats.length
+    ? beats.map((b) => ({ n: b.n, t: b.start }))
+    : lines.reduce<{ n: number; t: number }[]>((acc, l) => {
+      if (!acc.some((m) => m.n === l.beat)) acc.push({ n: l.beat, t: l.start });
+      return acc;
+    }, []).sort((a, b) => a.t - b.t);
+  /**
+   * How far into a beat counts as being in it rather than at its start: a
+   * "previous" press inside this lands on the beat before, and after it lands
+   * on the top of the one being played. The rule every transport has.
+   */
+  const BEAT_GRACE = 1.5;
+  const toBeat = (dir: -1 | 1) => {
+    if (!beatMarks.length) return;
+    if (dir < 0) {
+      const prior = beatMarks.filter((m) => m.t < time - BEAT_GRACE);
+      seek(prior.length ? prior[prior.length - 1].t : 0);
+      return;
+    }
+    const next = beatMarks.find((m) => m.t > time + 0.05);
+    if (next) seek(next.t);
+  };
+
   return (
     <>
       {script && (
@@ -622,7 +653,15 @@ export default function PresentationMode({
             right: 0,
             bottom: 0,
             zIndex: 80,
-            background: '#1b1b1f',
+            // Tinted rather than solid, over a blur: the transport is a tool
+            // sitting on top of the app, and a solid bar reads as part of the
+            // page's furniture. Darker than the About panel's scrim (0.72
+            // against 0.45) because everything on this bar is 12px monospace
+            // over whatever the app happens to be showing, and the line spans
+            // and cue ticks need their contrast.
+            background: 'rgba(27,27,31,0.72)',
+            backdropFilter: 'blur(6px)',
+            WebkitBackdropFilter: 'blur(6px)',
             color: '#e6e6e6',
             font: '12px/1.4 ui-monospace, Consolas, monospace',
             borderTop: '2px solid #f5a623',
@@ -658,6 +697,27 @@ export default function PresentationMode({
           </div>
           )}
 
+          {/* Transport and timeline on one row: the buttons and the clock are
+              what you use while you watch the bar, and stacked above it they
+              were a second line of chrome for the same job. The timeline takes
+              whatever the row leaves. */}
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', margin: '2px 0' }}>
+            <button type="button" data-testid="present-prev-beat" onClick={() => toBeat(-1)} title="Previous beat" style={buttonStyle}>
+              ⏮
+            </button>
+            <button type="button" data-testid="present-play" onClick={toggle} style={buttonStyle}>
+              {playing ? 'Pause' : 'Play'}
+            </button>
+            <button type="button" data-testid="present-next-beat" onClick={() => toBeat(1)} title="Next beat" style={buttonStyle}>
+              ⏭
+            </button>
+            <span data-testid="present-time" style={{ minWidth: 96, whiteSpace: 'nowrap' }}>
+              {mmssTenths(time)} / {mmss(duration)}
+            </span>
+          {/* The timeline and, outside it, the playhead: the head stands taller
+              than the track it marks, and the track clips its own decoration,
+              so the two cannot live in the same box. */}
+          <div style={{ display: shrunk ? 'none' : 'block', position: 'relative', flex: 1, margin: '8px 0' }}>
           <div
             ref={timelineRef}
             data-testid="present-timeline"
@@ -665,10 +725,9 @@ export default function PresentationMode({
             onPointerMove={onTimelineMove}
             onDoubleClick={onTimelineDouble}
             style={{
-              display: shrunk ? 'none' : 'block',
+              display: 'block',
               position: 'relative',
               height: 28,
-              margin: '6px 0',
               background: '#2a2a30',
               borderRadius: 3,
               cursor: 'pointer',
@@ -736,6 +795,32 @@ export default function PresentationMode({
                 }}
               />
             ))}
+            {/* Where each beat starts, on both transports: a full-height rule
+                with the number on it. Shorter and dimmer than the playhead by
+                design - these are the map, and the head is where you are. */}
+            {beatMarks.map((m) => (
+              <div
+                key={`beat-mark-${m.n}`}
+                data-testid="present-beat-mark"
+                data-beat={m.n}
+                title={`beat ${m.n} — ${mmss(m.t)}`}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  bottom: 0,
+                  left: pct(m.t),
+                  width: 1,
+                  background: 'rgba(245,166,35,0.85)',
+                  fontSize: 7,
+                  lineHeight: '8px',
+                  color: 'rgba(245,166,35,0.95)',
+                  paddingLeft: 2,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {m.n}
+              </div>
+            ))}
             {fullTransport && notes.map((n, i) => (
               <div
                 key={`note-${i}`}
@@ -753,27 +838,33 @@ export default function PresentationMode({
                 }}
               />
             ))}
+          </div>
+            {/* Light blue and standing 4px proud of the track at each end: the
+                head was a white hairline the same height as the cue ticks,
+                which are white too, so on a timeline with a tick every second
+                there was nothing to pick it out. Outside the track's own box,
+                which clips. */}
             <div
               data-testid="present-playhead"
               style={{
                 position: 'absolute',
-                top: 0,
-                bottom: 0,
+                top: -4,
+                bottom: -4,
                 left: pct(time),
-                width: 2,
-                marginLeft: -1,
-                background: '#ffffff',
+                width: 3,
+                marginLeft: -1.5,
+                borderRadius: 2,
+                background: '#7fd4ff',
+                boxShadow: '0 0 4px rgba(127,212,255,0.9)',
               }}
             />
           </div>
+          </div>
 
+          {/* What is left of the old control row: the authoring affordances,
+              which stay exactly as they were. Play, the clock and the beat
+              buttons moved up onto the timeline's own row. */}
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-            <button type="button" data-testid="present-play" onClick={toggle} style={buttonStyle}>
-              {playing ? 'Pause' : 'Play'}
-            </button>
-            <span data-testid="present-time" style={{ minWidth: 110 }}>
-              {mmssTenths(time)} / {mmss(duration)}
-            </span>
             {authoring && (
             <button type="button" data-testid="present-note" onClick={() => setNoting(true)} style={buttonStyle}>
               Note (N)

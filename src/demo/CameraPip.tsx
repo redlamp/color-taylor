@@ -270,6 +270,32 @@ export default function CameraPip({ webcam }: CameraPipProps = {}) {
     if (!clips.length) return;
     let raf = 0;
     const base = `${import.meta.env.BASE_URL}scripts/`;
+    /*
+     * The file is fetched at mount and attached at play.
+     *
+     * Those used to be the same moment: the element was pointed at `full.mp4`
+     * on the first frame, which starts a three-megabyte download the instant
+     * presentation mode is up and leaves the panel decoding while nobody has
+     * asked for anything. Now the bytes are pulled at mount - so they are on
+     * the machine before the transport is touched - and nothing is written to
+     * the element until the clock is actually running. The blob is what the
+     * `src` becomes, so the attach costs no network at all; if the fetch fails
+     * the plain URL stands in and the element downloads it the old way.
+     *
+     * The About panel's path is untouched: the host creates its own element
+     * inside the click that started the walkthrough and hands it in already
+     * pointed at the file, and `attach` leaves an element that has a `src`
+     * alone. `begun` is true for it from the first frame for the same reason.
+     */
+    const fetched = new Map<string, string>();
+    let begun = false;
+    let alive = true;
+    for (const file of new Set(clips.map((c) => c.file))) {
+      fetch(base + file)
+        .then((res) => (res.ok ? res.blob() : null))
+        .then((blob) => { if (alive && blob) fetched.set(file, URL.createObjectURL(blob)); })
+        .catch(() => { /* the element will fetch it itself when it is attached */ });
+    }
     const slots: Slot[] = [
       { el: null, entry: null, parked: false },
       { el: null, entry: null, parked: false },
@@ -289,9 +315,12 @@ export default function CameraPip({ webcam }: CameraPipProps = {}) {
     /** Point a slot at a span. Only ever the hidden one, once a span is up. */
     const attach = (s: Slot, entry: PipClip) => {
       if (!s.el || s.entry?.file === entry.file) return;
+      // Nothing is written to an element before the clock has run: the fetch
+      // above is what happens at mount, and this is what happens at play.
+      if (!begun && !s.el.src) return;
       s.entry = entry;
       s.parked = false;
-      const url = base + entry.file;
+      const url = fetched.get(entry.file) ?? base + entry.file;
       // An adopted element arrives already pointed at the file, and often
       // already playing: writing the same `src` again would blank it and start
       // the download over.
@@ -316,6 +345,9 @@ export default function CameraPip({ webcam }: CameraPipProps = {}) {
       const audio = document.querySelector<HTMLAudioElement>('audio[data-testid="present-audio"]');
       if (!slots[0].el || !slots[1].el || !audio) return;
       const t = audio.currentTime;
+      // The first play press, whichever transport made it. An element handed in
+      // by the host is already playing, so it counts as begun from the start.
+      if (!begun && (!audio.paused || !!slots[0].el?.src)) begun = true;
       const hit = clipAt(clips, t);
       if (!hit) return;
       const { clip, i, inside } = hit;
@@ -373,7 +405,11 @@ export default function CameraPip({ webcam }: CameraPipProps = {}) {
       show();
     };
     raf = requestAnimationFrame(frame);
-    return () => cancelAnimationFrame(raf);
+    return () => {
+      alive = false;
+      cancelAnimationFrame(raf);
+      fetched.forEach((url) => URL.revokeObjectURL(url));
+    };
   }, [clips]);
 
   // With the cut's own footage the panel waits for a decoded frame rather than

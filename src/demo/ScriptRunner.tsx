@@ -39,7 +39,7 @@ export interface ScriptAction {
   at: number;
   do: 'rest' | 'hover' | 'walk' | 'click' | 'loop' | 'circle' | 'rect' | 'ray' | 'orbit' | 'stem' | 'wander'
     | 'demo' | 'slider' | 'box' | 'tip' | 'color' | 'scroll' | 'leave' | 'underline' | 'pip' | 'zigzag'
-    | 'drift';
+    | 'drift' | 'line';
   target?: string;
   targets?: string[];
   ms?: number;
@@ -58,6 +58,18 @@ export interface ScriptAction {
   live?: boolean;
   /** `rect`: `free` draws the box itself, without the cursor, the way a `circle` does. */
   hands?: 'free';
+  /**
+   * `rect`: how far the corners are rounded, in client px, or `"pill"` for
+   * ends fully rounded to the box's shorter side. Square by default, which is
+   * what a selection marquee is.
+   *
+   * A highlight is not a marquee. Beat 3.4 lights the R, G and B rows as each
+   * letter is pressed, and a hard-cornered box round a row reads as something
+   * being selected rather than as the row being named; pill ends read as a
+   * highlight. Only the drawing changes - the geometry, the stroke and the
+   * fill are the callout layer's own.
+   */
+  radius?: number | 'pill';
   /**
    * `rect`: the hands are already on the first corner, so the whole `ms` is
    * the diagonal and none of it is travel. For a marquee that has to start on
@@ -270,6 +282,12 @@ const HANDLE_RING = 1.8;
  * it is drawn in.
  */
 const HANDLE_RING_MIN = 18;
+/**
+ * Padding around one slider handle for a `rect`. Wider than the ring's, because
+ * a box has corners: at the ring's clearance the 8px stroke sat on the marker
+ * itself, and the thing being named was half underneath the naming.
+ */
+const HANDLE_BOX_PAD = 10;
 /**
  * How far the span of the three RGB handles is padded for `range:rgb`, across
  * and down. Measured against the markers themselves rather than the tracks, and
@@ -505,6 +523,18 @@ class Callouts {
 
   constructor(private layer: SVGSVGElement | null) {}
 
+  /**
+   * Round a drawn box's corners. `pill` is half the shorter side, read from
+   * the box as it is now, so a marquee growing out of a corner is pill-ended
+   * at every size rather than only when it is finished.
+   */
+  private static round(el: SVGElement, radius: number | 'pill' | undefined, w: number, h: number) {
+    if (radius === undefined) return;
+    const r = radius === 'pill' ? Math.min(w, h) / 2 : radius;
+    el.setAttribute('rx', String(r));
+    el.setAttribute('ry', String(r));
+  }
+
   private add(tag: 'rect' | 'polyline', color?: string): SVGElement {
     const el = document.createElementNS(SVG_NS, tag);
     const ink = color ?? this.color;
@@ -541,7 +571,7 @@ class Callouts {
    * A selection marquee anchored at `a`, spanning to wherever the cursor is.
    * Nothing shows until the first update: a zero-size rect is not drawn.
    */
-  marquee(a: Point, hold: number, color?: string): Drawn {
+  marquee(a: Point, hold: number, color?: string, radius?: number | 'pill'): Drawn {
     const el = this.add('rect', color);
     el.setAttribute('x', String(a.x));
     el.setAttribute('y', String(a.y));
@@ -549,13 +579,39 @@ class Callouts {
     el.setAttribute('height', '0');
     return {
       update: (p) => {
+        const w = Math.abs(p.x - a.x);
+        const h = Math.abs(p.y - a.y);
         el.setAttribute('x', String(Math.min(a.x, p.x)));
         el.setAttribute('y', String(Math.min(a.y, p.y)));
-        el.setAttribute('width', String(Math.abs(p.x - a.x)));
-        el.setAttribute('height', String(Math.abs(p.y - a.y)));
+        el.setAttribute('width', String(w));
+        el.setAttribute('height', String(h));
+        Callouts.round(el, radius, w, h);
       },
       done: () => this.retire(el, hold),
     };
+  }
+
+  /**
+   * A straight bar from `a` to `b`, drawn out from `a` over `ms`, then held and
+   * faded. The same stroke every other callout wears, so it reads as one of
+   * them rather than as part of the app.
+   *
+   * Beat 6.3 is what it is for: "brightness works off zero" wants the zero end
+   * of the three RGB tracks marked while the handles scale away from it, and
+   * the thing being named is a place rather than a control, so there is nothing
+   * to put a box round.
+   */
+  line(a: Point, b: Point, ms: number, hold: number, color?: string) {
+    const el = this.add('polyline', color);
+    const t0 = performance.now();
+    const step = (now: number) => {
+      const t = smoothstep(clamp((now - t0) / Math.max(1, ms), 0, 1));
+      const p = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+      el.setAttribute('points', `${a.x.toFixed(1)},${a.y.toFixed(1)} ${p.x.toFixed(1)},${p.y.toFixed(1)}`);
+      if (t < 1) this.nextFrame(step);
+      else this.retire(el, hold);
+    };
+    this.nextFrame(step);
   }
 
   /**
@@ -563,8 +619,8 @@ class Callouts {
    * over `ms`, eased, then held and faded. For a `rect` whose hands are
    * free - the cursor is busy with a drag while the box goes up.
    */
-  box(a: Point, b: Point, ms: number, hold: number, color?: string) {
-    const shape = this.marquee(a, hold, color);
+  box(a: Point, b: Point, ms: number, hold: number, color?: string, radius?: number | 'pill') {
+    const shape = this.marquee(a, hold, color, radius);
     const t0 = performance.now();
     const step = (now: number) => {
       const t = smoothstep(clamp((now - t0) / Math.max(1, ms), 0, 1));
@@ -581,7 +637,7 @@ class Callouts {
    * `hold` the rectangle is the target's own, live. For a callout whose whole
    * point is that the thing it is around changes size while it stands.
    */
-  liveBox(box: () => DOMRect, from: RectCorner, ms: number, hold: number, color?: string) {
+  liveBox(box: () => DOMRect, from: RectCorner, ms: number, hold: number, color?: string, radius?: number | 'pill') {
     const el = this.add('rect', color);
     const t0 = performance.now();
     const step = (now: number) => {
@@ -593,6 +649,7 @@ class Callouts {
       el.setAttribute('y', String(Math.min(a.y, p.y)));
       el.setAttribute('width', String(Math.abs(p.x - a.x)));
       el.setAttribute('height', String(Math.abs(p.y - a.y)));
+      Callouts.round(el, radius, Math.abs(p.x - a.x), Math.abs(p.y - a.y));
       if (elapsed < ms + hold) this.nextFrame(step);
       else {
         el.style.transition = `opacity ${FADE_MS}ms ease-out`;
@@ -930,6 +987,15 @@ function resolve(name: string, host: DemoHost): Target | null {
     return { el, at: () => hueGripPoint(el, host.field().h) ?? centerOf(el) };
   }
   if (name === 'about-author') return byEl(q('#about-author'));
+  // The About panel's own title, for the underline on "It's called Color
+  // Taylor." By id: the app session put `#about-title` on it with the new
+  // About layout (PR #120), so there is nothing to fall back to.
+  if (name === 'about-title') return byEl(q('#about-title'));
+  // The editor's hex readout. It carries no id of its own, and this side does
+  // not own src/components, so it is found by the accessible name the field
+  // has had since it was written - which is also the thing that would have to
+  // change for a person to stop recognising it.
+  if (name === 'editor-hex') return byEl(q('input[aria-label="Hex color value"]'));
   if (name === 'demo-caption') {
     // The line the built-in demo is showing, as its own inline span rather
     // than the paragraph, whose box is the whole caption column: an
@@ -1015,11 +1081,28 @@ function resolve(name: string, host: DemoHost): Target | null {
   }
   if (name.startsWith('handle:')) {
     // One slider's handle, not its track: for a ring that means "this value",
-    // which on a 300px track a ring round the whole thing does not.
+    // which on a 300px track a ring round the whole thing does not. It carries
+    // a padded box as well, so a `rect` can name the marker itself - beat 6.2
+    // boxes the three handles rather than the three numbers.
     const el = markerEl(bankChannel(name.slice(7)));
     if (!el) return null;
     const half = () => { const r = el.getBoundingClientRect(); return Math.max(r.width, r.height) / 2; };
-    return { el, at: () => centerOf(el), radius: () => Math.max(HANDLE_RING_MIN, HANDLE_RING * half()) };
+    return {
+      el,
+      at: () => centerOf(el),
+      radius: () => Math.max(HANDLE_RING_MIN, HANDLE_RING * half()),
+      rect: () => unionRect([el], HANDLE_BOX_PAD),
+    };
+  }
+  if (name.startsWith('zero:')) {
+    // The zero end of one channel's track: a place rather than a control, for
+    // the `line` beat 6.3 draws down the three RGB sliders' zeros. Measured off
+    // the track the same way a drag's start is, so the mark and the gesture
+    // agree about where nought is.
+    const channel = bankChannel(name.slice(5));
+    const el = q(`#slider-${channel}-track`);
+    if (!el) return null;
+    return { el, at: () => trackPoint(`slider:${channel}`, el, 0) };
   }
   if (name === 'range:rgb') {
     // The span the three RGB handles occupy: left edge on the lowest value,
@@ -1180,7 +1263,7 @@ function pipArc(p0: Point, p1: Point): (t: number) => Point {
  * being worked framed as the drag starts.
  */
 const handsFree = (a: ScriptAction) =>
-  a.do === 'circle' || a.do === 'ray' || a.do === 'scroll'
+  a.do === 'circle' || a.do === 'ray' || a.do === 'scroll' || a.do === 'line'
   || (a.do === 'rect' && a.hands === 'free');
 
 function warnMissing(action: ScriptAction, name: string | undefined) {
@@ -1551,7 +1634,7 @@ export default function ScriptRunner({
             // being re-measured, and the point of it is the drag going on
             // underneath.
             const box = t.rect;
-            callouts.liveBox(() => box(), from, a.ms ?? CIRCLE_MS, a.hold ?? HOLD_MS, a.color);
+            callouts.liveBox(() => box(), from, a.ms ?? CIRCLE_MS, a.hold ?? HOLD_MS, a.color, a.radius);
             return;
           }
           if (a.hands === 'free') {
@@ -1559,7 +1642,7 @@ export default function ScriptRunner({
             // something else; the whole `ms` is the diagonal. No scrolling:
             // the hands are not free to, so the target has to be in shot.
             const { start: p0, end: p1 } = rectCorners(t.rect(), from);
-            callouts.box(p0, p1, a.ms ?? CIRCLE_MS, a.hold ?? HOLD_MS, a.color);
+            callouts.box(p0, p1, a.ms ?? CIRCLE_MS, a.hold ?? HOLD_MS, a.color, a.radius);
             return;
           }
           await d.bring(t.el);
@@ -1576,7 +1659,7 @@ export default function ScriptRunner({
           // wherever the cursor is, and stands once the diagonal is done. Cut
           // short at any point, it snaps to its full size and stands anyway:
           // a partial box reads as a mistake, a whole one as the callout.
-          const shape = callouts.marquee(p0, a.hold ?? HOLD_MS, a.color);
+          const shape = callouts.marquee(p0, a.hold ?? HOLD_MS, a.color, a.radius);
           let complete = false;
           try {
             await d.moveTo(() => p0, travel);
@@ -1587,6 +1670,21 @@ export default function ScriptRunner({
             if (!complete) shape.update(p1);
             shape.done();
           }
+          return;
+        }
+        case 'line': {
+          // A bar between two targets, drawn on the callout layer: hands-free
+          // by definition, like a `circle`, so a drag can run under it. Two
+          // names in `targets`, or one `target` from the cursor's own place.
+          const names = a.targets ?? (a.target ? [a.target] : []);
+          if (names.length !== 2) { warnMissing(a, names.join(' -> ') || a.target); return; }
+          const from = need(names[0]);
+          const to = need(names[1]);
+          if (!from || !to) return;
+          // Measured once. What a `line` marks is a place on a control - the
+          // zero end of a track - and the control does not move while it
+          // stands; a live one would cost a re-measure a frame for nothing.
+          callouts.line(from.at(), to.at(), a.ms ?? CIRCLE_MS, a.hold ?? HOLD_MS, a.color);
           return;
         }
         case 'wander': {
