@@ -1,5 +1,5 @@
 {
-  "source": "scripts/color-taylor-script-cut-03.md",
+  "source": "../../scripts/color-taylor-script-cut-03.md",
   "wpm": 150,
   "gaps": {
     "line": 0.5,
@@ -382,27 +382,18 @@
       "id": "9.2",
       "beat": 9,
       "line": 2,
-      "text": "It focuses on working with the tools that you feel most comfortable with.",
-      "start": 265.9,
-      "end": 271.1,
-      "gapBefore": 0.5
+      "text": "You can find this demo the first time loading the app,",
+      "start": 266.6,
+      "end": 271,
+      "gapBefore": 1.2
     },
     {
       "id": "9.3",
       "beat": 9,
       "line": 3,
-      "text": "You can find this demo the first time loading the app,",
-      "start": 272.3,
-      "end": 276.7,
-      "gapBefore": 1.2
-    },
-    {
-      "id": "9.4",
-      "beat": 9,
-      "line": 4,
       "text": "or from the question mark button at the top of the app.",
-      "start": 277.9,
-      "end": 282.7,
+      "start": 272.2,
+      "end": 277,
       "gapBefore": 1.2
     },
     {
@@ -410,8 +401,8 @@
       "beat": 10,
       "line": 1,
       "text": "Start with the sliders and controls you already know.",
-      "start": 285.2,
-      "end": 288.8,
+      "start": 279.5,
+      "end": 283.1,
       "gapBefore": 2.5
     },
     {
@@ -419,8 +410,8 @@
       "beat": 10,
       "line": 2,
       "text": "Moving one slider will highlight every other slider it affects.",
-      "start": 290,
-      "end": 294,
+      "start": 284.3,
+      "end": 288.3,
       "gapBefore": 1.2
     },
     {
@@ -428,8 +419,8 @@
       "beat": 10,
       "line": 3,
       "text": "Click the droplet button to switch between Source or Mixed colored sliders.",
-      "start": 295.2,
-      "end": 300,
+      "start": 289.5,
+      "end": 294.3,
       "gapBefore": 1.2
     },
     {
@@ -437,8 +428,8 @@
       "beat": 10,
       "line": 4,
       "text": "Click the tags button to show HTML colors on the hex.",
-      "start": 301.2,
-      "end": 305.6,
+      "start": 295.5,
+      "end": 299.9,
       "gapBefore": 1.2
     },
     {
@@ -446,8 +437,8 @@
       "beat": 10,
       "line": 5,
       "text": "Drag a handle on the hex and watch the RGB and HSB sliders follow.",
-      "start": 306.8,
-      "end": 312.4,
+      "start": 301.1,
+      "end": 306.7,
       "gapBefore": 1.2
     },
     {
@@ -455,8 +446,8 @@
       "beat": 10,
       "line": 6,
       "text": "Having fun is the goal of the tool.",
-      "start": 313.6,
-      "end": 316.8,
+      "start": 307.9,
+      "end": 311.1,
       "gapBefore": 1.2
     },
     {
@@ -464,8 +455,8 @@
       "beat": 11,
       "line": 1,
       "text": "If you use Figma, I've also made a Color Taylor plugin that you might like to check out.",
-      "start": 319.3,
-      "end": 326.5,
+      "start": 313.6,
+      "end": 320.8,
       "gapBefore": 2.5
     },
     {
@@ -473,8 +464,8 @@
       "beat": 11,
       "line": 2,
       "text": "That's Color Taylor!",
-      "start": 327.7,
-      "end": 328.9,
+      "start": 322,
+      "end": 323.2,
       "gapBefore": 1.2
     },
     {
@@ -482,8 +473,8 @@
       "beat": 11,
       "line": 3,
       "text": "Go play with it, and I hope it helps you see the relationship between RGB and HSB in a different light.",
-      "start": 330.1,
-      "end": 338.5,
+      "start": 324.4,
+      "end": 332.8,
       "gapBefore": 1.2
     },
     {
@@ -491,8 +482,8 @@
       "beat": 11,
       "line": 4,
       "text": "If it's useful, I'd like to hear from you.",
-      "start": 339.7,
-      "end": 343.3,
+      "start": 334,
+      "end": 337.6,
       "gapBefore": 1.2
     },
     {
@@ -500,8 +491,8 @@
       "beat": 11,
       "line": 4,
       "text": "Questions and feedback are welcome.",
-      "start": 343.8,
-      "end": 345.8,
+      "start": 338.1,
+      "end": 340.1,
       "gapBefore": 0.5
     },
     {
@@ -509,8 +500,8 @@
       "beat": 11,
       "line": 5,
       "text": "Thanks, see ya.",
-      "start": 347,
-      "end": 348.2,
+      "start": 341.3,
+      "end": 342.5,
       "gapBefore": 1.2
     }
   ],
@@ -575,23 +566,23 @@
       "n": 9,
       "title": "Handoff to the demo",
       "start": 255,
-      "end": 282.7,
+      "end": 277,
       "estimate": 23
     },
     {
       "n": 10,
       "title": "The demo",
-      "start": 285.2,
-      "end": 316.8,
+      "start": 279.5,
+      "end": 311.1,
       "estimate": 41
     },
     {
       "n": 11,
       "title": "Sign-off",
-      "start": 319.3,
-      "end": 348.2,
+      "start": 313.6,
+      "end": 342.5,
       "estimate": 30
     }
   ],
-  "total": 351.2
+  "total": 345.5
 }

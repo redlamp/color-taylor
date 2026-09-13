@@ -285,113 +285,105 @@
       "beat": 9,
       "title": "Handoff to the demo",
       "line": 2,
-      "text": "It focuses on working with the tools that you feel most comfortable with.",
-      "start": 225.18,
-      "end": 228.59
+      "text": "You can find this demo the first time loading the app,",
+      "start": 225.96,
+      "end": 228.24
     },
     {
       "beat": 9,
       "title": "Handoff to the demo",
       "line": 3,
-      "text": "You can find this demo the first time loading the app,",
-      "start": 229.99,
-      "end": 232.27
-    },
-    {
-      "beat": 9,
-      "title": "Handoff to the demo",
-      "line": 4,
       "text": "or from the question mark button at the top of the app.",
-      "start": 233.59,
-      "end": 236.02
+      "start": 229.56,
+      "end": 231.99
     },
     {
       "beat": 10,
       "title": "The demo",
       "line": 1,
       "text": "Start with the sliders and controls you already know.",
-      "start": 238.23,
-      "end": 240.67
+      "start": 234.2,
+      "end": 236.64
     },
     {
       "beat": 10,
       "title": "The demo",
       "line": 2,
       "text": "Moving one slider will highlight every other slider it affects.",
-      "start": 246.58,
-      "end": 249.72
+      "start": 242.55,
+      "end": 245.69
     },
     {
       "beat": 10,
       "title": "The demo",
       "line": 3,
       "text": "Click the droplet button to switch between Source or Mixed colored sliders.",
-      "start": 254.7,
-      "end": 258.51
+      "start": 250.67,
+      "end": 254.48
     },
     {
       "beat": 10,
       "title": "The demo",
       "line": 4,
       "text": "Click the tags button to show HTML colors on the hex.",
-      "start": 260.28,
-      "end": 263.67
+      "start": 256.25,
+      "end": 259.64
     },
     {
       "beat": 10,
       "title": "The demo",
       "line": 5,
       "text": "Drag a handle on the hex and watch the RGB and HSB sliders follow.",
-      "start": 265.8,
-      "end": 269.71
+      "start": 261.77,
+      "end": 265.68
     },
     {
       "beat": 10,
       "title": "The demo",
       "line": 6,
       "text": "Having fun is the goal of the tool.",
-      "start": 275.85,
-      "end": 277.25
+      "start": 271.82,
+      "end": 273.22
     },
     {
       "beat": 11,
       "title": "Sign-off",
       "line": 1,
       "text": "If you use Figma, I've also made a Color Taylor plugin that you might like to check out.",
-      "start": 279.95,
-      "end": 284.5
+      "start": 275.92,
+      "end": 280.47
     },
     {
       "beat": 11,
       "title": "Sign-off",
       "line": 2,
       "text": "That's Color Taylor!",
-      "start": 285.9,
-      "end": 286.77
+      "start": 281.87,
+      "end": 282.74
     },
     {
       "beat": 11,
       "title": "Sign-off",
       "line": 3,
       "text": "Go play with it, and I hope it helps you see the relationship between RGB and HSB in a different light.",
-      "start": 288.17,
-      "end": 293.24
+      "start": 284.14,
+      "end": 289.21
     },
     {
       "beat": 11,
       "title": "Sign-off",
       "line": 4,
       "text": "If it's useful, I'd like to hear from you. Questions and feedback are welcome.",
-      "start": 294.64,
-      "end": 298.38
+      "start": 290.61,
+      "end": 294.35
     },
     {
       "beat": 11,
       "title": "Sign-off",
       "line": 5,
       "text": "Thanks, see ya.",
-      "start": 299.78,
-      "end": 300.61
+      "start": 295.75,
+      "end": 296.58
     }
   ]
 }

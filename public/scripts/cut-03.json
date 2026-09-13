@@ -476,56 +476,56 @@
     {
       "do": "rest",
       "target": "help-button",
-      "at": 230.19
+      "at": 226.16
     },
     {
       "do": "rest",
       "target": "help-button",
-      "at": 234.79
+      "at": 230.76
     },
     {
       "do": "click",
       "target": "help-button",
-      "at": 237.59
+      "at": 233.56
     },
     {
       "do": "demo",
-      "at": 239.09
+      "at": 235.06
     },
     {
       "do": "underline",
       "target": "demo-caption",
       "ms": 1400,
       "over": "demo",
-      "at": 276.15
+      "at": 272.12
     },
     {
       "do": "drift",
       "ms": 2200,
-      "at": 277.55
+      "at": 273.52
     },
     {
       "do": "scroll",
       "target": "top",
-      "at": 280.15
+      "at": 276.12
     },
     {
       "do": "underline",
       "target": "figma-text",
       "ms": 1000,
-      "at": 280.15
+      "at": 276.12
     },
     {
       "do": "hover",
       "target": "figma-button",
       "ms": 2100,
-      "at": 281.95
+      "at": 277.92
     },
     {
       "do": "pip",
       "to": "on",
       "ms": 1100,
-      "at": 284.15
+      "at": 280.12
     },
     {
       "do": "zigzag",
@@ -536,7 +536,7 @@
         35,
         95
       ],
-      "at": 288.17
+      "at": 284.14
     },
     {
       "do": "wander",
@@ -546,14 +546,14 @@
         "editor-top"
       ],
       "ms": 1100,
-      "at": 290.57
+      "at": 286.54
     },
     {
       "do": "slider",
       "target": "editor-hue",
       "to": 216,
       "ms": 900,
-      "at": 291.87
+      "at": 287.84
     },
     {
       "do": "box",
@@ -563,29 +563,29 @@
         100
       ],
       "ms": 900,
-      "at": 292.97
+      "at": 288.94
     },
     {
       "do": "click",
       "target": "settings-button",
-      "at": 294.37
+      "at": 290.34
     },
     {
       "do": "click",
       "target": "settings-about",
-      "at": 294.84
+      "at": 290.81
     },
     {
       "do": "underline",
       "target": "about-author",
       "ms": 1400,
-      "at": 295.54
+      "at": 291.51
     },
     {
       "do": "pip",
       "to": "off",
       "ms": 500,
-      "at": 300.78
+      "at": 296.75
     }
   ]
 }
