@@ -1,9 +1,10 @@
 import { useCallback, memo, type CSSProperties } from 'react';
 import { toast } from 'sonner';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 import { getContrastTextColor } from '../utils/colorConversions';
 
-function PreviewSwatch({ hex }: { hex: string }) {
+function PreviewSwatch({ hex, className }: { hex: string; className?: string }) {
   const handleClick = useCallback(() => {
     navigator.clipboard.writeText(hex.toUpperCase()).then(() => {
       toast('Copied!', { duration: 2000 });
@@ -25,8 +26,11 @@ function PreviewSwatch({ hex }: { hex: string }) {
           id="preview-swatch"
           role="button"
           aria-label={`Color swatch ${hex.toUpperCase()}. Click to copy.`}
-          className="shrink-0 self-stretch cursor-pointer select-none rounded-md"
-          style={{ width: 50, minHeight: 32, backgroundColor: hex, boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.1)' }}
+          // Size in classes rather than inline, so a caller's container-query
+          // variant can win: at narrow card widths the swatch becomes a band
+          // above the SB box instead of a column beside it.
+          className={cn('w-[50px] min-h-8 shrink-0 self-stretch cursor-pointer select-none rounded-md', className)}
+          style={{ backgroundColor: hex, boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.1)' }}
           onClick={handleClick}
         />
       </TooltipTrigger>
