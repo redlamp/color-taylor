@@ -129,7 +129,7 @@ function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }: Equat
   const l = (maxVal + minVal) / 2;
   const rc = isDark ? '#ff4444' : '#dd0000';
   const gc = isDark ? '#44ee44' : '#009900';
-  const bc = 'rgb(96, 96, 255)';
+  const bc = '#8080ff';
   const mc = isDark ? '#ff44ff' : '#dd00dd';
   const cc = isDark ? '#44ffff' : '#009999';
   const oc = isDark ? '#eebb22' : '#bb8800';
