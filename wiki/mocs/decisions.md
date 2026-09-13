@@ -17,6 +17,7 @@ Every `notes/decision-*.md`, newest first. Each note records what was decided, w
 
 ## App only
 
+- [[decision-hex-bars-outside-the-svg]] — the brightness and saturation bars leave the hexagon's SVG and become one bar with an orientation, laid out by the card; the lines that needed a shared coordinate space are gone
 - [[decision-settings-sheet]] — Settings is a modal right-edge sheet on base-ui `Dialog`; what the free-floating draggable panel had accumulated, and why the drag went
 - [[decision-integrations-footer]] — "Also available in" as a data-driven list, and why the Figma link stays unrendered until the listing is public
 - [[decision-border-color-effects]] — Anodised as the resting style, with a hue- and saturation-derived glow and rim light on top; four reasons it stops at the app

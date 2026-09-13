@@ -1007,7 +1007,11 @@ export default function ColorPicker() {
         <div
           id="picker-layout"
           data-demo-section=""
-          className="panel-frame flex flex-col border border-border rounded-lg p-2.5"
+          // @container/editor: the reflow stages below key on this card's own
+          // width, not the viewport, so the Figma plugin and the presentation -
+          // which render the picker at widths the page never takes - get the
+          // same rules. See wiki/notes/plan-narrow-widths.md.
+          className="panel-frame @container/editor flex flex-col border border-border rounded-lg p-2.5"
         >
         {/* Named for the whole panel rather than for one of its parts. It was
             "Sliders", which undersold it: two of the four things below are
@@ -1051,39 +1055,74 @@ export default function ColorPicker() {
           // ring reads as a rendering fault rather than as "as bright as it
           // goes". Nothing else in here overflows: min-w-0 is what keeps the
           // flex children honest, and it is still on.
-          className="flex flex-1 min-h-24 gap-3 min-w-0"
+          //
+          // Below a 230px card the swatch cannot keep a column of its own: it
+          // and the hue strip are fixed-width, so every px they take comes off
+          // the SB box, which stops being usable at about 120px wide (card 226,
+          // measured). Stacking the swatch as a band on top hands its 50px and
+          // the gap back to the box. Column here, so the box + strip row below
+          // is still the flex child that takes the slack.
+          className="flex flex-1 min-h-24 gap-3 min-w-0 @max-[230px]/editor:flex-col"
           // Overrides flex-1's `flex-basis: 0%`. Inline because the value is a
           // layout constant shared with the note above, not a magic number.
           style={{ flexBasis: SB_BOX_DEFAULT_HEIGHT }}
         >
-          <PreviewSwatch hex={hex} />
-          <SBBox
-            hue={hsb.h}
-            saturation={hsb.s}
-            brightness={hsb.b}
-            onChange={handleSbBoxChange}
-          />
-          <HSlider
-            hue={hsb.h}
-            onChange={handleHSliderChange}
-          />
+          {/* Stacked, the swatch is a short band across the top rather than a
+              tall block - full width, and its own height so it does not eat
+              the box's. */}
+          <PreviewSwatch hex={hex} className="@max-[230px]/editor:h-8 @max-[230px]/editor:w-full" />
+          {/* The box and its hue strip stay a row in both layouts; this wrapper
+              is what the swatch moves above. Unwrapped in the wide layout it
+              costs nothing: flex-1 and the same gap put all three where they
+              were. */}
+          <div className="flex flex-1 min-w-0 gap-3">
+            <SBBox
+              hue={hsb.h}
+              saturation={hsb.s}
+              brightness={hsb.b}
+              onChange={handleSbBoxChange}
+            />
+            <HSlider
+              hue={hsb.h}
+              onChange={handleHSliderChange}
+            />
+          </div>
         </div>
 
         {/* The slider banks, one flat block of the panel rather than two cards:
             the models are the same colour read three ways, and a card each made
             them look like three tools. The toolbar is the plugin's - which
-            blocks show, and whether tracks blend - with the hex readout at its
-            right end, stepper-wide so it lines up with the number fields
-            below. It used to sit in a card of its own under the sliders, with
-            a second swatch beside it; the swatch at the top is the swatch. */}
+            blocks show, and whether tracks blend - plus the hex readout. It
+            used to sit in a card of its own under the sliders, with a second
+            swatch beside it; the swatch at the top is the swatch.
+
+            The toolbar is one row while it fits and two below a 296px card: the
+            three selectors are 48px each and the readout is 92px, so the row's
+            own minimum is 306px (measured) and below that the readout leaves
+            the card. 296 rather than 306 because the two-column layout holds
+            this card at 298px of content from 800px of viewport all the way to
+            about 950px - a threshold above that would split the toolbar across
+            that whole band of desktop widths to save an overflow that is 8px at
+            its worst. So one-column widths 363-372 keep the old few-px spill,
+            and everything narrower reflows. Split, the readout and the blend
+            toggle take the upper row and the selectors the lower. The
+            readout was stepper-wide to line up with the number fields below;
+            on a row of its own there is nothing to line up with, so it takes
+            the width instead of trailing a gap.
+
+            A grid rather than a flex row because the split is an order change,
+            not a wrap: wide, the columns are selectors / blend / readout with
+            the readout at the right end; narrow, `order` puts blend and the
+            readout on the first row and the selectors span both columns
+            underneath. */}
         <div className="flex flex-col gap-3" id="slider-banks">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
+          <div className="grid grid-cols-[auto_auto_1fr] items-center gap-2 @max-[296px]/editor:grid-cols-[auto_1fr]">
             <ToggleGroup
               multiple
               value={groups}
               onValueChange={(v) => setGroups(SLIDER_GROUPS.filter((g) => (v as SliderGroup[]).includes(g)))}
               aria-label="Slider groups"
+              className="@max-[296px]/editor:order-3 @max-[296px]/editor:col-span-2"
             >
               {SLIDER_GROUPS.map((g) => (
                 <Tooltip key={g}>
@@ -1096,6 +1135,7 @@ export default function ColorPicker() {
               multiple
               value={blend ? ['blend'] : []}
               onValueChange={(v) => setBlend(v.length > 0)}
+              className="@max-[296px]/editor:order-1"
             >
               {/*
                 Controlled, unlike every other tooltip here, because this one
@@ -1133,8 +1173,7 @@ export default function ColorPicker() {
                 <TooltipContent className={TOOLBAR_TIP_CLASS}>{blend ? 'Mixed Colors' : 'Source Colors'}</TooltipContent>
               </Tooltip>
             </ToggleGroup>
-            </div>
-            <div className="w-[92px] shrink-0">
+            <div className="w-[92px] justify-self-end @max-[296px]/editor:order-2 @max-[296px]/editor:w-full">
               <HexInput
                 hex={hex}
                 onChange={handleHexInput}

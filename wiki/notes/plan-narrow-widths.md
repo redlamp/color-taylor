@@ -28,8 +28,20 @@ Each stage should key on the card's own width (a container query), not the viewp
 7. **The HSB / HSL toggle moves to a second row** from the hexagon's header.
 8. **When the card is narrower than the hexagon needs, the vertical brightness bar becomes a horizontal slider**, matching the saturation bar and sitting below it.
 
+## Built
+
+- Stages 1 and 2: PR #108. Editor card content below 296px splits the toolbar; below 230px the swatch stacks above the SB box.
+- Stages 7 and 8: PR #110, on the bar refactor (#109, [[decision-hex-bars-outside-the-svg]]). Hexagon card content below 214px wraps the toggle; below 350px the brightness bar lies down under the saturation bar (350 rather than the geometric 468 so the two-column card at an 800px viewport, 353.98, keeps four pixels of margin).
+- One column is the hexagon's width: PR #114, on #113. Below 800 the root caps at 662 (614 + padding) and centres, so every panel is the hexagon card's width; the Equations cells stack at the layout's breakpoint instead of Tailwind's 640.
+- Below-260 tidy: PR #113, on #112. The horizontal pills clamp at both ends, "Hue" is hidden while stacked (it laps the field at every stacked width), "Saturation" clears the B and M letters through a px shortfall added to the stacked budget, and the lying bar's gradient follows its orientation.
+- Header icon buttons: PR #112, 25px to 32px with 20px icons, the title's line box.
+- Stages 5 and 6: PR #111. Rows halve where an N-across cell is square (24 down to a 906px panel, 12 down to 450, six below); the header actions take a second row below 402 (Saved) and 204 (Recent). By the rule, viewports 800–1015 now show 12 across. The Saved ceiling is 72 in the app (three banks of 24), not the 36 [[decision-saved-grows-in-banks]] reads as at first glance; the reflow does not touch capacity.
+
 ## Open
 
+- Two overlaps on the hexagon are design calls, not bugs, left for Taylor: the hue badge sits on the R and C letters at hue 0 and 180 at every width including 1376 (its centre is four units inside the letter ring, so it lands on whichever letter it points at); and on the "Saturation" title at hue 270 while the bars are stacked, by about 11px at a 240px viewport (clearing it costs about 11px more card height there).
+- At a 630px viewport the panels are wider (586) than at 640 (552): the root's padding drops from `sm:px-6` to `px-0.5` at 640, a visible step. Pre-existing; a follow-up if it bothers.
+- Stages 3 and 4 (steppers off, search and tags below) are not started.
 - Where each stage switches. The widths are to be measured, not chosen; see the breakpoint measurement on `fix/column-breakpoint`.
 - Order, Taylor's call: the two-column breakpoint moves first, then the stages in the order above.
 - The two-column breakpoint moved first: 900 → **800px**, measured on `fix/column-breakpoint`. What stops it going lower is the hexagon, stages 7 and 8: the hue badge and the brightness pill collide at 794px because they are fixed-size chrome on a shrinking hexagon. So the remaining stages are what buy any width below 800, not the breakpoint.
