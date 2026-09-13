@@ -637,6 +637,25 @@ the production bundle never mounts it.
   spoken, listed under the transport in time order; the time seeks, `x`
   deletes. "Copy as markdown" puts them on the clipboard as
   `- [m:ss] beat.line — text`.
+- **The plan clock** (`?present=<cut>&clock=plan`) runs the same cut on its
+  planned times instead of on a voice track, so the choreography can be built
+  and watched before a word of it is recorded. It loads
+  `public/scripts/<cut>-plan.json` — the pacing plan written by redlamp-videos'
+  `tools/prompter/plan.mjs`, which is also what the prompter's Paced mode
+  scrolls on — and takes the lines, the beats and the duration from it. There is
+  no `<audio>` element at all, so the cut plays with no `<cut>.m4a` present.
+  - the clock is `performance.now()` from the moment **Space** (or Play) starts
+    it, paused by subtracting, and moved by the same scrub and timeline;
+  - **the sync flash is back.** Recording mode paints one white frame at t=0 and
+    so does this, through `ScriptRunnerHandle.flash()`, so an OBS capture of a
+    planned run has the same mark to cut on. It fires once, at the first start
+    from zero: a second one mid-run would be a second mark;
+  - the timeline gains a band of the plan's **beats** along its top, numbered,
+    over the line spans, because a beat is the unit the planned pauses are built
+    around. A plan line is one sentence, so there are more spans than there are
+    rows in the cut's lines doc;
+  - the clip editor does not open: there is no clip behind a planned line.
+    Notes still work, and land in the same file.
 - Notes persist through a dev-server middleware in `vite.config.js`:
   `GET`/`POST /__notes/<name>` reads and writes
   `<PRESENTATION_NOTES_DIR>/<name>-notes.json` as

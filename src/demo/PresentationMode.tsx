@@ -78,6 +78,38 @@ export function presentName(): string | null {
   }
 }
 
+/**
+ * `&clock=plan` runs the cut on its planned times instead of on a voice track:
+ * `public/scripts/<name>-plan.json` (redlamp-videos `tools/prompter/plan.mjs`)
+ * carries every line's planned start and end and the beats they sit in, and the
+ * transport runs a `performance.now()` clock over them. There is no audio, so a
+ * cut can be watched, choreographed and captured before a word of it is
+ * recorded; the sync flash at t=0 is what an OBS capture is lined up on.
+ */
+export function presentClock(): 'audio' | 'plan' {
+  try {
+    return new URLSearchParams(window.location.search).get('clock') === 'plan' ? 'plan' : 'audio';
+  } catch {
+    return 'audio';
+  }
+}
+
+/** A beat of the plan, drawn as a band along the top of the timeline. */
+interface PlanBeat {
+  n: number;
+  title: string;
+  start: number;
+  end: number;
+  estimate: number | null;
+}
+
+/** What `<name>-plan.json` holds. Lines carry `id` ("3.4") rather than beat/line. */
+interface PlanFile {
+  lines?: { id: string | null; beat: number; line: number | null; text: string; start: number; end: number }[];
+  beats?: PlanBeat[];
+  total?: number;
+}
+
 const notesUrl = (name: string) => `/__notes/${name}`;
 
 const mmss = (t: number) => {
@@ -122,6 +154,20 @@ export default function PresentationMode({ name, host, onDemo, onColor, demoOpen
   const noteInputRef = useRef<HTMLInputElement | null>(null);
   const [script, setScript] = useState<Script | null>(null);
   const [lines, setLines] = useState<ScriptLine[]>([]);
+  const [beats, setBeats] = useState<PlanBeat[]>([]);
+  /**
+   * The plan clock: `base` is where the transport was left and `since` is when
+   * it was last started, so the time is the sum and a pause is a subtraction.
+   * Unused while the voice track is the clock.
+   */
+  const planMode = useMemo(() => presentClock() === 'plan', []);
+  const run = useRef<{ base: number; since: number | null }>({ base: 0, since: null });
+  const planTime = useCallback(
+    () => run.current.base + (run.current.since !== null ? (performance.now() - run.current.since) / 1000 : 0),
+    [],
+  );
+  /** Fired once, at the first start, so a capture has its mark. */
+  const flashed = useRef(false);
   const [notes, setNotes] = useState<Note[]>([]);
   const [notesError, setNotesError] = useState<string | null>(null);
   const [time, setTime] = useState(0);
@@ -163,14 +209,38 @@ export default function PresentationMode({ name, host, onDemo, onColor, demoOpen
         setScript({ actions: sortActions(data.actions) });
       })
       .catch((err: unknown) => console.error('[present] could not load', name, err));
-    fetch(`${base}-lines.json${bust}`)
-      .then((res) => (res.ok ? (res.json() as Promise<{ lines?: ScriptLine[] }>) : null))
-      .then((data) => {
-        if (live && data && Array.isArray(data.lines)) {
-          setLines([...data.lines].sort((a, b) => a.start - b.start));
-        }
-      })
-      .catch(() => { /* No lines file: the timeline just has no spans. */ });
+    if (planMode) {
+      // The plan is the lines *and* the clock: its total is the duration, since
+      // there is no audio element with one.
+      fetch(`${base}-plan.json${bust}`)
+        .then((res) => {
+          if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+          return res.json() as Promise<PlanFile>;
+        })
+        .then((data) => {
+          if (!live) return;
+          const planned = (data.lines ?? []).map((l) => ({
+            beat: l.beat,
+            line: l.line ?? (Number((l.id ?? '0.0').split('.')[1]) || 0),
+            text: l.text,
+            start: l.start,
+            end: l.end,
+          }));
+          setLines(planned.sort((a, b) => a.start - b.start));
+          setBeats(data.beats ?? []);
+          setDuration(data.total ?? (planned.length ? planned[planned.length - 1].end : 0));
+        })
+        .catch((err: unknown) => console.error('[present] could not load the plan for', name, err));
+    } else {
+      fetch(`${base}-lines.json${bust}`)
+        .then((res) => (res.ok ? (res.json() as Promise<{ lines?: ScriptLine[] }>) : null))
+        .then((data) => {
+          if (live && data && Array.isArray(data.lines)) {
+            setLines([...data.lines].sort((a, b) => a.start - b.start));
+          }
+        })
+        .catch(() => { /* No lines file: the timeline just has no spans. */ });
+    }
     fetch(notesUrl(name))
       .then((res) => {
         if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
@@ -183,41 +253,66 @@ export default function PresentationMode({ name, host, onDemo, onColor, demoOpen
         if (live) setNotesError(`notes: ${err instanceof Error ? err.message : String(err)}`);
       });
     return () => { live = false; };
-  }, [name, rebuilt]);
+  }, [name, rebuilt, planMode]);
 
-  /* The clock: the audio element's position, read on every frame. */
+  /* The clock: the audio element's position, or the plan clock, read every frame. */
   useEffect(() => {
     let raf = 0;
     const frame = () => {
-      const a = audioRef.current;
-      if (a) {
-        setTime(a.currentTime);
-        if (a.duration && Number.isFinite(a.duration)) setDuration(a.duration);
-        setPlaying(!a.paused && !a.ended);
+      if (planMode) {
+        const t = planTime();
+        setTime(t);
+        setPlaying(run.current.since !== null);
+        // The plan is a fixed length; running past it stops the transport the
+        // way the end of a track does.
+        setDuration((d) => {
+          if (d && t >= d && run.current.since !== null) {
+            run.current = { base: d, since: null };
+            setTime(d);
+          }
+          return d;
+        });
+      } else {
+        const a = audioRef.current;
+        if (a) {
+          setTime(a.currentTime);
+          if (a.duration && Number.isFinite(a.duration)) setDuration(a.duration);
+          setPlaying(!a.paused && !a.ended);
+        }
       }
       raf = requestAnimationFrame(frame);
     };
     raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
-  }, []);
+  }, [planMode, planTime]);
 
-  const clock = useMemo<ScriptClock>(() => ({
+  const clock = useMemo<ScriptClock>(() => (planMode ? {
+    now: planTime,
+    running: () => run.current.since !== null,
+  } : {
     now: () => audioRef.current?.currentTime ?? 0,
     running: () => {
       const a = audioRef.current;
       return !!a && !a.paused && !a.ended;
     },
-  }), []);
+  }), [planMode, planTime]);
   const onHandle = useCallback((h: ScriptRunnerHandle | null) => { handleRef.current = h; }, []);
 
   const seek = useCallback((t: number) => {
+    if (planMode) {
+      const clamped = Math.max(0, t);
+      run.current = { base: clamped, since: run.current.since === null ? null : performance.now() };
+      setTime(clamped);
+      handleRef.current?.seek(clamped);
+      return;
+    }
     const a = audioRef.current;
     if (!a) return;
     const clamped = Math.max(0, Math.min(t, a.duration || t));
     a.currentTime = clamped;
     setTime(clamped);
     handleRef.current?.seek(clamped);
-  }, []);
+  }, [planMode]);
 
   /**
    * After the clip editor's Apply: the audio, the lines and the cues have all
@@ -247,11 +342,27 @@ export default function PresentationMode({ name, host, onDemo, onColor, demoOpen
   }, [rebuilt]);
 
   const toggle = useCallback(() => {
+    if (planMode) {
+      if (run.current.since === null) {
+        // The sync flash belongs to the start of the cut, not to every resume:
+        // it marks t=0 in a capture, and a second one mid-run would be a second
+        // mark to cut on.
+        if (!flashed.current && run.current.base === 0) {
+          flashed.current = true;
+          handleRef.current?.flash();
+        }
+        run.current.since = performance.now();
+      } else {
+        run.current = { base: planTime(), since: null };
+      }
+      setPlaying(run.current.since !== null);
+      return;
+    }
     const a = audioRef.current;
     if (!a) return;
     if (a.paused) a.play().catch((err: unknown) => console.warn('[present] audio did not start', err));
     else a.pause();
-  }, []);
+  }, [planMode, planTime]);
 
   /* Space plays and pauses; N opens a note. Neither while typing. */
   useEffect(() => {
@@ -310,6 +421,9 @@ export default function PresentationMode({ name, host, onDemo, onColor, demoOpen
    * on the span would never hear them.
    */
   const onTimelineDouble = (e: ReactMouseEvent<HTMLDivElement>) => {
+    // Nothing to edit on the plan clock: the lines are planned, not recorded,
+    // so there is no clip behind the span under the pointer.
+    if (planMode) return;
     const t = timeFromPointer(e);
     const l = t === null ? null : lineAt(lines, t);
     if (l) setEditing(`${l.beat}.${l.line}`);
@@ -407,12 +521,16 @@ export default function PresentationMode({ name, host, onDemo, onColor, demoOpen
             userSelect: 'none',
           }}
         >
-          <audio
-            ref={audioRef}
-            src={rebuilt ? `${scriptAudioUrl(name)}?v=${rebuilt}` : scriptAudioUrl(name)}
-            preload="auto"
-            data-testid="present-audio"
-          />
+          {/* No element at all on the plan clock: there is no track to point it
+              at, and an <audio> with a missing src is a 404 on every load. */}
+          {!planMode && (
+            <audio
+              ref={audioRef}
+              src={rebuilt ? `${scriptAudioUrl(name)}?v=${rebuilt}` : scriptAudioUrl(name)}
+              preload="auto"
+              data-testid="present-audio"
+            />
+          )}
 
           <div style={{ display: collapsed ? 'none' : 'flex', gap: 16, alignItems: 'baseline', minHeight: 18 }}>
             <span data-testid="present-line" style={{ flex: 1, color: '#fff', fontSize: 13 }}>
@@ -443,6 +561,32 @@ export default function PresentationMode({ name, host, onDemo, onColor, demoOpen
               overflow: 'hidden',
             }}
           >
+            {/* The plan's beats, as a band along the top: the spans below are
+                sentences, and a beat is the unit the pauses are built around. */}
+            {beats.map((b) => (
+              <div
+                key={`beat-${b.n}`}
+                data-testid="present-beat"
+                data-beat={b.n}
+                title={`${b.n} · ${b.title} — ${(b.end - b.start).toFixed(1)}s${b.estimate ? ` (est ${b.estimate}s)` : ''}`}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  height: 7,
+                  left: pct(b.start),
+                  width: pct(Math.max(0.05, b.end - b.start)),
+                  background: b.n % 2 ? 'rgba(245,166,35,0.45)' : 'rgba(245,166,35,0.25)',
+                  borderLeft: '1px solid rgba(245,166,35,0.9)',
+                  fontSize: 6,
+                  color: '#1b1b1f',
+                  paddingLeft: 2,
+                  lineHeight: '7px',
+                  overflow: 'hidden',
+                }}
+              >
+                {b.n}
+              </div>
+            ))}
             {lines.map((l, i) => (
               <div
                 key={`line-${i}`}
@@ -451,7 +595,7 @@ export default function PresentationMode({ name, host, onDemo, onColor, demoOpen
                 title={`${l.beat}.${l.line} ${l.text} — double-click to edit the clip`}
                 style={{
                   position: 'absolute',
-                  top: 4,
+                  top: beats.length ? 9 : 4,
                   bottom: 4,
                   left: pct(l.start),
                   width: pct(Math.max(0.05, l.end - l.start)),
@@ -561,7 +705,7 @@ export default function PresentationMode({ name, host, onDemo, onColor, demoOpen
               </span>
             )}
             <span style={{ marginLeft: 'auto', color: '#888', whiteSpace: 'nowrap' }}>
-              {collapsed ? '' : `present:${name} · Space play/pause · N note · C collapse`}
+              {collapsed ? '' : `present:${name}${planMode ? ' · clock=plan (no audio)' : ''} · Space play/pause · N note · C collapse`}
               {notesError ? `  · ${notesError}` : ''}
             </span>
             <button

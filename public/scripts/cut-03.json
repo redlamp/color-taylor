@@ -1,0 +1,502 @@
+{
+  "source": "scripts/color-taylor-script-cut-03.md",
+  "notes": "Built from cues/cut-03-actions-extra.json on the line times in cues/cut-03-plan.json; see tools/script-table/retime-actions.mjs.",
+  "actions": [
+    {
+      "do": "pip",
+      "to": "on",
+      "ms": 1100,
+      "at": 0
+    },
+    {
+      "do": "click",
+      "target": "about-close",
+      "at": 4.7
+    },
+    {
+      "do": "rest",
+      "target": "between-panels",
+      "at": 6
+    },
+    {
+      "do": "pip",
+      "to": "off",
+      "ms": 1100,
+      "at": 58.7
+    },
+    {
+      "do": "loop",
+      "target": "editor-top",
+      "ms": 2400,
+      "at": 64.4
+    },
+    {
+      "do": "loop",
+      "target": "hex-field",
+      "turns": 1,
+      "wobble": 0.3,
+      "ms": 2000,
+      "at": 73.2
+    },
+    {
+      "do": "hover",
+      "target": "hex-hue-label",
+      "ms": 600,
+      "at": 79.6
+    },
+    {
+      "do": "tip",
+      "via": "hue-label",
+      "degrees": 360,
+      "ms": 3000,
+      "at": 80.3
+    },
+    {
+      "do": "tip",
+      "via": "hue-label",
+      "to": 0,
+      "ms": 900,
+      "at": 85
+    },
+    {
+      "do": "rect",
+      "target": "row:r",
+      "from": "tl",
+      "hands": "free",
+      "color": "#ff3333",
+      "ms": 900,
+      "hold": 14100,
+      "at": 85
+    },
+    {
+      "do": "ray",
+      "ch": "r",
+      "ms": 900,
+      "hold": 14100,
+      "at": 85
+    },
+    {
+      "do": "tip",
+      "via": "hue-label",
+      "to": 120,
+      "ms": 900,
+      "at": 86.7
+    },
+    {
+      "do": "rect",
+      "target": "row:g",
+      "from": "tl",
+      "hands": "free",
+      "color": "#2ecc40",
+      "ms": 900,
+      "hold": 12400,
+      "at": 86.7
+    },
+    {
+      "do": "ray",
+      "ch": "g",
+      "ms": 900,
+      "hold": 12400,
+      "at": 86.7
+    },
+    {
+      "do": "tip",
+      "via": "hue-label",
+      "to": 240,
+      "ms": 900,
+      "at": 88.8
+    },
+    {
+      "do": "rect",
+      "target": "row:b",
+      "from": "tl",
+      "hands": "free",
+      "color": "#3b82f6",
+      "ms": 900,
+      "hold": 10300,
+      "at": 88.8
+    },
+    {
+      "do": "ray",
+      "ch": "b",
+      "ms": 900,
+      "hold": 10300,
+      "at": 88.8
+    },
+    {
+      "do": "tip",
+      "via": "hue-label",
+      "to": 60,
+      "ms": 350,
+      "at": 105.6
+    },
+    {
+      "do": "tip",
+      "via": "hue-label",
+      "to": 180,
+      "ms": 350,
+      "at": 106
+    },
+    {
+      "do": "tip",
+      "via": "hue-label",
+      "to": 300,
+      "ms": 350,
+      "at": 106.8
+    },
+    {
+      "do": "tip",
+      "via": "hue-label",
+      "to": 30,
+      "ms": 1200,
+      "at": 116.7
+    },
+    {
+      "do": "slider",
+      "target": "hex-sat",
+      "from": 69,
+      "to": 90,
+      "ms": 1000,
+      "at": 118.9
+    },
+    {
+      "do": "circle",
+      "target": "value:hsb-h",
+      "ms": 1200,
+      "hold": 2500,
+      "at": 124.1
+    },
+    {
+      "do": "ray",
+      "ch": "r",
+      "ms": 900,
+      "hold": 5700,
+      "at": 128.9
+    },
+    {
+      "do": "ray",
+      "ch": "g",
+      "ms": 900,
+      "hold": 2100,
+      "at": 132.5
+    },
+    {
+      "do": "slider",
+      "target": "hex-sat",
+      "from": 90,
+      "to": 100,
+      "ms": 2400,
+      "at": 138.5
+    },
+    {
+      "do": "rect",
+      "target": "range:rgb",
+      "from": "tl",
+      "live": true,
+      "ms": 1200,
+      "hold": 15500,
+      "at": 138.5
+    },
+    {
+      "do": "slider",
+      "target": "hex-sat",
+      "from": 100,
+      "to": 40,
+      "ms": 2000,
+      "at": 143.7
+    },
+    {
+      "do": "slider",
+      "target": "hex-sat",
+      "from": 40,
+      "to": 0,
+      "ms": 3000,
+      "at": 147
+    },
+    {
+      "do": "slider",
+      "target": "hex-bri",
+      "from": 100,
+      "to": 55,
+      "ms": 1600,
+      "at": 158.8
+    },
+    {
+      "do": "slider",
+      "target": "hex-bri",
+      "from": 55,
+      "to": 100,
+      "ms": 1500,
+      "at": 161.3
+    },
+    {
+      "do": "circle",
+      "target": "value:hsb-h",
+      "ms": 1200,
+      "hold": 2000,
+      "at": 163.6
+    },
+    {
+      "do": "slider",
+      "target": "hex-sat",
+      "from": 0,
+      "to": 90,
+      "ms": 2600,
+      "at": 165.4
+    },
+    {
+      "do": "circle",
+      "target": "handle:r",
+      "ms": 1200,
+      "hold": 2600,
+      "at": 171.6
+    },
+    {
+      "do": "circle",
+      "target": "value:hsb-b",
+      "ms": 1200,
+      "hold": 2600,
+      "at": 171.6
+    },
+    {
+      "do": "slider",
+      "target": "hex-bri",
+      "from": 100,
+      "to": 40,
+      "ms": 5000,
+      "at": 176.2
+    },
+    {
+      "do": "rect",
+      "target": "values:rgb",
+      "from": "tl",
+      "hands": "free",
+      "ms": 1200,
+      "hold": 5200,
+      "at": 176.2
+    },
+    {
+      "do": "slider",
+      "target": "hex-bri",
+      "from": 40,
+      "to": 100,
+      "ms": 3000,
+      "at": 185.2
+    },
+    {
+      "do": "slider",
+      "target": "hex-bri",
+      "from": 100,
+      "to": 40,
+      "ms": 1600,
+      "at": 190.1
+    },
+    {
+      "do": "slider",
+      "target": "hex-bri",
+      "from": 40,
+      "to": 100,
+      "ms": 1400,
+      "at": 191.9
+    },
+    {
+      "do": "box",
+      "target": "editor-sb",
+      "to": [
+        25,
+        100
+      ],
+      "ms": 1000,
+      "at": 204
+    },
+    {
+      "do": "box",
+      "target": "editor-sb",
+      "to": [
+        40,
+        95
+      ],
+      "ms": 1000,
+      "at": 205.4
+    },
+    {
+      "do": "box",
+      "target": "editor-sb",
+      "to": [
+        55,
+        85
+      ],
+      "ms": 1000,
+      "at": 206.8
+    },
+    {
+      "do": "box",
+      "target": "editor-sb",
+      "to": [
+        70,
+        72
+      ],
+      "ms": 1000,
+      "at": 208.2
+    },
+    {
+      "do": "box",
+      "target": "editor-sb",
+      "to": [
+        85,
+        58
+      ],
+      "ms": 1000,
+      "at": 209.6
+    },
+    {
+      "do": "box",
+      "target": "editor-sb",
+      "to": [
+        95,
+        42
+      ],
+      "ms": 1000,
+      "at": 211
+    },
+    {
+      "do": "rest",
+      "target": "equations",
+      "at": 220.7
+    },
+    {
+      "do": "click",
+      "target": "equations",
+      "at": 221.4
+    },
+    {
+      "do": "scroll",
+      "target": "equations:hue",
+      "at": 221.7
+    },
+    {
+      "do": "click",
+      "target": "equations",
+      "at": 223.9
+    },
+    {
+      "do": "scroll",
+      "target": "top",
+      "at": 224.3
+    },
+    {
+      "do": "rest",
+      "target": "help-button",
+      "at": 244.9
+    },
+    {
+      "do": "rest",
+      "target": "help-button",
+      "at": 251.5
+    },
+    {
+      "do": "click",
+      "target": "help-button",
+      "at": 254.3
+    },
+    {
+      "do": "demo",
+      "at": 254.9
+    },
+    {
+      "do": "underline",
+      "target": "demo-caption",
+      "ms": 1400,
+      "over": "demo",
+      "at": 286.3
+    },
+    {
+      "do": "drift",
+      "ms": 2200,
+      "at": 287.7
+    },
+    {
+      "do": "scroll",
+      "target": "top",
+      "at": 291.9
+    },
+    {
+      "do": "underline",
+      "target": "figma-text",
+      "ms": 1000,
+      "at": 291.9
+    },
+    {
+      "do": "hover",
+      "target": "figma-button",
+      "ms": 2100,
+      "at": 293.7
+    },
+    {
+      "do": "pip",
+      "to": "on",
+      "ms": 1100,
+      "at": 298.5
+    },
+    {
+      "do": "zigzag",
+      "ms": 2200,
+      "legs": 5,
+      "degrees": 70,
+      "sat": [
+        35,
+        95
+      ],
+      "at": 302.5
+    },
+    {
+      "do": "wander",
+      "targets": [
+        "hex-field",
+        "between-panels",
+        "editor-top"
+      ],
+      "ms": 1100,
+      "at": 304.9
+    },
+    {
+      "do": "slider",
+      "target": "editor-hue",
+      "to": 216,
+      "ms": 900,
+      "at": 306.2
+    },
+    {
+      "do": "box",
+      "target": "editor-sb",
+      "to": [
+        69,
+        100
+      ],
+      "ms": 900,
+      "at": 307.3
+    },
+    {
+      "do": "click",
+      "target": "settings-button",
+      "at": 308.7
+    },
+    {
+      "do": "click",
+      "target": "settings-about",
+      "at": 312.3
+    },
+    {
+      "do": "underline",
+      "target": "about-author",
+      "ms": 1400,
+      "at": 313
+    },
+    {
+      "do": "pip",
+      "to": "off",
+      "ms": 500,
+      "at": 320.4
+    }
+  ]
+}

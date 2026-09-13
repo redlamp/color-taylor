@@ -134,6 +134,13 @@ export interface ScriptRunnerHandle {
    * action at or after `t`. Nothing earlier fires again until a seek back.
    */
   seek: (t: number) => void;
+  /**
+   * Paint the one-frame white sync flash. Recording mode fires it from its own
+   * clock at t=0; a parent that owns the clock (presentation mode's plan clock,
+   * which has no voice track to line the capture up against) asks for it here,
+   * so an OBS capture of either mode has the same mark to cut on.
+   */
+  flash: () => void;
 }
 
 export interface ScriptRunnerProps {
@@ -1950,6 +1957,14 @@ export default function ScriptRunner({
      * is pressed (or `&go=N` fires), with the sync flash and, on `&audio=1`,
      * the voice track started from the same instant.
      */
+    /** A single white frame, for lining a screen capture up against the cut. */
+    function syncFlash() {
+      const flash = flashRef.current;
+      if (!flash) return;
+      flash.style.opacity = '1';
+      window.setTimeout(() => { flash.style.opacity = '0'; }, FLASH_MS);
+    }
+
     function recordingClock(): ScriptClock {
       let t0 = 0;
       let begun = false;
@@ -1961,12 +1976,7 @@ export default function ScriptRunner({
         begun = true;
         window.removeEventListener('keydown', onKey, true);
         setStarted(true);
-        // A single white frame for lining the recording up against the cut.
-        const flash = flashRef.current;
-        if (flash) {
-          flash.style.opacity = '1';
-          window.setTimeout(() => { flash.style.opacity = '0'; }, FLASH_MS);
-        }
+        syncFlash();
         t0 = performance.now();
         if (voice) {
           voice.currentTime = 0;
@@ -1992,7 +2002,7 @@ export default function ScriptRunner({
     }
 
     loop = requestAnimationFrame(tick);
-    onHandleRef.current?.({ seek });
+    onHandleRef.current?.({ seek, flash: syncFlash });
     // The built-in demo's goodbye asks whether a script is on screen before it
     // decides how long to wait for one. See handover.ts.
     markScriptRunner(true);
