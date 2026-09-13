@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTheme } from '../../hooks/useTheme';
-import { CENTER_X, CENTER_Y, RADIUS, PI, SIZE, HEX_SIZE } from './hexConstants';
+import { CENTER_X, CENTER_Y, RADIUS, PI, FIELD_SIZE } from './hexConstants';
 
 const COLORS = [
   { label: 'R', name: 'Red', deg: 0, color: '#ff0000', lightColor: '#e00000' },
@@ -38,17 +38,8 @@ function useDarkClass(): boolean {
   return dark;
 }
 
-export default function ColorLabels({
-  onColorClick,
-  extent = SIZE,
-  svgHeight = HEX_SIZE,
-}: {
-  onColorClick: (deg: number) => void;
-  /** Horizontal extent of the coordinate space; narrows when the BL bar is off. */
-  extent?: number;
-  /** Vertical extent of the same space; grows when the saturation bar is on. */
-  svgHeight?: number;
-}) {
+/** Positioned in the field's own square box, which the letters belong to. */
+export default function ColorLabels({ onColorClick }: { onColorClick: (deg: number) => void }) {
   const { isDark: providerDark } = useTheme();
   const classDark = useDarkClass();
   const isDark = providerDark || classDark;
@@ -63,7 +54,7 @@ export default function ColorLabels({
       <div
         key={label}
         className="absolute -translate-x-1/2 -translate-y-1/2 z-[8]"
-        style={{ left: `${(x / extent) * 100}%`, top: `${(y / svgHeight) * 100}%` }}
+        style={{ left: `${(x / FIELD_SIZE) * 100}%`, top: `${(y / FIELD_SIZE) * 100}%` }}
       >
         {/* No tooltip: the letter is coloured as the thing it names, sits at
             that hue's vertex, and one of these is under the pointer most of the

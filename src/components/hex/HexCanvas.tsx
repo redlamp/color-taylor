@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState } from 'react';
 import { hsbToRgb, hslToRgb, linearToSrgb } from '../../utils/colorConversions';
 import type { ColorSpace } from '../../utils/sliderGradients';
-import { HEX_SIZE, SIZE, CENTER_X, CENTER_Y, RADIUS, PI, shapeEdgeDist, shapeLimitScale, type BLMode } from './hexConstants';
+import { HEX_SIZE, CENTER_X, CENTER_Y, RADIUS, PI, shapeEdgeDist, shapeLimitScale, type BLMode } from './hexConstants';
 import { createHexGL, type HexGL } from './hexShader';
 
 /**
@@ -99,7 +99,7 @@ function buildField(isLinear: boolean, brightness: number, lightness: number, mo
   return data;
 }
 
-export default function HexCanvas({ brightness, lightness = 50, blMode = 'brightness', colorSpace, extent = SIZE, svgHeight = HEX_SIZE, shapeMix = 1 }: { brightness: number; lightness?: number; blMode?: BLMode; colorSpace: ColorSpace; extent?: number; svgHeight?: number; shapeMix?: number }) {
+export default function HexCanvas({ brightness, lightness = 50, blMode = 'brightness', colorSpace, shapeMix = 1 }: { brightness: number; lightness?: number; blMode?: BLMode; colorSpace: ColorSpace; shapeMix?: number }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const glRef = useRef<HexGL | null | undefined>(undefined);
   const [box, setBox] = useState({ w: HEX_SIZE, h: HEX_SIZE });
@@ -160,12 +160,12 @@ export default function HexCanvas({ brightness, lightness = 50, blMode = 'bright
     <canvas
       id="hex-canvas"
       ref={canvasRef}
-      className="absolute top-0 left-0 rounded-sm"
-      // The field is HEX_SIZE user units square. Both axes are percentages of
-      // the wrapper for that reason - `height: 100%` was only ever right while
-      // the wrapper was exactly HEX_SIZE tall, and it stretches the hexagon
-      // past its own outline once the saturation bar makes the box taller.
-      style={{ width: `${(HEX_SIZE / extent) * 100}%`, height: `${(HEX_SIZE / svgHeight) * 100}%` }}
+      // The field is HEX_SIZE units square and so is the box it is given now,
+      // so it simply fills it. It used to take a percentage of a wrapper that
+      // was sized for the bars as well, and every host had its own pair.
+      // w-full/h-full, not inset-0: a canvas is a replaced element, so `width:
+      // auto` resolves to its intrinsic 300x150 and the insets are ignored.
+      className="absolute top-0 left-0 w-full h-full rounded-sm"
     />
   );
 }

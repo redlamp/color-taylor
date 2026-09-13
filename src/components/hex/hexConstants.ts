@@ -1,16 +1,50 @@
 import { hsbToRgb, hslToRgb, type RGB } from '../../utils/colorConversions';
 
 export const HEX_SIZE = 540;
+/**
+ * The field's viewBox: square, and the hexagon alone.
+ *
+ * The bars used to be drawn inside it, which made the box a different shape in
+ * each host and tied two separate controls to the hexagon's coordinate space.
+ * They are laid out by the stage now (see the block below), so the field's box
+ * is one constant everywhere - the 540-unit square the shader paints.
+ */
+export const FIELD_SIZE = HEX_SIZE;
 // Visible vertical extent of the hex panel. The hex polygon is only
 // RADIUS·√3 ≈ 363.7 tall inside HEX_SIZE=540, so the rest is empty SVG
 // canvas. Crop the top/bottom with an overflow-hidden wrapper to make
 // the panel snug; internal coords stay anchored to HEX_SIZE.
 export const DISPLAY_HEIGHT = 460;
-export const BL_BAR_WIDTH = 22;
+
+// --- Bar geometry ---------------------------------------------------------
+// One set of numbers for both bars, since one component draws both: a track,
+// a value arrow on its inboard side, ticks and a label gutter on the outboard
+// one. HexBar reads these as its own proportions; the block after this one
+// uses them only to budget the room the stage has to reserve.
+
+/** Track thickness, across the bar. */
+export const BAR_TRACK = 22;
+/** Depth of the value arrow, inboard of the track. */
+export const BAR_ARROW = 8;
+/** Length of a tick mark, outboard of the track. */
+export const BAR_TICK = 4;
+/** Gutter past the vertical bar's ticks, shared by its labels and its pill. */
+export const BAR_LABEL_SPACE = 40;
+/** The same gutter under a horizontal bar, where the labels sit on one line. */
+export const BAR_LABEL_SPACE_H = 30;
+/** Band holding a horizontal bar's axis title. The vertical bar's title runs
+ *  down its inboard side and needs no band of its own. */
+export const BAR_TITLE_SPACE = 20;
+
+// --- Stage layout ---------------------------------------------------------
+// The card's stage is one coordinate space holding three controls: the
+// hexagon's field, the vertical brightness/lightness bar to its right and the
+// horizontal saturation bar beneath. Only the boxes are here; what goes inside
+// each bar is HexBar's.
+
 export const BL_BAR_GAP = -20;
-export const BL_ARROW_SIZE = 8;
-export const BL_LABEL_SPACE = 40;
-export const SIZE = HEX_SIZE + BL_BAR_GAP + BL_BAR_WIDTH + BL_ARROW_SIZE + BL_LABEL_SPACE;
+/** Stage width with both bars on. */
+export const SIZE = HEX_SIZE + BL_BAR_GAP + BAR_TRACK + BAR_ARROW + BAR_LABEL_SPACE;
 // Hex panel width plus room for its padding on both sides. The card wears
 // p-2.5 now (10 + 10); the 24 dates from p-3 and the 4px spare is harmless -
 // this only has to be wide enough to keep the hue badge, sized in px and
@@ -30,40 +64,29 @@ export const BL_PILL_OVERHANG = 10;
 export const CENTER_X = 260;
 export const CENTER_Y = HEX_SIZE / 2;
 export const RADIUS = 210;
+/** The vertical bar's track: hard against the field's right edge, spanning the
+ *  hexagon's full height. */
 export const BL_BAR_X = HEX_SIZE + BL_BAR_GAP;
 export const BL_BAR_TOP = CENTER_Y - RADIUS;
-export const BL_BAR_HEIGHT = RADIUS * 2;
+export const BL_BAR_SPAN = RADIUS * 2;
 export const SQRT3_2 = Math.sqrt(3) / 2;
 export const PI = Math.PI;
 
-// --- Saturation bar -------------------------------------------------------
-// The horizontal mirror of the brightness bar, hung under the hexagon. Every
-// constant below is a deliberate echo of a BL_* one: SAT_BAR_HEIGHT is
-// BL_BAR_WIDTH, SAT_BAR_WIDTH is BL_BAR_HEIGHT, and so on. Keep them paired.
-
 /**
- * The bar clears the circumscribed circle, not the hexagon.
+ * The horizontal bar clears the circumscribed circle, not the hexagon.
  *
  * The hexagon's flat bottom edge is at RADIUS * sin(60), some 28 units higher,
  * and budgeting from there puts the track visibly against the circle - which is
  * the widest thing actually drawn down here.
  */
 export const SAT_CIRCLE_BOTTOM = CENTER_Y + RADIUS;
-export const SAT_ARROW_SIZE = 8;
 /** Breathing room between the circle and the title above the bar. */
 export const SAT_BAR_GAP = 6;
-/** Band holding the axis title. The brightness title runs vertically down its
- *  bar's inboard side; horizontally that lane becomes a strip above the bar. */
-export const SAT_TITLE_SPACE = 20;
-export const SAT_BAR_TOP = SAT_CIRCLE_BOTTOM + SAT_BAR_GAP + SAT_TITLE_SPACE + SAT_ARROW_SIZE;
-export const SAT_BAR_HEIGHT = 22;
+export const SAT_BAR_TOP = SAT_CIRCLE_BOTTOM + SAT_BAR_GAP + BAR_TITLE_SPACE + BAR_ARROW;
 /** Spans the hexagon corner to corner, the way the brightness bar spans its
  *  full height. 0% sits under the west corner, 100% under the east one. */
 export const SAT_BAR_LEFT = CENTER_X - RADIUS;
-export const SAT_BAR_WIDTH = RADIUS * 2;
-/** Row under the bar, shared by the 0/50/100 labels and the value pill - the
- *  same doubling-up the brightness bar does in its right-hand gutter. */
-export const SAT_LABEL_SPACE = 30;
+export const SAT_BAR_SPAN = RADIUS * 2;
 /**
  * How far past the circumscribed circle the hue badge's centre sits.
  *
@@ -75,15 +98,14 @@ export const SAT_LABEL_SPACE = 30;
 export const HUE_LABEL_OFFSET = 16;
 
 /**
- * A taller viewBox, used only while the saturation bar is on.
+ * A taller stage, used only while the saturation bar is on.
  *
  * The 88 units of empty canvas under the hexagon are not enough once the track
- * clears the circle, and a root <svg> clips at its viewBox - so the canvas has
- * to grow rather than the crop widen. Everything that converts a user-space y
- * into a percentage takes this as `svgHeight`; HEX_SIZE alone is only correct
- * when the bar is off.
+ * clears the circle, so the stage's own coordinate span grows rather than the
+ * crop widening. Everything the stage places by percentage divides by this;
+ * HEX_SIZE alone is only correct when the bar is off.
  */
-export const SVG_HEIGHT_SAT = SAT_BAR_TOP + SAT_BAR_HEIGHT + SAT_LABEL_SPACE + 2;
+export const STAGE_SPAN_SAT = SAT_BAR_TOP + BAR_TRACK + BAR_LABEL_SPACE_H + 2;
 /**
  * Units cropped off the top of the stage: everything above the circumscribed
  * circle, whose top is CENTER_Y - RADIUS. Nothing is drawn up there, and the
@@ -95,7 +117,7 @@ export const SVG_HEIGHT_SAT = SAT_BAR_TOP + SAT_BAR_HEIGHT + SAT_LABEL_SPACE + 2
  * every hue.
  */
 export const STAGE_TOP_CROP = CENTER_Y - RADIUS;
-export const DISPLAY_HEIGHT_SAT = SVG_HEIGHT_SAT - STAGE_TOP_CROP;
+export const DISPLAY_HEIGHT_SAT = STAGE_SPAN_SAT - STAGE_TOP_CROP;
 
 /**
  * A pointer resting on a track, before it is known to be a drag.
