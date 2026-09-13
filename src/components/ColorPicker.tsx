@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useMemo, useEffect, Suspense, lazy } from 'react';
+import { useState, useRef, useCallback, useMemo, useEffect, Suspense, lazy, type CSSProperties } from 'react';
 import { hsbToRgb, rgbToHsb, rgbToHsl, rgbToHex, type HSB, type HSL, type RGB } from '../utils/colorConversions';
 import type { ColorSpace } from '../utils/sliderGradients';
 import type { HslOrigin } from '../utils/hslWrite';
@@ -74,6 +74,20 @@ const ROOT_PADDING_X = 48;                // Tailwind sm:px-6, both sides
 const SB_BOX_DEFAULT_HEIGHT = 143;
 const TOP_ROW_MAX_WIDTH =
   HEX_PANEL_WIDTH + SLIDERS_PANEL_WIDTH + TOP_ROW_GAP_PX + ROOT_PADDING_X;
+/*
+ * Below the breakpoint there is one column, and Taylor's rule is that the
+ * column's width is the hexagon card's width: every panel - hexagon, Color
+ * Editor, Swatches, Equations - is edge to edge with the card rather than
+ * standing wider than it. The card sets its own `width: HEX_PANEL_WIDTH`, so
+ * capping the root at that plus the root's padding makes the grid column land
+ * on exactly the same number.
+ *
+ * Only one padding figure enters here even though the root carries two
+ * (px-0.5, then sm:px-6). Below sm the viewport is under 640, so the content
+ * box is at most 586px and this cap can never bind; the sm figure is the only
+ * one that is ever reached.
+ */
+const ONE_COL_MAX_WIDTH = HEX_PANEL_WIDTH + ROOT_PADDING_X;
 import SBBox from './SBBox';
 import HSlider from './HSlider';
 import HexInput from './HexInput';
@@ -810,8 +824,23 @@ export default function ColorPicker() {
     playHeadingRef.current = (hex, forMs) => markSwatchPending(hex, 100, forMs);
   }, [markSwatchPending]);
 
+  /*
+   * The root's max-width is responsive, so it travels as two custom properties
+   * rather than as an inline `maxWidth`: an inline style cannot carry a media
+   * query, and the constants above stay the only place the numbers are written.
+   * A wrapper element would have done the same job, but it would have had to be
+   * unwrapped again above the breakpoint - this way the two-column layout is
+   * untouched, still 1098px.
+   */
   return (
-    <div id="color-picker-root" className="mx-auto w-full px-0.5 py-1 sm:px-6" style={{ maxWidth: TOP_ROW_MAX_WIDTH }}>
+    <div
+      id="color-picker-root"
+      className="mx-auto w-full px-0.5 py-1 sm:px-6 max-w-[var(--picker-one-col-max)] min-[800px]:max-w-[var(--picker-two-col-max)]"
+      style={{
+        '--picker-one-col-max': `${ONE_COL_MAX_WIDTH}px`,
+        '--picker-two-col-max': `${TOP_ROW_MAX_WIDTH}px`,
+      } as CSSProperties}
+    >
       {/*
         One row wherever it fits, two where it does not - `flex-wrap` decides,
         not a breakpoint.
