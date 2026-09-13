@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
 import { HEX_HIGHLIGHT_COLOR, HIGHLIGHT_IN, HIGHLIGHT_OUT } from '../../utils/highlight';
 import {
-  BAR_ARROW, BAR_LABEL_SPACE, BAR_TICK, BAR_TRACK, type PointerDownState,
+  BAR_ARROW, BAR_LABEL_SPACE, BAR_TICK, BAR_TITLE_LIFT, BAR_TRACK, type PointerDownState,
 } from './hexConstants';
 
 /**
@@ -44,8 +44,17 @@ interface HexBarProps {
   value: number;
   /** The axis title beside the bar, and the noun in the markers' aria-labels. */
   title: string;
-  /** The track's paint, as a CSS gradient along the bar. */
-  gradient: string;
+  /**
+   * The track's paint, as CSS gradient stops running 0 to 100.
+   *
+   * Stops and not a finished gradient: the direction is a fact about which way
+   * the bar points, which is this component's business, and a host that wrote
+   * the whole string had to know. It did not - the brightness ramp was written
+   * down a standing bar and stayed that way once the bar lay down, so at
+   * narrow widths brightness ran dark-to-light one way and saturation the
+   * other on two tracks an inch apart.
+   */
+  stops: string;
   /** The pill's fill - the colour itself - and the colour its arrow takes. */
   swatch: string;
   swatchText: string;
@@ -75,8 +84,16 @@ interface HexBarProps {
    * Room the pill has beyond its anchor before it must slide back over the
    * track, as a CSS length. The pill is fixed-size HTML on a bar that scales,
    * so past this it outruns the card. Omit where nothing bounds it.
+   *
+   * Standing, the anchor is the track's far edge and this is one number. Laid
+   * down, the pill is centred on an anchor that slides with the value, so it
+   * has a bound at each end and both move - the host works them out per render
+   * and hands them in the same way.
    */
   pillGutter?: string;
+  /** The same, on the near side. Horizontal bars only: a standing pill hangs
+   *  off its anchor in one direction and cannot cross the near bound. */
+  pillGutterStart?: string;
   /** The pill was grabbed - a hold that has not moved yet is still a hold. */
   onGrab?: () => void;
   /** A drag has begun, from the pill, the arrow, or the track past the threshold. */
@@ -100,8 +117,8 @@ interface HexBarProps {
  * also what lets the vertical one flip horizontal at narrow widths.
  */
 export default function HexBar({
-  orientation, axis, value, title, gradient, swatch, swatchText, unit, style,
-  lit = false, markers = true, pillGutter,
+  orientation, axis, value, title, stops, swatch, swatchText, unit, style,
+  lit = false, markers = true, pillGutter, pillGutterStart,
   onGrab, onDragStart, onDrag, onTap, onPick, onRelease,
 }: HexBarProps) {
   const vertical = orientation === 'vertical';
@@ -217,7 +234,9 @@ export default function HexBar({
       className="absolute z-[6] cursor-pointer select-none touch-none"
       style={{
         ...style,
-        background: gradient,
+        // 0 at the bottom of a standing bar and at the left edge of a lying
+        // one, which is where its own value arrow and its drag both put it.
+        background: `linear-gradient(${vertical ? 'to top' : 'to right'}, ${stops})`,
         // The SVG rect wore a 1-unit stroke, which straddles the edge. Two
         // shadows rather than a border, so the box stays the track's own.
         boxShadow: `inset 0 0 0 ${u(0.5)} rgba(255,255,255,0.1), 0 0 0 ${u(0.5)} rgba(255,255,255,0.1)`,
@@ -297,7 +316,7 @@ export default function HexBar({
             className={`absolute z-[6] select-none whitespace-nowrap bg-card px-1 text-sm leading-none text-muted-foreground pointer-events-none ${vertical ? 'rotate-180 [writing-mode:vertical-rl]' : ''}`}
             style={vertical
               ? { right: `calc(${u(TITLE_CLEARANCE)} + 4px)`, top: '-4px' }
-              : { left: '-4px', top: `calc(0px - ${u(BAR_ARROW + 2)} - 18px)` }}
+              : { left: '-4px', top: `calc(0px - ${u(BAR_ARROW + 2)} - ${BAR_TITLE_LIFT}px)` }}
           >
             {title}
           </div>
@@ -340,6 +359,13 @@ export default function HexBar({
             `translate` a percentage is the element's own width - which the
             readout changes between "0%" and "100%" - and this tracks it
             without a resize observer.
+
+            Laid down it is the same expression twice, once per end, with the
+            resting -50% in the middle: min() gives up the centring only as far
+            as the far bound demands, max() then does the same against the near
+            one. Where the pill already fits neither bites and the handle does
+            not move at all, which is what keeps every width at or above the
+            standing layout's byte-identical.
           */}
           <div
             id={`${axis}-handle`}
@@ -351,7 +377,13 @@ export default function HexBar({
                   top: pos,
                   translate: pillGutter ? `min(0px, calc(${pillGutter} - 100%)) -50%` : '0 -50%',
                 }
-              : { left: pos, top: '100%', translate: '-50% 0' }}
+              : {
+                  left: pos,
+                  top: '100%',
+                  translate: pillGutter && pillGutterStart
+                    ? `max(calc(0px - ${pillGutterStart}), min(-50%, calc(${pillGutter} - 100%))) 0`
+                    : '-50% 0',
+                }}
             onPointerDown={(e) => grab(e, onGrab)}
           >
             <div

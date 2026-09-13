@@ -18,6 +18,7 @@ import {
   BAR_TRACK, BL_BAR_X, BL_BAR_TOP, BL_BAR_SPAN, BL_PILL_OVERHANG,
   SAT_BAR_LEFT, SAT_BAR_TOP, SAT_BAR_SPAN, DISPLAY_HEIGHT_SAT, STAGE_TOP_CROP,
   HUE_LABEL_OFFSET, HEX_STACKED_BARS_MAX, BL_BAR_TOP_H, BAR_PILL_DROP, DISPLAY_HEIGHT_STACKED,
+  SAT_TITLE_LETTER_PX, SAT_TITLE_LETTER_SPAN,
   hexEdgeDist, shapePoints, colorAtPoint, getOrder, shapeLimitScale,
 } from './hex/hexConstants';
 import HexCanvas from './hex/HexCanvas';
@@ -1021,8 +1022,9 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
    * Built here rather than in HexBar because only the host knows which model is
    * live, and the two ends of each track are the same two colours the colour
    * editor's own sliders run between - so the controls agree by construction
-   * rather than by eye. HexBar takes a finished CSS gradient and stays
-   * colour-agnostic.
+   * rather than by eye. What the host hands over is the stops alone, written
+   * from 0 to 100; which way that runs on screen is the bar's own affair, and
+   * a host that decided it got the answer wrong the moment the bar turned.
    */
   const dsp = useCallback((h: number, s: number, b: number) => {
     const c = hsbToDisplay(h, s, b, colorSpace);
@@ -1036,12 +1038,12 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   }, [colorSpace]);
 
   const blValue = blMode === 'brightness' ? brightness : (hsl?.l ?? 50);
-  const blGradient = blMode === 'brightness'
-    ? `linear-gradient(to bottom, ${dsp(hue, saturation, 100)}, #000)`
-    : `linear-gradient(to bottom, #fff, ${dsp(hue, 100, 100)} 50%, #000)`;
-  const satGradient = blMode === 'brightness'
-    ? `linear-gradient(to right, ${dsp(hue, 0, brightness)}, ${dsp(hue, 100, brightness)})`
-    : `linear-gradient(to right, ${dspHsl(hue, 0, hsl?.l ?? 50)}, ${dspHsl(hue, 100, hsl?.l ?? 50)})`;
+  const blStops = blMode === 'brightness'
+    ? `#000, ${dsp(hue, saturation, 100)}`
+    : `#000, ${dsp(hue, 100, 100)} 50%, #fff`;
+  const satStops = blMode === 'brightness'
+    ? `${dsp(hue, 0, brightness)}, ${dsp(hue, 100, brightness)}`
+    : `${dspHsl(hue, 0, hsl?.l ?? 50)}, ${dspHsl(hue, 100, hsl?.l ?? 50)}`;
 
   // The pill is the colour itself, so it reads HSB whichever model the number
   // beside it is quoting.
@@ -1053,6 +1055,34 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   const u = (n: number) => `calc(${unit} * ${n})`;
   /** A stage-unit x as a percentage of the stage's width. */
   const pct = (x: number) => `${(x / EXTENT) * 100}%`;
+
+  /**
+   * Extra room under the field while the bars are stacked, in px.
+   *
+   * The axis title's lift and the vertex letters' descent are both fixed text
+   * chrome; the units between them are not, so below a certain card the word
+   * "Saturation" lands across the B and M letters. The shortfall is added in
+   * px - see SAT_TITLE_LETTER_SPAN - which is nothing where it already fits
+   * and so leaves the standing layout alone. Everything under the field takes
+   * it, so the two bars keep the spacing they have between them.
+   */
+  const satTitleDrop = `max(0px, calc(${SAT_TITLE_LETTER_PX}px - ${u(SAT_TITLE_LETTER_SPAN)}))`;
+  /**
+   * The room a horizontal bar's pill has either side of its anchor, in stage
+   * units.
+   *
+   * The standing bar's gutter is one fixed number because its pill hangs off
+   * the track's far edge. Laid down the pill is centred on an anchor that runs
+   * along the track, so each bound is the track's own remainder plus whatever
+   * the stage keeps outside it - and the stage's edges are the card's content
+   * box at these widths, which is where the pill has to stop.
+   */
+  const hPillGutter = (v: number) => ({
+    start: u(SAT_BAR_LEFT + (v / 100) * SAT_BAR_SPAN),
+    end: u(EXTENT - SAT_BAR_LEFT - SAT_BAR_SPAN + (1 - v / 100) * SAT_BAR_SPAN),
+  });
+  const satGutter = hPillGutter(satValue);
+  const blGutter = hPillGutter(blValue);
 
   return (
     <div
@@ -1232,7 +1262,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           maxWidth: EXTENT,
           aspectRatio: `${EXTENT} / ${stageHeight}`,
           containerType: 'inline-size',
-          ...(stacked ? { marginBottom: BAR_PILL_DROP } : null),
+          ...(stacked ? { marginBottom: `calc(${BAR_PILL_DROP}px + ${satTitleDrop})` } : null),
         }}
       >
       {/* The field's own box, pinned to the stage's top and pulled up by the
@@ -1696,6 +1726,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           at={{ left: pct(hueLabel.x), top: u(hueLabel.y - topCrop) }}
           onMouseDown={handleHueDragStart}
           lit={hueBadgeLit}
+          caption={!stacked}
         />
       )}
 
@@ -1714,7 +1745,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           axis="bl"
           value={blValue}
           title={blMode === 'brightness' ? 'Brightness' : 'Lightness'}
-          gradient={blGradient}
+          stops={blStops}
           swatch={pillSwatch}
           swatchText={pillText}
           unit={unit}
@@ -1722,12 +1753,13 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           lit={blBarLit}
           // The pill is anchored to the track's outboard edge, so the room it
           // has is the stage's remaining width plus the card's own padding.
-          pillGutter={stacked ? undefined : `calc(${u(EXTENT - BL_BAR_X - BAR_TRACK)} + ${BL_PILL_OVERHANG}px)`}
+          pillGutter={stacked ? blGutter.end : `calc(${u(EXTENT - BL_BAR_X - BAR_TRACK)} + ${BL_PILL_OVERHANG}px)`}
+          pillGutterStart={stacked ? blGutter.start : undefined}
           style={stacked ? {
             left: pct(SAT_BAR_LEFT),
             // The px are the saturation pill's, which drops out of the stage's
             // units and would otherwise land on this bar's title.
-            top: `calc(${u(BL_BAR_TOP_H - topCrop)} + ${BAR_PILL_DROP}px)`,
+            top: `calc(${u(BL_BAR_TOP_H - topCrop)} + ${BAR_PILL_DROP}px + ${satTitleDrop})`,
             width: pct(SAT_BAR_SPAN),
             height: u(BAR_TRACK),
           } : {
@@ -1754,14 +1786,16 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           axis="sat"
           value={satValue}
           title="Saturation"
-          gradient={satGradient}
+          stops={satStops}
           swatch={pillSwatch}
           swatchText={pillText}
           unit={unit}
           lit={satBarLit}
+          pillGutter={satGutter.end}
+          pillGutterStart={satGutter.start}
           style={{
             left: pct(SAT_BAR_LEFT),
-            top: u(SAT_BAR_TOP - topCrop),
+            top: stacked ? `calc(${u(SAT_BAR_TOP - topCrop)} + ${satTitleDrop})` : u(SAT_BAR_TOP - topCrop),
             width: pct(SAT_BAR_SPAN),
             height: u(BAR_TRACK),
           }}
