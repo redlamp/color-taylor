@@ -302,7 +302,7 @@ function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }: Equat
             const lowHex = hex[1].toUpperCase();
             return (
               <span key={k}>
-                {letter}: {pad(rgb[k])}/16 = <b>{pad2(high)}</b> ({highHex}) rem <b>{pad2(low)}</b> ({lowHex}) → <span className="font-semibold" style={{ color: channelColor }}>{highHex}{lowHex}</span>
+                {letter}: {pad(rgb[k])}/16 = {pad2(high)} (<b>{highHex}</b>) rem {pad2(low)} (<b>{lowHex}</b>) → <b style={{ color: channelColor }}>{highHex}{lowHex}</b>
               </span>
             );
           })}
