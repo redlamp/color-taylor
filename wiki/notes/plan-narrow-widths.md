@@ -28,8 +28,16 @@ Each stage should key on the card's own width (a container query), not the viewp
 7. **The HSB / HSL toggle moves to a second row** from the hexagon's header.
 8. **When the card is narrower than the hexagon needs, the vertical brightness bar becomes a horizontal slider**, matching the saturation bar and sitting below it.
 
+## Built
+
+- Stages 1 and 2: PR #108. Editor card content below 296px splits the toolbar; below 230px the swatch stacks above the SB box.
+- Stages 7 and 8: PR #110, on the bar refactor (#109, [[decision-hex-bars-outside-the-svg]]). Hexagon card content below 214px wraps the toggle; below 350px the brightness bar lies down under the saturation bar (350 rather than the geometric 468 so the two-column card at an 800px viewport, 353.98, keeps four pixels of margin).
+- Stages 5 and 6: PR #111. Rows halve where an N-across cell is square (24 down to a 906px panel, 12 down to 450, six below); the header actions take a second row below 402 (Saved) and 204 (Recent). By the rule, viewports 800–1015 now show 12 across. The Saved ceiling is 72 in the app (three banks of 24), not the 36 [[decision-saved-grows-in-banks]] reads as at first glance; the reflow does not touch capacity.
+
 ## Open
 
+- Below about 260px of hexagon card: the horizontal value pills hang past the card's right edge at 100% (the vertical pill's clamp does not apply to them), "Hue" sits over the field, and "Saturation" runs over the M letter. A follow-up to stage 8.
+- Stages 3 and 4 (steppers off, search and tags below) are not started.
 - Where each stage switches. The widths are to be measured, not chosen; see the breakpoint measurement on `fix/column-breakpoint`.
 - Order, Taylor's call: the two-column breakpoint moves first, then the stages in the order above.
 - The two-column breakpoint moved first: 900 → **800px**, measured on `fix/column-breakpoint`. What stops it going lower is the hexagon, stages 7 and 8: the hue badge and the brightness pill collide at 794px because they are fixed-size chrome on a shrinking hexagon. So the remaining stages are what buy any width below 800, not the breakpoint.
