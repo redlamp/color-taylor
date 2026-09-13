@@ -2,6 +2,7 @@ import { describe, test, expect } from 'bun:test';
 import { converter } from 'culori';
 import {
   rgbToHsb, hsbToRgb, rgbToHsl, hslToRgb, srgbToLinear, linearToSrgb, rgbToHex, hexToRgb,
+  hexDigits, normalizedChannel,
 } from './colorConversions';
 
 /*
@@ -95,6 +96,35 @@ describe('hex', () => {
     expect(hexToRgb('2b6fd6')).toEqual({ r: 0x2b, g: 0x6f, b: 0xd6 });
     expect(hexToRgb('#12345')).toBeNull();
     expect(hexToRgb('nope')).toBeNull();
+  });
+});
+
+describe('the equations panel helpers', () => {
+  test('splits a channel into digits whose sum is the channel back', () => {
+    expect(hexDigits(0)).toEqual({ high: 0, low: 0, hex: '00' });
+    expect(hexDigits(10)).toEqual({ high: 0, low: 10, hex: '0a' });
+    expect(hexDigits(79)).toEqual({ high: 4, low: 15, hex: '4f' });
+    expect(hexDigits(255)).toEqual({ high: 15, low: 15, hex: 'ff' });
+    for (let v = 0; v <= 255; v++) {
+      const { high, low } = hexDigits(v);
+      expect(high * 16 + low).toBe(v);
+    }
+  });
+  // The panel prints the digits and the answer from two sources, so the two
+  // have to agree with rgbToHex or a line would contradict the line under it.
+  test('digit pairs concatenate to the string rgbToHex gives', () => {
+    for (const [, r, g, b] of LANDMARKS) {
+      const joined = '#' + hexDigits(r).hex + hexDigits(g).hex + hexDigits(b).hex;
+      expect(joined).toBe(rgbToHex(r, g, b));
+    }
+  });
+  test('normalizes to three fixed decimals', () => {
+    expect(normalizedChannel(0)).toBe('0.000');
+    expect(normalizedChannel(10)).toBe('0.039');
+    expect(normalizedChannel(79)).toBe('0.310');
+    expect(normalizedChannel(255)).toBe('1.000');
+    // The reason for the third decimal: two would print both of these as 0.31.
+    expect(normalizedChannel(79)).not.toBe(normalizedChannel(80));
   });
 });
 
