@@ -125,8 +125,18 @@ function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }: Equat
     );
   });
 
+  /*
+   * The cells stack wherever the picker is one column, and share a row only
+   * where it is two - so the row rule is the same `min-[800px]` the top row and
+   * the two col-span-2 panels below it use, not a breakpoint of its own.
+   *
+   * It used to be `sm:`, a 640px viewport. That put four cells across a panel
+   * that is 552px wide at a 640px window and every one of them wrapped, and it
+   * left a 160px stretch (640-799) where the picker had already gone to one
+   * column but the equations had not.
+   */
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-[1.1fr_1.2fr_1fr_0.75fr] gap-2 w-full text-sm font-mono text-muted-foreground">
+    <div className="grid grid-cols-1 min-[800px]:grid-cols-[1.1fr_1.2fr_1fr_0.75fr] gap-2 w-full text-sm font-mono text-muted-foreground">
       <div className="flex flex-col gap-1 border border-border rounded-lg p-1.5 min-w-0">
         <span className="text-sm font-semibold font-sans text-foreground">Variables</span>
         <hr className="border-border" />
