@@ -55,7 +55,12 @@ function T({ color, title, bold, children }: { color: string; title: string; bol
  * the one thing worth grabbing straight from the equation. "Copied" swaps in
  * for the text rather than appearing beside it, so the row never reflows.
  */
-function CopyableResult({ text }: { text: string }) {
+/**
+ * A result worn as a chip of the colour itself, the way the Variables cell's
+ * "Color" label is, so the two derived spellings read as the same thing as
+ * the swatch. The chip carries the affordance, so no underline.
+ */
+function CopyableResult({ text, color }: { text: string; color: string }) {
   const [copied, setCopied] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -79,8 +84,8 @@ function CopyableResult({ text }: { text: string }) {
         onClick={handleClick}
         title="Copy"
         aria-label={`Copy ${text}`}
-        className={`${RESULT_CLASS} inline cursor-pointer border-0 bg-transparent p-0 m-0 outline-none rounded-sm focus-visible:ring-2 focus-visible:ring-ring/50`}
-        style={RESULT_STYLE}
+        className="inline cursor-pointer border-0 m-0 rounded px-1.5 py-0.5 font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+        style={{ backgroundColor: color, color: textOnColor(color) }}
       >
         {copied ? 'Copied' : text}
       </button>
@@ -280,7 +285,7 @@ function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }: Equat
         <div id="equations-hex" className="flex flex-col gap-1 border border-border rounded-lg p-1.5 min-w-0">
           <Row
             left={<span className="text-sm font-semibold font-sans text-foreground" title="Hexadecimal: each channel written as two base-16 digits">Hex</span>}
-            right={<CopyableResult text={hexValue} />}
+            right={<CopyableResult text={hexValue} color={hexValue} />}
           />
           <hr className="border-border" />
           {/*
@@ -304,7 +309,7 @@ function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }: Equat
         <div className="flex flex-col gap-1 border border-border rounded-lg p-1.5 min-w-0">
           <Row
             left={<span className="text-sm font-semibold font-sans text-foreground" title="Normalized RGB: each channel over 255, 0 to 1 - copied as CSS color(srgb …)">Normalized</span>}
-            right={<CopyableResult text={normalizedValue} />}
+            right={<CopyableResult text={normalizedValue} color={hexValue} />}
           />
           <hr className="border-border" />
           <span>{R}: {pad(rgb.r)}/255 = <span className="text-foreground font-semibold">{normalizedChannel(rgb.r)}</span></span>
