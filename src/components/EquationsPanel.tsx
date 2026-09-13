@@ -1,5 +1,5 @@
 import { memo, type CSSProperties, type ReactNode } from 'react';
-import { rgbToHex, type RGB, type HSL } from '../utils/colorConversions';
+import { rgbToHex, hexDigits, normalizedChannel, type RGB, type HSL } from '../utils/colorConversions';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { useTheme } from '../hooks/useTheme';
 
@@ -88,6 +88,9 @@ function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }: Equat
   const chColor = (key: 'r' | 'g' | 'b') => key === 'r' ? rc : key === 'g' ? gc : bc;
 
   const pad = (v: number | string) => String(v).padStart(3, '\u2007');
+  // A hex digit is never wider than 15, so the hex rows get their own width and
+  // the arrows still line up under one another.
+  const pad2 = (v: number | string) => String(v).padStart(2, '\u2007');
   const R = <T color={rc} title="Red channel">R</T>;
   const G = <T color={gc} title="Green channel">G</T>;
   const B_ = <T color={bc} title="Blue channel">B</T>;
@@ -212,6 +215,38 @@ function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }: Equat
             <span>{Lv}: <span className="text-foreground font-bold">{pad(Math.round(l))}</span>/255 = <span className={RESULT_CLASS} style={RESULT_STYLE}>{hsl?.l ?? 0}%</span></span>
           </>
         )}
+      </div>
+      {/*
+       * Two equal cells, not two of the four columns: the top row's track sizes
+       * are 1.1/1.2/1/0.75, so a pair of col-span-2 cells would come out 2.3fr
+       * against 1.75fr. A nested grid spanning the whole row splits it evenly
+       * and, because it carries the same gap-2, the gutter between these two is
+       * the one between the four above. Below 800 both grids are one column, so
+       * the six cells stack as one list with that same gap.
+       */}
+      <div className="col-span-full grid grid-cols-1 min-[800px]:grid-cols-2 gap-2">
+        <div className="flex flex-col gap-1 border border-border rounded-lg p-1.5 min-w-0">
+          <span className="text-sm font-semibold font-sans text-foreground" title="Hexadecimal: each channel written as two base-16 digits">Hex</span>
+          <hr className="border-border" />
+          {/*
+           * The split is spelled in decimal on both sides - 15·16 + 15, not
+           * F·16 + F - because the point of the line is that the arithmetic
+           * checks out, and only one of those two reads as a sum.
+           */}
+          <span>{R}: {pad(rgb.r)} = {pad2(hexDigits(rgb.r).high)}·16 + {pad2(hexDigits(rgb.r).low)} → <span className="text-foreground font-semibold">{hexDigits(rgb.r).hex.toUpperCase()}</span></span>
+          <span>{G}: {pad(rgb.g)} = {pad2(hexDigits(rgb.g).high)}·16 + {pad2(hexDigits(rgb.g).low)} → <span className="text-foreground font-semibold">{hexDigits(rgb.g).hex.toUpperCase()}</span></span>
+          <span>{B_}: {pad(rgb.b)} = {pad2(hexDigits(rgb.b).high)}·16 + {pad2(hexDigits(rgb.b).low)} → <span className="text-foreground font-semibold">{hexDigits(rgb.b).hex.toUpperCase()}</span></span>
+          {/* Through rgbToHex so the answer cannot drift from the one the rest of the app shows. */}
+          <span className={RESULT_CLASS} style={RESULT_STYLE}>{rgbToHex(rgb.r, rgb.g, rgb.b).toUpperCase()}</span>
+        </div>
+        <div className="flex flex-col gap-1 border border-border rounded-lg p-1.5 min-w-0">
+          <span className="text-sm font-semibold font-sans text-foreground" title="Normalized RGB: each channel over 255, 0 to 1">Normalized</span>
+          <hr className="border-border" />
+          <span>{R}: {pad(rgb.r)}/255 = <span className="text-foreground font-semibold">{normalizedChannel(rgb.r)}</span></span>
+          <span>{G}: {pad(rgb.g)}/255 = <span className="text-foreground font-semibold">{normalizedChannel(rgb.g)}</span></span>
+          <span>{B_}: {pad(rgb.b)}/255 = <span className="text-foreground font-semibold">{normalizedChannel(rgb.b)}</span></span>
+          <span className={RESULT_CLASS} style={RESULT_STYLE}>rgb({normalizedChannel(rgb.r)}, {normalizedChannel(rgb.g)}, {normalizedChannel(rgb.b)})</span>
+        </div>
       </div>
     </div>
   );
