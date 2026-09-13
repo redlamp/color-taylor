@@ -34,8 +34,13 @@ Ownership: `src/components` and `App.tsx` are the app session's; `src/demo`, `pu
 3. In production, does the full transport show (timeline, scrub, time readout) or a minimal play/pause and progress? Notes and the clip editor stay dev either way.
 4. When the presentation ends, what does the visitor see: the About panel, as the cut's last frame has it, or the picker?
 
-## Questions for the presentation side
+## Agreed with the presentation side (2026-09-13)
 
-1. Will `PresentationMode` and `CameraPip` take a host-created, already-playing `HTMLAudioElement` / `HTMLVideoElement` as props (proposal 4)?
-2. Is a `src/demo/currentCut.ts` constant acceptable as the one place the shipping cut is named?
-3. The `import.meta.env.DEV` guard inside `PresentationMode` is theirs to drop; the one in `ColorPicker.presentName()` is ours.
+Their `src/demo` API, to be built on `prez/cut-03` this week; plan against these names now:
+
+1. `PresentationMode` takes `voice?: HTMLAudioElement` and `CameraPip` takes `webcam?: HTMLVideoElement`. When given, the component adopts the host's element, playing or not, instead of creating its own; clock, drift nudge and seek are unchanged. This is what lets the About button call `play()` synchronously in its click handler.
+2. `src/demo/currentCut.ts` exports the shipping cut id (`'cut-03'`), and is the one place it is named.
+3. `PresentationMode` takes `mode: 'dev' | 'production'`. Production is a reduced transport: play/pause, scrub, time; no notes, no clear, no collapse key. They drop the `import.meta.env.DEV` guard inside `PresentationMode` at the same time; the guard in `ColorPicker.presentName()` is ours to drop.
+4. `?present=<cut>` ships in production, mounted paused with the reduced transport up. `?script=`, the notes endpoint and the clip editor stay dev-only.
+
+Stable ids in `SwatchLibrary.tsx` for the runner, on `prez/cut-03` at `2875bce`: `#recent-clear`, `#recent-grid`, `#saved-grid` (and the existing `#swatches-group-trigger`, `#recent-colors-trigger`). [[plan-narrow-widths]] stages 5 and 6 touch that file; cherry-pick `2875bce` onto their branch first so the two do not conflict.
