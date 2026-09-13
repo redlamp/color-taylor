@@ -461,15 +461,30 @@ ghost cursor, so every gesture goes through the real controls. Dev builds only
   flight in from below the fold. A position outlives the component that had it,
   which is what makes that possible.
 - Under `?script=` and `?present=` the app also mounts the camera panel
-  (`src/demo/CameraPip.tsx`): a fixed 399x362 box in the bottom-right corner
-  with a 12 px radius, matching the OBS picture-in-picture, at a 20 px bottom
-  margin. Its home `left` is computed at mount and on resize so the gap
-  between the app frame's right edge (`#color-editor-group`) and the panel
-  equals the gap between the panel and the display's right edge, falling back
-  to the old 20 px right margin when the viewport leaves less than 8 px of
-  gap on each side. It shows the webcam where `getUserMedia` is allowed and a
-  dark plate with a camera glyph where it is not. The `pip` action drags it
-  off screen and back.
+  (`src/demo/CameraPip.tsx`): a fixed **400x400** box in the bottom-right
+  corner with a 12 px radius, matching the OBS picture-in-picture, at a 20 px
+  bottom margin. It is square, and the footage is cut square to match — a
+  1080x1080 window out of the 1920x1080 take. Its home `left` is computed at
+  mount and on resize so the gap between the app frame's right edge
+  (`#color-editor-group`) and the panel equals the gap between the panel and
+  the display's right edge, falling back to the old 20 px right margin when the
+  viewport leaves less than 8 px of gap on each side. It shows the webcam where
+  `getUserMedia` is allowed and a dark plate with a camera glyph where it is
+  not. The `pip` action drags it off screen and back, reading the panel's live
+  box rather than its size constants, so a change of geometry needs nothing
+  here.
+- Under `?present=<cut>` it plays the cut's own footage instead: **one
+  continuous file for the whole cut** (`scripts/pip/<cut>/full.mp4`, cut by
+  redlamp-videos `tools/takes/cut-pip-clips.mjs`), the take where the panel is
+  on screen and black frames for the middle, where it has been dragged off the
+  edge. One file means the `<video>`'s `src` is written once and never again,
+  which is what the pop at a span change used to be. `scripts/<cut>-pip.json`
+  is the manifest and the rule is
+  `video.currentTime = t - cutStart + clipOffset`, read every frame off
+  presentation mode's `<audio>`. While it plays, drift past 40 ms is taken out
+  by running the file at 0.98 or 1.02 until it is inside 20 ms — a `currentTime`
+  write mid-play restarts the decoder and shows as a stutter — and a pause or a
+  scrub still lands on the exact frame.
 
 The JSON is `{ "actions": [ { "at": 9.1, "do": "rest", "target": "help-button" }, ... ] }`.
 

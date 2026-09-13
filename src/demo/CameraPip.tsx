@@ -1,7 +1,7 @@
 /**
  * The presenter's camera, as the picture-in-picture panel the recording has.
  *
- * A fixed box in the bottom-right corner, the same 399x362 at a 20px margin
+ * A fixed box in the bottom-right corner, the same 400x400 at a 20px margin
  * with a 12px radius that the OBS scene uses, so what the script drags around
  * lines up with what the camera is composited into afterwards. It shows the
  * camera footage of the cut where there is any (see below), the webcam where
@@ -9,24 +9,23 @@
  * not - the placeholder is not a fallback, it is what the take is recorded
  * against when the real camera is on the OBS side.
  *
- * Under `?present=<cut>` the panel plays the take instead: the beats that have
- * Taylor on camera - the intro and the wrap - are cut into one continuous
- * video per beat by redlamp-videos `tools/takes/cut-pip-clips.mjs`, and
- * `scripts/<cut>-pip.json` says where each one belongs in the cut. That is
- * what makes those beats watchable in context; between them the panel is
- * dragged off the right edge anyway, so nothing is cut for the middle of the
- * video. Where the manifest is missing, or the cut is being played on the
- * page's own clock under `?script=`, the webcam and the plate stand in as
+ * Under `?present=<cut>` the panel plays the take instead: redlamp-videos
+ * `tools/takes/cut-pip-clips.mjs` cuts **one continuous video for the whole
+ * cut** - the footage where the panel is on screen, and black frames for the
+ * middle, where the panel has been dragged off the right edge anyway - and
+ * `scripts/<cut>-pip.json` says where it belongs. One file covering the whole
+ * track means the element's `src` is written once, at mount, and never again:
+ * every `src` write is a visible pop, because the element blanks while the new
+ * file decodes. Where the manifest is missing, or the cut is being played on
+ * the page's own clock under `?script=`, the webcam and the plate stand in as
  * before.
  *
- * One file per beat rather than per line, and two `<video>` elements rather
- * than one, because every `src` write is a visible pop: the element blanks
- * while the new file is decoded. So the element that is on screen never has
- * its `src` touched. The span it is playing runs the whole beat - the lines
- * and the silences between them - and the other element sits hidden with the
- * *next* span loaded and seeked to its first frame, so the change of span is a
- * change of which one is opaque. The one that just went hidden then takes the
- * span after that.
+ * The two `<video>` elements are still here because the tool's `--multi-span`
+ * mode writes one file per beat and the panel still plays those: the element
+ * on screen never has its `src` touched, the other sits hidden with the *next*
+ * span loaded and seeked to its first frame, so the change of span is a change
+ * of which one is opaque. With the single file there is only ever one entry,
+ * so the second element never gets pointed at anything.
  *
  * Mounted only under `?script=` or `?present=` (dev), so nothing about it
  * reaches the app. It moves by `transform` alone, written by the script
@@ -39,9 +38,9 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Video } from 'lucide-react';
 
-/** The OBS picture-in-picture box, to the pixel. */
-export const PIP_WIDTH = 399;
-export const PIP_HEIGHT = 362;
+/** The OBS picture-in-picture box, to the pixel. Square since round 8. */
+export const PIP_WIDTH = 400;
+export const PIP_HEIGHT = 400;
 export const PIP_MARGIN = 20;
 export const PIP_RADIUS = 12;
 
@@ -70,6 +69,22 @@ const DRIFT = 0.04;
  * the exact frame, because nothing after it is going to move.
  */
 const EXACT = 1 / 120;
+
+/**
+ * How the drift is taken out while the picture is playing: not by a seek, which
+ * restarts the decoder and shows as a stutter, but by running the file 2 % fast
+ * or slow until it has caught up. 2 % of a second is 20 ms, so the 40 ms the
+ * threshold allows is gone inside two seconds, and a 2 % pitch-free speed
+ * change on a silent video is nothing anyone can see.
+ */
+const NUDGE = 0.02;
+/** And back to 1 once the gap is inside 20 ms, which gives the threshold its hysteresis. */
+const SETTLE = 0.02;
+/**
+ * Past this the nudge would take minutes, so it is a seek even while playing: a
+ * scrub that lands mid-play, or an element that has just been pointed at a file.
+ */
+const JUMP = 0.5;
 
 /** Read the URL once, the way presentation mode does. Dev builds only. */
 function presentName(): string | null {
@@ -278,10 +293,22 @@ export default function CameraPip() {
           : clip.cutEnd - clip.cutStart + clip.clipOffset;
       const playing = inside && !audio.paused && !audio.ended;
       const at = Math.max(0, v.duration ? Math.min(want, v.duration - 1 / 120) : want);
-      // Playing, only a gap wide enough to be a seek rather than a decoder a
-      // frame or two behind: correcting every frame is a stutter of its own.
-      // Paused or scrubbed, exactly - the frame on screen is the whole picture.
-      if (v.readyState >= 1 && Math.abs(v.currentTime - at) > (playing ? DRIFT : EXACT)) v.currentTime = at;
+      // Playing, the gap is taken out by running the file a couple of per cent
+      // off speed until it closes - a seek mid-play restarts the decoder, which
+      // is the stutter this is here to avoid - and only a gap too wide to nudge
+      // out is still a seek. Paused or scrubbed, exactly, and at speed 1: the
+      // frame on screen is the whole picture and nothing after it is moving.
+      if (v.readyState >= 1) {
+        const off = v.currentTime - at;
+        if (playing) {
+          if (Math.abs(off) > JUMP) { v.currentTime = at; v.playbackRate = 1; }
+          else if (Math.abs(off) > DRIFT) v.playbackRate = off > 0 ? 1 - NUDGE : 1 + NUDGE;
+          else if (Math.abs(off) <= SETTLE && v.playbackRate !== 1) v.playbackRate = 1;
+        } else {
+          if (v.playbackRate !== 1) v.playbackRate = 1;
+          if (Math.abs(off) > EXACT) v.currentTime = at;
+        }
+      }
       if (playing && v.paused) v.play().catch(() => { /* seeking, or not decodable yet */ });
       else if (!playing && !v.paused) v.pause();
       if (v.readyState >= 2) { ready = true; setDecoded(true); }

@@ -2,17 +2,20 @@
   "note": "Camera footage for the picture-in-picture panel, cut by tools/takes/cut-pip-clips.mjs from masters/the take. video.currentTime = t - cutStart + clipOffset, with t the second of the cut. Files are under public/scripts/. Re-run the tool after every join.",
   "source": "masters/cut-02.m4a",
   "panel": {
-    "width": 399,
-    "height": 362,
+    "width": 400,
+    "height": 400,
     "crop": {
-      "w": 1188,
+      "w": 1080,
       "h": 1080,
-      "x": 450,
+      "x": 504,
       "y": 0
     },
     "encoded": {
-      "width": 798,
-      "height": 724
+      "width": 480,
+      "height": 480,
+      "fps": 30,
+      "gop": 15,
+      "crf": 24
     }
   },
   "handle": 0.3,
@@ -132,7 +135,7 @@
     "black": {
       "p1": [
         7,
-        6,
+        7,
         7,
         7,
         7
@@ -145,12 +148,24 @@
   "xfade": 0,
   "spans": [
     {
-      "id": "intro",
-      "file": "pip/cut-02/intro.mp4",
+      "id": "full",
+      "file": "pip/cut-02/full.mp4",
       "cutStart": 0,
-      "cutEnd": 12.155,
+      "cutEnd": 199.52,
       "clipOffset": 0,
-      "duration": 12.166667,
+      "duration": 199.533333,
+      "parts": [
+        {
+          "id": "intro",
+          "cutStart": 0,
+          "cutEnd": 12.155
+        },
+        {
+          "id": "outro",
+          "cutStart": 177.33,
+          "cutEnd": 199.52
+        }
+      ],
       "lines": [
         {
           "id": "1.1",
@@ -181,17 +196,7 @@
           "cutStart": 9.565,
           "cutEnd": 11.855,
           "text": "I'll just move myself out of the way."
-        }
-      ]
-    },
-    {
-      "id": "outro",
-      "file": "pip/cut-02/outro.mp4",
-      "cutStart": 177.33,
-      "cutEnd": 199.52,
-      "clipOffset": 0,
-      "duration": 22.2,
-      "lines": [
+        },
         {
           "id": "10.1",
           "cutStart": 177.63,
