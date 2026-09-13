@@ -100,12 +100,68 @@ test.describe('Welcome panel', () => {
     await page.goto('/');
     await page.locator('#demo-button').click();
     await expect(panel(page)).toBeVisible();
-    // Order matters: the two things to watch, then the way out.
-    await expect(panel(page).locator('button')).toHaveText(['Demo', 'Presentation', 'Get Started']);
+    // Order matters: the way out on its own row, then the two things to
+    // watch on the row below it.
+    await expect(panel(page).locator('button')).toHaveText(['Get Started', 'Demo', 'Presentation']);
     const ids = await panel(page).locator('button').evaluateAll((els) => els.map((e) => e.id));
-    expect(ids).toEqual(['about-watch-demo', 'about-presentation', 'about-close']);
+    expect(ids).toEqual(['about-close', 'about-watch-demo', 'about-presentation']);
     await expect(panel(page)).toContainText('40 seconds');
     await expect(panel(page)).toContainText('four minutes');
+  });
+
+  test('Get Started spans row one; Demo and Presentation split row two evenly', async ({ page }) => {
+    await page.setViewportSize({ width: 1376, height: 868 });
+    await page.goto('/');
+    await page.locator('#demo-button').click();
+    await expect(panel(page)).toBeVisible();
+    // The card zooms in over 200ms; measuring mid-animation reads a scaled,
+    // not final, width.
+    await page.waitForTimeout(300);
+
+    const getStarted = await panel(page).locator('#about-close').boundingBox();
+    const demo = await panel(page).locator('#about-watch-demo').boundingBox();
+    const presentation = await panel(page).locator('#about-presentation').boundingBox();
+    if (!getStarted || !demo || !presentation) throw new Error('missing bounding box');
+
+    const gap = presentation.x - (demo.x + demo.width);
+    expect(Math.abs(getStarted.width - (demo.width + gap + presentation.width))).toBeLessThan(1.5);
+    expect(Math.abs(demo.width - presentation.width)).toBeLessThan(1.5);
+    expect(Math.abs(demo.y - presentation.y)).toBeLessThan(1.5);
+  });
+
+  // A "phone" width is always below the 900px gate (sm itself is 640), so
+  // Presentation is never offered here - the stacking this checks is the
+  // Get Started / Demo arrangement, which is all a phone ever sees.
+  test('Get Started and Demo stack full width on a phone, Get Started first', async ({ page }) => {
+    await page.setViewportSize({ width: 400, height: 800 });
+    await page.goto('/');
+    await page.locator('#demo-button').click();
+    await expect(panel(page)).toBeVisible();
+    await page.waitForTimeout(300);
+
+    const buttons = panel(page).locator('button');
+    await expect(buttons).toHaveText(['Get Started', 'Demo']);
+    const getStarted = await panel(page).locator('#about-close').boundingBox();
+    const demo = await panel(page).locator('#about-watch-demo').boundingBox();
+    if (!getStarted || !demo) throw new Error('missing bounding box');
+
+    expect(Math.abs(getStarted.width - demo.width)).toBeLessThan(1.5);
+    // Stacked: Demo's row below Get Started's.
+    expect(demo.y).toBeGreaterThan(getStarted.y);
+  });
+
+  test('gated at 880px, Demo alone fills row two at Get Started\'s width', async ({ page }) => {
+    await page.setViewportSize({ width: 880, height: 860 });
+    await page.goto('/');
+    await page.locator('#demo-button').click();
+    await expect(panel(page)).toBeVisible();
+    await expect(panel(page).locator('#about-presentation')).toHaveCount(0);
+    await page.waitForTimeout(300);
+
+    const getStarted = await panel(page).locator('#about-close').boundingBox();
+    const demo = await panel(page).locator('#about-watch-demo').boundingBox();
+    if (!getStarted || !demo) throw new Error('missing bounding box');
+    expect(Math.abs(getStarted.width - demo.width)).toBeLessThan(1.5);
   });
 
   test('the presentation entry is gated at 900px, live', async ({ page }) => {
