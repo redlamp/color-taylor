@@ -192,7 +192,7 @@ export default function SBBox({ hue, saturation, brightness, onChange, blMode = 
         id="sb-sat-title"
         ref={satLabelRef}
         className={AXIS_LABEL_CLASS}
-        style={{ top: 4, left: '50%', translate: '-50% 0', opacity: AXIS_LABEL_SHOWN_OPACITY, textShadow: '0 0 3px rgb(0 0 0 / .7)' }}
+        style={{ bottom: 4, right: 4, opacity: AXIS_LABEL_SHOWN_OPACITY, textShadow: '0 0 3px rgb(0 0 0 / .7)' }}
       >
         Saturation
       </div>
@@ -208,7 +208,7 @@ export default function SBBox({ hue, saturation, brightness, onChange, blMode = 
         id="sb-bl-title"
         ref={blLabelRef}
         className={`${AXIS_LABEL_CLASS} rotate-180 [writing-mode:vertical-rl]`}
-        style={{ top: '50%', left: 4, translate: '0 -50%', opacity: AXIS_LABEL_SHOWN_OPACITY, textShadow: '0 0 3px rgb(0 0 0 / .7)' }}
+        style={{ bottom: 4, left: 4, opacity: AXIS_LABEL_SHOWN_OPACITY, textShadow: '0 0 3px rgb(0 0 0 / .7)' }}
       >
         {blMode === 'lightness' ? 'Lightness' : 'Brightness'}
       </div>
