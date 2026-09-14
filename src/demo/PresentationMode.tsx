@@ -242,6 +242,15 @@ export default function PresentationMode({
   const timelineRef = useRef<HTMLDivElement | null>(null);
   const handleRef = useRef<ScriptRunnerHandle | null>(null);
   const noteInputRef = useRef<HTMLInputElement | null>(null);
+  const notesListRef = useRef<HTMLUListElement | null>(null);
+  const noteRowRefs = useRef<Map<number, HTMLLIElement>>(new Map());
+  // Set on wheel/scroll inside the notes list, so the auto-scroll below backs
+  // off for 3s while the user is scrolling it themselves.
+  const lastNotesListInteraction = useRef(0);
+  const onNotesListInteraction = () => { lastNotesListInteraction.current = Date.now(); };
+  // The auto-scroll only fires when the highlighted set actually changes, not
+  // on every frame the clock advances.
+  const lastHighlightKey = useRef('');
   const [script, setScript] = useState<Script | null>(null);
   const [lines, setLines] = useState<ScriptLine[]>([]);
   const [beats, setBeats] = useState<PlanBeat[]>([]);
@@ -639,6 +648,36 @@ export default function PresentationMode({
 
   const pct = (t: number) => (duration ? `${(100 * t) / duration}%` : '0%');
 
+  /**
+   * Notes within 2s of the playhead, on either clock: highlighted in the list
+   * and on the timeline. Recomputed every frame off `time`, same as the rest
+   * of the readout above.
+   */
+  const highlightedNotes = useMemo(() => {
+    const s = new Set<number>();
+    notes.forEach((n, i) => { if (Math.abs(time - n.t) <= 2) s.add(i); });
+    return s;
+  }, [notes, time]);
+
+  /* Scroll the nearest highlighted row into view when the highlighted set
+   * changes - not on every frame, and not while the user is scrolling the
+   * list themselves (a wheel/scroll event there holds this off for 3s). */
+  useEffect(() => {
+    const key = Array.from(highlightedNotes).sort((a, b) => a - b).join(',');
+    if (key === lastHighlightKey.current) return;
+    lastHighlightKey.current = key;
+    if (!highlightedNotes.size) return;
+    if (Date.now() - lastNotesListInteraction.current < 3000) return;
+    let nearestIdx = -1;
+    let nearestDist = Infinity;
+    highlightedNotes.forEach((i) => {
+      const d = Math.abs(time - notes[i].t);
+      if (d < nearestDist) { nearestDist = d; nearestIdx = i; }
+    });
+    const el = nearestIdx >= 0 ? noteRowRefs.current.get(nearestIdx) : undefined;
+    el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [highlightedNotes, notes, time]);
+
   /*
    * Where each beat starts, for the markers and for the prev/next buttons.
    *
@@ -910,6 +949,8 @@ export default function PresentationMode({
             {fullTransport && notes.map((n, i) => (
               <div
                 key={`note-${i}`}
+                data-testid="present-note-mark"
+                data-highlighted={highlightedNotes.has(i) ? 'true' : undefined}
                 title={n.text}
                 style={{
                   position: 'absolute',
@@ -919,8 +960,9 @@ export default function PresentationMode({
                   height: 0,
                   borderLeft: '4px solid transparent',
                   borderRight: '4px solid transparent',
-                  borderTop: '6px solid #f5a623',
+                  borderTop: `6px solid ${highlightedNotes.has(i) ? '#7fd4ff' : '#f5a623'}`,
                   marginLeft: -4,
+                  filter: highlightedNotes.has(i) ? 'drop-shadow(0 0 3px rgba(127,212,255,0.9))' : undefined,
                 }}
               />
             ))}
@@ -1036,11 +1078,31 @@ export default function PresentationMode({
 
           {authoring && !shrunk && notes.length > 0 && (
             <ul
+              ref={notesListRef}
               data-testid="present-notes"
+              onWheel={onNotesListInteraction}
+              onScroll={onNotesListInteraction}
               style={{ listStyle: 'none', margin: '6px 0 0', padding: 0, maxHeight: 96, overflowY: 'auto' }}
             >
-              {notes.map((n, i) => (
-                <li key={i} style={{ display: 'flex', gap: 8, alignItems: 'baseline', padding: '1px 0' }}>
+              {notes.map((n, i) => {
+                const isHighlighted = highlightedNotes.has(i);
+                return (
+                <li
+                  key={i}
+                  ref={(el) => {
+                    if (el) noteRowRefs.current.set(i, el);
+                    else noteRowRefs.current.delete(i);
+                  }}
+                  data-testid="present-note-row"
+                  data-highlighted={isHighlighted ? 'true' : undefined}
+                  style={{
+                    display: 'flex',
+                    gap: 8,
+                    alignItems: 'baseline',
+                    padding: '1px 0',
+                    background: isHighlighted ? 'rgba(127,212,255,0.16)' : 'transparent',
+                  }}
+                >
                   <button
                     type="button"
                     onClick={() => seek(n.t)}
@@ -1049,12 +1111,13 @@ export default function PresentationMode({
                     {mmss(n.t)}
                   </button>
                   <span style={{ color: '#888' }}>{n.beat ?? '?'}.{n.line ?? '?'}</span>
-                  <span style={{ flex: 1 }}>{n.text}</span>
+                  <span style={{ flex: 1, color: isHighlighted ? '#eaf6ff' : undefined }}>{n.text}</span>
                   <button type="button" onClick={() => removeNote(n)} style={{ ...buttonStyle, padding: '0 4px' }} title="delete">
                     x
                   </button>
                 </li>
-              ))}
+                );
+              })}
             </ul>
           )}
         </div>,
