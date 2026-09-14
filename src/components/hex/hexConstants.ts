@@ -1,4 +1,4 @@
-import { hsbToRgb, hslToRgb, type RGB } from '../../utils/colorConversions';
+import { hsbToRgb, hslToRgb, rgbToHsb, rgbToHsl, type RGB } from '../../utils/colorConversions';
 
 export const HEX_SIZE = 540;
 /**
@@ -366,6 +366,33 @@ export function colorAtPoint(px: number, py: number, brightness: number, lightne
   const rPinned = Math.min(1, r);
   const lOut = lightness <= 50 ? rPinned * 50 : 100 - rPinned * 50;
   return dist <= limit ? hslToRgb(h, sIn, lightness) : hslToRgb(h, 100, lOut);
+}
+
+/**
+ * The inverse of `colorAtPoint` for a colour at its own value: where a colour
+ * sits on the field if the B/L bar were already at that colour's own
+ * brightness (or lightness). Used to place a colour that isn't the current
+ * one - a hovered name-field match, a tag marker - honestly, rather than
+ * against the full-size hexagon or the current cross-section.
+ *
+ * Mirrors `colorAtPoint` exactly: the saturation compared against the rim is
+ * HSB s in brightness mode and HSL s in lightness mode (colorAtPoint feeds
+ * the same `sIn` into `hsbToRgb`/`hslToRgb` respectively), and the rim itself
+ * is scaled by the colour's own b/l through `shapeLimitScale`, not the
+ * field's current value.
+ */
+export function pointForColor(rgb: RGB, mode: BLMode, shapeMix: number): { x: number; y: number } {
+  const hsb = rgbToHsb(rgb.r, rgb.g, rgb.b);
+  const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
+  const angle = (hsb.h * PI) / 180;
+  const sIn = mode === 'brightness' ? hsb.s : hsl.s;
+  const edgeDist = shapeEdgeDist(angle, RADIUS, shapeMix);
+  const limitScale = shapeLimitScale(mode, hsb.b, hsl.l, shapeMix);
+  const dist = (sIn / 100) * edgeDist * limitScale;
+  return {
+    x: CENTER_X + dist * Math.cos(angle),
+    y: CENTER_Y - dist * Math.sin(angle),
+  };
 }
 
 export function getOrder(mode: ChannelOrder, rgb: RGB): Channel[] {

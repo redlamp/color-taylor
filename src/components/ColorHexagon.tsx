@@ -20,7 +20,7 @@ import {
   HUE_LABEL_OFFSET, HEX_STACKED_BARS_MAX, BL_BAR_TOP_H, DISPLAY_HEIGHT_STACKED,
   SAT_TITLE_LETTER_PX, SAT_TITLE_LETTER_SPAN,
   BAR_STACK_SPAN, BAR_STACK_TEXT_PX, BAR_TAIL_SPAN, BAR_TAIL_TEXT_PX,
-  hexEdgeDist, shapePoints, colorAtPoint, getOrder, shapeLimitScale,
+  hexEdgeDist, shapePoints, colorAtPoint, getOrder, shapeLimitScale, pointForColor,
 } from './hex/hexConstants';
 import HexCanvas from './hex/HexCanvas';
 import HexBar from './hex/HexBar';
@@ -594,16 +594,13 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
 
   const hoverDot = useMemo(() => {
     if (!hoverMatchRgb) return null;
-    const hsb = rgbToHsb(hoverMatchRgb.r, hoverMatchRgb.g, hoverMatchRgb.b);
-    const rad = (hsb.h * PI) / 180;
-    const edgeDist = hexEdgeDist(rad, RADIUS);
-    const dist = (hsb.s / 100) * edgeDist;
+    const { x, y } = pointForColor(hoverMatchRgb, blMode, shapeMix);
     return {
-      x: CENTER_X + dist * Math.cos(rad),
-      y: CENTER_Y - dist * Math.sin(rad),
+      x,
+      y,
       hex: rgbToHex(hoverMatchRgb.r, hoverMatchRgb.g, hoverMatchRgb.b),
     };
-  }, [hoverMatchRgb]);
+  }, [hoverMatchRgb, blMode, shapeMix]);
 
   // "This control is what's changing right now" - by pointer or by the tween a
   // click on its track started. Everything the control highlights reads this.
@@ -614,23 +611,23 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   // Named color markers on hex
   const htmlColorMarkers = useMemo(() => {
     if (!showHtmlOnHex) return [];
+    const currentValue = blMode === 'brightness' ? brightness : (hsl?.l ?? 50);
     return NAMED_COLORS.flatMap((c) => {
-      const hsb = rgbToHsb(c.r, c.g, c.b);
-      // Only show colors within ±15 brightness of current
-      if (Math.abs(hsb.b - brightness) > 15) return [];
-      const rad = (hsb.h * PI) / 180;
-      // Position at where it would be at the color's own brightness level
-      const colorLimitRadius = RADIUS * hsb.b / 100;
-      const edgeDist = hexEdgeDist(rad, colorLimitRadius);
-      const dist = (hsb.s / 100) * edgeDist;
+      // Only show colors within ±15 of the field's current axis - brightness
+      // under HSB, lightness under HSL, matching whichever bar is live.
+      const ownValue = blMode === 'brightness' ? rgbToHsb(c.r, c.g, c.b).b : rgbToHsl(c.r, c.g, c.b).l;
+      if (Math.abs(ownValue - currentValue) > 15) return [];
+      // Position at where it would be at the color's own value, honoring the
+      // current shape (circle/hexagon morph) rather than the full-size hexagon.
+      const { x, y } = pointForColor({ r: c.r, g: c.g, b: c.b }, blMode, shapeMix);
       return [{
-        x: CENTER_X + dist * Math.cos(rad),
-        y: CENTER_Y - dist * Math.sin(rad),
+        x,
+        y,
         hex: rgbToHex(c.r, c.g, c.b),
         name: c.name,
       }];
     });
-  }, [showHtmlOnHex, brightness]);
+  }, [showHtmlOnHex, brightness, hsl?.l, blMode, shapeMix]);
   // Solve for multiple channel values given a target 2D position
   const solveChannels = useCallback((targetX: number, targetY: number, channelKeys: Channel[]) => {
     const dx = targetX - CENTER_X;
