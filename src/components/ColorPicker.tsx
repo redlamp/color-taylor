@@ -43,7 +43,7 @@ const PresentationMode = lazy(() => import('@/demo/PresentationMode'));
  * Only under `?script=` or `?present=`: the script drags it off screen and
  * back, and nothing about it belongs to the app.
  */
-const CameraPip = lazy(() => import('@/demo/CameraPip'));
+const WebcamPip = lazy(() => import('@/demo/WebcamPip'));
 
 /**
  * `?script=<name>` (dev builds only) puts the picker under a recorded video
@@ -113,7 +113,7 @@ const MIN_ROOT_PADDING_X = 4;             // 2px a side, both sides
  * Spelled out here rather than imported from ScriptRunner's `scriptAudioUrl`
  * and the pip manifest: both live in modules that are lazy on purpose, and a
  * static import of either would pull the whole recorded-script runner into the
- * picker's first paint. PresentationMode and CameraPip both leave an adopted
+ * picker's first paint. PresentationMode and WebcamPip both leave an adopted
  * element's `src` alone when it already points at the cut's file, so these two
  * have to agree with theirs to the character.
  */
@@ -663,7 +663,7 @@ export default function ColorPicker() {
    *
    * Everything here runs synchronously inside the click: the browser only
    * grants playback to a `play()` called in the gesture's own task, and both
-   * `PresentationMode` and `CameraPip` are lazy, so by the time either module
+   * `PresentationMode` and `WebcamPip` are lazy, so by the time either module
    * has loaded the gesture is long gone. The components adopt whatever they
    * are handed, playing or not, and leave a `src` that already points at the
    * cut's file alone - so starting the pair here and mounting them a tick
@@ -1526,7 +1526,7 @@ export default function ColorPicker() {
       )}
       {(scriptName() || presentName() || presentOpen) && (
         <Suspense fallback={null}>
-          <CameraPip webcam={presentCamera} />
+          <WebcamPip webcam={presentCamera} />
         </Suspense>
       )}
       {/* Two ways in, and they mount the same component differently. The URL

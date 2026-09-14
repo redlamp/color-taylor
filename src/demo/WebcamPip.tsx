@@ -123,7 +123,7 @@ interface Slot {
   parked: boolean;
 }
 
-export interface CameraPipProps {
+export interface WebcamPipProps {
   /**
    * The panel's front `<video>`, created and played by the host inside the
    * click that started the walkthrough. Adopted into the panel box: it keeps
@@ -133,7 +133,7 @@ export interface CameraPipProps {
   webcam?: HTMLVideoElement;
 }
 
-export default function CameraPip({ webcam }: CameraPipProps = {}) {
+export default function WebcamPip({ webcam }: WebcamPipProps = {}) {
   // A is the one the webcam uses, and the one a span is shown on first; B is
   // its double, hidden, holding the span that comes next.
   const videoRef = useRef<HTMLVideoElement | null>(null);

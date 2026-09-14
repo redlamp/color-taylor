@@ -466,7 +466,7 @@ ghost cursor, so every gesture goes through the real controls. Dev builds only
   flight in from below the fold. A position outlives the component that had it,
   which is what makes that possible.
 - Under `?script=` and `?present=` the app also mounts the camera panel
-  (`src/demo/CameraPip.tsx`): a fixed **400x400** box in the bottom-right
+  (`src/demo/WebcamPip.tsx`): a fixed **400x400** box in the bottom-right
   corner with a 12 px radius, matching the OBS picture-in-picture, at a 20 px
   bottom margin. It is square, and the footage is cut square to match — a
   1080x1080 window out of the 1920x1080 take. Its home `left` is computed at
