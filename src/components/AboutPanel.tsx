@@ -99,7 +99,7 @@ export function AboutPanel({ open, onClose, onWatchDemo, onPresentation }: About
           {/* Two lines, and the break is the point: the first is the
               invitation, the second is what to look for while you take it. */}
           <DialogPrimitive.Description className="mx-auto mt-6 text-2xl leading-snug text-muted-foreground">
-            {/* Non-breaking, so "modes," never lands alone on its own line
+            {/* Non-breaking, so "models," never lands alone on its own line
                 when the card narrows. */}
             Play with different color{' '}modes,
             <br />
@@ -159,7 +159,7 @@ export function AboutPanel({ open, onClose, onWatchDemo, onPresentation }: About
                     <Film />
                     Presentation
                   </Button>
-                  <Caption>~6 min</Caption>
+                  <Caption>~5.5 min</Caption>
                 </div>
               )}
             </div>
