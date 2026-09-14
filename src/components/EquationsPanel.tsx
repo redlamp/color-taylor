@@ -310,11 +310,11 @@ function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }: Equat
                   <TooltipContent side="top" sideOffset={4} className="max-w-80 text-base font-sans font-normal leading-snug">
                     Hexadecimal is a base 16 number system:
                     <br />
-                    0-9, then A-F count as 10-15.
+                    Count 0-9, then A-F (stands for 10-15).
                     <br />
-                    So, A = 10,{' '}F = 15,{' '}FF = 255.
+                    9 = 9,{' '}A = 10,{' '}F = 15,{' '}10 = 16,{' '}FF = 255.
                     <br />
-                    Three pairs, red, green, blue.
+                    Two hex digits pair into red, green, blue.
                   </TooltipContent>
                 </Tooltip>
               </span>
