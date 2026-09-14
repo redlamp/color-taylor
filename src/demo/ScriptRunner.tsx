@@ -40,7 +40,7 @@ export interface ScriptAction {
   at: number;
   do: 'rest' | 'hover' | 'walk' | 'click' | 'loop' | 'circle' | 'rect' | 'ray' | 'orbit' | 'stem' | 'wander'
     | 'demo' | 'slider' | 'box' | 'tip' | 'color' | 'scroll' | 'leave' | 'underline' | 'pip' | 'zigzag'
-    | 'drift' | 'line' | 'arrow';
+    | 'drift' | 'line' | 'arrow' | 'sway';
   target?: string;
   targets?: string[];
   ms?: number;
@@ -132,6 +132,24 @@ export interface ScriptAction {
   /** `stem`: which channel's stem, and how far along it as a fraction of its length (-1..1). */
   ch?: 'r' | 'g' | 'b';
   amount?: number;
+  /**
+   * `sway`: how many left-right cycles under the target, and how far each one
+   * reaches in client px (default: a third of the target's own width, and at
+   * least SWAY_AMP_MIN). `stem`: how many times the handle runs out along its
+   * stem and back, which turns the straight pull into a snake.
+   *
+   * Both are written so every term is zero at u=0 and u=1: a sway leaves the
+   * hand where it found it, and a snaking stem ends on the value it started
+   * from however far it wandered in between.
+   */
+  waves?: number;
+  amp?: number;
+  /**
+   * `circle`: the ring's radius in client px, instead of the one the target
+   * carries. For a mark that has to be read as naming one small thing - the
+   * handle's position on a 300 px track, rather than the track.
+   */
+  ring?: number;
   /** `zigzag`: how many legs the path is cut into. */
   legs?: number;
   /** `zigzag`: the saturation band, 0-100, the legs alternate between. */
@@ -303,6 +321,12 @@ const HANDLE_RING = 1.8;
  * it is drawn in.
  */
 const HANDLE_RING_MIN = 18;
+/** The least a ring round a degree on the editor's hue strip may be. See `hue-at:`. */
+const HUE_AT_RING = 16;
+/** A sway's reach when the cue does not name one, and the least it may be. See the `sway` case. */
+const SWAY_AMP_MIN = 26;
+/** How far a snaking stem bows across its own axis, as a fraction of the pull along it. */
+const SNAKE_ACROSS = 0.6;
 /**
  * Padding around one slider handle for a `rect`. Wider than the ring's, because
  * a box has corners: at the ring's clearance the 8px stroke sat on the marker
@@ -1225,6 +1249,41 @@ function resolve(name: string, host: DemoHost): Target | null {
       rect: () => unionRect([el], HANDLE_BOX_PAD),
     };
   }
+  // A degree on the color editor's hue strip, as a place rather than a
+  // control: `hue-at:120` is where 120 sits on the track. Beat 3's reveals
+  // ring the primaries on the strip at the same moment they ring them on the
+  // hexagon, so the two ways of showing the same angle are shown together.
+  if (name.startsWith('hue-at:')) {
+    const deg = Number(name.slice(7));
+    const el = q('#hue-bar');
+    if (!el || !Number.isFinite(deg)) return null;
+    return {
+      el,
+      at: () => trackPoint('editor-hue', el, deg),
+      // Wide enough to stand clear of the strip, which is narrower than any
+      // ring that would read as a ring.
+      radius: () => Math.max(HUE_AT_RING, el.getBoundingClientRect().width * 0.8),
+    };
+  }
+  // The marker on the editor's hue strip. `hex-hue-label` is the hexagon's
+  // own; beat 4.2 rings the two together.
+  if (name === 'editor-hue-handle') return byEl(q('#hue-bar-arrow'));
+  if (name === 'zero:rgb-top' || name === 'zero:rgb-bottom') {
+    // The zero end of the RGB bank as a whole: the same x as `zero:r`, at the
+    // top of the R row or the foot of the B row. Beat 6.3's line is about the
+    // three channels sharing a nought, so it runs the height of the block
+    // rather than between two track centres.
+    const track = q('#slider-rgb-r-track');
+    const row = q(name === 'zero:rgb-top' ? '#slider-rgb-r' : '#slider-rgb-b');
+    if (!track || !row) return null;
+    return {
+      el: row,
+      at: () => {
+        const r = row.getBoundingClientRect();
+        return { x: trackPoint('slider:rgb-r', track, 0).x, y: name === 'zero:rgb-top' ? r.top : r.bottom };
+      },
+    };
+  }
   if (name.startsWith('zero:')) {
     // The zero end of one channel's track: a place rather than a control, for
     // the `line` beat 6.3 draws down the three RGB sliders' zeros. Measured off
@@ -1786,6 +1845,30 @@ export default function ScriptRunner({
           }), a.ms ?? 1200);
           return;
         }
+        case 'sway': {
+          // Left and right under a control for the length of a line, which is
+          // what a hand does while its owner is talking about the thing it is
+          // pointing at. `drift` is the same idea where there is no target -
+          // this one arrives first, and stands under the thing it names.
+          const t = need(a.target);
+          if (!t) return;
+          await d.bring(t.el);
+          const at = anchoredPoint(t, a);
+          await d.moveTo(at, MOVE_MS);
+          const p = at();
+          const box = t.rect ? t.rect() : t.el.getBoundingClientRect();
+          const amp = a.amp ?? Math.max(SWAY_AMP_MIN, box.width / 3);
+          const waves = Math.max(1, Math.round(a.waves ?? 2));
+          // Both terms are zero at each end, so the hand neither jumps into
+          // the sway nor out of it, and the cross term is at twice the rate so
+          // the path is a flattened figure of eight rather than a straight
+          // line being retraced.
+          await d.path((u) => ({
+            x: p.x + amp * Math.sin(2 * PI * waves * u),
+            y: p.y + (amp / 5) * Math.sin(4 * PI * waves * u),
+          }), a.ms ?? 2000);
+          return;
+        }
         case 'walk': {
           const names = a.targets ?? [];
           if (!names.length) return;
@@ -1851,7 +1934,13 @@ export default function ScriptRunner({
           const turns = a.turns ?? CIRCLE_TURNS;
           const wobble = a.wobble ?? LOOP_WOBBLE;
           const point = (u: number) => {
-            const { rx, ry } = circuitRadii(t, 1);
+            // An explicit `ring` wins over whatever the target carries: a
+            // handle's own box makes a ring that reads as naming the marker,
+            // and sometimes the cue means something smaller or larger than
+            // that. See ScriptAction.ring.
+            const { rx, ry } = a.ring
+              ? { rx: a.ring, ry: a.ring * LOOP_SQUASH }
+              : circuitRadii(t, 1);
             return circuitPoint(t.at(), rx, ry, turns, wobble)(u);
           };
           const ms = a.ms ?? CIRCLE_MS;
@@ -2074,6 +2163,22 @@ export default function ScriptRunner({
               await d.wait(SETTLE_POLL_MS);
             }
           };
+          if (a.waves) {
+            // A snake rather than a pull: the handle runs out along its stem
+            // and back `waves` times while the hand also bows across it, and
+            // every term is zero at both ends, so the channel finishes on the
+            // value it started from. Beat 2.8 is the whole point of it -
+            // "a playground", with the hand playing and nothing being claimed
+            // by where it lands. No settle: there is no value to arrive at.
+            const px = -(ends.b.y - ends.a.y) * fraction * SNAKE_ACROSS;
+            const py = (ends.b.x - ends.a.x) * fraction * SNAKE_ACROSS;
+            const waves = Math.max(1, a.waves);
+            await d.drag(t.el, (u) => ({
+              x: mid.x + vx * Math.sin(2 * PI * waves * u) + px * Math.sin(PI * u),
+              y: mid.y + vy * Math.sin(2 * PI * waves * u) + py * Math.sin(PI * u),
+            }), a.ms ?? 1000, true);
+            return;
+          }
           await d.drag(t.el, (u) => ({ x: mid.x + vx * smooth(u), y: mid.y + vy * smooth(u) }),
             a.ms ?? 1000, true, settle);
           return;
@@ -2421,7 +2526,7 @@ export default function ScriptRunner({
         if (a.at >= t) break;
         if (a.do === 'color') color = a;
         if (a.do === 'pip') pip = a;
-        if ((a.do === 'rest' || a.do === 'hover') && a.target) pose = a;
+        if ((a.do === 'rest' || a.do === 'hover' || a.do === 'sway') && a.target) pose = a;
       }
       if (color) onColorRef.current({ h: color.h ?? 0, s: color.s ?? 0, b: color.b ?? 0 });
       // The camera panel is where the last `pip` before `t` put it, at once

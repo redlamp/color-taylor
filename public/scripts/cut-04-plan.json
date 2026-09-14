@@ -46,12 +46,21 @@
       "gapBefore": 0.5
     },
     {
+      "id": "1.4",
+      "beat": 1,
+      "line": 4,
+      "text": "I'll just move myself out of the way, for now.",
+      "start": 15.8,
+      "end": 19.8,
+      "gapBefore": 0.5
+    },
+    {
       "id": "2.1",
       "beat": 2,
       "line": 1,
       "text": "I've always struggled with mixing colors using RGB.",
-      "start": 17.8,
-      "end": 21,
+      "start": 22.3,
+      "end": 25.5,
       "gapBefore": 2.5
     },
     {
@@ -59,8 +68,8 @@
       "beat": 2,
       "line": 1,
       "text": "It turned out hue and saturation models were helpful for finding the colors that I want.",
-      "start": 21.5,
-      "end": 27.9,
+      "start": 26,
+      "end": 32.4,
       "gapBefore": 0.5
     },
     {
@@ -68,8 +77,8 @@
       "beat": 2,
       "line": 2,
       "text": "Let's say I have this turquoise color, but I want to get to teal, which is darker and more colorful.",
-      "start": 28.4,
-      "end": 36.4,
+      "start": 32.9,
+      "end": 40.9,
       "gapBefore": 0.5
     },
     {
@@ -77,8 +86,8 @@
       "beat": 2,
       "line": 2,
       "text": "How do I dial that into the RGB?",
-      "start": 36.9,
-      "end": 40.1,
+      "start": 41.4,
+      "end": 44.6,
       "gapBefore": 0.5
     },
     {
@@ -86,8 +95,8 @@
       "beat": 2,
       "line": 3,
       "text": "I think I need to lower red and blue,",
-      "start": 40.6,
-      "end": 44.2,
+      "start": 45.1,
+      "end": 48.7,
       "gapBefore": 0.5
     },
     {
@@ -95,8 +104,8 @@
       "beat": 2,
       "line": 4,
       "text": "but how much do I change the RGB before the color becomes unfamiliar?",
-      "start": 44.7,
-      "end": 49.9,
+      "start": 49.2,
+      "end": 54.4,
       "gapBefore": 0.5
     },
     {
@@ -104,8 +113,8 @@
       "beat": 2,
       "line": 5,
       "text": "Once I understood how hue models and RGB work together, I could more confidently understand how colors were constructed.",
-      "start": 50.4,
-      "end": 58,
+      "start": 54.9,
+      "end": 62.5,
       "gapBefore": 0.5
     },
     {
@@ -113,8 +122,8 @@
       "beat": 2,
       "line": 5,
       "text": "That made it easier to choose harmonious colors, which I could then build into larger systems.",
-      "start": 58.5,
-      "end": 64.9,
+      "start": 63,
+      "end": 69.4,
       "gapBefore": 0.5
     },
     {
@@ -122,8 +131,8 @@
       "beat": 2,
       "line": 6,
       "text": "Our focus for this presentation will be hue, saturation, and brightness.",
-      "start": 65.4,
-      "end": 69.8,
+      "start": 69.9,
+      "end": 74.3,
       "gapBefore": 0.5
     },
     {
@@ -131,8 +140,8 @@
       "beat": 2,
       "line": 7,
       "text": "But the app supports HSL as well, so you can use what's familiar to you.",
-      "start": 70.3,
-      "end": 76.3,
+      "start": 74.8,
+      "end": 80.8,
       "gapBefore": 0.5
     },
     {
@@ -140,8 +149,8 @@
       "beat": 2,
       "line": 8,
       "text": "Color Taylor is meant to be a playground and educational tool for how RGB and HSB work together.",
-      "start": 76.8,
-      "end": 84,
+      "start": 81.3,
+      "end": 88.5,
       "gapBefore": 0.5
     },
     {
@@ -149,16 +158,7 @@
       "beat": 2,
       "line": 9,
       "text": "You see the relationships in real time, to help better understand how colors work on your display.",
-      "start": 84.5,
-      "end": 91.3,
-      "gapBefore": 0.5
-    },
-    {
-      "id": "2.10",
-      "beat": 2,
-      "line": 10,
-      "text": "I'll just move myself out of the way, for now.",
-      "start": 91.8,
+      "start": 89,
       "end": 95.8,
       "gapBefore": 0.5
     },
@@ -726,13 +726,13 @@
       "n": 1,
       "title": "Intro",
       "start": 1.8,
-      "end": 15.3,
+      "end": 19.8,
       "estimate": 14
     },
     {
       "n": 2,
       "title": "Thesis",
-      "start": 17.8,
+      "start": 22.3,
       "end": 95.8,
       "estimate": 78
     },
