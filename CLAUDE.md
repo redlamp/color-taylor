@@ -37,9 +37,9 @@ Package manager: **bun**. `bun.lock` is the source of truth; no `package-lock.js
 
 The `GITHUB_PAGES` env var flips `vite.config.js`'s `base` between `./` (default, works for local file:// preview) and `/color-taylor/` (gh-pages subpath). Don't hardcode either.
 
-`VITE_INTRO_ENABLED` gates **only the Intro button** on the picker. `.env` ships `false`; `.env.development` turns it on for `bun dev`. To flip it for yourself without touching a tracked file, use `.env.development.local` — gitignored via `*.local`, and it wins on Vite's precedence.
+The **Intro button** on the picker is hidden unless the URL carries `?intro` (or `?intro=1`), read at render from `location.search` in `ColorPicker.tsx`. It used to be the `VITE_INTRO_ENABLED` build flag; that flag is gone.
 
-The presentation *route* is always live, whatever the flag says. Those are two different questions and only the button is a question of readiness: gating both meant the deck could not be linked to at all while it was unadvertised. `public/intro/index.html` is the shareable front door — a real file, because GitHub Pages has no rewrite rules, redirecting relatively to `../#/presentation` so it works under all three `base` values.
+The presentation *route* is always live, whatever the URL says. Those are two different questions and only the button is a question of readiness: gating both meant the deck could not be linked to at all while it was unadvertised. `public/intro/index.html` is the shareable front door — a real file, because GitHub Pages has no rewrite rules, redirecting relatively to `../#/presentation` so it works under all three `base` values.
 
 ## Stack
 
