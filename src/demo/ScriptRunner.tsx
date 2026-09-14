@@ -86,6 +86,13 @@ export interface ScriptAction {
    */
   radius?: number | 'pill';
   /**
+   * `ray`: the bar's thickness in client px, across the direction it runs
+   * (default RAY_WIDTH). `radius`, on a `ray`, rounds the bar's two ends the
+   * same way it rounds a `rect` - `"pill"` for ends fully rounded to the
+   * bar's own width, square by default.
+   */
+  width?: number;
+  /**
    * `rect`: extra client pixels around the target's own box, as one number for
    * both axes or `[x, y]`.
    *
@@ -890,7 +897,8 @@ class Callouts {
    * The geometry is read once - it is pinned to the hexagon, which does not
    * move while the bar is up.
    */
-  beam(c: Point, tip: Point, width: number, ms: number, hold: number, color?: string) {
+  beam(c: Point, tip: Point, width: number, ms: number, hold: number, color?: string,
+    radius?: number | 'pill') {
     const el = this.add('rect', color);
     const len = Math.hypot(tip.x - c.x, tip.y - c.y);
     const deg = (Math.atan2(tip.y - c.y, tip.x - c.x) * 180) / PI;
@@ -899,6 +907,7 @@ class Callouts {
     el.setAttribute('height', String(width));
     el.setAttribute('width', '0');
     el.setAttribute('transform', `rotate(${deg.toFixed(2)} ${c.x} ${c.y})`);
+    Callouts.round(el, radius, len, width);
     const t0 = performance.now();
     const step = (now: number) => {
       const u = smoothstep(clamp((now - t0) / Math.max(1, ms), 0, 1));
@@ -2226,8 +2235,8 @@ export default function ScriptRunner({
           const uy = (tip.y - c.y) / len;
           const root = { x: c.x - ux * RAY_CENTER_OVER, y: c.y - uy * RAY_CENTER_OVER };
           const end = { x: tip.x + ux * RAY_LETTER_OVER, y: tip.y + uy * RAY_LETTER_OVER };
-          callouts.beam(root, end, RAY_WIDTH, a.ms ?? CIRCLE_MS, a.hold ?? HOLD_MS,
-            a.color ?? CHANNEL_COLOR[a.ch ?? '']);
+          callouts.beam(root, end, a.width ?? RAY_WIDTH, a.ms ?? CIRCLE_MS, a.hold ?? HOLD_MS,
+            a.color ?? CHANNEL_COLOR[a.ch ?? ''], a.radius);
           return;
         }
         case 'rect': {
