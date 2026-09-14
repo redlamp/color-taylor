@@ -151,19 +151,19 @@
       "id": "full",
       "file": "pip/cut-04/full.mp4",
       "cutStart": 0,
-      "cutEnd": 358.001,
+      "cutEnd": 366.851,
       "clipOffset": 0,
-      "duration": 358,
+      "duration": 366.866667,
       "parts": [
         {
           "id": "intro",
           "cutStart": 0,
-          "cutEnd": 13.71
+          "cutEnd": 13.95
         },
         {
           "id": "outro",
-          "cutStart": 330.481,
-          "cutEnd": 358.001
+          "cutStart": 338.211,
+          "cutEnd": 366.851
         }
       ],
       "lines": [
@@ -188,37 +188,37 @@
         {
           "id": "1.4",
           "cutStart": 11.6,
-          "cutEnd": 13.41,
+          "cutEnd": 13.65,
           "text": "I'll just move myself out of the way, for now."
         },
         {
           "id": "11.1",
-          "cutStart": 330.781,
-          "cutEnd": 336.421,
+          "cutStart": 338.511,
+          "cutEnd": 344.431,
           "text": "If you use Figma, I've also made a Color Taylor plugin that you might like to check out."
         },
         {
           "id": "11.2",
-          "cutStart": 338.641,
-          "cutEnd": 339.981,
+          "cutStart": 346.651,
+          "cutEnd": 347.931,
           "text": "That's Color Taylor!"
         },
         {
           "id": "11.3",
-          "cutStart": 339.981,
-          "cutEnd": 345.001,
+          "cutStart": 347.931,
+          "cutEnd": 353.631,
           "text": "Go play with it, and I hope it helps you see the relationship between RGB and HSB in a different light."
         },
         {
           "id": "11.4",
-          "cutStart": 347.221,
-          "cutEnd": 352.001,
+          "cutStart": 355.851,
+          "cutEnd": 360.851,
           "text": "If it's useful, I'd like to hear from you. Questions and feedback are welcome."
         },
         {
           "id": "11.5",
-          "cutStart": 352.501,
-          "cutEnd": 355.001,
+          "cutStart": 361.351,
+          "cutEnd": 363.851,
           "text": "Thanks, see ya."
         }
       ]
