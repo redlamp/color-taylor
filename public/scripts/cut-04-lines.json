@@ -494,96 +494,96 @@
       "title": "Handoff to the demo",
       "line": 3,
       "text": "or from the question mark button at the top of the app.",
-      "start": 273.85,
-      "end": 276.43
+      "start": 273.25,
+      "end": 275.83
     },
     {
       "beat": 10,
       "title": "The demo",
       "line": 1,
       "text": "Start with the sliders and controls you already know.",
-      "start": 279.68,
-      "end": 282.18
+      "start": 279.08,
+      "end": 281.58
     },
     {
       "beat": 10,
       "title": "The demo",
       "line": 2,
       "text": "Moving one slider will highlight every other slider it affects.",
-      "start": 287.96,
-      "end": 291.4
+      "start": 287.36,
+      "end": 290.8
     },
     {
       "beat": 10,
       "title": "The demo",
       "line": 3,
       "text": "Click the droplet button to switch between Source or Mixed colored sliders.",
-      "start": 296.16,
-      "end": 299.9
+      "start": 295.56,
+      "end": 299.3
     },
     {
       "beat": 10,
       "title": "The demo",
       "line": 4,
       "text": "Click the tags button to show HTML colors on the hex.",
-      "start": 300.82,
-      "end": 304.08
+      "start": 300.22,
+      "end": 303.48
     },
     {
       "beat": 10,
       "title": "The demo",
       "line": 5,
       "text": "Drag a handle on the hex and watch the RGB and HSB sliders follow.",
-      "start": 306.29,
-      "end": 310.27
+      "start": 305.69,
+      "end": 309.67
     },
     {
       "beat": 10,
       "title": "The demo",
       "line": 6,
       "text": "Having fun is the goal of the tool.",
-      "start": 316.27,
-      "end": 317.97
+      "start": 315.67,
+      "end": 317.37
     },
     {
       "beat": 11,
       "title": "Sign-off",
       "line": 1,
       "text": "If you use Figma, I've also made a Color Taylor plugin that you might like to check out.",
-      "start": 321.83,
-      "end": 327.25
+      "start": 321.23,
+      "end": 326.65
     },
     {
       "beat": 11,
       "title": "Sign-off",
       "line": 2,
       "text": "That's Color Taylor!",
-      "start": 329.97,
-      "end": 331.21
+      "start": 329.37,
+      "end": 330.61
     },
     {
       "beat": 11,
       "title": "Sign-off",
       "line": 3,
       "text": "Go play with it, and I hope it helps you see the relationship between RGB and HSB in a different light.",
-      "start": 331.33,
-      "end": 336.72
+      "start": 330.73,
+      "end": 336.12
     },
     {
       "beat": 11,
       "title": "Sign-off",
       "line": 4,
       "text": "If it's useful, I'd like to hear from you. Questions and feedback are welcome.",
-      "start": 339.44,
-      "end": 343.94
+      "start": 337.73,
+      "end": 342.23
     },
     {
       "beat": 11,
       "title": "Sign-off",
       "line": 5,
       "text": "Thanks, see ya.",
-      "start": 344.94,
-      "end": 347.17
+      "start": 343.23,
+      "end": 345.46
     }
   ]
 }

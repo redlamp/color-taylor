@@ -96,6 +96,16 @@ export function liveCursor(): CursorOwner | null {
  * taking over from. Null when nothing was on screen to take over from, which
  * is the cue to fall back to a walk-on from off screen.
  */
+/**
+ * Named override: cut 04's 10.5 -> 10.6 handover. The demo's sign-off starts
+ * its own walk/fade the moment its countdown begins, so a script gesture
+ * that claims the screen after that moment seeds from the exit point, not
+ * the resting one. cut-04-actions-extra.json arms a zero-offset `drift`
+ * cue at the top of 10.6 - `over: "demo"` - purely so ScriptRunner's
+ * generic handover (below) fires before the demo has moved anything. No
+ * code branches on this; it is named here so the cue and the mechanism it
+ * leans on are grep-able as one fix, and it touches no other transition.
+ */
 export function handoverPoint(to: CursorOwner): CursorPoint | null {
   const from: CursorOwner = to === 'demo' ? 'ghost' : 'demo';
   // The last point it was seen at, not the last point it was at: see `seen`.
