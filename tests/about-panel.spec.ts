@@ -202,7 +202,9 @@ test.describe('Welcome panel', () => {
     // can be granted, so they are created and started there.
     await expect(page.locator('audio[data-testid="present-audio"]')).toHaveAttribute('src', /scripts\/cut-03\.m4a$/);
     await expect(page.locator('#camera-pip video[data-front="1"]'))
-      .toHaveAttribute('src', /scripts\/pip\/cut-03\/full\.mp4$/);
+      // WebcamPip fetches the file and attaches it as an object URL once it
+      // has it, so the adopted element reads either the path or a blob.
+      .toHaveAttribute('src', /(scripts\/pip\/cut-03\/full\.mp4$|^blob:)/);
   });
 
   test('?present= mounts paused, with the full transport and no dev endpoints', async ({ page }) => {
@@ -218,10 +220,21 @@ test.describe('Welcome panel', () => {
     // Full transport under the URL parameter - it is a tool worth showing.
     await expect(page.getByTestId('present-line')).toBeVisible();
     await expect(page.getByTestId('present-timeline')).toBeVisible();
-    // ...but never the authoring half, which is what `mode` gates.
-    await expect(page.getByTestId('present-note')).toHaveCount(0);
-    await expect(page.getByTestId('present-collapse')).toHaveCount(0);
-    expect(dev).toEqual([]);
+    // ...but the authoring half only where the dev server can serve it. The
+    // URL mounts dev mode on the Vite dev server (notes, clip editor) and
+    // production mode in a build, so which half to expect is a fact about the
+    // server, not the spec: probe the notes endpoint rather than guess from
+    // the port.
+    // A production preview answers every unknown path with index.html, so
+    // the tell is JSON, not a 200.
+    const devServer = ((await page.request.get('/__notes/cut-03')).headers()['content-type'] ?? '').includes('json');
+    if (devServer) {
+      await expect(page.getByTestId('present-note').first()).toBeVisible();
+    } else {
+      await expect(page.getByTestId('present-note')).toHaveCount(0);
+      await expect(page.getByTestId('present-collapse')).toHaveCount(0);
+      expect(dev).toEqual([]);
+    }
   });
 
   test('?script= mounts nothing outside a recording session', async ({ page }) => {
