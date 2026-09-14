@@ -684,6 +684,16 @@ the app's own entry with `mode="production"` (see "Shipping it" below).
   A seek does not start or stop the built-in demo: seeking into its span
   only notes it, and if it is on screen, due actions are held until it
   exits, as always.
+- **The About panel.** The shipped walkthrough is entered from the About
+  panel itself (its Presentation button), so it finds the panel open already.
+  The `?present=` URL entry mounts the runner cold, and the panel is closed
+  by default unless this browser has never dismissed it. For a cut whose
+  opening cues are about the panel (an `about-*` target inside the first 20s
+  — `opensAboutOpen` in `ScriptRunner.tsx`), the runner opens it itself before
+  the first action, as a plain click on the app's own `?` button
+  (`#demo-button`) with no ghost travel. Seeking (including back to 0)
+  restores the same state: open if no `about-close` click has fired before
+  the new time, closed if one has.
 - **Notes.** Press **N** (or the Note button), type, Enter. Each note is
   `{ t, beat, line, text, created }`, beat and line from the line being
   spoken, listed under the transport in time order; the time seeks, `x`
@@ -832,6 +842,15 @@ Deferred: the drag's off-screen position is still the *window's* right edge
 rather than the capture box's. They are the same thing at 16:9 in a 16:9
 window, which is what cut 04 is captured at; a letterboxed ratio would push the
 panel further than it needs to go.
+
+**The live webcam is opt-in.** With no cut footage (no pip manifest, or the
+manifest missing its clips) and no host-adopted `<video>`, the panel used to
+fall back to `getUserMedia` on its own — a permission prompt every time a
+rebuild left those files briefly missing. It now only reaches for the camera
+when asked: `?webcam=live` in the URL, or the host handing its own `webcam`
+element in (the shipped walkthrough's path, which already skipped
+`getUserMedia`). Otherwise the panel shows its dark plate. See
+`wantsLiveWebcam` in `WebcamPip.tsx`.
 
 ### The speed cap
 

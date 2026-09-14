@@ -1544,6 +1544,22 @@ const handsFree = (a: ScriptAction) =>
  */
 const opensOffScreen = (actions: ScriptAction[]) => actions.find((a) => a.do === 'pip')?.to === 'on';
 
+/**
+ * Whether this cut's opening cues expect the About panel already up. The
+ * shipped walkthrough is entered from the panel itself (About's own
+ * Presentation button), so it is open there by construction; the `?present=`
+ * URL entry mounts the runner cold, and the panel is closed unless this
+ * browser has never dismissed it (`color-taylor-about-seen`). Simplest rule
+ * that tells the two apart without reading the cut's intent by hand: an
+ * `about-*` target inside the first 20s. See `opensOffScreen` for the same
+ * idea applied to the camera panel.
+ */
+const opensAboutOpen = (actions: ScriptAction[]) =>
+  actions.some((a) => a.at < 20 && typeof a.target === 'string' && a.target.startsWith('about-'));
+
+/** Whether the About panel is currently up: `about-close` only exists while it is. */
+const aboutIsOpen = () => !!document.getElementById('about-close');
+
 function warnMissing(action: ScriptAction, name: string | undefined) {
   console.warn(`[script] t=${action.at}s ${action.do}: no target for "${name ?? '(none)'}"`);
 }
@@ -1740,6 +1756,28 @@ export default function ScriptRunner({
         requestAnimationFrame(park);
       };
       park();
+    }
+
+    /*
+     * Open the About panel before anything is drawn, for a cut whose opening
+     * cues are about it (see `opensAboutOpen`). The shipped walkthrough finds
+     * it open already - About's own Presentation button is the door in - so
+     * this is only for the `?present=` URL entry, which mounts cold. An
+     * opening step, not a gesture: it presses the app's own ? button
+     * (`help-button` / `#demo-button`) directly, with no ghost travel, the
+     * same way `parkPip` above sets the camera panel's start state without a
+     * move.
+     */
+    const opensAbout = opensAboutOpen(script.actions);
+    if (opensAbout && !aboutIsOpen()) {
+      let tries = 0;
+      const open = () => {
+        const btn = document.getElementById('demo-button');
+        if (btn instanceof HTMLElement) { btn.click(); return; }
+        if (tries++ > 30) return;
+        requestAnimationFrame(open);
+      };
+      open();
     }
 
     /*
@@ -2540,6 +2578,17 @@ export default function ScriptRunner({
       // Whoever had the screen, this is a jump: the gesture that took it off
       // the demo is not running any more. A scrub is not a performance.
       if (overDemoRef.current) takeOverDemo(false);
+      // The About panel's own state at `t`: open from the start if the cut
+      // opens on it, closed once its `about-close` click has fired before
+      // `t`. A seek back to 0 is what this is for - `about-close` played out
+      // and then a scrub to the top should find the panel open again, the
+      // same as any other state a seek restores rather than replays.
+      if (opensAbout) {
+        const closed = actions.some((a) => a.at < t && a.do === 'click' && a.target === 'about-close');
+        const open = aboutIsOpen();
+        const btn = document.getElementById(closed ? 'about-close' : 'demo-button');
+        if (closed === open && btn instanceof HTMLElement) btn.click();
+      }
       let i = 0;
       while (i < actions.length && actions[i].at < t) i += 1;
       next = i;

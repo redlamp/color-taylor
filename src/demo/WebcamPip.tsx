@@ -4,10 +4,10 @@
  * A fixed box in the bottom-right corner, the same 400x400 at a 20px margin
  * with a 12px radius that the OBS scene uses, so what the script drags around
  * lines up with what the camera is composited into afterwards. It shows the
- * camera footage of the cut where there is any (see below), the webcam where
- * the browser gives one, and a dark plate with a camera glyph where it does
- * not - the placeholder is not a fallback, it is what the take is recorded
- * against when the real camera is on the OBS side.
+ * camera footage of the cut where there is any (see below), the live webcam
+ * when one is asked for and the browser gives it, and a dark plate with a
+ * camera glyph otherwise - the placeholder is not a fallback, it is what the
+ * take is recorded against when the real camera is on the OBS side.
  *
  * Under `?present=<cut>` the panel plays the take instead: redlamp-videos
  * `tools/takes/cut-pip-clips.mjs` cuts **one continuous video for the whole
@@ -17,8 +17,9 @@
  * track means the element's `src` is written once, at mount, and never again:
  * every `src` write is a visible pop, because the element blanks while the new
  * file decodes. Where the manifest is missing, or the cut is being played on
- * the page's own clock under `?script=`, the webcam and the plate stand in as
- * before.
+ * the page's own clock under `?script=`, the plate stands in unless the live
+ * webcam was asked for - see `wantsLiveWebcam` - so a rebuild that leaves the
+ * pip files briefly missing does not prompt for camera access.
  *
  * The two `<video>` elements are still here because the tool's `--multi-span`
  * mode writes one file per beat and the panel still plays those: the element
@@ -99,6 +100,23 @@ function presentName(): string | null {
     return raw && /^[\w-]+$/.test(raw) ? raw : null;
   } catch {
     return null;
+  }
+}
+
+/**
+ * Whether the live webcam fallback is wanted at all. Opt-in: without a cut's
+ * camera footage or a host-adopted `<video>`, the panel used to reach for
+ * `getUserMedia` on its own, which is a permission prompt every time a
+ * rebuild leaves the manifest or its clips missing for a moment. `?webcam=live`
+ * asks for the real camera explicitly (checking a take by eye, say); the host
+ * asks the same way by handing in its own `webcam` element, which the caller
+ * above this already treats as "live" without reaching this check.
+ */
+function wantsLiveWebcam(): boolean {
+  try {
+    return new URLSearchParams(window.location.search).get('webcam') === 'live';
+  } catch {
+    return false;
   }
 }
 
@@ -251,8 +269,11 @@ export default function WebcamPip({ webcam }: WebcamPipProps = {}) {
   /* The webcam, unless the cut's own footage is playing instead. */
   useEffect(() => {
     // An adopted element is the walkthrough's own picture; asking for the
-    // camera there would be a permission prompt in the middle of a talk.
-    if (clips.length || webcam) return;
+    // camera there would be a permission prompt in the middle of a talk. With
+    // no manifest and no adopted element the live camera is opt-in - see
+    // `wantsLiveWebcam` - so a rebuild with the pip files briefly missing
+    // shows the plate instead of prompting for camera access.
+    if (clips.length || webcam || !wantsLiveWebcam()) return;
     let alive = true;
     let stream: MediaStream | null = null;
     const media = navigator.mediaDevices;
