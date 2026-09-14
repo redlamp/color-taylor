@@ -200,11 +200,11 @@ test.describe('Welcome panel', () => {
     await expect(page.getByTestId('present-line-span')).toHaveCount(0);
     // The host's own elements, adopted: the click is the only moment playback
     // can be granted, so they are created and started there.
-    // The host hands in an element pointed at the cut's file; the component
-    // may re-point it at a blob of the same bytes. Either is the adopted one.
-    await expect(page.locator('audio[data-testid="present-audio"]')).toHaveAttribute('src', /(scripts\/cut-03\.m4a$|^blob:)/);
+    await expect(page.locator('audio[data-testid="present-audio"]')).toHaveAttribute('src', /scripts\/cut-03\.m4a$/);
     await expect(page.locator('#camera-pip video[data-front="1"]'))
-      .toHaveAttribute('src', /scripts\/pip\/cut-03\/full\.mp4$/);
+      // WebcamPip fetches the file and attaches it as an object URL once it
+      // has it, so the adopted element reads either the path or a blob.
+      .toHaveAttribute('src', /(scripts\/pip\/cut-03\/full\.mp4$|^blob:)/);
   });
 
   test('?present= mounts paused, with the full transport and no dev endpoints', async ({ page }) => {
