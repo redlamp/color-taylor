@@ -86,6 +86,20 @@ export interface ScriptAction {
    */
   radius?: number | 'pill';
   /**
+   * `rect`: extra client pixels around the target's own box, as one number for
+   * both axes or `[x, y]`.
+   *
+   * A target's padding is sized for the shape it usually wears, and a marquee
+   * is drawn in an 8 px stroke centred on the edge - so four pixels of padding
+   * puts half that stroke on the thing inside. Beat 3.5's highlight is the
+   * case: `row:<c>` pads a channel's row by ROW_PAD, and the box came down on
+   * the letter at the left of the row and on the stepper at the right, which
+   * are the two halves that say which channel it is and what it reads. The pad
+   * is per cue because it is a fact about this mark, not about the target:
+   * everywhere else the same box is what "the R slider" means.
+   */
+  pad?: number | [number, number];
+  /**
    * `rect`: the hands are already on the first corner, so the whole `ms` is
    * the diagonal and none of it is travel. For a marquee that has to start on
    * a word: cue a `rest` at `corner:<target>:<from>` half a second earlier and
@@ -2127,9 +2141,27 @@ export default function ScriptRunner({
           // three seconds is what empties the list. One cue is one gesture, so
           // the confirm is the runner's to know rather than the cut's - a cue
           // file should not have to carry a control's own protocol.
+          //
+          // The confirm is owed the way the first press is. Round 8, beat 7:
+          // the hand arrives at Swatches 913 px behind what the cut allows -
+          // `rest swatches` at 219.7 is stretched to 1304 ms - and every click
+          // after it queues behind that, so the arming press landed near 224.9
+          // and the confirm fell due at 225.4, a tenth of a second past the
+          // `rest editor-sb` at 225.3. That cue interrupted the driver, the
+          // abort came out of `wait`, and Recent played the whole of beat 7
+          // full, with Clear left standing on "Sure?" until its own three
+          // seconds ran out. A half-finished confirm is worse than one never
+          // started, so it is paid even once the hands have gone - the same
+          // bargain the press above makes, and for the same reason: the state
+          // on the far side of it is what the next beat is played against.
           if (a.target === 'swatches:recent-clear') {
-            await d.wait(CONFIRM_MS);
-            await d.click(t.el);
+            try {
+              await d.wait(CONFIRM_MS);
+              await d.click(t.el);
+            } catch (err: unknown) {
+              if (!(err instanceof DemoAborted) || scrubs !== scrubbedAt) throw err;
+              d.pressNow(t.el, p);
+            }
           }
           return;
         }
@@ -2203,24 +2235,35 @@ export default function ScriptRunner({
           if (!t) return;
           if (!t.rect) { console.warn(`[script] t=${a.at}s rect: "${a.target}" has no box`); return; }
           const from: RectCorner = typeof a.from === 'string' ? a.from : 'tl';
+          // `pad` grows the target's own box, so a mark that has to stand clear
+          // of what it is naming says so here rather than in the target. See
+          // ScriptAction.pad.
+          const measured = t.rect;
+          const padX = Array.isArray(a.pad) ? a.pad[0] : a.pad ?? 0;
+          const padY = Array.isArray(a.pad) ? a.pad[1] : a.pad ?? 0;
+          const boxOf = padX || padY
+            ? () => {
+              const r = measured();
+              return new DOMRect(r.left - padX, r.top - padY, r.width + padX * 2, r.height + padY * 2);
+            }
+            : measured;
           if (a.live) {
             // Hands free by definition: nothing can hold a box that is still
             // being re-measured, and the point of it is the drag going on
             // underneath.
-            const box = t.rect;
-            callouts.liveBox(() => box(), from, a.ms ?? CIRCLE_MS, a.hold ?? HOLD_MS, a.color, a.radius);
+            callouts.liveBox(() => boxOf(), from, a.ms ?? CIRCLE_MS, a.hold ?? HOLD_MS, a.color, a.radius);
             return;
           }
           if (a.hands === 'free') {
             // Self-drawn, so it can go up while the cursor is holding
             // something else; the whole `ms` is the diagonal. No scrolling:
             // the hands are not free to, so the target has to be in shot.
-            const { start: p0, end: p1 } = rectCorners(t.rect(), from);
+            const { start: p0, end: p1 } = rectCorners(boxOf(), from);
             callouts.box(p0, p1, a.ms ?? CIRCLE_MS, a.hold ?? HOLD_MS, a.color, a.radius);
             return;
           }
           await d.bring(t.el);
-          const { start: p0, end: p1 } = rectCorners(t.rect(), from);
+          const { start: p0, end: p1 } = rectCorners(boxOf(), from);
           // The travel to the first corner comes out of the action's own
           // budget, so the diagonal is done by the time the next action is
           // due rather than still running when it takes the hands. `pre` says

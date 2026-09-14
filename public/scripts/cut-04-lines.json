@@ -223,359 +223,351 @@
       "line": 1,
       "text": "Let's use an orangey color as a reference point,",
       "start": 132.71,
-      "end": 135.54
+      "end": 135.52
     },
     {
       "beat": 4,
       "title": "Orange at 30",
       "line": 2,
-      "text": "here at 30 degrees.",
-      "start": 135.66,
-      "end": 136.95
+      "text": "Around 30 degrees we'll always have this warm tone between red and yellow.",
+      "start": 137.22,
+      "end": 142.79
     },
     {
       "beat": 4,
       "title": "Orange at 30",
       "line": 3,
-      "text": "Around 30 degrees we'll always have this warm tone between red and yellow.",
-      "start": 137.15,
-      "end": 142.72
+      "text": "At the highest saturation and brightness the color will be a combination of",
+      "start": 143.57,
+      "end": 147.18
     },
     {
       "beat": 4,
       "title": "Orange at 30",
       "line": 4,
-      "text": "At the highest saturation and brightness the color will be a combination of",
-      "start": 143.5,
-      "end": 147.11
+      "text": "2 parts red,",
+      "start": 147.3,
+      "end": 148.37
     },
     {
       "beat": 4,
       "title": "Orange at 30",
       "line": 5,
-      "text": "2 parts red,",
-      "start": 147.23,
-      "end": 148.3
+      "text": "1 part green,",
+      "start": 148.49,
+      "end": 149.76
     },
     {
       "beat": 4,
       "title": "Orange at 30",
       "line": 6,
-      "text": "1 part green,",
-      "start": 148.42,
-      "end": 149.69
-    },
-    {
-      "beat": 4,
-      "title": "Orange at 30",
-      "line": 7,
       "text": "0 parts blue.",
-      "start": 149.81,
-      "end": 150.62
+      "start": 149.88,
+      "end": 150.69
     },
     {
       "beat": 5,
       "title": "Saturation",
       "line": 1,
       "text": "Adding saturation increases the range between red, green, and blue.",
-      "start": 152.32,
-      "end": 157.22
+      "start": 152.39,
+      "end": 157.29
     },
     {
       "beat": 5,
       "title": "Saturation",
       "line": 2,
       "text": "Desaturating reduces the range proportionally between these.",
-      "start": 157.34,
-      "end": 161.93
+      "start": 157.41,
+      "end": 162
     },
     {
       "beat": 5,
       "title": "Saturation",
       "line": 3,
       "text": "Saturation scales off the highest value.",
-      "start": 163.63,
-      "end": 165.83
+      "start": 163.7,
+      "end": 165.9
     },
     {
       "beat": 5,
       "title": "Saturation",
       "line": 4,
       "text": "In this case Red holds still.",
-      "start": 165.95,
-      "end": 168.67
+      "start": 166.02,
+      "end": 168.74
     },
     {
       "beat": 5,
       "title": "Saturation",
       "line": 5,
       "text": "Green and blue move toward it or away from it.",
-      "start": 168.79,
-      "end": 171.7
+      "start": 168.86,
+      "end": 171.77
     },
     {
       "beat": 5,
       "title": "Saturation",
       "line": 6,
       "text": "When all three are equal, there's no saturation, and you're left with gray.",
-      "start": 173.1,
-      "end": 177.72
+      "start": 173.17,
+      "end": 177.79
     },
     {
       "beat": 5,
       "title": "Saturation",
       "line": 7,
       "text": "Notice the hue didn't change, we're still at 30, which is the same orangey source color we started with.",
-      "start": 177.92,
-      "end": 184.33
+      "start": 177.99,
+      "end": 184.4
     },
     {
       "beat": 5,
       "title": "Saturation",
       "line": 8,
       "text": "Same hue, only the range between RGB values changed.",
-      "start": 184.45,
-      "end": 188.66
+      "start": 184.52,
+      "end": 188.73
     },
     {
       "beat": 6,
       "title": "Brightness",
       "line": 1,
       "text": "Brightness is determined by the highest RGB value.",
-      "start": 189.16,
-      "end": 192.12
+      "start": 189.23,
+      "end": 192.19
     },
     {
       "beat": 6,
       "title": "Brightness",
       "line": 2,
       "text": "As we adjust the brightness, the hue and saturation are maintained by scaling the RGB values proportionately to each other.",
-      "start": 193.52,
-      "end": 200.63
+      "start": 193.59,
+      "end": 200.7
     },
     {
       "beat": 6,
       "title": "Brightness",
       "line": 3,
       "text": "Brightness scales off of zero. All three channels scale together, so the ratios between them stay the same.",
-      "start": 202.03,
-      "end": 207.05
+      "start": 202.1,
+      "end": 207.12
     },
     {
       "beat": 6,
       "title": "Brightness",
       "line": 4,
       "text": "At a hundred percent brightness the hex is at its largest,",
-      "start": 208.45,
-      "end": 211.19
+      "start": 208.52,
+      "end": 211.26
     },
     {
       "beat": 6,
       "title": "Brightness",
       "line": 5,
       "text": "and lowering it shrinks the size of the hex.",
-      "start": 211.31,
-      "end": 213.23
+      "start": 211.38,
+      "end": 213.3
     },
     {
       "beat": 6,
       "title": "Brightness",
       "line": 6,
       "text": "Notice we stay at the hue 30 orange while moving brightness.",
-      "start": 213.93,
-      "end": 218.05
+      "start": 214,
+      "end": 218.12
     },
     {
       "beat": 7,
       "title": "Six tints",
       "line": 1,
       "text": "We'll use the swatches section to show how we can use HSB to set six different variations of the same hue.",
-      "start": 219.5,
-      "end": 225.45
+      "start": 219.57,
+      "end": 225.52
     },
     {
       "beat": 7,
       "title": "Six tints",
       "line": 2,
       "text": "We can use HSB to come up with a bright desaturated orange, then go down the scale until we have a dark vibrant variant.",
-      "start": 226.85,
-      "end": 233.79
+      "start": 226.92,
+      "end": 233.86
     },
     {
       "beat": 7,
       "title": "Six tints",
       "line": 3,
       "text": "This is hinting at what a design system might do.",
-      "start": 235.19,
-      "end": 237.83
+      "start": 235.26,
+      "end": 237.9
     },
     {
       "beat": 8,
       "title": "Equations",
       "line": 1,
       "text": "We've been exploring the playground, but if you want the classroom perspective, check out the equations section.",
-      "start": 242.03,
-      "end": 247.09
+      "start": 242.1,
+      "end": 247.16
     },
     {
       "beat": 8,
       "title": "Equations",
       "line": 2,
       "text": "It shows the math behind",
-      "start": 248.49,
-      "end": 249.95
+      "start": 248.56,
+      "end": 250.02
     },
     {
       "beat": 8,
       "title": "Equations",
       "line": 3,
       "text": "hue,",
-      "start": 250.07,
-      "end": 250.78
+      "start": 250.14,
+      "end": 250.85
     },
     {
       "beat": 8,
       "title": "Equations",
       "line": 4,
       "text": "saturation,",
-      "start": 250.9,
-      "end": 251.61
+      "start": 250.97,
+      "end": 251.68
     },
     {
       "beat": 8,
       "title": "Equations",
       "line": 5,
       "text": "brightness,",
-      "start": 251.73,
-      "end": 252.49
+      "start": 251.8,
+      "end": 252.56
     },
     {
       "beat": 8,
       "title": "Equations",
       "line": 6,
       "text": "and HSL conversions,",
-      "start": 252.61,
-      "end": 254.11
+      "start": 252.68,
+      "end": 254.18
     },
     {
       "beat": 8,
       "title": "Equations",
       "line": 7,
       "text": "as well as how Hex and normalized colors are calculated.",
-      "start": 255.51,
-      "end": 258.75
+      "start": 255.58,
+      "end": 258.82
     },
     {
       "beat": 9,
       "title": "Handoff to the demo",
       "line": 1,
       "text": "Now we can move on to the demo.",
-      "start": 258.95,
-      "end": 260.76
+      "start": 259.02,
+      "end": 260.83
     },
     {
       "beat": 9,
       "title": "Handoff to the demo",
       "line": 2,
       "text": "You can find this demo the first time loading the app,",
-      "start": 262.16,
-      "end": 264.5
+      "start": 262.23,
+      "end": 264.57
     },
     {
       "beat": 9,
       "title": "Handoff to the demo",
       "line": 3,
       "text": "or from the question mark button at the top of the app.",
-      "start": 265.36,
-      "end": 267.94
+      "start": 265.43,
+      "end": 268.01
     },
     {
       "beat": 10,
       "title": "The demo",
       "line": 1,
       "text": "Start with the sliders and controls you already know.",
-      "start": 271.19,
-      "end": 273.69
+      "start": 271.26,
+      "end": 273.76
     },
     {
       "beat": 10,
       "title": "The demo",
       "line": 2,
       "text": "Moving one slider will highlight every other slider it affects.",
-      "start": 279.47,
-      "end": 282.92
+      "start": 279.54,
+      "end": 282.99
     },
     {
       "beat": 10,
       "title": "The demo",
       "line": 3,
       "text": "Click the droplet button to switch between Source or Mixed colored sliders.",
-      "start": 287.67,
-      "end": 291.41
+      "start": 287.74,
+      "end": 291.48
     },
     {
       "beat": 10,
       "title": "The demo",
       "line": 4,
       "text": "Click the tags button to show HTML colors on the hex.",
-      "start": 292.33,
-      "end": 295.59
+      "start": 292.4,
+      "end": 295.66
     },
     {
       "beat": 10,
       "title": "The demo",
       "line": 5,
       "text": "Drag a handle on the hex and watch the RGB and HSB sliders follow.",
-      "start": 297.8,
-      "end": 301.78
+      "start": 297.87,
+      "end": 301.85
     },
     {
       "beat": 10,
       "title": "The demo",
       "line": 6,
       "text": "Have fun exploring and learning about different color models.",
-      "start": 307.78,
-      "end": 310.7
+      "start": 307.85,
+      "end": 310.77
     },
     {
       "beat": 11,
       "title": "Sign-off",
       "line": 1,
       "text": "If you use Figma, I've also made a Color Taylor plugin that you might like to check out.",
-      "start": 311.9,
-      "end": 317.32
+      "start": 311.97,
+      "end": 317.39
     },
     {
       "beat": 11,
       "title": "Sign-off",
       "line": 2,
       "text": "That's Color Taylor!",
-      "start": 320.04,
-      "end": 321.28
+      "start": 319,
+      "end": 320.24
     },
     {
       "beat": 11,
       "title": "Sign-off",
       "line": 3,
       "text": "Go play with it, and I hope it helps you see the relationship between RGB and HSB in a different light.",
-      "start": 321.4,
-      "end": 326.79
+      "start": 320.36,
+      "end": 325.75
     },
     {
       "beat": 11,
       "title": "Sign-off",
       "line": 4,
       "text": "If it's useful, I'd like to hear from you. Questions and feedback are welcome.",
-      "start": 328.4,
-      "end": 332.9
+      "start": 327.36,
+      "end": 331.86
     },
     {
       "beat": 11,
       "title": "Sign-off",
       "line": 5,
       "text": "Thanks, see ya.",
-      "start": 333.9,
-      "end": 335.5
+      "start": 332.86,
+      "end": 334.46
     }
   ]
 }
