@@ -686,10 +686,11 @@ export default function ColorPicker() {
     setPresentVoice(voice);
     setPresentCamera(camera);
     setPresentOpen(true);
-    // The panel is the door, not the stage. The cut's last cue opens it again
-    // itself, so nothing here has to put it back.
-    markAboutSeen();
-  }, [markAboutSeen]);
+    // The panel stays open: the cut's first beat underlines the title inside
+    // it and the runner closes it itself at the top of beat two. Only the
+    // seen flag is set, so the panel does not come back as the welcome.
+    try { localStorage.setItem('color-taylor-about-seen', '1'); } catch { /* localStorage unavailable */ }
+  }, []);
   const restoreDemo = useCallback(() => {
     const snap = demoSnapshot.current;
     // Null after the first call: the script restores when it reaches the last

@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { CURRENT_CUT } from '../src/demo/currentCut';
 
 /**
  * The welcome panel: shown once on a first visit, from the header's ? and from
@@ -183,13 +184,15 @@ test.describe('Welcome panel', () => {
     await expect(panel(page).locator('#about-presentation')).toBeVisible();
   });
 
-  test('the presentation entry starts the walkthrough and closes the panel', async ({ page }) => {
+  test('the presentation entry starts the walkthrough and leaves the panel open', async ({ page }) => {
     await page.setViewportSize({ width: 1376, height: 868 });
     await page.goto('/');
     await page.locator('#demo-button').click();
     await expect(panel(page)).toBeVisible();
     await page.locator('#about-presentation').click();
-    await expect(panel(page)).toHaveCount(0);
+    // The runner closes it itself: the cut's first beat underlines the title
+    // inside the panel, and beat two clicks Get Started.
+    await expect(panel(page)).toBeVisible();
     // The reduced transport: play, time and a bare scrub bar, and none of the
     // authoring half or the full transport's readouts.
     await expect(page.getByTestId('present-transport')).toBeVisible();
@@ -200,11 +203,11 @@ test.describe('Welcome panel', () => {
     await expect(page.getByTestId('present-line-span')).toHaveCount(0);
     // The host's own elements, adopted: the click is the only moment playback
     // can be granted, so they are created and started there.
-    await expect(page.locator('audio[data-testid="present-audio"]')).toHaveAttribute('src', /scripts\/cut-03\.m4a$/);
+    await expect(page.locator('audio[data-testid="present-audio"]')).toHaveAttribute('src', new RegExp(`scripts/${CURRENT_CUT}\\.m4a$`));
     await expect(page.locator('#camera-pip video[data-front="1"]'))
       // WebcamPip fetches the file and attaches it as an object URL once it
       // has it, so the adopted element reads either the path or a blob.
-      .toHaveAttribute('src', /(scripts\/pip\/cut-03\/full\.mp4$|^blob:)/);
+      .toHaveAttribute('src', new RegExp(`(scripts/pip/${CURRENT_CUT}/full\\.mp4$|^blob:)`));
   });
 
   test('?present= mounts paused, with the full transport and no dev endpoints', async ({ page }) => {
