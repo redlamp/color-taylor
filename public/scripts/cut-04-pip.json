@@ -239,9 +239,9 @@
       "id": "full",
       "file": "pip/cut-04/full.mp4",
       "cutStart": 0,
-      "cutEnd": 329.364,
+      "cutEnd": 329.994,
       "clipOffset": 0,
-      "duration": 329.366667,
+      "duration": 330,
       "parts": [
         {
           "id": "intro",
@@ -251,7 +251,7 @@
         {
           "id": "outro",
           "cutStart": 305.834,
-          "cutEnd": 329.364
+          "cutEnd": 329.994
         }
       ],
       "lines": [
@@ -306,8 +306,8 @@
         {
           "id": "11.5",
           "cutStart": 327.024,
-          "cutEnd": 329.124,
-          "text": "Thanks, see ya."
+          "cutEnd": 329.754,
+          "text": "Thanks for watching. See ya."
         }
       ]
     }
