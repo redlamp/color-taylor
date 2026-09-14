@@ -1260,6 +1260,7 @@ export default function ColorPicker() {
               saturation={hsb.s}
               brightness={hsb.b}
               onChange={handleSbBoxChange}
+              blMode={blMode}
             />
             <HSlider
               hue={hsb.h}

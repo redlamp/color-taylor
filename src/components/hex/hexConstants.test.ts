@@ -2,7 +2,9 @@ import { describe, test, expect } from 'bun:test';
 import {
   RADIUS, CENTER_X, CENTER_Y, PI, SQRT3_2, DIRS,
   hexEdgeDist, shapeEdgeDist, shapePoints, blLimitScale, shapeLimitScale, colorAtPoint, getOrder,
+  pointForColor, type BLMode,
 } from './hexConstants';
+import { rgbToHsb, rgbToHsl } from '../../utils/colorConversions';
 
 /*
  * The geometry in hexagon-is-the-cube-down-its-diagonal.md, pinned. These are
@@ -108,6 +110,43 @@ describe('colorAtPoint', () => {
     const c = colorAtPoint(CENTER_X + RADIUS * 0.999, CENTER_Y, 50);
     expect(c).toEqual({ r: 255, g: 0, b: 0 });
   });
+});
+
+describe('pointForColor', () => {
+  // A colour placed at its own value should sit exactly on that value's
+  // cross-section rim - pointForColor is meant to be colorAtPoint's inverse
+  // when fed the colour's own b (brightness mode) or l (lightness mode).
+  const COLORS: { name: string; r: number; g: number; b: number }[] = [
+    { name: 'mediumvioletred', r: 199, g: 21, b: 133 },
+    { name: 'cornflowerblue', r: 100, g: 149, b: 237 },
+    { name: 'black', r: 0, g: 0, b: 0 },
+    { name: 'white', r: 255, g: 255, b: 255 },
+    { name: 'grey', r: 128, g: 128, b: 128 },
+  ];
+  const MODES: BLMode[] = ['brightness', 'lightness'];
+
+  for (const mode of MODES) {
+    for (const shapeMix of [1, 0]) {
+      test(`is the inverse of colorAtPoint in ${mode} mode at shapeMix ${shapeMix}`, () => {
+        for (const c of COLORS) {
+          const hsb = rgbToHsb(c.r, c.g, c.b);
+          const hsl = rgbToHsl(c.r, c.g, c.b);
+          const { x, y } = pointForColor(c, mode, shapeMix);
+          const back = colorAtPoint(x, y, hsb.b, hsl.l, mode, shapeMix);
+          const backHsb = rgbToHsb(back.r, back.g, back.b);
+          const backHsl = rgbToHsl(back.r, back.g, back.b);
+
+          if (mode === 'brightness') {
+            if (hsb.s > 0) expect(backHsb.h).toBeCloseTo(hsb.h, 0);
+            expect(backHsb.s).toBeCloseTo(hsb.s, 0);
+          } else {
+            if (hsl.s > 0) expect(backHsl.h).toBeCloseTo(hsl.h, 0);
+            expect(backHsl.s).toBeCloseTo(hsl.s, 0);
+          }
+        }
+      });
+    }
+  }
 });
 
 describe('getOrder', () => {
