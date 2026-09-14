@@ -199,13 +199,6 @@ const presentationFrames = {
 const VIDEO_DIR = path.dirname(NOTES_DIR)
 const VIDEO_REPO = path.dirname(path.dirname(VIDEO_DIR))
 
-/**
- * The cut whose action cues this one carries forward. The retime step reads the
- * earlier cut's lines and actions and maps them onto the new line times; see
- * HANDOFF-cut-02-presentation.md, "The pipeline".
- */
-const CARRIED_FROM = 'cut-01'
-
 /** Read a JSON file, or throw with the path in the message. */
 const readJson = (file) => {
   try {
@@ -238,17 +231,18 @@ const runStep = (args) => {
  */
 const rebuild = (name) => {
   const log = []
+  const joinArgs = [
+    path.join(VIDEO_REPO, 'tools/takes/place-lines.mjs'), 'join',
+    '--placement', `cues/${name}-placement.json`,
+    '--out', `masters/${name}`,
+    '--lines-out', `cues/${name}-lines.json`,
+  ]
+  const planFile = path.join(VIDEO_DIR, 'cues', `${name}-plan.json`)
+  if (fs.existsSync(planFile)) joinArgs.push('--plan', `cues/${name}-plan.json`)
   const steps = [
-    [
-      path.join(VIDEO_REPO, 'tools/takes/place-lines.mjs'), 'join',
-      '--placement', `cues/${name}-placement.json`,
-      '--out', `masters/${name}`,
-      '--lines-out', `cues/${name}-lines.json`,
-    ],
+    joinArgs,
     [
       path.join(VIDEO_REPO, 'tools/script-table/retime-actions.mjs'),
-      '--from-lines', `cues/${CARRIED_FROM}-lines.json`,
-      '--from-actions', `cues/${CARRIED_FROM}-actions.json`,
       '--to-lines', `cues/${name}-lines.json`,
       '--map', `cues/${name}-actions-map.json`,
       '--extra', `cues/${name}-actions-extra.json`,
