@@ -715,15 +715,33 @@ the app's own entry with `mode="production"` (see "Shipping it" below).
   the track, so centering put the buttons too high whenever labels were up.
   The full transport, whose buttons/clock/timeline row has never had a label
   row of its own to contend with, is unchanged.
-- **Captions.** The same component on both transports: the current line's
-  text (`captionAt` in `PresentationMode.tsx` - the line whose span contains
-  the playhead, kept through a gap to the next line of 1.5s or less, blank
-  through anything longer), centered above the label row, about 18px, capped
-  to two lines and about 60% of the viewport wide, with a short crossfade
-  between lines. On by default wherever `mode` is `'production'` - the
-  shipped walkthrough's transport has no line/action readout to say the same
-  thing - off by default under `'dev'`, which does, but reachable there too
-  behind a **Captions** toggle in the authoring row.
+- **Captions.** The same component on both transports, centered above the
+  label row, off by default and remembered per viewer (`localStorage`
+  `present:captions`, wrapped in try/catch). The dev transport reaches it
+  behind a **Captions** toggle in the authoring row; the shipped (reduced)
+  transport behind a checkbox on the transport row next to the clock (a
+  shadcn `Checkbox`, `src/components/ui/checkbox.tsx`) - both drive the same
+  `captionsOn` state.
+  - **Word chunks (default when available).** `public/scripts/<name>
+    -words.json` - copied from the master's `<cut>.words.json`
+    (`redlamp-videos/tools/transcript-align/from-whisper.mjs`), an array of
+    `{ text, start, end }` word timings in the cut's own seconds - is grouped
+    into small HyperFrames-style read-along chunks (`buildCaptionChunks` in
+    `src/demo/captions.ts`): at most 6 words and 2.4s per chunk, never
+    crossing a line boundary (`<name>-lines.json` spans), breaking
+    preferentially right after punctuation rather than filling every chunk to
+    its cap. The current chunk (`chunkAt`) sits centered above the label row
+    at about 22px; each word fills from muted to bright the moment the
+    playhead passes its own start - a color change only, no layout shift and
+    no per-letter animation - and the chunk blanks when none covers the
+    playhead for more than 0.8s. A short crossfade, same as the line-text
+    caption below, plays between chunks.
+  - **Line text (fallback).** When there's no words file for the cut, the
+    current line's whole text (`captionAt` in `PresentationMode.tsx` - the
+    line whose span contains the playhead, kept through a gap to the next
+    line of 1.5s or less, blank through anything longer), about 18px, capped
+    to two lines and about 60% of the viewport wide, with the same short
+    crossfade between lines.
 - **Section labels.** `public/scripts/<name>-sections.json`, when present
   (`{ source, sections: [{ id, label, line }] }`), names a handful of
   sections of the cut, each anchored to a line id — `"11.2"` starts mid-beat,

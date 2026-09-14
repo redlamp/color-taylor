@@ -33,13 +33,18 @@
  * This is a tool, not a surface of the app: the styling is deliberately not
  * the app's. See docs/demo-script.md, "Presentation mode".
  *
- * A caption - the current line's text, above the bar - is part of the same
- * component on both transports: on by default wherever `mode` is
- * `'production'`, off by default under `'dev'` (which already has the
- * line/action readout) but reachable there behind a toggle in the authoring
- * row. With `frames=` in the URL (see Frames.tsx) the whole bar, labels and
- * caption included, starts hidden - a capture shows only the app, the ghost
- * and the webcam panel - and **T** brings it back for editing.
+ * A caption above the bar is part of the same component on both transports,
+ * off by default and remembered per viewer (`localStorage`, wrapped in
+ * try/catch). The dev transport reaches it behind a toggle in the authoring
+ * row; the shipped (reduced) transport behind a checkbox on the transport row
+ * near the clock - both drive the same state. When `public/scripts/<name>
+ * -words.json` word timings are present, the caption groups them into small
+ * HyperFrames-style read-along chunks (`captions.ts`), each word filling in
+ * as the playhead passes its start; otherwise it falls back to the current
+ * line's whole text (`captionAt` below). With `frames=` in the URL (see
+ * Frames.tsx) the whole bar, labels and caption included, starts hidden - a
+ * capture shows only the app, the ghost and the webcam panel - and **T**
+ * brings it back for editing.
  */
 
 import {
@@ -64,7 +69,9 @@ import {
   LABEL_ANGLE_DEG, labelRowHeight, layoutSectionLabels, loadSections, resolveSectionMarks,
   type Section,
 } from './sections';
+import { buildCaptionChunks, chunkAt, type CaptionChunk, type CaptionWord } from './captions';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 
 /** One spoken line of the cut, with where it sits in the voice track. */
 interface ScriptLine {
@@ -340,12 +347,17 @@ export default function PresentationMode({
   const shrunk = authoring && collapsed;
 
   /**
-   * Captions: on by default everywhere the shipped walkthrough shows up
-   * (`authoring` false), off by default in the dev transport, which already
-   * has the line/action readout above the timeline - available there too,
-   * behind the toggle in the authoring row below.
+   * Captions: off by default everywhere, remembered per viewer. Both
+   * transports drive this same state - the dev transport's toggle in the
+   * authoring row below, the shipped (reduced) transport's checkbox on the
+   * transport row near the clock.
    */
-  const [captionsOn, setCaptionsOn] = useState<boolean>(!authoring);
+  const [captionsOn, setCaptionsOn] = useState<boolean>(() => {
+    try { return localStorage.getItem('present:captions') === '1'; } catch { return false; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('present:captions', captionsOn ? '1' : '0'); } catch { /* private mode */ }
+  }, [captionsOn]);
   /** The crossfade: at most two layers on screen, the outgoing one fading out
    *  while the incoming one fades in. Recomputed off `time` the same way the
    *  line readout above is - only the DOM update is gated behind a ref check,
@@ -354,6 +366,34 @@ export default function PresentationMode({
   const captionIdRef = useRef(0);
   const [captionLayers, setCaptionLayers] = useState<{ id: number; text: string; out: boolean }[]>([]);
   const captionFadeTimer = useRef<number | null>(null);
+
+  /**
+   * Word-level captions: `public/scripts/<name>-words.json`, when present,
+   * grouped into small read-along chunks once the line spans it's grouped
+   * against (`lines`, below) have loaded. `null` means "not available" - the
+   * caption falls back to the current line's whole text below - which also
+   * covers the fetch still being in flight, so a stray render doesn't flash
+   * the fallback caption on top of a cut that does have word timings.
+   */
+  const [wordChunks, setWordChunks] = useState<CaptionChunk[] | null>(null);
+  useEffect(() => {
+    let live = true;
+    if (!name || !lines.length) { setWordChunks(null); return; }
+    fetch(`/scripts/${name}-words.json`)
+      .then((res) => (res.ok ? (res.json() as Promise<CaptionWord[]>) : null))
+      .then((words) => {
+        if (!live) return;
+        setWordChunks(words && words.length ? buildCaptionChunks(words, lines) : null);
+      })
+      .catch(() => { if (live) setWordChunks(null); });
+    return () => { live = false; };
+  }, [name, lines]);
+  /** The word-chunk crossfade: same shape as the line-text one above, keyed
+   *  by chunk id instead of text. */
+  const wordChunkIdRef = useRef<string | null>(null);
+  const wordChunkLayerIdRef = useRef(0);
+  const [wordChunkLayers, setWordChunkLayers] = useState<{ id: number; chunk: CaptionChunk; out: boolean }[]>([]);
+  const wordChunkFadeTimer = useRef<number | null>(null);
 
   /**
    * Adopting the host's `<audio>`.
@@ -793,6 +833,30 @@ export default function PresentationMode({
     if (captionFadeTimer.current !== null) window.clearTimeout(captionFadeTimer.current);
   }, []);
 
+  /* The word-chunk caption's crossfade, mirroring the line-text one above:
+   * a new layer for the chunk now covering the playhead, the one it replaces
+   * marked to fade out and dropped once the fade is done. */
+  useEffect(() => {
+    if (!wordChunks) return;
+    const next = chunkAt(wordChunks, time);
+    const nextId = next ? next.id : null;
+    if (nextId === wordChunkIdRef.current) return;
+    wordChunkIdRef.current = nextId;
+    wordChunkLayerIdRef.current += 1;
+    const id = wordChunkLayerIdRef.current;
+    setWordChunkLayers((prev) => [
+      ...prev.map((l) => ({ ...l, out: true })),
+      ...(next !== null ? [{ id, chunk: next, out: false }] : []),
+    ]);
+    if (wordChunkFadeTimer.current !== null) window.clearTimeout(wordChunkFadeTimer.current);
+    wordChunkFadeTimer.current = window.setTimeout(() => {
+      setWordChunkLayers((prev) => prev.filter((l) => !l.out));
+    }, CAPTION_FADE_MS + 50);
+  }, [wordChunks, time]);
+  useEffect(() => () => {
+    if (wordChunkFadeTimer.current !== null) window.clearTimeout(wordChunkFadeTimer.current);
+  }, []);
+
   const pct = (t: number) => (duration ? `${(100 * t) / duration}%` : '0%');
 
   /**
@@ -981,13 +1045,64 @@ export default function PresentationMode({
           )}
           {voice && <span ref={voiceHostRef} data-testid="present-voice-host" />}
 
-          {/* The caption: the current line's text, centered above the label
-              row and the rest of the bar. Its own layer, not a sibling of the
-              line/action readout above - that readout is full-transport only
-              and stays a developer's tool; this is meant to read from across
-              the room, so it is bigger, higher contrast, and capped to a
-              couple of lines. Crossfades between lines rather than cutting. */}
-          {captionsOn && captionLayers.length > 0 && (
+          {/* The caption: centered above the label row and the rest of the
+              bar. Its own layer, not a sibling of the line/action readout
+              above - that readout is full-transport only and stays a
+              developer's tool; this is meant to read from across the room.
+              Crossfades rather than cutting. Two shapes, mutually exclusive:
+              word chunks (HyperFrames-style, a word brightening as the
+              playhead passes its start) when `<name>-words.json` loaded, the
+              current line's whole text otherwise. */}
+          {captionsOn && wordChunks && wordChunkLayers.length > 0 && (
+            <div
+              data-testid="present-captions"
+              aria-live="polite"
+              style={{
+                position: 'absolute',
+                left: '50%',
+                bottom: '100%',
+                transform: 'translateX(-50%)',
+                marginBottom: 10,
+                maxWidth: '70vw',
+                textAlign: 'center',
+                pointerEvents: 'none',
+              }}
+            >
+              {wordChunkLayers.map((l) => (
+                <div
+                  key={l.id}
+                  style={{
+                    position: l.out ? 'absolute' : 'relative',
+                    inset: l.out ? 0 : undefined,
+                    fontSize: 22,
+                    lineHeight: 1.3,
+                    fontFamily: 'ui-monospace, Consolas, monospace',
+                    whiteSpace: 'nowrap',
+                    textShadow: '0 1px 2px rgba(0,0,0,0.95), 0 0 10px rgba(0,0,0,0.8)',
+                    opacity: l.out ? 0 : 1,
+                    transition: `opacity ${CAPTION_FADE_MS}ms ease`,
+                  }}
+                >
+                  {l.chunk.words.map((w, i) => (
+                    <span
+                      key={i}
+                      style={{
+                        // Fill, not layout: only color changes as the
+                        // playhead passes a word's start, so the chunk never
+                        // reflows and there is no per-letter animation.
+                        color: time >= w.start ? '#fff' : 'rgba(255,255,255,0.4)',
+                        transition: 'color 120ms linear',
+                      }}
+                    >
+                      {w.text}
+                      {i < l.chunk.words.length - 1 ? ' ' : ''}
+                    </span>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
+          {captionsOn && !wordChunks && captionLayers.length > 0 && (
             <div
               data-testid="present-captions"
               aria-live="polite"
@@ -1389,6 +1504,27 @@ export default function PresentationMode({
               <span data-testid="present-time" style={{ minWidth: 96, whiteSpace: 'nowrap' }}>
                 {mmssTenths(time)} / {mmss(duration)}
               </span>
+              {/* The captions checkbox: off by default, remembered per viewer
+                  (the `captionsOn` state above). Sits by the clock rather than
+                  in with the play/beat buttons - it's a setting, not a
+                  transport control. */}
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  whiteSpace: 'nowrap',
+                  cursor: 'pointer',
+                  color: '#e6e6e6',
+                }}
+              >
+                <Checkbox
+                  data-testid="present-captions-checkbox"
+                  checked={captionsOn}
+                  onCheckedChange={(checked) => setCaptionsOn(checked === true)}
+                />
+                Captions
+              </label>
               <div style={{ position: 'relative', flex: 1 }}>
                 {labelsRow}
                 {timelineBar}
