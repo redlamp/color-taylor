@@ -550,40 +550,40 @@
       "title": "Sign-off",
       "line": 1,
       "text": "If you use Figma, I've also made a Color Taylor plugin that you might like to check out.",
-      "start": 321.23,
-      "end": 326.65
+      "start": 318.57,
+      "end": 323.99
     },
     {
       "beat": 11,
       "title": "Sign-off",
       "line": 2,
       "text": "That's Color Taylor!",
-      "start": 329.37,
-      "end": 330.61
+      "start": 326.71,
+      "end": 327.95
     },
     {
       "beat": 11,
       "title": "Sign-off",
       "line": 3,
       "text": "Go play with it, and I hope it helps you see the relationship between RGB and HSB in a different light.",
-      "start": 330.73,
-      "end": 336.12
+      "start": 328.07,
+      "end": 333.46
     },
     {
       "beat": 11,
       "title": "Sign-off",
       "line": 4,
       "text": "If it's useful, I'd like to hear from you. Questions and feedback are welcome.",
-      "start": 337.73,
-      "end": 342.23
+      "start": 335.07,
+      "end": 339.57
     },
     {
       "beat": 11,
       "title": "Sign-off",
       "line": 5,
       "text": "Thanks, see ya.",
-      "start": 343.23,
-      "end": 345.46
+      "start": 340.57,
+      "end": 342.8
     }
   ]
 }
