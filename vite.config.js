@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
 import fs from 'fs'
-import { spawnSync } from 'child_process'
+import { spawnSync, spawn } from 'child_process'
 
 const base = process.env.GH_PAGES_DEV
   ? '/color-taylor/dev/'
@@ -271,6 +271,64 @@ const rebuild = (name) => {
   return { ok: true, log: log.join('\n\n') }
 }
 
+/**
+ * Where the pip re-cut's own script lives, and the per-cut flags a wrapper fixes for it -
+ * crop-x, grade, which lines, `--to-track-end` - so an apply does not have to guess at options
+ * that were measured once and belong to the cut, not to the request. A cut with no options file
+ * has nothing to re-cut against and is left alone, the same as before this existed.
+ */
+const PIP_TOOL = path.join(VIDEO_REPO, 'tools/takes/cut-pip-clips.mjs')
+const pipOptionsPath = (name) => path.join(VIDEO_DIR, 'cues', `${name}-pip-options.json`)
+
+/**
+ * Per-cut pip status, in memory only - it resets with the dev server, which is fine: a fresh
+ * server has not re-cut anything yet, and the editor's log line is what a session actually
+ * watches. `updating` while the child process runs, then `synced` or `error` with its output.
+ */
+const pipStatus = {}
+const pipRunning = new Set()
+
+/**
+ * Re-cut the camera clip and its manifest for `name`, and copy both into the app - the other
+ * half of "the camera footage moves with the lines" that `rebuild` above does not do. Started
+ * after `rebuild` succeeds and left to run on its own: a full re-cut re-encodes video and can
+ * take a while, and the apply that changed the line timing has already finished by the time this
+ * is still going, so the response must not wait on it. `GET /__clip/<name>/status` is how the
+ * editor finds out when it lands.
+ */
+function rebuildPip(name) {
+  const optionsFile = pipOptionsPath(name)
+  if (!fs.existsSync(optionsFile)) return // nothing measured for this cut yet
+  if (pipRunning.has(name)) return // one re-cut at a time per cut; the next apply's will follow
+  pipRunning.add(name)
+  pipStatus[name] = { state: 'updating', log: '' }
+  const args = [
+    PIP_TOOL,
+    '--placement', path.join(VIDEO_DIR, 'cues', `${name}-placement.json`),
+    '--lines', path.join(VIDEO_DIR, 'cues', `${name}-lines.json`),
+    '--segments', path.join(VIDEO_DIR, 'masters', `${name}-voice.segments.json`),
+    '--options', optionsFile,
+    '--out', path.resolve(__dirname, 'public/scripts/pip', name),
+    '--manifest', path.join(VIDEO_DIR, 'cues', `${name}-pip.json`),
+    '--copy', path.resolve(__dirname, 'public/scripts', `${name}-pip.json`),
+  ]
+  // Same shell workaround as runStep: spawning node directly from this dev server dies with
+  // Windows' 0xC0000142 before the script runs.
+  const quote = (a) => (/[\s&|<>^]/.test(a) ? `"${a}"` : a)
+  const child = spawn(quote(process.execPath), args.map(quote), { cwd: VIDEO_DIR, shell: true, windowsHide: true })
+  let out = ''
+  child.stdout.on('data', (d) => { out += d })
+  child.stderr.on('data', (d) => { out += d })
+  child.on('close', (code) => {
+    pipRunning.delete(name)
+    pipStatus[name] = { state: code === 0 ? 'synced' : 'error', log: out.trim() || `exit ${code}, no output` }
+  })
+  child.on('error', (err) => {
+    pipRunning.delete(name)
+    pipStatus[name] = { state: 'error', log: String(err) }
+  })
+}
+
 /** One rebuild at a time: two joins over the same outputs would interleave. */
 let rebuilding = false
 
@@ -285,13 +343,33 @@ let rebuilding = false
  * scrubbing a handle costs no round trip.
  *
  * `POST /__clip/<name>/<id>` with `{ trim, gap, cuts }` writes that entry back
- * into the placement and runs join, retime and the copy into public/scripts.
+ * into the placement and runs join, retime and the copy into public/scripts,
+ * then starts a pip re-cut in the background (see `rebuildPip`) so the camera
+ * clip and its manifest stop drifting from the placement that now runs.
+ *
+ * `GET /__clip/<name>/status` reports that background job: `{ state, log }`,
+ * `state` one of `idle` (nothing has kicked off a re-cut this server run),
+ * `updating`, `synced` or `error`.
  */
 const clipEditor = {
   name: 'color-taylor-clip-editor',
   apply: 'serve',
   configureServer(server) {
     server.middlewares.use((req, res, next) => {
+      const statusMatch = /^\/__clip\/([\w-]+)\/status\/?(?:\?.*)?$/.exec(req.url || '')
+      if (statusMatch) {
+        if (req.method !== 'GET') {
+          res.setHeader('allow', 'GET')
+          res.statusCode = 405
+          res.setHeader('content-type', 'application/json')
+          return res.end(JSON.stringify({ error: 'GET only' }))
+        }
+        const name = statusMatch[1]
+        res.statusCode = 200
+        res.setHeader('content-type', 'application/json')
+        return res.end(JSON.stringify(pipStatus[name] ?? { state: 'idle', log: '' }))
+      }
+
       const m = /^\/__clip\/([\w-]+)\/(\d+\.\d+)(\/audio)?\/?(?:\?.*)?$/.exec(req.url || '')
       if (!m) return next()
       const [, name, id, audio] = m
@@ -397,6 +475,9 @@ const clipEditor = {
               let result
               try {
                 result = rebuild(name)
+                // The line timing is already live at this point; the camera clip catching up is
+                // not something the editor's Apply needs to wait on.
+                if (result.ok) rebuildPip(name)
               } finally {
                 rebuilding = false
               }
