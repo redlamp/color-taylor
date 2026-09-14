@@ -26,6 +26,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { frameScale } from './frameState';
 import DemoCursor, { CURSOR_BOX, cursorKind, hotspotOf, type CursorKind } from './DemoCursor';
 import { Driver, DemoAborted, centerOf, type Point, type Stage } from './drive';
 import { fieldPoint, hexClientPoint, smooth, type DemoHost } from './steps';
@@ -1330,6 +1331,38 @@ function resolve(name: string, host: DemoHost): Target | null {
 }
 
 /**
+ * A target's box in client px, for the frame layer (Frames.tsx).
+ *
+ * A frame is a region of the page rather than a point on it, so this is the
+ * one thing frames want out of the runner's vocabulary: the padded rect a
+ * callout would draw where the target carries one, and the element's own box
+ * otherwise. Null for a name this runner does not know, or one whose element
+ * is not on screen.
+ */
+export function targetRect(name: string, host: DemoHost): DOMRect | null {
+  const t = resolve(name, host);
+  if (!t) return null;
+  return t.rect ? t.rect() : t.el.getBoundingClientRect();
+}
+
+/**
+ * The target names a drawn frame may snap to.
+ *
+ * Not every name in `resolve` - a frame round a slider handle or a hexagon
+ * vertex is a region nobody would draw, and offering them makes the snap worse
+ * rather than better. These are the regions of the page a shot is composed of.
+ * `hexagon` and `app-root` are the frame layer's own, and are resolved there.
+ */
+export const FRAME_TARGETS = [
+  'hexagon', 'app-root',
+  'hex-field', 'editor', 'editor-card', 'editor-top', 'editor-sb', 'editor-hue',
+  'sliders:rgb', 'sliders:hsb', 'values:rgb', 'values:hsb', 'range:rgb',
+  'equations', 'equations:h', 'equations:s', 'equations:b',
+  'swatches', 'swatches:recent-row', 'swatches:saved-row',
+  'figma-banner', 'between-panels',
+];
+
+/**
  * Where a `rest`/`hover` actually stands on its target: its middle, unless the
  * cue asked for an edge (`at`) or a nudge (`dx`/`dy`). A thunk, like every
  * other target point, because the page scrolls under it.
@@ -1562,15 +1595,25 @@ export default function ScriptRunner({
      * so a single slot is enough.
      */
     let holding: ScriptAction | null = null;
+    /*
+     * The ceiling the hand is actually held to.
+     *
+     * MAX_MOVE_PX_PER_S is stated in page px, and the frame layer scales the
+     * page: pushed in by 2x, a move that keeps to 700 page px/s crosses the
+     * capture at 1400 px/s, which is the jetting the cap exists to stop. So
+     * the cap is divided by the live scale, and with no frame layer mounted
+     * `frameScale()` is 1 and this is the constant.
+     */
+    const effectiveCap = () => MAX_MOVE_PX_PER_S / frameScale();
     const d = new Driver(stage, {
       reduced: false,
       speed: 1,
-      maxSpeed: MAX_MOVE_PX_PER_S,
+      maxSpeed: effectiveCap,
       onStretch: ({ asked, given, distance }) => {
         const a = holding;
         console.warn(`[script] t=${a ? a.at : '?'}s ${a ? a.do : 'move'}${a?.target ? ` ${a.target}` : ''}:`
           + ` move stretched by the speed cap - ${Math.round(distance)}px asked for in ${Math.round(asked)}ms,`
-          + ` given ${Math.round(given)}ms at ${MAX_MOVE_PX_PER_S}px/s`);
+          + ` given ${Math.round(given)}ms at ${Math.round(effectiveCap())}px/s`);
       },
     }, start);
     const callouts = new Callouts(shapesRef.current);

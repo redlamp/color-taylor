@@ -55,8 +55,13 @@ export interface DriverOptions {
    * durations as the sum of their dwells, so a move allowed to overrun its `ms`
    * would slide that step's caption off the moment beat 2's audio is lined up
    * against.
+   *
+   * A thunk rather than a number when the ceiling moves: the frame layer
+   * magnifies the page, and a cap in page px is a faster hand on screen by
+   * exactly that factor, so the runner hands in a function that divides by the
+   * live scale. Read per move, which is as often as it can matter.
    */
-  maxSpeed?: number;
+  maxSpeed?: number | (() => number);
   /**
    * Told about every move the ceiling had to stretch: what the cue asked for,
    * what it was given, and how far it had to travel.
@@ -324,7 +329,8 @@ export class Driver {
     const c = { x: (p0.x + p2.x) / 2 + nx * bow, y: (p0.y + p2.y) / 2 + ny * bow };
     // The speed ceiling, where there is one: the distance decides the time
     // rather than the time deciding the speed. See DriverOptions.maxSpeed.
-    const span = this.opts.maxSpeed ? Math.max(ms, (d / this.opts.maxSpeed) * 1000) : ms;
+    const cap = typeof this.opts.maxSpeed === 'function' ? this.opts.maxSpeed() : this.opts.maxSpeed;
+    const span = cap ? Math.max(ms, (d / cap) * 1000) : ms;
     if (span > ms + 1) this.opts.onStretch?.({ asked: ms, given: span, distance: d });
     await this.animate(span, (t) => {
       const u = 1 - t;

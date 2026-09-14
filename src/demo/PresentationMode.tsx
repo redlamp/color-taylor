@@ -50,6 +50,7 @@ import ScriptRunner, {
 } from './ScriptRunner';
 import type { DemoHost } from './steps';
 import ClipEditor from './ClipEditor';
+import { FrameControls, RATIO_COLOR, useFrames } from './Frames';
 
 /** One spoken line of the cut, with where it sits in the voice track. */
 interface ScriptLine {
@@ -424,7 +425,17 @@ export default function PresentationMode({
   }), [planMode, planTime]);
   const onHandle = useCallback((h: ScriptRunnerHandle | null) => { handleRef.current = h; }, []);
 
+  /*
+   * The framing layer, for capture. Nothing of it mounts without `frames=` in
+   * the URL, and nothing of it mounts in the shipped walkthrough at all: the
+   * viewer owns their window. See Frames.tsx.
+   */
+  const frames = useFrames({ name, host, time, enabled: mode !== 'production', authoring });
+
   const seek = useCallback((t: number) => {
+    // A seek lands on the frame the cut says is in force there, rather than
+    // easing into it: the same rule the actions follow.
+    frames.jumped();
     if (planMode) {
       const clamped = Math.max(0, t);
       run.current = { base: clamped, since: run.current.since === null ? null : performance.now() };
@@ -438,7 +449,7 @@ export default function PresentationMode({
     a.currentTime = clamped;
     setTime(clamped);
     handleRef.current?.seek(clamped);
-  }, [planMode]);
+  }, [planMode, frames]);
 
   /** Arrow-key seeking: reads the live position rather than closing over
    *  `time`, so the keydown effect below does not need to churn every frame. */
@@ -672,6 +683,7 @@ export default function PresentationMode({
           onHandle={onHandle}
         />
       )}
+      {frames.overlay}
       {createPortal(
         <div
           data-testid="present-transport"
@@ -869,6 +881,32 @@ export default function PresentationMode({
                 {m.n}
               </div>
             ))}
+            {/* The frame keyframes, in the color of the ratio being edited: a
+                shot change is a landmark of the cut as much as a beat is.
+                Pressing one seeks exactly to it, rather than to wherever on
+                the bar the marker was clicked. */}
+            {frames.active && frames.keyframes.map((k, i) => (
+              <div
+                key={`frame-${i}`}
+                data-testid="present-frame-mark"
+                data-frame-t={k.t}
+                title={`frame ${Object.keys(k.regions).join(' ')} — ${mmssTenths(k.t)}`}
+                onPointerDown={(e) => { e.stopPropagation(); seek(k.t); }}
+                style={{
+                  position: 'absolute',
+                  bottom: 0,
+                  height: 8,
+                  width: 7,
+                  marginLeft: -3,
+                  left: pct(k.t),
+                  background: RATIO_COLOR[frames.ratio],
+                  borderRadius: 1,
+                  cursor: 'pointer',
+                  pointerEvents: 'auto',
+                  opacity: i === frames.activeIndex ? 1 : 0.55,
+                }}
+              />
+            ))}
             {fullTransport && notes.map((n, i) => (
               <div
                 key={`note-${i}`}
@@ -918,6 +956,7 @@ export default function PresentationMode({
               Note (N)
             </button>
             )}
+            <FrameControls frames={frames} button={buttonStyle} />
             {authoring && (
             <button type="button" onClick={copyNotes} style={buttonStyle} disabled={!notes.length}>
               {copied ? 'Copied' : 'Copy as markdown'}

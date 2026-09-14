@@ -118,6 +118,81 @@ const presentationNotes = {
 }
 
 /**
+ * Dev-server only: `GET/POST /__frames/<name>` reads and writes the cut's
+ * framing keyframes, `<name>-frames.json`, beside its other cue files.
+ *
+ * The file itself is a bare JSON array of keyframes - it is written by hand as
+ * often as by the editor, and an array is what a frames file is. Over the wire
+ * it wears the same envelope the notes do, `{ source, frames }`, and the same
+ * rule: a list that arrives empty only replaces a file that has keyframes when
+ * the client says it means it (`clear: true`), so a stale page cannot wipe a
+ * set of frames by reloading.
+ *
+ * The app's own copy under `public/scripts/` is written too: the runner fetches
+ * it from there, and an editor that saved only to the videos repo would need a
+ * copy step before the change could be seen.
+ */
+const presentationFrames = {
+  name: 'color-taylor-presentation-frames',
+  apply: 'serve',
+  configureServer(server) {
+    server.middlewares.use((req, res, next) => {
+      const m = /^\/__frames\/([\w-]+)\/?(?:\?.*)?$/.exec(req.url || '')
+      if (!m) return next()
+      const name = m[1]
+      const file = path.join(NOTES_DIR, `${name}-frames.json`)
+      const appCopy = path.join(server.config.root, 'public', 'scripts', `${name}-frames.json`)
+      const send = (status, body) => {
+        res.statusCode = status
+        res.setHeader('content-type', 'application/json')
+        res.end(JSON.stringify(body))
+      }
+      const read = (f) => {
+        const data = JSON.parse(fs.readFileSync(f, 'utf8'))
+        return Array.isArray(data) ? data : Array.isArray(data.frames) ? data.frames : []
+      }
+      if (req.method === 'GET') {
+        try {
+          const from = fs.existsSync(file) ? file : fs.existsSync(appCopy) ? appCopy : null
+          return send(200, { source: name, frames: from ? read(from) : [] })
+        } catch (err) {
+          return send(500, { error: String(err) })
+        }
+      }
+      if (req.method === 'POST') {
+        let raw = ''
+        req.on('data', (chunk) => { raw += chunk })
+        req.on('end', () => {
+          try {
+            const data = JSON.parse(raw || '{}')
+            const frames = Array.isArray(data.frames) ? data.frames : null
+            if (!frames) return send(400, { error: 'body needs a frames array' })
+            if (frames.length === 0 && data.clear !== true && fs.existsSync(file)) {
+              try {
+                if (read(file).length > 0) {
+                  return send(409, { error: 'refusing to empty a frames file without clear: true', frames: read(file) })
+                }
+              } catch { /* unreadable: fall through and overwrite */ }
+            }
+            const body = JSON.stringify(frames, null, 2) + '\n'
+            fs.mkdirSync(NOTES_DIR, { recursive: true })
+            fs.writeFileSync(file, body)
+            fs.mkdirSync(path.dirname(appCopy), { recursive: true })
+            fs.writeFileSync(appCopy, body)
+            return send(200, { source: name, frames })
+          } catch (err) {
+            return send(500, { error: String(err) })
+          }
+        })
+        return
+      }
+      res.setHeader('allow', 'GET, POST')
+      return send(405, { error: 'GET or POST' })
+    })
+  },
+}
+
+/**
  * The cut's own directory, and the repository above it. Derived from NOTES_DIR
  * so there is one path to keep pointed at the videos project, not two.
  */
@@ -345,7 +420,7 @@ const clipEditor = {
 // https://vite.dev/config/
 export default defineConfig({
   base,
-  plugins: [react(), tailwindcss(), siteUrlHtml, presentationNotes, clipEditor],
+  plugins: [react(), tailwindcss(), siteUrlHtml, presentationNotes, presentationFrames, clipEditor],
   server: {
     // The cut's assets are rebuilt and copied over while the server runs, and
     // chokidar's unlink path kills it with ERR_CLOSED_SERVER when one of them

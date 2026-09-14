@@ -718,3 +718,152 @@ the app's own entry with `mode="production"` (see "Shipping it" below).
   `ERR_CLOSED_SERVER`. They are fetched rather than imported, so there is
   nothing for HMR to do with them — a rebuilt cut is picked up by presentation
   mode's own re-fetch.
+
+## Frames (`?frames=<ratio>`)
+
+A capture-only layer that pushes in and pans around the app for the video
+products. It is never part of the shipped walkthrough — the viewer owns their
+window — so it mounts only when the URL carries `frames=`, and `mode:
+'production'` mounts it under no circumstances. Without the parameter no
+element of it is in the DOM and nothing about the page changes.
+
+A **frame** is a region of the page, in CSS px, that fills the capture. It is
+not "zoom" and it is not "focus": a pan is a frame that moves without changing
+size, and focus is the keyboard's word.
+
+`src/demo/Frames.tsx` is the layer; `src/demo/frameState.ts` is the two facts
+the rest of `src/demo` reads off it.
+
+### The file
+
+`public/scripts/<cut>-frames.json`, copied from
+`videos/color-taylor-demo-test/cues/<cut>-frames.json`. Separate from the
+action cues on purpose: a re-time of the choreography must never touch the
+frames, and the choreography itself stays ratio-agnostic.
+
+It is a JSON **array of keyframes**:
+
+```json
+[
+  { "t": 0, "regions": { "16:9": "reset" } },
+  { "t": 83.9, "ms": 1200, "regions": { "16:9": { "target": "hexagon", "pad": 40 } } },
+  { "t": 139.8, "ms": 1000, "regions": { "16:9": "reset" } }
+]
+```
+
+| field | |
+|---|---|
+| `t` | when the frame comes into force, in the transport's seconds. The last keyframe begun is the frame. |
+| `ms` | the transition into it. **800** when it is not said. |
+| `ease` | a CSS timing function. Defaults to `cubic-bezier(0.5, 0, 0.5, 1)`, which is as near as a bezier gets to the smootherstep the ghost moves on. |
+| `regions` | one region per ratio: `"16:9"` (YouTube, and the fallback the others fall back to), `"1:1"`, `"9:16"` (Reels/TikTok), `"4:5"`. Set together at the same `t`; capture picks one with `?frames=`, and the rest are ignored. |
+
+A **region** is one of three things:
+
+- `{ "target": "hexagon", "pad": 40 }` — the preferred form. The target's box,
+  measured off the live layout at the moment the frame is applied, inflated by
+  `pad` px on every side. It survives a layout change, which an absolute rect
+  does not.
+- `{ "x": 0, "y": 0, "w": 1376, "h": 774 }` — an absolute rect in the page's
+  own CSS px, the fallback.
+- `"reset"` — the default frame: the whole app root.
+
+The target names are the runner's own (the table under "Video script runner"),
+narrowed to the ones a shot is actually composed of — `FRAME_TARGETS` in
+`ScriptRunner.tsx` — plus two the frame layer adds: **`app-root`**, the whole
+app, and **`hexagon`**, the hexagon's whole panel (`#color-hexagon`) rather
+than the runner's `hex-field`, which is the drawing inside it.
+
+### How it is applied
+
+The **capture box** is a box of the chosen ratio, as large as the viewport
+allows, centred in it. At 1920x1080 with `frames=16:9` that is the whole
+viewport; at another shape it letterboxes.
+
+One CSS transform on the app root (`#root`), `transform-origin: 0 0`: the
+region is scaled until it fits the capture box and translated into the middle
+of it. **Fit, not fill** — a drawn region already wears the box's ratio, so the
+two are the same thing for it, and for the ones that do not (the default frame
+is the whole app, whatever shape the window is) fitting keeps the app whole
+instead of cropping its edges out of the picture.
+
+The transition is CSS's, so the layer costs nothing between keyframes.
+Crossing a keyframe in playback eases over its `ms`; **a seek lands**, the same
+rule the actions follow, so scrubbing shows the frame the cut says is in force
+there rather than a run of animations.
+
+Regions are stated in the page's own px, so every measurement the layer takes —
+a target's box, a drawn rect, the app root — is taken with the transform
+momentarily off (`withIdentity`).
+
+**The cursor and the callouts follow for free.** Both are portalled to
+`document.body`, outside the transformed subtree, so they stay in viewport
+coordinates; and every target they point at is measured with
+`getBoundingClientRect` off the live layout, which for an element inside the
+transformed root reports where it is *on screen*. The hand goes where the
+picture is without knowing the layer exists.
+
+### The camera panel
+
+`WebcamPip` stays in screen space. With a frame layer up its home corner is the
+**capture box's** bottom-right corner, at the usual 20 px margin, rather than
+being measured off the app's right edge — the page is being scaled and panned
+underneath it, and a panel measured off the page would walk around with the
+frame. Its size is unchanged, and the `pip` drag on and off still runs in
+viewport coordinates, so both gestures are untouched.
+
+Deferred: the drag's off-screen position is still the *window's* right edge
+rather than the capture box's. They are the same thing at 16:9 in a 16:9
+window, which is what cut 04 is captured at; a letterboxed ratio would push the
+panel further than it needs to go.
+
+### The speed cap
+
+`MAX_MOVE_PX_PER_S` (700) is stated in **page** px. A frame that scales the
+page by `s` puts every cursor move on screen `s` times faster, so a push-in of
+2x would have the hand crossing the capture at 1400 px/s — the jetting the cap
+exists to stop. The runner therefore hands the driver a *thunk*
+(`DriverOptions.maxSpeed` takes `number | (() => number)`) that divides the
+constant by `frameScale()`, read per move. With no frame layer, and while the
+layer is showing the whole app, the scale is 1 and the cap is the constant.
+
+The stretch warning in the console names the effective cap, so a cue stretched
+inside a push-in says so.
+
+### The editor (dev only)
+
+Alongside the notes and the clip editor, and only under `mode: 'dev'`.
+
+- **F** toggles between the **full page** — the frame layer disabled, with the
+  capture box drawn as an outline and everything outside it dimmed, so what
+  will be captured is visible — and the **framed view**, which is what the
+  capture will show.
+- The **ratio picker** in the transport row chooses which ratio a drawn region
+  is for. It defaults to the one in the URL.
+- **Frame** arms the tool (and switches to the full page, since a region is
+  drawn in page px). Drag a rect over the app; on release it **snaps to the
+  ratio**, growing about its middle so nothing drawn is lost, and then, if it
+  mostly covers one known target — three quarters of the target inside the rect
+  and half the rect spent on it — it **snaps to that target** with the single
+  pad that reproduces the size it was drawn at. Otherwise it saves as an
+  absolute rect. Either way it becomes the keyframe at the playhead: within
+  0.2 s of an existing one it is merged into that keyframe's `regions`, so the
+  ratios of one shot are set together.
+- Every ratio of the keyframe at the playhead is drawn as an outline in its own
+  color (16:9 cyan, 1:1 amber, 9:16 pink, 4:5 green) on the full page.
+- Keyframes appear on the timeline as markers in the picked ratio's color, the
+  active one solid; pressing one seeks exactly to it. **x** deletes the
+  keyframe at the playhead.
+- Saving goes through a dev-server middleware, `GET`/`POST /__frames/<name>`,
+  which reads and writes `<PRESENTATION_NOTES_DIR>/<name>-frames.json` **and**
+  the app's own copy under `public/scripts/`, so an edit is visible without a
+  copy step. Over the wire it is `{ "source": "<name>", "frames": [...] }`; on
+  disk it is the bare array. A list that arrives empty is refused unless the
+  body says `clear: true`, the same rule the notes have.
+
+**What the frame does not carry.** Anything portalled to `document.body` is
+outside the transformed subtree by construction: the ghost and the callouts
+(deliberately — that is what keeps them in viewport coordinates), the
+transport, the camera panel, and also the app's own dialogs, which Radix
+portals — the About panel sits unscaled over a pushed-in frame. The cut closes
+it in beat 1, so it is only ever seen that way in a seeked run.
