@@ -307,10 +307,14 @@ function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }: Equat
                       <CircleHelp className="size-3.5" />
                     </button>
                   </TooltipTrigger>
-                  <TooltipContent side="top" sideOffset={4} className="max-w-72 text-sm font-sans font-normal leading-snug">
-                    Hexadecimal is a base 16 number system: 0-9, then A-F count as 10-15.
+                  <TooltipContent side="top" sideOffset={4} className="max-w-80 text-base font-sans font-normal leading-snug">
+                    Hexadecimal is a base 16 number system:
                     <br />
-                    So, F = 15, FF = 255. Three pairs, red, green, blue.
+                    0-9, then A-F count as 10-15.
+                    <br />
+                    So, A = 10,{' '}F = 15,{' '}FF = 255.
+                    <br />
+                    Three pairs, red, green, blue.
                   </TooltipContent>
                 </Tooltip>
               </span>
