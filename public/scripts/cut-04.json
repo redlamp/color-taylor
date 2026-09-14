@@ -1,23 +1,23 @@
 {
   "source": "masters/cut-04.m4a",
-  "notes": "Built from cues/cut-04-actions-extra.json on the line times in cues/cut-04-lines.json; see tools/script-table/retime-actions.mjs.",
+  "notes": "Retimed from cues/cut-01-actions.json by line; see tools/script-table/retime-actions.mjs.",
   "actions": [
     {
       "do": "pip",
       "to": "on",
       "ms": 1100,
-      "at": 0.2
+      "at": -1.6
     },
     {
       "do": "underline",
       "target": "about-title",
       "ms": 1200,
-      "at": 9.22
+      "at": 7.42
     },
     {
       "do": "click",
       "target": "about-close",
-      "at": 17.86
+      "at": 16.06
     },
     {
       "do": "slider",
@@ -25,7 +25,7 @@
       "from": 31,
       "to": 25.3,
       "ms": 1800,
-      "at": 19.26
+      "at": 17.46
     },
     {
       "do": "slider",
@@ -33,7 +33,7 @@
       "from": 58.6,
       "to": 87.8,
       "ms": 1800,
-      "at": 21.66
+      "at": 19.86
     },
     {
       "do": "slider",
@@ -41,7 +41,7 @@
       "from": 100,
       "to": 81.6,
       "ms": 1800,
-      "at": 24.06
+      "at": 22.26
     },
     {
       "do": "slider",
@@ -49,7 +49,7 @@
       "from": 25.3,
       "to": 6,
       "ms": 1200,
-      "at": 35.58
+      "at": 33.28
     },
     {
       "do": "slider",
@@ -57,7 +57,7 @@
       "from": 81.6,
       "to": 40,
       "ms": 1400,
-      "at": 38.12
+      "at": 35.82
     },
     {
       "do": "slider",
@@ -65,7 +65,7 @@
       "from": 41,
       "to": 50,
       "ms": 450,
-      "at": 55.22
+      "at": 52.92
     },
     {
       "do": "slider",
@@ -73,7 +73,7 @@
       "from": 88,
       "to": 50,
       "ms": 1100,
-      "at": 56.12
+      "at": 53.82
     },
     {
       "do": "slider",
@@ -81,19 +81,53 @@
       "from": 88,
       "to": 100,
       "ms": 1100,
-      "at": 57.62
+      "at": 55.32
     },
     {
       "do": "pip",
       "to": "off",
       "ms": 1100,
-      "at": 95.18
+      "at": 92.38
+    },
+    {
+      "at": 95.3,
+      "do": "slider",
+      "target": "editor-hue",
+      "to": 30,
+      "ms": 1400
     },
     {
       "do": "wander",
       "target": "editor-card",
       "ms": 5200,
-      "at": 100.94
+      "at": 95.64
+    },
+    {
+      "at": 96.8,
+      "do": "box",
+      "target": "editor-sb",
+      "to": [
+        20,
+        35
+      ],
+      "ms": 1900
+    },
+    {
+      "at": 98.8,
+      "do": "box",
+      "target": "editor-sb",
+      "to": [
+        90,
+        100
+      ],
+      "ms": 2100
+    },
+    {
+      "at": 99.9,
+      "do": "orbit",
+      "ms": 4800,
+      "turns": 1.2,
+      "wobble": 0.15
     },
     {
       "do": "loop",
@@ -101,14 +135,28 @@
       "turns": 1,
       "wobble": 0.3,
       "ms": 1600,
-      "at": 106.6
+      "at": 100.1
+    },
+    {
+      "at": 101,
+      "do": "color",
+      "h": 30,
+      "s": 90,
+      "b": 100,
+      "ms": 300
     },
     {
       "do": "tip",
       "via": "hue-label",
       "to": 348,
       "ms": 1000,
-      "at": 108.8
+      "at": 102.3
+    },
+    {
+      "do": "hover",
+      "target": "hex-hue-label",
+      "ms": 500,
+      "at": 103.86
     },
     {
       "do": "slider",
@@ -116,13 +164,7 @@
       "from": 71,
       "to": 91,
       "ms": 700,
-      "at": 110.4
-    },
-    {
-      "do": "hover",
-      "target": "hex-hue-label",
-      "ms": 500,
-      "at": 111.56
+      "at": 103.9
     },
     {
       "do": "slider",
@@ -130,7 +172,7 @@
       "from": 88,
       "to": 86,
       "ms": 500,
-      "at": 111.7
+      "at": 105.2
     },
     {
       "do": "rect",
@@ -141,7 +183,7 @@
       "color": "#ff3333",
       "ms": 900,
       "hold": 3400,
-      "at": 113.46
+      "at": 105.26
     },
     {
       "do": "rect",
@@ -152,7 +194,7 @@
       "color": "#2ecc40",
       "ms": 900,
       "hold": 3400,
-      "at": 113.46
+      "at": 105.26
     },
     {
       "do": "rect",
@@ -163,71 +205,71 @@
       "color": "#3b82f6",
       "ms": 900,
       "hold": 3400,
-      "at": 113.46
+      "at": 105.26
     },
     {
       "do": "tip",
       "via": "hue-label",
       "to": 0,
       "ms": 900,
-      "at": 114.26
+      "at": 106.06
     },
     {
       "do": "tip",
       "via": "hue-label",
       "degrees": 360,
       "ms": 2300,
-      "at": 115.36
+      "at": 107.16
     },
     {
       "do": "click",
       "target": "letter:r",
-      "at": 118.31
+      "at": 108.91
     },
     {
       "do": "ray",
       "ch": "r",
       "ms": 900,
       "hold": 3400,
-      "at": 118.31
+      "at": 108.91
     },
     {
       "do": "click",
       "target": "letter:g",
-      "at": 121.87
+      "at": 111.27
     },
     {
       "do": "ray",
       "ch": "g",
       "ms": 900,
       "hold": 3400,
-      "at": 121.87
+      "at": 111.27
     },
     {
       "do": "click",
       "target": "letter:b",
-      "at": 125.85
+      "at": 114.05
     },
     {
       "do": "ray",
       "ch": "b",
       "ms": 900,
       "hold": 3400,
-      "at": 125.85
+      "at": 114.05
     },
     {
       "do": "hover",
       "target": "letter:y",
       "ms": 400,
       "anchor": "below",
-      "at": 140.88
+      "at": 124.98
     },
     {
       "do": "circle",
       "target": "letter:y",
       "ms": 900,
       "hold": 1800,
-      "at": 141.48
+      "at": 125.58
     },
     {
       "do": "arrow",
@@ -238,7 +280,7 @@
       "color": "#ff3333",
       "ms": 700,
       "hold": 1200,
-      "at": 143.04
+      "at": 127.14
     },
     {
       "do": "arrow",
@@ -249,21 +291,21 @@
       "color": "#2ecc40",
       "ms": 700,
       "hold": 1200,
-      "at": 143.04
+      "at": 127.14
     },
     {
       "do": "hover",
       "target": "letter:c",
       "ms": 400,
       "anchor": "below",
-      "at": 145.08
+      "at": 127.98
     },
     {
       "do": "circle",
       "target": "letter:c",
       "ms": 900,
       "hold": 1800,
-      "at": 145.68
+      "at": 128.58
     },
     {
       "do": "arrow",
@@ -274,7 +316,7 @@
       "color": "#2ecc40",
       "ms": 700,
       "hold": 900,
-      "at": 146.6
+      "at": 129.5
     },
     {
       "do": "arrow",
@@ -285,21 +327,21 @@
       "color": "#3b82f6",
       "ms": 700,
       "hold": 900,
-      "at": 146.6
+      "at": 129.5
     },
     {
       "do": "hover",
       "target": "letter:m",
       "ms": 400,
       "anchor": "below",
-      "at": 148.55
+      "at": 130.25
     },
     {
       "do": "circle",
       "target": "letter:m",
       "ms": 900,
       "hold": 1800,
-      "at": 149.15
+      "at": 130.85
     },
     {
       "do": "arrow",
@@ -310,7 +352,7 @@
       "color": "#3b82f6",
       "ms": 700,
       "hold": 1200,
-      "at": 150.17
+      "at": 131.87
     },
     {
       "do": "arrow",
@@ -321,14 +363,21 @@
       "color": "#ff3333",
       "ms": 700,
       "hold": 1200,
-      "at": 150.17
+      "at": 131.87
     },
     {
       "do": "tip",
       "via": "hue-label",
       "to": 30,
       "ms": 1200,
-      "at": 166.26
+      "at": 143.26
+    },
+    {
+      "do": "circle",
+      "target": "value:hsb-h",
+      "ms": 1200,
+      "hold": 2500,
+      "at": 144.91
     },
     {
       "do": "slider",
@@ -336,14 +385,14 @@
       "from": 91,
       "to": 100,
       "ms": 900,
-      "at": 168.06
+      "at": 145.06
     },
     {
-      "do": "circle",
-      "target": "value:hsb-h",
-      "ms": 1200,
-      "hold": 2500,
-      "at": 169.11
+      "do": "ray",
+      "ch": "r",
+      "ms": 900,
+      "hold": 4200,
+      "at": 145.81
     },
     {
       "do": "slider",
@@ -351,42 +400,28 @@
       "from": 86,
       "to": 100,
       "ms": 700,
-      "at": 169.56
-    },
-    {
-      "do": "ray",
-      "ch": "r",
-      "ms": 900,
-      "hold": 4200,
-      "at": 170.01
+      "at": 146.56
     },
     {
       "do": "circle",
       "target": "value:rgb-r",
       "ms": 800,
       "hold": 1500,
-      "at": 177.39
+      "at": 152.19
     },
     {
       "do": "ray",
       "ch": "g",
       "ms": 700,
       "hold": 900,
-      "at": 178.29
+      "at": 152.59
     },
     {
       "do": "circle",
       "target": "value:rgb-g",
       "ms": 800,
       "hold": 1500,
-      "at": 178.89
-    },
-    {
-      "do": "circle",
-      "target": "value:rgb-b",
-      "ms": 800,
-      "hold": 1500,
-      "at": 180.55
+      "at": 153.19
     },
     {
       "do": "slider",
@@ -394,7 +429,14 @@
       "from": 100,
       "to": 55,
       "ms": 1000,
-      "at": 182.1
+      "at": 153.4
+    },
+    {
+      "do": "circle",
+      "target": "value:rgb-b",
+      "ms": 800,
+      "hold": 1500,
+      "at": 154.35
     },
     {
       "do": "slider",
@@ -402,7 +444,7 @@
       "from": 55,
       "to": 100,
       "ms": 2400,
-      "at": 183.7
+      "at": 155
     },
     {
       "do": "rect",
@@ -411,7 +453,7 @@
       "live": true,
       "ms": 1200,
       "hold": 9000,
-      "at": 183.7
+      "at": 155
     },
     {
       "do": "slider",
@@ -419,7 +461,7 @@
       "from": 100,
       "to": 40,
       "ms": 1600,
-      "at": 189.62
+      "at": 159.31
     },
     {
       "do": "slider",
@@ -427,7 +469,7 @@
       "from": 40,
       "to": 0,
       "ms": 2400,
-      "at": 191.82
+      "at": 161.51
     },
     {
       "do": "circle",
@@ -436,7 +478,7 @@
       "live": true,
       "ms": 1200,
       "hold": 13700,
-      "at": 195.86
+      "at": 164.35
     },
     {
       "do": "slider",
@@ -444,7 +486,7 @@
       "from": 100,
       "to": 55,
       "ms": 1600,
-      "at": 208.23
+      "at": 174.52
     },
     {
       "do": "slider",
@@ -452,14 +494,14 @@
       "from": 55,
       "to": 100,
       "ms": 1500,
-      "at": 210.73
+      "at": 177.02
     },
     {
       "do": "circle",
       "target": "value:hsb-h",
       "ms": 1200,
       "hold": 2000,
-      "at": 212.3
+      "at": 177.39
     },
     {
       "do": "slider",
@@ -467,21 +509,34 @@
       "from": 0,
       "to": 100,
       "ms": 2600,
-      "at": 212.83
+      "at": 179.12
+    },
+    {
+      "at": 187.57,
+      "do": "circle",
+      "target": "slider:r",
+      "ms": 2400,
+      "hold": 600
     },
     {
       "do": "circle",
       "target": "handle:r",
       "ms": 1200,
       "hold": 1600,
-      "at": 225.66
+      "at": 187.75
     },
     {
       "do": "circle",
       "target": "value:hsb-b",
       "ms": 1200,
       "hold": 1600,
-      "at": 225.66
+      "at": 187.75
+    },
+    {
+      "at": 190.07,
+      "do": "hover",
+      "target": "hex-bri",
+      "ms": 1400
     },
     {
       "do": "slider",
@@ -489,7 +544,7 @@
       "from": 100,
       "to": 40,
       "ms": 5000,
-      "at": 230.47
+      "at": 191.36
     },
     {
       "do": "circle",
@@ -497,7 +552,7 @@
       "live": true,
       "ms": 900,
       "hold": 5600,
-      "at": 230.47
+      "at": 191.36
     },
     {
       "do": "circle",
@@ -505,7 +560,7 @@
       "live": true,
       "ms": 900,
       "hold": 5100,
-      "at": 230.97
+      "at": 191.86
     },
     {
       "do": "circle",
@@ -513,7 +568,7 @@
       "live": true,
       "ms": 900,
       "hold": 4600,
-      "at": 231.47
+      "at": 192.36
     },
     {
       "do": "line",
@@ -523,7 +578,7 @@
       ],
       "ms": 900,
       "hold": 6000,
-      "at": 238.53
+      "at": 198.22
     },
     {
       "do": "slider",
@@ -531,7 +586,7 @@
       "from": 40,
       "to": 60,
       "ms": 900,
-      "at": 238.73
+      "at": 198.42
     },
     {
       "do": "slider",
@@ -539,7 +594,15 @@
       "from": 60,
       "to": 40,
       "ms": 900,
-      "at": 240.23
+      "at": 199.92
+    },
+    {
+      "at": 203.06,
+      "do": "slider",
+      "target": "hex-bri",
+      "from": 100,
+      "to": 40,
+      "ms": 5000
     },
     {
       "do": "slider",
@@ -547,7 +610,7 @@
       "from": 40,
       "to": 100,
       "ms": 3000,
-      "at": 244.75
+      "at": 203.24
     },
     {
       "do": "slider",
@@ -555,7 +618,7 @@
       "from": 100,
       "to": 5,
       "ms": 1600,
-      "at": 247.87
+      "at": 205.86
     },
     {
       "do": "slider",
@@ -563,37 +626,37 @@
       "from": 5,
       "to": 100,
       "ms": 1400,
-      "at": 250.07
+      "at": 208.06
     },
     {
       "do": "rest",
       "target": "swatches",
-      "at": 257.05
+      "at": 212.04
     },
     {
       "do": "click",
       "target": "swatches",
-      "at": 257.85
+      "at": 212.84
     },
     {
       "do": "scroll",
       "target": "swatches",
-      "at": 258.05
+      "at": 213.04
     },
     {
       "do": "click",
       "target": "swatches:recent",
-      "at": 259.45
+      "at": 214.44
     },
     {
       "do": "click",
       "target": "swatches:recent-clear",
-      "at": 260.45
+      "at": 215.44
     },
     {
       "do": "rest",
       "target": "editor-sb",
-      "at": 262.65
+      "at": 217.64
     },
     {
       "do": "box",
@@ -603,7 +666,7 @@
         100
       ],
       "ms": 800,
-      "at": 264.11
+      "at": 217.9
     },
     {
       "do": "box",
@@ -613,7 +676,7 @@
         95
       ],
       "ms": 400,
-      "at": 266.01
+      "at": 219.8
     },
     {
       "do": "box",
@@ -623,7 +686,7 @@
         85
       ],
       "ms": 400,
-      "at": 267.51
+      "at": 221.3
     },
     {
       "do": "box",
@@ -633,7 +696,7 @@
         72
       ],
       "ms": 400,
-      "at": 269.01
+      "at": 222.8
     },
     {
       "do": "box",
@@ -643,7 +706,21 @@
         58
       ],
       "ms": 400,
-      "at": 270.51
+      "at": 224.3
+    },
+    {
+      "do": "scroll",
+      "target": "swatches:recent-row",
+      "at": 224.74
+    },
+    {
+      "do": "rect",
+      "target": "swatches:recent-row",
+      "from": "tl",
+      "hands": "free",
+      "ms": 700,
+      "hold": 1500,
+      "at": 225.54
     },
     {
       "do": "box",
@@ -653,52 +730,38 @@
         42
       ],
       "ms": 400,
-      "at": 272.01
-    },
-    {
-      "do": "scroll",
-      "target": "swatches:recent-row",
-      "at": 272.15
-    },
-    {
-      "do": "rect",
-      "target": "swatches:recent-row",
-      "from": "tl",
-      "hands": "free",
-      "ms": 700,
-      "hold": 1500,
-      "at": 272.95
-    },
-    {
-      "do": "click",
-      "target": "swatches",
-      "at": 275.35
-    },
-    {
-      "do": "scroll",
-      "target": "top",
-      "at": 275.95
+      "at": 225.8
     },
     {
       "do": "rest",
       "target": "equations",
-      "at": 277.34
+      "at": 227.43
+    },
+    {
+      "do": "click",
+      "target": "swatches",
+      "at": 227.94
     },
     {
       "do": "click",
       "target": "equations",
-      "at": 278.04
+      "at": 228.13
     },
     {
       "do": "scroll",
       "target": "equations:hue",
-      "at": 278.34
+      "at": 228.43
+    },
+    {
+      "do": "scroll",
+      "target": "top",
+      "at": 228.54
     },
     {
       "do": "hover",
       "target": "row:hsb-h",
       "ms": 600,
-      "at": 284.76
+      "at": 233.15
     },
     {
       "do": "rect",
@@ -707,13 +770,13 @@
       "hands": "free",
       "ms": 700,
       "hold": 2000,
-      "at": 285.46
+      "at": 233.85
     },
     {
       "do": "hover",
       "target": "row:hsb-s",
       "ms": 600,
-      "at": 286.06
+      "at": 233.95
     },
     {
       "do": "rect",
@@ -722,13 +785,13 @@
       "hands": "free",
       "ms": 700,
       "hold": 2000,
-      "at": 286.76
+      "at": 234.65
     },
     {
       "do": "hover",
       "target": "row:hsb-b",
       "ms": 600,
-      "at": 287.32
+      "at": 234.71
     },
     {
       "do": "rect",
@@ -737,13 +800,13 @@
       "hands": "free",
       "ms": 700,
       "hold": 2000,
-      "at": 288.02
+      "at": 235.41
     },
     {
       "do": "hover",
       "target": "editor-hex",
       "ms": 2200,
-      "at": 292.26
+      "at": 237.95
     },
     {
       "do": "rect",
@@ -752,123 +815,123 @@
       "hands": "free",
       "ms": 700,
       "hold": 2000,
-      "at": 292.86
+      "at": 238.55
     },
     {
       "do": "click",
       "target": "equations",
-      "at": 295.06
+      "at": 240.75
     },
     {
       "do": "scroll",
       "target": "top",
-      "at": 295.46
+      "at": 241.15
     },
     {
       "do": "rest",
       "target": "help-button",
-      "at": 304.71
+      "at": 246.7
     },
     {
       "do": "rest",
       "target": "help-button",
-      "at": 309.53
+      "at": 250.32
     },
     {
       "do": "click",
       "target": "help-button",
-      "at": 312.91
+      "at": 253.7
     },
     {
       "do": "click",
       "target": "about-watch-demo",
-      "at": 314.31
+      "at": 255.1
     },
     {
       "do": "demo",
-      "at": 315.91
+      "at": 256.7
     },
     {
       "do": "underline",
       "target": "demo-caption",
       "ms": 1400,
       "over": "demo",
-      "at": 352.87
+      "at": 293.66
     },
     {
       "do": "drift",
       "ms": 2200,
-      "at": 354.27
+      "at": 295.06
     },
     {
       "do": "scroll",
       "target": "top",
-      "at": 357.98
+      "at": 298.77
     },
     {
       "do": "wander",
       "target": "figma-button",
       "ms": 4000,
-      "at": 358.18
+      "at": 298.97
     },
     {
       "do": "pip",
       "to": "on",
       "ms": 1100,
-      "at": 362.38
+      "at": 303.17
     },
     {
       "do": "slider",
       "target": "editor-hue",
       "to": 285,
       "ms": 1500,
-      "at": 367.02
+      "at": 307.81
     },
     {
       "do": "slider",
       "target": "hex-bri",
       "to": 62,
       "ms": 1100,
-      "at": 369.02
+      "at": 309.81
     },
     {
       "do": "stem",
       "ch": "r",
       "to": "start",
       "ms": 800,
-      "at": 371.02
+      "at": 311.81
     },
     {
       "do": "stem",
       "ch": "g",
       "to": "start",
       "ms": 800,
-      "at": 372.82
+      "at": 313.61
     },
     {
       "do": "stem",
       "ch": "b",
       "to": "start",
       "ms": 800,
-      "at": 374.62
+      "at": 315.41
     },
     {
       "do": "click",
       "target": "help-button",
-      "at": 381.73
+      "at": 322.52
     },
     {
       "do": "hover",
       "target": "about-author",
       "anchor": "below",
       "ms": 800,
-      "at": 386.01
+      "at": 326.3
     },
     {
       "do": "pip",
       "to": "off",
       "ms": 500,
-      "at": 387.61
+      "at": 327.9
     }
   ]
 }
