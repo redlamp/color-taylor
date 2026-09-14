@@ -52,7 +52,7 @@ import type { DemoHost } from './steps';
 import ClipEditor from './ClipEditor';
 import { FrameControls, RATIO_COLOR, useFrames } from './Frames';
 import {
-  labelRowCount, layoutSectionLabels, loadSections, resolveSectionMarks,
+  LABEL_ANGLE_DEG, labelRowHeight, layoutSectionLabels, loadSections, resolveSectionMarks,
   type Section,
 } from './sections';
 
@@ -772,7 +772,7 @@ export default function PresentationMode({
     () => layoutSectionLabels(sectionMarks, duration, timelineWidth),
     [sectionMarks, duration, timelineWidth],
   );
-  const labelRows = labelLayout.length ? labelRowCount(labelLayout) : 0;
+  const labelRowHeightPx = useMemo(() => labelRowHeight(sectionMarks), [sectionMarks]);
   /** The section the playhead is inside: its label is drawn brighter. */
   const currentSectionId = useMemo(() => {
     let cur: number | null = null;
@@ -904,37 +904,38 @@ export default function PresentationMode({
               than the track it marks, and the track clips its own decoration,
               so the two cannot live in the same box. The section labels sit
               in their own row above both, so the tall playhead's box stays
-              exactly the timeline's height regardless of whether a second
-              label row is in use. */}
+              exactly the timeline's height regardless of how tall the label
+              row needs to be. */}
           <div style={{ display: shrunk ? 'none' : 'block', position: 'relative', flex: 1, margin: '8px 0' }}>
           {labelLayout.length > 0 && (
             <div
               data-testid="present-section-labels"
               style={{
                 position: 'relative',
-                height: labelRows * 14,
+                height: labelRowHeightPx,
                 marginBottom: 3,
               }}
             >
-              {labelLayout.map(({ mark, row, leftPx, text, truncated }) => (
+              {labelLayout.map(({ mark, leftPx, text }) => (
                 <span
                   key={`section-label-${mark.id}`}
                   data-testid="present-section-label"
                   data-section={mark.id}
                   data-current={mark.id === currentSectionId ? 'true' : undefined}
-                  title={truncated ? mark.label : `${mark.label} — ${mmss(mark.t)}`}
                   style={{
                     position: 'absolute',
-                    top: row * 14,
+                    bottom: 0,
                     left: leftPx,
                     fontSize: 12,
-                    lineHeight: '13px',
+                    lineHeight: '14px',
                     whiteSpace: 'nowrap',
                     fontFamily: 'ui-monospace, Consolas, monospace',
                     color: mark.id === currentSectionId ? '#ffffff' : '#cfcfcf',
                     textShadow: mark.id === currentSectionId
                       ? '0 0 6px rgba(127,212,255,0.85), 0 1px 2px rgba(0,0,0,0.9)'
                       : '0 1px 2px rgba(0,0,0,0.9)',
+                    transformOrigin: 'bottom left',
+                    transform: `rotate(-${LABEL_ANGLE_DEG}deg)`,
                   }}
                 >
                   {text}

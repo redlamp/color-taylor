@@ -699,10 +699,12 @@ the app's own entry with `mode="production"` (see "Shipping it" below).
   (`src/demo/sections.ts`), and resolved against `<name>-lines.json` the same
   way a beat's start already is: a section whose `line` matches nothing in
   the lines file is dropped. On the reduced transport the section marks
-  replace the beat markers outright — labels at least 12px, drawn in a row
-  above the timeline, packed left to right and dropped to a second row (or
-  truncated with an ellipsis, full text on hover) when two would collide —
-  and the prev/next-beat buttons step by section instead. On the full
+  replace the beat markers outright — labels at least 12px, drawn in a
+  single row above the timeline, each one rotated -15deg counterclockwise
+  about its own bottom-left corner (like a spreadsheet column header) so its
+  left end stays anchored at the section's start marker and the text reads
+  upward to the right; no second row, no truncation, no hover tooltip — and
+  the prev/next-beat buttons step by section instead. On the full
   transport the section marks and labels are drawn in addition to the beat
   band, line spans and cue ticks, which are unchanged, and the buttons still
   step by beat. Missing or empty sections file: both transports fall back to

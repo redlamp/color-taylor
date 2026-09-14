@@ -10,10 +10,12 @@
  * line id matches nothing in the lines file) yields no marks at all, and the
  * caller falls back to the beat markers it already draws.
  *
- * `layoutSectionLabels` turns resolved marks into on-screen label boxes: one
- * row above the timeline, packed left to right, dropping a colliding label to
- * a second row and, failing that, truncating it with an ellipsis (the full
- * text is still available as a tooltip via the caller's `title`).
+ * `layoutSectionLabels` turns resolved marks into on-screen label boxes: a
+ * single row above the timeline, each label's left end anchored at its
+ * section's start marker and the whole label rotated -15deg (counterclockwise,
+ * like a spreadsheet column header) about that anchor so the text reads
+ * upward to the right. `labelRowHeight` sizes that row to fit the tallest
+ * (i.e. widest, pre-rotation) label at that angle.
  */
 
 /** One entry of `<cut>-sections.json`. */
@@ -61,20 +63,26 @@ export function resolveSectionMarks(
   return marks.sort((a, b) => a.t - b.t);
 }
 
-/** One laid-out label: pixel position, which of the two rows, and the text
- *  actually drawn (ellipsized when it would not otherwise fit). */
+/** One laid-out label: pixel position (its rotation anchor) and the full,
+ *  untruncated text. */
 export interface SectionLabelLayout {
   mark: SectionMark;
-  row: 0 | 1;
   leftPx: number;
   text: string;
-  truncated: boolean;
 }
 
-const LABEL_FONT = '12px ui-monospace, Consolas, monospace';
-/** Clearance kept between one label's measured end and the next label's start
- *  (or the row's own end, when truncating) before they read as colliding. */
-const MIN_GAP = 10;
+const LABEL_FONT_PX = 12;
+const LABEL_FONT = `${LABEL_FONT_PX}px ui-monospace, Consolas, monospace`;
+/** Line height of a label, pre-rotation. */
+const LABEL_LINE_HEIGHT = 14;
+/** Counterclockwise tilt applied to every label, like a spreadsheet column
+ *  header: the left end stays pinned to the section's start marker and the
+ *  text reads upward to the right. */
+export const LABEL_ANGLE_DEG = 15;
+const LABEL_ANGLE_RAD = (LABEL_ANGLE_DEG * Math.PI) / 180;
+/** A little slack above the tallest rotated label so its top isn't flush
+ *  with the row's edge. */
+const LABEL_ROW_PADDING = 2;
 
 let measureCtx: CanvasRenderingContext2D | null | undefined;
 function measure(text: string): number {
@@ -86,27 +94,11 @@ function measure(text: string): number {
   return measureCtx.measureText(text).width;
 }
 
-/** Binary-search the longest prefix of `text` (plus an ellipsis) that fits in
- *  `maxWidth`. Never returns wider than `maxWidth` allows. */
-function truncateToWidth(text: string, maxWidth: number): string {
-  const ellipsis = '…';
-  if (maxWidth <= 0) return '';
-  if (measure(text) <= maxWidth) return text;
-  if (measure(ellipsis) > maxWidth) return '';
-  let lo = 0;
-  let hi = text.length;
-  while (lo < hi) {
-    const mid = Math.ceil((lo + hi) / 2);
-    if (measure(text.slice(0, mid) + ellipsis) <= maxWidth) lo = mid;
-    else hi = mid - 1;
-  }
-  return lo > 0 ? text.slice(0, lo) + ellipsis : ellipsis;
-}
-
 /**
  * Lay out resolved section marks along a `containerWidth`-px timeline
- * (`duration` seconds wide): left-to-right, packed into up to two rows, with
- * a label that fits nowhere truncated to an ellipsis on the more open row.
+ * (`duration` seconds wide): one label per mark, left end anchored at the
+ * mark's own position, full text, no packing and no truncation — the
+ * -15deg tilt applied by the caller is what keeps them from overlapping.
  */
 export function layoutSectionLabels(
   marks: SectionMark[],
@@ -114,35 +106,20 @@ export function layoutSectionLabels(
   containerWidth: number,
 ): SectionLabelLayout[] {
   if (!duration || !containerWidth || !marks.length) return [];
-  const sorted = [...marks].sort((a, b) => a.t - b.t);
-  const rowRight: [number, number] = [-Infinity, -Infinity];
-  const out: SectionLabelLayout[] = [];
-  sorted.forEach((mark, i) => {
-    const leftPx = (mark.t / duration) * containerWidth;
-    const width = measure(mark.label);
-    if (leftPx >= rowRight[0] + MIN_GAP) {
-      out.push({ mark, row: 0, leftPx, text: mark.label, truncated: false });
-      rowRight[0] = leftPx + width;
-      return;
-    }
-    if (leftPx >= rowRight[1] + MIN_GAP) {
-      out.push({ mark, row: 1, leftPx, text: mark.label, truncated: false });
-      rowRight[1] = leftPx + width;
-      return;
-    }
-    // Collides with the last label on both rows: truncate on whichever row
-    // has more room before the next label (or the timeline's own edge).
-    const nextLeftPx = i + 1 < sorted.length ? (sorted[i + 1].t / duration) * containerWidth : containerWidth;
-    const row: 0 | 1 = rowRight[0] <= rowRight[1] ? 0 : 1;
-    const avail = Math.max(0, Math.min(nextLeftPx, containerWidth) - leftPx - MIN_GAP);
-    const text = truncateToWidth(mark.label, avail);
-    out.push({ mark, row, leftPx, text, truncated: text !== mark.label });
-    rowRight[row] = leftPx + measure(text);
-  });
-  return out;
+  return [...marks]
+    .sort((a, b) => a.t - b.t)
+    .map((mark) => ({ mark, leftPx: (mark.t / duration) * containerWidth, text: mark.label }));
 }
 
-/** How many rows the layout actually used (1 or 2), for reserving height. */
-export function labelRowCount(layout: SectionLabelLayout[]): 1 | 2 {
-  return layout.some((l) => l.row === 1) ? 2 : 1;
+/**
+ * Height (px) the single label row needs so that the widest label, rotated
+ * -15deg about its bottom-left corner, isn't clipped at the top. Computed
+ * from the tallest rotated bounding box among all marks, not just the
+ * longest string, since font metrics aren't strictly monotonic in length.
+ */
+export function labelRowHeight(marks: SectionMark[]): number {
+  if (!marks.length) return 0;
+  const maxWidth = Math.max(...marks.map((m) => measure(m.label)));
+  const rotatedHeight = maxWidth * Math.sin(LABEL_ANGLE_RAD) + LABEL_LINE_HEIGHT * Math.cos(LABEL_ANGLE_RAD);
+  return Math.ceil(rotatedHeight) + LABEL_ROW_PADDING;
 }
