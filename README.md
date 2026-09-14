@@ -14,7 +14,7 @@ The picker is a hexagon with red, yellow, green, cyan, blue and magenta at the c
 
 There is also a color synth that maps the current color to sound: hue to pitch, or RGB to a three-voice chord, with configurable tuning, waveform and ADSR. It ships switched off. Turn it on in Settings; nothing audio-related loads until you do.
 
-A narrated slideshow about color history sits behind the `VITE_INTRO_ENABLED` build flag. The deploy does not set it, so the Intro button and the `#/presentation` route are not on the live site. Run `VITE_INTRO_ENABLED=true bun dev` if you want to see it.
+A narrated slideshow about color history sits behind an unadvertised Intro button: open the app with `?intro` (for example `localhost:5173/?intro`) to show it, or go straight to `#/intro`.
 
 ## Figma plugin
 

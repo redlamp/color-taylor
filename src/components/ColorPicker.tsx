@@ -71,6 +71,19 @@ function scriptName(): string | null {
  * The dev-only half (notes, the clip editor, every `/__` fetch) is gated by
  * PresentationMode's `mode`, not by this. See docs/demo-script.md.
  */
+/**
+ * `?intro` (or `?intro=1`) shows the Intro button in the header. The button
+ * is hidden by default: the deck's route is always live (useHashRoute), so
+ * /intro can be shared, but the picker does not advertise it.
+ */
+function introRequested(): boolean {
+  try {
+    return new URLSearchParams(window.location.search).has('intro');
+  } catch {
+    return false;
+  }
+}
+
 function presentName(): string | null {
   try {
     const raw = new URLSearchParams(window.location.search).get('present');
@@ -996,7 +1009,7 @@ export default function ColorPicker() {
         the title measures 200px against a 331px container and the three icon
         buttons need 112px, so it lands with room to spare. Wrapping keeps the
         narrow cases honest without a second breakpoint to tune - a 320px
-        device, or a dev build where VITE_INTRO_ENABLED adds a fourth control,
+        device, or a `?intro` URL where the Intro button is a fourth control,
         simply falls back to two rows on its own.
       */}
       <div id="picker-header" className="flex flex-wrap items-center justify-between gap-2 mb-2">
@@ -1011,11 +1024,12 @@ export default function ColorPicker() {
             the title when the header has one, and drops below the header when
             it wraps. src/demo/DemoRunner.tsx. */}
         <div id="picker-tools" className="flex items-center justify-end gap-2">
-          {/* The button only. The route itself is always live - see
-              useHashRoute - so /intro can be shared while the deck is still
-              too rough to advertise on the picker. */}
-          {import.meta.env.VITE_INTRO_ENABLED === 'true' && (
+          {/* The button only, and only under `?intro`. The route itself is
+              always live - see useHashRoute - so /intro can be shared while
+              the deck is still too rough to advertise on the picker. */}
+          {introRequested() && (
             <button
+              id="intro-button"
               className="ctl-quiet"
               onClick={() => { window.location.hash = '#/intro'; }}
             >

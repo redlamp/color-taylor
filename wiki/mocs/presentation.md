@@ -6,7 +6,7 @@ Code conventions for the section live in `src/presentation/CLAUDE.md`.
 ## Where it lives
 
 Reachable in production at `/color-taylor/intro`, deliberately unadvertised -
-`VITE_INTRO_ENABLED` gates only the Intro button on the picker, not the route.
+the Intro button on the picker shows only under `?intro`, and the route is not gated at all.
 `public/intro/index.html` is the static front door, because GitHub Pages has no
 rewrite rules. The hash route is `#/intro`; `#/presentation` still resolves as a
 silent alias.
