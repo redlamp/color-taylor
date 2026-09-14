@@ -950,20 +950,33 @@ A stretched move is usually only slower than the cut asked for. A stretched
 **click** is different: the press is at the end of the travel, so a move that
 cannot finish before the next cue takes the hands loses the press as well, and
 every beat after it plays against a screen that never changed. Beat 2.1 was
-exactly that — the hand has just pushed the camera panel out through the right
-edge, the About panel's Close is 1.5s of travel back the other way at the cap,
-and the cut leaves 0.95s before the first slider. The panel stayed up for the
-rest of the cut.
+exactly that — the hand had just pushed the camera panel out through the right
+edge and then curved on to the off-screen corner, which left the About panel's
+Close 1055 px away with 0.95s before the first slider. The move was cut short
+at 60% and the panel stayed up for the rest of the cut.
 
-So a `click` compares its ground against the gap to the next cue that takes the
-hands, and when it cannot be covered the press goes **at the cue** and the hand
-follows it over: late arrival rather than no arrival. The console says so
-(`…ms of ground in a …ms gap`), which is the sign the cue wants more room. An
-interruption the test could not see coming still lands the press, from wherever
-the hand got to — except on a seek, where the state at the new `t` is the
-seek's to restore rather than this cue's to replay. `swatches:recent-clear`
-keeps the slow path: its protocol is two presses and a wait, which is more than
-a dropped gesture's worth.
+The cure is geometry, not a shortcut. A `pip` cue that pushes the panel *off*
+now looks at what follows it: with a gesture on a control inside
+`PIP_REST_GAP` (4s) the hand comes back in through the edge and stops
+`PIP_REST_REACH` (220 px) short of that control, instead of curving out to the
+corner. The corner is for when nothing follows — it is a fine place to park and
+a bad place to be waiting. The press then lands on the button with travel in
+front of it, which is what every value change in this cut is: cursor-driven.
+
+Two smaller rules hold it together:
+
+- A `click` asks for **at least** the time the cap will take anyway
+  (`PATH_BOW` × the straight line ÷ the effective cap). A budget under that
+  does not make the move quicker; it only has a reachable press reported as
+  stretched.
+- If a click's ground still cannot be covered in the gap, or the travel is cut
+  short by something the test could not see coming, the press is made anyway —
+  from the cue, or from wherever the hand got to, with the console saying so
+  (`…ms of ground in a …ms gap`). That is the net, and a warning from it means
+  the cut wants more room, not that the runner is fine. Not on a seek, where
+  the state at the new `t` is the seek's to restore rather than this cue's to
+  replay, and not on `swatches:recent-clear`, whose protocol is two presses and
+  a wait.
 
 ### The transport bar, hidden
 

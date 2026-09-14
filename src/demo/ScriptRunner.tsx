@@ -487,6 +487,25 @@ const OFFSCREEN_BR = (): Point => ({ x: window.innerWidth + OFFSCREEN_REACH, y: 
 const PIP_GRIP_X = 28;
 const PIP_GRIP_Y = 14;
 /**
+ * How close behind a `pip` cue another cue has to be for the hand to stay in
+ * frame at the end of it rather than curving out to the corner. Four seconds
+ * is the whole of a short beat: past that the corner costs nothing, and inside
+ * it the corner costs the next gesture its opening.
+ */
+const PIP_REST_GAP = 4000;
+/**
+ * How close to the next cue's control the hand comes back in to. Far enough
+ * that the press after it is still a gesture with travel in it, near enough
+ * that the travel fits the gap the cut leaves - a beat's worth of reach.
+ */
+const PIP_REST_REACH = 220;
+/**
+ * How much longer the bow a move actually flies is than the straight line
+ * between its ends. Measured rather than derived - the curve's depth scales
+ * with the distance, so the ratio holds across the range the cut uses.
+ */
+const PATH_BOW = 1.15;
+/**
  * The bow on the panel's own trip out through the right edge, as a fraction
  * of the travel: at the home end, at the off-screen end, and how far below
  * home the far end sits.
@@ -1782,8 +1801,10 @@ export default function ScriptRunner({
      * takes them, in ms, and Infinity when it is the last of them. The
      * hands-free cues are skipped - they take nothing and cut nothing short.
      */
+    const handsAfter = (a: ScriptAction): ScriptAction | undefined =>
+      actions.find((x) => x.at > a.at && !handsFree(x));
     const handsGap = (a: ScriptAction): number => {
-      const taker = actions.find((x) => x.at > a.at && !handsFree(x));
+      const taker = handsAfter(a);
       return taker ? (taker.at - a.at) * 1000 : Infinity;
     };
     /*
@@ -2084,7 +2105,11 @@ export default function ScriptRunner({
             if (!nothingToPress) d.pressNow(t.el, p);
           }
           try {
-            await d.moveTo(() => p, clamp(dist * 1.2, 160, 520));
+            // Never less than the cap is going to take anyway. A budget under
+            // it does not make the move quicker, it only has the move reported
+            // as stretched - and a press that is genuinely within reach should
+            // not read in the console like one that is not.
+            await d.moveTo(() => p, Math.max(clamp(dist * 1.2, 160, 520), reach * PATH_BOW));
           } catch (err: unknown) {
             if (!(err instanceof DemoAborted) || scrubs !== scrubbedAt) throw err;
             // Cut short by something the reach test could not see coming. The
@@ -2553,12 +2578,56 @@ export default function ScriptRunner({
             // 80px lower than home once it is off screen.
             setPipOffset(el, going > 0 ? off : 0, going > 0 ? PIP_OFF_DROP : 0);
           }
-          // Having pushed the panel out through the right edge the hand is out
-          // there with it, level with where the panel was. Curving away to the
-          // corner it came in through finishes the gesture the way it started,
-          // and leaves the ghost parked where the next entrance can arc in from
-          // rather than at the lip of the edge it just crossed.
-          if (a.to !== 'on') await d.moveTo(OFFSCREEN_BR, MOVE_MS * 2);
+          /*
+           * Where the hand is left once the panel is out through the right
+           * edge.
+           *
+           * Curving away to the corner it came in through finishes the gesture
+           * the way it started and parks the ghost where the next entrance can
+           * arc in from, rather than at the lip of the edge it just crossed.
+           * It is also 800ms spent travelling away from the screen, and it
+           * leaves the hand a screen's width from everything: beat 2.1's press
+           * on the About panel's Close is 0.95s behind this cue, and from the
+           * corner that reach is 1500ms at the speed cap - so the hand arrived
+           * long after the cue that took it away again, and the panel stayed
+           * up for the rest of the cut.
+           *
+           * The corner is therefore for when nothing follows. With a cue close
+           * behind, the hand lets go where it took hold: in frame, level with
+           * the panel's own home, and a short reach from the middle of the
+           * screen - which is where the cue behind this one wants it anyway.
+           */
+          if (a.to !== 'on') {
+            const after = handsAfter(a);
+            // Where the hand is wanted next, when the cue behind this one
+            // wants it somewhere in particular. A gesture on a control is the
+            // case that matters; the shapes and drags carry their own opening
+            // move and do not mind where they start.
+            const wanted = after && handsGap(a) < PIP_REST_GAP
+              && (after.do === 'click' || after.do === 'hover') && after.target
+              ? resolve(after.target, hostRef.current)
+              : null;
+            if (!wanted) {
+              await d.moveTo(OFFSCREEN_BR, MOVE_MS * 2);
+            } else {
+              // Back in through the edge and on until the next cue's control is
+              // a reach away - so the gesture it opens with is a reach rather
+              // than a flight, and lands on the button instead of being cut
+              // short of it. The cue still travels: the press is its own, and
+              // a hand already sitting on the control would read as a jump.
+              const c = wanted.at();
+              const away = Math.hypot(d.pos.x - c.x, d.pos.y - c.y) || 1;
+              const k = Math.min(1, PIP_REST_REACH / away);
+              const rest = { x: c.x + (d.pos.x - c.x) * k, y: c.y + (d.pos.y - c.y) * k };
+              const span = Math.hypot(rest.x - d.pos.x, rest.y - d.pos.y);
+              // The way back in is a screen edge's worth of ground and the cap
+              // governs it, so it is asked for at the pace it will take - and
+              // if the cue behind takes the hands first, the hand is left part
+              // of the way in, which is still most of the reach saved.
+              await d.moveTo(() => rest,
+                Math.max(MOVE_MS, (span * PATH_BOW / effectiveCap()) * 1000));
+            }
+          }
           return;
         }
         case 'zigzag': {
