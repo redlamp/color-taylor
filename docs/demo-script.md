@@ -692,6 +692,23 @@ the app's own entry with `mode="production"` (see "Shipping it" below).
   in hand and the one after (`do` + target). While the `demo` action's span
   runs - from its `at` to the next action's - the readout says "demo would
   be running".
+- **Section labels.** `public/scripts/<name>-sections.json`, when present
+  (`{ source, sections: [{ id, label, line }] }`), names a handful of
+  sections of the cut, each anchored to a line id — `"11.2"` starts mid-beat,
+  the way a section is free to. Loaded on both transports and both clocks
+  (`src/demo/sections.ts`), and resolved against `<name>-lines.json` the same
+  way a beat's start already is: a section whose `line` matches nothing in
+  the lines file is dropped. On the reduced transport the section marks
+  replace the beat markers outright — labels at least 12px, drawn in a row
+  above the timeline, packed left to right and dropped to a second row (or
+  truncated with an ellipsis, full text on hover) when two would collide —
+  and the prev/next-beat buttons step by section instead. On the full
+  transport the section marks and labels are drawn in addition to the beat
+  band, line spans and cue ticks, which are unchanged, and the buttons still
+  step by beat. Missing or empty sections file: both transports fall back to
+  the beat markers exactly as before. The current section's label is drawn
+  brighter while the playhead sits inside it; the tall light-blue playhead
+  itself is unchanged.
 - **Seeking** interrupts whatever the hands were doing, applies the latest
   `color` action at or before the new time, puts the ghost on the last
   `rest`/`hover` target before it, and resumes dispatching from the first

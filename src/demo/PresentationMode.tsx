@@ -51,6 +51,10 @@ import ScriptRunner, {
 import type { DemoHost } from './steps';
 import ClipEditor from './ClipEditor';
 import { FrameControls, RATIO_COLOR, useFrames } from './Frames';
+import {
+  labelRowCount, layoutSectionLabels, loadSections, resolveSectionMarks,
+  type Section,
+} from './sections';
 
 /** One spoken line of the cut, with where it sits in the voice track. */
 interface ScriptLine {
@@ -254,6 +258,8 @@ export default function PresentationMode({
   const [script, setScript] = useState<Script | null>(null);
   const [lines, setLines] = useState<ScriptLine[]>([]);
   const [beats, setBeats] = useState<PlanBeat[]>([]);
+  const [sections, setSections] = useState<Section[]>([]);
+  const [timelineWidth, setTimelineWidth] = useState(0);
   /**
    * The plan clock: `base` is where the transport was left and `since` is when
    * it was last started, so the time is the sum and a pause is a subtraction.
@@ -375,6 +381,12 @@ export default function PresentationMode({
         })
         .catch(() => { /* No lines file: the timeline just has no spans. */ });
     }
+    // The section labels: both transports, both clocks. A missing file (an
+    // older cut, or one nobody has labeled yet) just yields no marks, and the
+    // timeline falls back to the beat markers it already draws.
+    loadSections(base, bust)
+      .then((data) => { if (live) setSections(data); })
+      .catch((err: unknown) => console.error('[present] could not load sections for', name, err));
     // Notes live on the dev server's middleware; the shipped walkthrough never
     // asks for them.
     if (authoring) fetch(notesUrl(name))
@@ -736,14 +748,51 @@ export default function PresentationMode({
    * on the top of the one being played. The rule every transport has.
    */
   const BEAT_GRACE = 1.5;
+  /**
+   * The resolved section labels: each section's `line` id looked up in
+   * `lines` for its start time. Empty when there is no sections file for this
+   * cut, or none of it matched — in which case every place below that reads
+   * `sectionMarks` falls back to the beat markers instead.
+   */
+  const sectionMarks = useMemo(() => resolveSectionMarks(sections, lines), [sections, lines]);
+  /* The timeline's own pixel width, for packing labels — percentages don't
+   * tell us whether two labels' text actually overlaps. */
+  useEffect(() => {
+    const el = timelineRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width;
+      if (w) setTimelineWidth(w);
+    });
+    ro.observe(el);
+    setTimelineWidth(el.getBoundingClientRect().width);
+    return () => ro.disconnect();
+  }, []);
+  const labelLayout = useMemo(
+    () => layoutSectionLabels(sectionMarks, duration, timelineWidth),
+    [sectionMarks, duration, timelineWidth],
+  );
+  const labelRows = labelLayout.length ? labelRowCount(labelLayout) : 0;
+  /** The section the playhead is inside: its label is drawn brighter. */
+  const currentSectionId = useMemo(() => {
+    let cur: number | null = null;
+    for (const m of sectionMarks) {
+      if (m.t > time) break;
+      cur = m.id;
+    }
+    return cur;
+  }, [sectionMarks, time]);
+  /** Reduced transport steps by section when a sections file resolved;
+   *  otherwise, and always on the full transport, it steps by beat. */
+  const navMarks = !fullTransport && sectionMarks.length ? sectionMarks : beatMarks;
   const toBeat = (dir: -1 | 1) => {
-    if (!beatMarks.length) return;
+    if (!navMarks.length) return;
     if (dir < 0) {
-      const prior = beatMarks.filter((m) => m.t < time - BEAT_GRACE);
+      const prior = navMarks.filter((m) => m.t < time - BEAT_GRACE);
       seek(prior.length ? prior[prior.length - 1].t : 0);
       return;
     }
-    const next = beatMarks.find((m) => m.t > time + 0.05);
+    const next = navMarks.find((m) => m.t > time + 0.05);
     if (next) seek(next.t);
   };
 
@@ -853,8 +902,47 @@ export default function PresentationMode({
             </span>
           {/* The timeline and, outside it, the playhead: the head stands taller
               than the track it marks, and the track clips its own decoration,
-              so the two cannot live in the same box. */}
+              so the two cannot live in the same box. The section labels sit
+              in their own row above both, so the tall playhead's box stays
+              exactly the timeline's height regardless of whether a second
+              label row is in use. */}
           <div style={{ display: shrunk ? 'none' : 'block', position: 'relative', flex: 1, margin: '8px 0' }}>
+          {labelLayout.length > 0 && (
+            <div
+              data-testid="present-section-labels"
+              style={{
+                position: 'relative',
+                height: labelRows * 14,
+                marginBottom: 3,
+              }}
+            >
+              {labelLayout.map(({ mark, row, leftPx, text, truncated }) => (
+                <span
+                  key={`section-label-${mark.id}`}
+                  data-testid="present-section-label"
+                  data-section={mark.id}
+                  data-current={mark.id === currentSectionId ? 'true' : undefined}
+                  title={truncated ? mark.label : `${mark.label} — ${mmss(mark.t)}`}
+                  style={{
+                    position: 'absolute',
+                    top: row * 14,
+                    left: leftPx,
+                    fontSize: 12,
+                    lineHeight: '13px',
+                    whiteSpace: 'nowrap',
+                    fontFamily: 'ui-monospace, Consolas, monospace',
+                    color: mark.id === currentSectionId ? '#ffffff' : '#cfcfcf',
+                    textShadow: mark.id === currentSectionId
+                      ? '0 0 6px rgba(127,212,255,0.85), 0 1px 2px rgba(0,0,0,0.9)'
+                      : '0 1px 2px rgba(0,0,0,0.9)',
+                  }}
+                >
+                  {text}
+                </span>
+              ))}
+            </div>
+          )}
+          <div style={{ position: 'relative' }}>
           <div
             ref={timelineRef}
             data-testid="present-timeline"
@@ -935,7 +1023,7 @@ export default function PresentationMode({
             {/* Where each beat starts, on both transports: a full-height rule
                 with the number on it. Shorter and dimmer than the playhead by
                 design - these are the map, and the head is where you are. */}
-            {beatMarks.map((m) => (
+            {(fullTransport || !sectionMarks.length) && beatMarks.map((m) => (
               <div
                 key={`beat-mark-${m.n}`}
                 data-testid="present-beat-mark"
@@ -957,6 +1045,26 @@ export default function PresentationMode({
               >
                 {m.n}
               </div>
+            ))}
+            {/* The resolved sections, as their own rule: the reduced transport
+                shows these instead of the beat marks above (which only render
+                there as a fallback, when there is no sections file); the full
+                transport shows both, the beats it always has plus these. */}
+            {sectionMarks.map((m) => (
+              <div
+                key={`section-mark-${m.id}`}
+                data-testid="present-section-mark"
+                data-section={m.id}
+                title={`${m.label} — ${mmss(m.t)}`}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  bottom: 0,
+                  left: pct(m.t),
+                  width: 1,
+                  background: m.id === currentSectionId ? 'rgba(127,212,255,0.95)' : 'rgba(90,209,201,0.85)',
+                }}
+              />
             ))}
             {/* The frame keyframes, in the color of the ratio being edited: a
                 shot change is a landmark of the cut as much as a beat is.
@@ -1034,6 +1142,7 @@ export default function PresentationMode({
                 pointerEvents: 'none',
               }}
             />
+          </div>
           </div>
           </div>
 
