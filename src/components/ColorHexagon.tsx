@@ -239,6 +239,20 @@ interface HoveredMarker {
   name: string;
 }
 
+interface HtmlColorMarker extends HoveredMarker {
+  /**
+   * Resting opacity, driven by how far this marker's own value is from the
+   * value the field is currently showing on the live axis (brightness under
+   * HSB, lightness under HSL). 1 at zero distance, decaying to the floor by
+   * about d=100 - an exponential (`floor + (1 - floor) * exp(-d / tau)`
+   * with tau=20) rather than the quadratic once sketched for this, because a
+   * quadratic put d=50 at ~0.31, well above the ~0.15 wanted there; tau=20
+   * lands d=50 at ~0.155 and d=100 at ~0.086. The hovered marker ignores this
+   * and renders at full opacity so the tooltip's target stays legible.
+   */
+  opacity: number;
+}
+
 export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, onHoverHtmlColor, bare, headerLeft, belowStage, onRecordColor, impactChannels, hueBadgeLit = false, hueFillLit = false, blBarLit = false, satBarLit = false, wheelAdjusts = false, blBar = true, stemRange = null, satBar = true, blModeTabs = true, vertexLabels = true, blMarkers = true, hueIndicator = true, shapeMix = 1, chainReveal = 1 }: ColorHexagonProps) {
   /*
    * The stage's own coordinate space - the card's, not the hexagon's.
@@ -609,23 +623,26 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
   const showHueLine = hueIndicator && (saturation > 0 || satActive);
 
   // Named color markers on hex
-  const htmlColorMarkers = useMemo(() => {
+  const htmlColorMarkers = useMemo((): HtmlColorMarker[] => {
     if (!showHtmlOnHex) return [];
     const currentValue = blMode === 'brightness' ? brightness : (hsl?.l ?? 50);
-    return NAMED_COLORS.flatMap((c) => {
-      // Only show colors within ±15 of the field's current axis - brightness
-      // under HSB, lightness under HSL, matching whichever bar is live.
+    return NAMED_COLORS.map((c) => {
+      // Every named color gets a marker now - see HtmlColorMarker.opacity for
+      // how distance from the field's current axis (brightness under HSB,
+      // lightness under HSL) fades it instead of hiding it outright.
       const ownValue = blMode === 'brightness' ? rgbToHsb(c.r, c.g, c.b).b : rgbToHsl(c.r, c.g, c.b).l;
-      if (Math.abs(ownValue - currentValue) > 15) return [];
+      const d = Math.abs(ownValue - currentValue);
+      const opacity = 0.08 + 0.92 * Math.exp(-d / 20);
       // Position at where it would be at the color's own value, honoring the
       // current shape (circle/hexagon morph) rather than the full-size hexagon.
       const { x, y } = pointForColor({ r: c.r, g: c.g, b: c.b }, blMode, shapeMix);
-      return [{
+      return {
         x,
         y,
         hex: rgbToHex(c.r, c.g, c.b),
         name: c.name,
-      }];
+        opacity,
+      };
     });
   }, [showHtmlOnHex, brightness, hsl?.l, blMode, shapeMix]);
   // Solve for multiple channel values given a target 2D position
@@ -1350,16 +1367,24 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             className={blActive ? HIGHLIGHT_IN : HIGHLIGHT_OUT}
             pointerEvents="none"
           />
-          {/* HTML named color markers */}
+          {/* HTML named color markers. r=3, one step down from the 4 this drew
+              at when only the ±15 window's worth were ever on screen at once -
+              with all 141 (NAMED_COLORS.length) up, the old radius crowded
+              the near-white/grey cluster at the centre. Opacity carries
+              distance from the current value now instead of a hard cutoff;
+              see HtmlColorMarker.opacity. The hovered marker is forced to
+              full opacity so the tooltip target stays legible even when its
+              resting opacity is faint. */}
           {htmlColorMarkers.map((m) => (
             <circle
               key={m.name}
               cx={m.x}
               cy={m.y}
-              r={4}
+              r={3}
               fill={m.hex}
               stroke="rgba(255,255,255,0.5)"
               strokeWidth={1}
+              opacity={hoveredMarker?.name === m.name ? 1 : m.opacity}
               className="cursor-pointer"
               onMouseEnter={() => { setHoveredMarker(m); onHoverHtmlColor?.(m); }}
               onMouseLeave={() => { setHoveredMarker(null); onHoverHtmlColor?.(null); }}
