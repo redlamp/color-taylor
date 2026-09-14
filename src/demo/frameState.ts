@@ -10,6 +10,12 @@
  * When no frame layer is mounted - which is every URL without `frames=`, and
  * every production build - the scale is 1 and the capture box is null, so the
  * readers behave exactly as they did before frames existed.
+ *
+ * The transport bar's own height lives here too, for the same reason: the
+ * camera panel's home corner has to stay clear of it, and PresentationMode.tsx
+ * (which owns the bar) shouldn't be imported by WebcamPip.tsx just for one
+ * number. It shares this module's subscription - a `setTransportHeight` call
+ * notifies the same listeners a frame-state change does.
  */
 
 /** The rectangle of the viewport the capture will keep, in client px. */
@@ -22,6 +28,7 @@ export interface CaptureBox {
 
 let scale = 1;
 let box: CaptureBox | null = null;
+let transportH = 0;
 const listeners = new Set<() => void>();
 
 /**
@@ -49,5 +56,16 @@ export function setFrameState(next: { scale: number; box: CaptureBox | null }) {
     && box?.width === next.box?.width && box?.height === next.box?.height) return;
   scale = next.scale;
   box = next.box;
+  listeners.forEach((fn) => fn());
+}
+
+/** The transport bar's current on-screen height, in client px. 0 before it
+ *  has measured itself. */
+export const transportHeight = () => transportH;
+
+/** PresentationMode.tsx only: publish the transport bar's measured height. */
+export function setTransportHeight(next: number) {
+  if (next === transportH) return;
+  transportH = next;
   listeners.forEach((fn) => fn());
 }

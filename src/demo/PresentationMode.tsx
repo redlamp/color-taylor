@@ -51,6 +51,7 @@ import ScriptRunner, {
 import type { DemoHost } from './steps';
 import ClipEditor from './ClipEditor';
 import { FrameControls, RATIO_COLOR, useFrames } from './Frames';
+import { setTransportHeight } from './frameState';
 import {
   LABEL_ANGLE_DEG, labelRowHeight, layoutSectionLabels, loadSections, resolveSectionMarks,
   type Section,
@@ -244,6 +245,7 @@ export default function PresentationMode({
   const fullTransport = (transport ?? (mode === 'dev' ? 'full' : 'reduced')) === 'full';
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const voiceHostRef = useRef<HTMLSpanElement | null>(null);
+  const transportRef = useRef<HTMLDivElement | null>(null);
   const timelineRef = useRef<HTMLDivElement | null>(null);
   const handleRef = useRef<ScriptRunnerHandle | null>(null);
   const noteInputRef = useRef<HTMLInputElement | null>(null);
@@ -769,6 +771,24 @@ export default function PresentationMode({
     setTimelineWidth(el.getBoundingClientRect().width);
     return () => ro.disconnect();
   }, []);
+  /* The transport bar's own height, published to frameState so the camera
+   * panel's home corner can sit above it rather than under it - see
+   * WebcamPip.tsx's `compute`. Both transports measure themselves here, full
+   * and reduced alike, since the bar's height differs between them (the
+   * label row alone can change it). */
+  useEffect(() => {
+    const el = transportRef.current;
+    if (!el) return;
+    // contentRect excludes the bar's own padding and border, so measure the
+    // full box directly rather than trust the observer entry's rect.
+    const ro = new ResizeObserver(() => setTransportHeight(el.getBoundingClientRect().height));
+    ro.observe(el);
+    setTransportHeight(el.getBoundingClientRect().height);
+    return () => {
+      ro.disconnect();
+      setTransportHeight(0);
+    };
+  }, []);
   const labelLayout = useMemo(
     () => layoutSectionLabels(sectionMarks, duration, timelineWidth),
     [sectionMarks, duration, timelineWidth],
@@ -813,6 +833,7 @@ export default function PresentationMode({
       {frames.overlay}
       {createPortal(
         <div
+          ref={transportRef}
           data-testid="present-transport"
           style={{
             position: 'fixed',
@@ -1117,12 +1138,15 @@ export default function PresentationMode({
           );
           /* Full transport: unchanged from before — small buttons, clock and
              the labels+timeline column all on one row, vertically centered
-             together. Reduced (shipped) transport: the label row becomes its
-             own full-width block, and the buttons — now the app's shadcn
-             `Button`, sized to at least 40px square — share a row with just
-             the clock and the bar, so they land vertically centered on the
-             28px bar itself rather than on the (now taller, 14px) label row
-             above it. */
+             together. Reduced (shipped) transport: the buttons — now the
+             app's shadcn `Button`, sized to at least 40px square — share a
+             row with just the clock and the labels+timeline column, so they
+             land vertically centered on the 28px bar itself rather than on
+             the (now taller, 14px) label row above it. The label row lives
+             inside that same column as the track, not as a sibling spanning
+             the whole transport row, so a label's percentage is a
+             percentage of the track and not of the buttons+clock+track
+             width. */
           return fullTransport ? (
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', margin: '2px 0' }}>
             <button
@@ -1164,7 +1188,6 @@ export default function PresentationMode({
           </div>
           ) : (
           <div style={{ display: shrunk ? 'none' : 'block', margin: '8px 0' }}>
-            {labelsRow}
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <Button
                 type="button"
@@ -1204,7 +1227,10 @@ export default function PresentationMode({
               <span data-testid="present-time" style={{ minWidth: 96, whiteSpace: 'nowrap' }}>
                 {mmssTenths(time)} / {mmss(duration)}
               </span>
-              {timelineBar}
+              <div style={{ position: 'relative', flex: 1 }}>
+                {labelsRow}
+                {timelineBar}
+              </div>
             </div>
           </div>
           );

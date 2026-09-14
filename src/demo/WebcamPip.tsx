@@ -43,7 +43,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Video } from 'lucide-react';
 import { CURRENT_CUT } from './currentCut';
-import { captureBox, onFrameChange } from './frameState';
+import { captureBox, onFrameChange, transportHeight } from './frameState';
 import {
   onPipOpening, parkPip, pipOpening, PIP_OPENING_GRACE_MS, type PipOpening,
 } from './handover';
@@ -179,7 +179,11 @@ export default function WebcamPip({ webcam }: WebcamPipProps = {}) {
    * How far the panel sits above the foot of the screen. The fixed 20px
    * margin, unless a frame layer is up: then it is 20px above the foot of the
    * capture box, so the panel keeps its corner of the picture rather than
-   * sitting in a letterbox band that is not being captured.
+   * sitting in a letterbox band that is not being captured. Either way, the
+   * transport bar's own height is added on top: the bar is a fixed, portalled
+   * element outside the frame layer's transform, so it always sits at the
+   * real foot of the screen and would otherwise sit under (or the panel,
+   * over) the bar and hide the last section labels.
    */
   const [homeBottom, setHomeBottom] = useState<number>(PIP_MARGIN);
 
@@ -227,13 +231,14 @@ export default function WebcamPip({ webcam }: WebcamPipProps = {}) {
        * capture box's own bottom-right corner is the one fixed thing in the
        * picture, which is where the OBS layout puts it too.
        */
+      const bar = transportHeight();
       const box = captureBox();
       if (box) {
         setHomeLeft(box.left + box.width - PIP_WIDTH - PIP_MARGIN);
-        setHomeBottom(Math.max(0, window.innerHeight - (box.top + box.height)) + PIP_MARGIN);
+        setHomeBottom(Math.max(0, window.innerHeight - (box.top + box.height)) + bar + PIP_MARGIN);
         return;
       }
-      setHomeBottom(PIP_MARGIN);
+      setHomeBottom(bar + PIP_MARGIN);
       const app = document.querySelector('#color-editor-group');
       const appRight = app?.getBoundingClientRect().right;
       if (appRight == null) { setHomeLeft(null); return; }
