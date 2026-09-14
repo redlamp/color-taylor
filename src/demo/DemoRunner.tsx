@@ -599,8 +599,27 @@ export default function DemoRunner({ from = null, cursorFrom = null, onRestore, 
          * panel on screen for its own length while the script's hand was
          * already waiting the countdown out. Taylor, round 7, on the handback:
          * one cursor, and no second one leaving.
+         *
+         * `driven` rather than `yielded`, for the reason the colour branch
+         * above gives: the grace is 800 ms and the two clocks are not the same
+         * clock. Measured on cut 04 at 1376x868, the demo's "Have fun!" went up
+         * at 306.75 s and 10.6's own `over: "demo"` cue - which is pinned to
+         * the voice, not to the demo - fired at 307.85, a quarter of a second
+         * past the grace. So `yielded` came back false, this walk started, and
+         * for five frames the ghost was up at the caption while the demo's
+         * cursor was still on screen sliding down through the fold at opacity
+         * 0.5, 0.25, 0.13, 0.05: the two cursors Taylor kept seeing at the
+         * handback. Worse, the ghost seeds from where this one was last seen,
+         * and by then that was a point on the way out rather than the resting
+         * one, so the hand arrived 80px below where the demo had left it.
+         *
+         * A script that is mounted is going to take the cursor back whether or
+         * not it claimed this exact moment - that is what the demo unmounting
+         * means - so there is nothing for this cursor to walk to. It stands
+         * where it stopped and the ghost picks it up there. With no script
+         * mounted the goodbye is untouched.
          */
-        if (!yielded) {
+        if (!yielded && !driven) {
           setGhostLeaving(true);
           await exitPose(ctx);
         }

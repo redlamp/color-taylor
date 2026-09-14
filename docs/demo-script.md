@@ -465,6 +465,22 @@ ghost cursor, so every gesture goes through the real controls. Dev builds only
   it stopped — so the next gesture is a move across the screen rather than a
   flight in from below the fold. A position outlives the component that had it,
   which is what makes that possible.
+- **The demo never walks its cursor off while a script is mounted** (round 7 of
+  cut 04). The walk off and its fade used to be skipped only when the demo had
+  actually waited for a script gesture, and that wait is `OVER_DEMO_GRACE_MS`,
+  800 ms, while the two clocks are not the same clock: the demo's sign-off runs
+  on its own choreography and the cue that claims it is pinned to the voice
+  track. Measured at 1376x868 on cut 04, "Have fun!" went up at 306.75 s and
+  10.6's `over: "demo"` cue fired at 307.85 — a quarter of a second past the
+  grace — so the demo started walking out, and for five frames the ghost stood
+  at the caption while the demo's cursor slid down through the fold at opacity
+  0.5, 0.25, 0.13, 0.05. Two cursors, and the ghost seeded from a point on that
+  walk rather than from the resting one, so it arrived 80 px low. The gate is
+  now `scriptRunnerPresent()`, the same one the colour uses and for the same
+  reason: a mounted script is going to take the cursor back when the demo
+  unmounts whether or not it claimed this exact moment, so there is nowhere for
+  this cursor to walk. It stands where it stopped and the ghost picks it up
+  there. With no script mounted the goodbye is untouched.
 - Under `?script=` and `?present=` the app also mounts the camera panel
   (`src/demo/WebcamPip.tsx`): a fixed **400x400** box in the bottom-right
   corner with a 12 px radius, matching the OBS picture-in-picture, at a 20 px
