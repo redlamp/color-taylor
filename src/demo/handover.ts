@@ -115,6 +115,36 @@ export function onScriptOverDemo(fn: (on: boolean) => void): () => void {
   return () => window.removeEventListener(EVENT, handler);
 }
 
+const HOLD_COLOUR = 'color-taylor:hold-colour';
+
+/** An HSB colour, as the app reads it. Declared here to keep this leaf-level. */
+export interface Hsb { h: number; s: number; b: number }
+
+/**
+ * The demo, as its sign-off hands the colour back while the script has the
+ * screen: "leave the colour where I am leaving it."
+ *
+ * The demo's ending restores the app to the snapshot it took when it opened -
+ * the sections, the banks, the blend, and the colour. Under the presentation
+ * the first three are wanted and the last is not: beat 10.6 is Taylor saying
+ * "having fun is the goal of the tool" over a colour the ghost put there, and
+ * the restore jumped it to something no cursor had touched (Taylor, round 5,
+ * cut 04). The restore itself belongs to the app, which this side does not
+ * own, so the demo says what the colour was and the runner - which has the
+ * app's own colour setter, and whose tween supersedes the restore's in the
+ * same tick - puts it straight back. Nothing else about the demo changes.
+ */
+export function holdColour(hsb: Hsb): void {
+  window.dispatchEvent(new CustomEvent<Hsb>(HOLD_COLOUR, { detail: hsb }));
+}
+
+/** The script runner, for as long as it is mounted. Returns the unsubscribe. */
+export function onHoldColour(fn: (hsb: Hsb) => void): () => void {
+  const handler = (e: Event) => fn((e as CustomEvent<Hsb>).detail);
+  window.addEventListener(HOLD_COLOUR, handler);
+  return () => window.removeEventListener(HOLD_COLOUR, handler);
+}
+
 /**
  * Whether a video script runner is mounted at all.
  *

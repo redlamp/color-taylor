@@ -34,7 +34,7 @@ import { ChevronLeft, ChevronRight, Volume2, VolumeX } from 'lucide-react';
 import DemoCursor, { CURSOR_BOX, cursorKind, hotspotOf, type CursorKind } from './DemoCursor';
 import { Driver, DemoAborted, offscreenEdge, type Point, type Stage } from './drive';
 import {
-  markCursor, onScriptOverDemo, reportCursor, scriptRunnerPresent, OVER_DEMO_GRACE_MS,
+  holdColour, markCursor, onScriptOverDemo, reportCursor, scriptRunnerPresent, OVER_DEMO_GRACE_MS,
 } from './handover';
 import {
   STEPS, SIGN_OFF, SIGN_OFF_MS, SIGN_OFF_FADE_MS, EXIT_MS,
@@ -539,15 +539,41 @@ export default function DemoRunner({ from = null, cursorFrom = null, onRestore, 
          * Capped at the hold, so the demo still comes down on time.
          */
         const yielded = await yieldToScript(countdownEnds);
-        if (!yielded && ctx.host.restoreMovesColour()) {
+        /*
+         * The colour stays where the demo left it whenever a script is
+         * driving, whether or not it claimed this moment.
+         *
+         * Beat 10.6 of cut 04 is "having fun is the goal of the tool" over a
+         * colour the ghost put there, and the restore took it somewhere no
+         * cursor had been while the hand moved aside (Taylor, round 5). The
+         * walk home is the demo's own ending and reads right on its own; under
+         * a recording it is a second colour move nobody asked for, and whether
+         * it happened at all came down to which side of the 800 ms grace the
+         * script's gesture landed on, so the ending differed run to run.
+         *
+         * `scriptRunnerPresent()` rather than `yielded` for exactly that
+         * reason - it is the same gate the grace wait itself uses. Nothing
+         * else about the demo changes: the sections, the banks and the blend
+         * are still put back, and with no script mounted this is untouched.
+         */
+        const driven = scriptRunnerPresent();
+        if (!yielded && !driven && ctx.host.restoreMovesColour()) {
           await closingPose(ctx);
           restoreRef.current();
           // Riding the tip while the colour tweens back, so the ending reads
           // as the cursor putting the colour where it found it.
           await carryHome(ctx);
         } else {
-          // Still restores the sections, the banks and the blend.
+          // Still restores the sections, the banks and the blend - but not the
+          // colour, where a script is driving. The restore is the app's own
+          // and this side does not own it, so the colour is read before it and
+          // written straight back through the runner, which holds the app's
+          // colour setter; the second tween supersedes the restore's in the
+          // same tick, so nothing is ever painted anywhere else. See
+          // handover.holdColour.
+          const held = ctx.host.field();
           restoreRef.current();
+          if (driven) holdColour({ h: held.h, s: held.s, b: held.b });
         }
         /*
          * Let go of whatever is hovered before the page moves.

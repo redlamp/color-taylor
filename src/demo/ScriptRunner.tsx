@@ -31,7 +31,7 @@ import DemoCursor, { CURSOR_BOX, cursorKind, hotspotOf, type CursorKind } from '
 import { Driver, DemoAborted, centerOf, type Point, type Stage } from './drive';
 import { fieldPoint, hexClientPoint, smooth, type DemoHost } from './steps';
 import {
-  handoverPoint, markCursor, markScriptRunner, reportCursor, setScriptOverDemo,
+  handoverPoint, markCursor, markScriptRunner, onHoldColour, reportCursor, setScriptOverDemo,
 } from './handover';
 import { CENTER_X, CENTER_Y, HUE_LABEL_OFFSET, PI, RADIUS } from '../components/hex/hexConstants';
 
@@ -113,9 +113,10 @@ export interface ScriptAction {
    */
   from?: number | RectCorner | [number, number];
   /**
-   * `slider`/`box`: where the drag lands. `tip` with `via: "hue-label"`: an
-   * absolute hue to take the pill to, the short way round (`degrees` is the
-   * relative form, and wins where both are given). `pip`: which side of the
+   * `slider`/`box`: where the drag lands. `tip`: an absolute hue to take the
+   * hue to, the short way round, on the pill with `via: "hue-label"` and on
+   * the hexagon's own face without one (`degrees` is the relative form, and
+   * wins where both are given). `pip`: which side of the
    * screen edge the camera panel ends up on.
    *
    * `stem`: the channel value, 0-255, to drag that stem to - or `"start"`,
@@ -152,8 +153,16 @@ export interface ScriptAction {
   ring?: number;
   /** `zigzag`: how many legs the path is cut into. */
   legs?: number;
-  /** `zigzag`: the saturation band, 0-100, the legs alternate between. */
-  sat?: [number, number];
+  /**
+   * `zigzag`: the saturation band, 0-100, the legs alternate between.
+   *
+   * `tip` without a `via`: a single saturation, 0-100, for the drag on the
+   * hexagon's own face to land on. The tip carries hue and saturation
+   * together — it is the point the stems hang off — so a cue that names both
+   * is one gesture on the thing the line is about. Round 5, cut 04: "on the
+   * hex" means this handle, not the hexagon card's saturation bar.
+   */
+  sat?: number | [number, number];
   h?: number;
   s?: number;
   b?: number;
@@ -321,8 +330,17 @@ const HANDLE_RING = 1.8;
  * it is drawn in.
  */
 const HANDLE_RING_MIN = 18;
-/** The least a ring round a degree on the editor's hue strip may be. See `hue-at:`. */
+/** The least a ring round a degree on the HSB bank's H slider may be. See `hue-at:`. */
 const HUE_AT_RING = 16;
+/** Air round the hue badge before the ring that has to contain it. */
+const HUE_BADGE_PAD = 6;
+/**
+ * How much bigger than a box the ellipse that contains it is: a rect of w x h
+ * fits inside the ellipse with axes w*sqrt(2) and h*sqrt(2), touching it at
+ * the four corners. A `circle` inscribes its ellipse in the box it is given,
+ * so a target whose ring has to *enclose* its box hands this over instead.
+ */
+const ENCLOSE = Math.SQRT2;
 /** A sway's reach when the cue does not name one, and the least it may be. See the `sway` case. */
 const SWAY_AMP_MIN = 26;
 /** How far a snaking stem bows across its own axis, as a fraction of the pull along it. */
@@ -1135,12 +1153,24 @@ function resolve(name: string, host: DemoHost): Target | null {
     // `hex-hue-label` alone left the word standing outside it. `#hue-label`
     // is `hidden` (not unmounted) once the badge has moved somewhere the
     // caption has no room, so it is left out of the union when that is true.
+    // Round 5: the ring still stood off the pair. A `circle` draws the ellipse
+    // *inscribed* in the box it is given, centred on the target's own point -
+    // and this target's point is the pill's outer rim, where `tip` grips it.
+    // So the ring was a pill-sized ellipse hung off the edge of the badge.
+    // Both halves are fixed here: the point is the middle of the union, and
+    // the box handed over is the union grown by ENCLOSE about that middle,
+    // which is the smallest ellipse that contains it.
     const handle = q('#hue-handle');
     const label = q('#hue-label');
     if (!handle) return null;
     const els = label && !(label as HTMLElement).hidden ? [handle, label] : [handle];
-    const rect = () => unionRect(els, 4);
-    return { el: handle, at: () => hueGripPoint(handle, host.field().h) ?? centerOf(handle), rect };
+    const rect = () => {
+      const r = unionRect(els, HUE_BADGE_PAD);
+      const w = r.width * ENCLOSE;
+      const h = r.height * ENCLOSE;
+      return new DOMRect(r.left - (w - r.width) / 2, r.top - (h - r.height) / 2, w, h);
+    };
+    return { el: handle, at: () => rectCenter(rect()), rect };
   }
   if (name === 'about-author') return byEl(q('#about-author'));
   // The About panel's own title, for the underline on "It's called Color
@@ -1262,25 +1292,45 @@ function resolve(name: string, host: DemoHost): Target | null {
       rect: () => unionRect([el], HANDLE_BOX_PAD),
     };
   }
-  // A degree on the color editor's hue strip, as a place rather than a
-  // control: `hue-at:120` is where 120 sits on the track. Beat 3's reveals
-  // ring the primaries on the strip at the same moment they ring them on the
-  // hexagon, so the two ways of showing the same angle are shown together.
+  // A degree on the HSB bank's H slider, as a place rather than a control:
+  // `hue-at:120` is where 120 sits on that track. Beat 3's reveals ring the
+  // primaries there at the same moment they ring them on the hexagon, so the
+  // two ways of showing the same angle are shown together.
+  //
+  // Round 5, cut 04: it used to be the color editor's top hue strip. Taylor:
+  // the degrees belong on the H row of the HSB sliders, which is the control
+  // reading the number the line says out loud - the strip beside the
+  // saturation/brightness box carries no number at all.
   if (name.startsWith('hue-at:')) {
     const deg = Number(name.slice(7));
-    const el = q('#hue-bar');
+    const el = q('#slider-hsb-h-track');
     if (!el || !Number.isFinite(deg)) return null;
     return {
       el,
-      at: () => trackPoint('editor-hue', el, deg),
-      // Wide enough to stand clear of the strip, which is narrower than any
+      // The row's track is a 0-100 slider like every other one, so the degree
+      // is read onto it as its share of the turn - and through `trackPoint`,
+      // so the ring and a drag on the same row agree about where 120 is.
+      at: () => trackPoint('slider:hsb-h', el, (((deg % 360) + 360) % 360) / 3.6),
+      // Wide enough to stand clear of the track, which is thinner than any
       // ring that would read as a ring.
-      radius: () => Math.max(HUE_AT_RING, el.getBoundingClientRect().width * 0.8),
+      radius: () => Math.max(HUE_AT_RING, el.getBoundingClientRect().height * 0.8),
     };
   }
-  // The marker on the editor's hue strip. `hex-hue-label` is the hexagon's
-  // own; beat 4.2 rings the two together.
-  if (name === 'editor-hue-handle') return byEl(q('#hue-bar-arrow'));
+  // The marker on the HSB bank's H slider - the editor's hue handle. Round 5,
+  // cut 04: this was `#hue-bar-arrow`, the marker on the top strip, for the
+  // same reason `hue-at:` moved. `hex-hue-label` is the hexagon's own; beat
+  // 4.2 rings the two together.
+  if (name === 'editor-hue-handle') {
+    const el = markerEl('hsb-h');
+    if (!el) return null;
+    const half = () => { const r = el.getBoundingClientRect(); return Math.max(r.width, r.height) / 2; };
+    return {
+      el,
+      at: () => centerOf(el),
+      radius: () => Math.max(HANDLE_RING_MIN, HANDLE_RING * half()),
+      rect: () => unionRect([el], HANDLE_BOX_PAD),
+    };
+  }
   if (name === 'zero:rgb-top' || name === 'zero:rgb-bottom') {
     // The zero end of the RGB bank as a whole: the same x as `zero:r`, at the
     // top of the R row or the foot of the B row. Beat 6.3's line is about the
@@ -1388,6 +1438,23 @@ function resolve(name: string, host: DemoHost): Target | null {
       // whole grid, which is what naming the Saved row means anyway.
       const filled = Array.from(grid.querySelectorAll('button:not(:disabled)'));
       return unionRect(filled.length ? filled : [grid], SWATCH_PAD);
+    };
+    return { el: grid, at: () => rectCenter(rect()), rect };
+  }
+  if (name.startsWith('swatches:recent-span:')) {
+    // The space the next `n` picks will fill, before any of them has landed.
+    // `swatches:recent-row` is the slots that *hold* a color, which is empty
+    // until the first pick is recorded - so a marquee drawn on it at the start
+    // of beat 7.2 had nothing to measure and arrived, late, round whatever had
+    // accumulated by then (Taylor, round 5: "the marquee is late and does not
+    // cover the picks"). Recent's empty slots are real buttons at their final
+    // size, so the row's extent is there to be read before it is filled.
+    const n = Number(name.slice(21));
+    const grid = q('#recent-grid');
+    if (!grid || !Number.isFinite(n) || n < 1) return null;
+    const rect = () => {
+      const slots = Array.from(grid.querySelectorAll('button')).slice(0, Math.round(n));
+      return unionRect(slots.length ? slots : [grid], SWATCH_PAD);
     };
     return { el: grid, at: () => rectCenter(rect()), rect };
   }
@@ -1614,6 +1681,18 @@ export default function ScriptRunner({
     demoOpenRef.current = demoOpen;
     onHandleRef.current = onHandle;
   }, [host, onDemo, onColor, demoOpen, onHandle]);
+
+  /*
+   * The demo's sign-off restoring the app: keep the colour where it is.
+   *
+   * The restore is the app's own and puts back the snapshot the demo opened
+   * on, colour included. Beat 10.6 of cut 04 runs over exactly that moment,
+   * and a colour changing there is the one thing on screen no cursor is
+   * holding. `onColor` stops whatever tween is running and starts one to the
+   * colour the demo is leaving - issued in the same tick as the restore's, so
+   * it supersedes it before a frame is painted. See handover.holdColour.
+   */
+  useEffect(() => onHoldColour((hsb) => onColorRef.current(hsb)), []);
 
   /*
    * The demo just closed: this hand picks up where the demo's left off.
@@ -1951,7 +2030,13 @@ export default function ScriptRunner({
           // Travel scales with distance: a hop to the next button over is
           // quick, so a click scheduled close behind a hover still lands
           // before the following action takes the hands.
-          const p = t.at();
+          //
+          // Anchored like a `rest`, so a click can land somewhere other than
+          // the middle of its control: beat 9.3 presses the Watch Demo card
+          // below and right of its label, because a cursor on the middle of
+          // the card sits on the word "Demo" as it is spoken. `dx`/`dy` with
+          // no `anchor` stay inside the control, which is what a press needs.
+          const p = anchoredPoint(t, a)();
           const dist = Math.hypot(p.x - d.pos.x, p.y - d.pos.y);
           await d.moveTo(() => p, clamp(dist * 1.2, 160, 520));
           // Recent's own toggle opens rather than toggles. The cut asks for the
@@ -2355,11 +2440,23 @@ export default function ScriptRunner({
           // one (the +-30 pair in beat 8) starts on time instead of overrunning.
           const dist = Math.hypot(c.x - d.pos.x, c.y - d.pos.y);
           await d.moveTo(() => c, clamp(dist * 1.2, 0, MOVE_MS));
-          // Read once and held: the whole turn stays on this cross-section.
+          // Read once and held: the whole drag stays on this brightness
+          // cross-section, so only the two channels the hexagon's face carries
+          // move under it.
           const f = hostRef.current.field();
-          const sat = clamp(f.s / 100, 0.05, 1);
-          const degrees = a.degrees ?? 0;
-          await d.drag(tip, (u) => fieldPoint(f.h + degrees * smooth(u), sat, f) ?? c, a.ms ?? 1000, true);
+          // Hue: `degrees` is the relative form and wins; `to` is an absolute
+          // hue, taken the short way round, the way the pill's is.
+          const degrees = a.degrees ?? (typeof a.to === 'number' ? ((a.to - f.h + 540) % 360) - 180 : 0);
+          // Saturation: held where it is unless the cue names one. A tip drag
+          // that lands both is what "hue and saturation on the hex" asks for -
+          // the hexagon card's bars are a different control, and beat 3 is
+          // about the hexagon (round 5, cut 04).
+          const s0 = clamp(f.s, 5, 100);
+          const s1 = typeof a.sat === 'number' ? clamp(a.sat, 5, 100) : s0;
+          await d.drag(tip, (u) => {
+            const k = smooth(u);
+            return fieldPoint(f.h + degrees * k, (s0 + (s1 - s0) * k) / 100, f) ?? c;
+          }, a.ms ?? 1000, true);
           return;
         }
         case 'pip': {
@@ -2427,7 +2524,7 @@ export default function ScriptRunner({
           const f = hostRef.current.field();
           const legs = Math.max(1, Math.round(a.legs ?? 5));
           const swing = a.degrees ?? 70;
-          const band: [number, number] = a.sat ?? [35, 95];
+          const band: [number, number] = Array.isArray(a.sat) ? a.sat : [35, 95];
           if (!tip) {
             const pill = need('hex-hue-label');
             if (!pill) return;
