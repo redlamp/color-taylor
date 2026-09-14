@@ -129,7 +129,7 @@ function NamedColorMatch({ rgb, onAnimateToHsb, onHoverMatch, hoveredHtmlColor, 
               className="text-xs font-mono font-semibold border-0"
               style={{ '--tooltip-bg': matchHex, backgroundColor: matchHex, color: textColor } as CSSProperties}
             >
-              {matchHex.toUpperCase()}
+              Move to {matchHex.toUpperCase()}
             </TooltipContent>
           )}
         </Tooltip>
