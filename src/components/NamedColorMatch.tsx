@@ -123,12 +123,7 @@ function NamedColorMatch({ rgb, onAnimateToHsb, onHoverMatch, hoveredHtmlColor, 
             </button>
           </TooltipTrigger>
           {isMatch && hovering && (
-            <TooltipContent
-              side="bottom"
-              sideOffset={8}
-              className="text-xs font-mono font-semibold border-0"
-              style={{ '--tooltip-bg': matchHex, backgroundColor: matchHex, color: textColor } as CSSProperties}
-            >
+            <TooltipContent side="top" sideOffset={4} className="text-sm font-semibold">
               Move to {matchHex.toUpperCase()}
             </TooltipContent>
           )}
