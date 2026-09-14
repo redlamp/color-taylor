@@ -1,6 +1,7 @@
 import { memo, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { rgbToHex, hexDigits, normalizedChannel, type RGB, type HSL } from '../utils/colorConversions';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { CircleHelp } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
 
 interface EquationsPanelProps {
@@ -300,7 +301,34 @@ function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }: Equat
             this block while it hovers the editor's hex field. */}
         <div id="equations-hex" className="flex flex-col gap-1 border border-border rounded-lg p-1.5 min-w-0">
           <Row
-            left={<span className="text-sm font-semibold font-sans text-foreground" title="Hexadecimal: each channel written as two base-16 digits">Hex</span>}
+            left={
+              <span className="inline-flex items-center gap-1.5">
+                <span className="text-sm font-semibold font-sans text-foreground">Hex</span>
+                {/* Taylor's caption, two lines. A ? rather than a title
+                    attribute so it shows on touch and reads in the app's
+                    own tooltip. */}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      aria-label="What is hex?"
+                      className="inline-flex size-4 cursor-help items-center justify-center rounded-full text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
+                    >
+                      <CircleHelp className="size-3.5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" sideOffset={4} className="max-w-80 text-base font-sans font-normal leading-snug">
+                    Hexadecimal is a base 16 number system:
+                    <br />
+                    Count 0-9, then A-F (stands for 10-15).
+                    <br />
+                    9 = 9,{'   '}A = 10,{'   '}F = 15,{'   '}10 = 16,{'   '}FF = 255.
+                    <br />
+                    Two hex digits pair into red, green, blue.
+                  </TooltipContent>
+                </Tooltip>
+              </span>
+            }
             right={<CopyableResult text={hexValue} color={hexValue} />}
           />
           <hr className="border-border" />
