@@ -1129,6 +1129,19 @@ function resolve(name: string, host: DemoHost): Target | null {
     if (!el) return null;
     return { el, at: () => hueGripPoint(el, host.field().h) ?? centerOf(el) };
   }
+  if (name === 'hex-hue-handle-label') {
+    // Round 4, cut 04, beat 4.2: a circle that has to enclose both the pill
+    // and its "Hue" caption above it, not just the pill - a ring sized to
+    // `hex-hue-label` alone left the word standing outside it. `#hue-label`
+    // is `hidden` (not unmounted) once the badge has moved somewhere the
+    // caption has no room, so it is left out of the union when that is true.
+    const handle = q('#hue-handle');
+    const label = q('#hue-label');
+    if (!handle) return null;
+    const els = label && !(label as HTMLElement).hidden ? [handle, label] : [handle];
+    const rect = () => unionRect(els, 4);
+    return { el: handle, at: () => hueGripPoint(handle, host.field().h) ?? centerOf(handle), rect };
+  }
   if (name === 'about-author') return byEl(q('#about-author'));
   // The About panel's own title, for the underline on "It's called Color
   // Taylor." By id: the app session put `#about-title` on it with the new
@@ -1383,6 +1396,17 @@ function resolve(name: string, host: DemoHost): Target | null {
   if (name === 'figma-button') return byEl(q('#plugin-banner-cta'));
   if (name === 'hsl-tab') return byEl(q('#hex-mode-hsl'));
   if (name === 'hsb-tab') return byEl(q('#hex-mode-hsb'));
+  if (name === 'hex-mode-toggle') {
+    // Both halves of the hexagon card's HSB/HSL segmented control, as one box -
+    // round 4, cut 04: a `sway` that has to wave gently between the two
+    // buttons rather than bounce from one to the other wants a single target
+    // sitting under both of them, not either tab on its own.
+    const a = q('#hex-mode-hsb');
+    const b = q('#hex-mode-hsl');
+    if (!a || !b) return null;
+    const rect = () => unionRect([a, b], 0);
+    return { el: a, at: () => rectCenter(rect()), rect };
+  }
   if (name === 'top') {
     return { el: document.documentElement, at: () => ({ x: window.innerWidth / 2, y: 24 }) };
   }

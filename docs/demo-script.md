@@ -538,7 +538,11 @@ through its normal handler), `help-button`, `editor`, `editor-top` (the
 Color Editor panel's header band, the top 60 px), `hex-field` /
 `hex-center`, `between-panels`,
 `hex-tip`, `hex-hue-label` (the hexagon's hue pill, `#hue-handle`; the point
-is its outer rim, see `tip`), `stem:r|g|b`, `corner:r|y|g|c|b|m` (a vertex of
+is its outer rim, see `tip`), `hex-hue-handle-label` (new in round 4 of cut
+04, for a `circle` that has to enclose both the pill and its "Hue" caption
+above it, `#hue-label` — the caption is left out of the union when it is
+`hidden`, which it is once the badge has moved somewhere there is no room for
+it, see `HueHandle.tsx`), `stem:r|g|b`, `corner:r|y|g|c|b|m` (a vertex of
 the hexagon), `corner:<target>:<tl|tr|bl|br>` (a corner of any target that has
 a box — `corner:sliders:rgb:tl` — so a `rest` can put the hand where a `pre`
 marquee is about to start),
@@ -599,7 +603,9 @@ Taylor in Figma" — `#plugin-banner-text`, which is what an `underline` on the
 banner has to be given, the pill's own box being the glyph, the sentence and
 two buttons), `demo-caption` (the line the built-in demo is showing, as
 the text's own span rather than the caption column's full width), `hsl-tab`,
-`hsb-tab`, `top`. A target that is not on the page
+`hsb-tab`, `hex-mode-toggle` (new in round 4 of cut 04, the union of
+`hsb-tab` and `hsl-tab` as one box — for a `sway` that has to wave under both
+buttons rather than bounce between them), `top`. A target that is not on the page
 (a dismissed banner, a closed slider bank) logs a `[script]` warning to the
 console and the action is skipped.
 
