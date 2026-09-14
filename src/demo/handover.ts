@@ -171,3 +171,88 @@ export const scriptRunnerPresent = (): boolean => mounted > 0;
 
 /** How long the goodbye waits to find out whether the script wants this moment. */
 export const OVER_DEMO_GRACE_MS = 800;
+
+/* ── The camera panel's opening state ─────────────────────────────────────
+ *
+ * The other thing the two sides have to agree on, and for the same reason as
+ * the cursor: the panel is drawn by WebcamPip and moved by ScriptRunner, the
+ * two mount independently, and which of them is up first is a race between a
+ * lazy chunk and a fetch.
+ *
+ * A cut whose first `pip` cue drags the panel *on* opens with it off screen.
+ * The runner knows that as soon as it has the cut; the panel paints as soon
+ * as its own module has loaded. Whichever way round those land, the viewer
+ * must never see the panel sitting at home in a cut that opens without it -
+ * which is exactly what Taylor saw on the shipped path, a panel in the corner
+ * for the moment before the hand reached off the right edge for it.
+ *
+ * So the runner states the opening here and it sticks, and the panel reads it
+ * as it mounts: reported rather than passed, because neither component owns
+ * the other and the statement has to outlive the order they arrive in.
+ */
+
+/** How much past the right edge the panel sits once it is off screen. */
+export const PIP_OFF_CLEAR = 8;
+/** How much lower the panel's off-screen resting position sits than home. */
+export const PIP_OFF_DROP = 80;
+
+/**
+ * How far the camera panel is currently pushed off its home position, and how
+ * to put it there. Kept on the element rather than in the schedule, so a seek
+ * can set it without replaying the drag, and so the panel's own markup is the
+ * only thing that knows how it is moved.
+ */
+export const pipOffset = (el: HTMLElement): CursorPoint => ({
+  x: Number(el.dataset.pipX ?? '0') || 0,
+  y: Number(el.dataset.pipY ?? '0') || 0,
+});
+export function setPipOffset(el: HTMLElement, x: number, y = 0): void {
+  el.dataset.pipX = String(Math.round(x));
+  el.dataset.pipY = String(Math.round(y));
+  el.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
+}
+
+/**
+ * Put the panel off screen or at home at once, with no gesture. False when
+ * the panel is not in the document yet, which is the caller's cue to ask
+ * again on the next frame.
+ */
+export function parkPip(off: boolean): boolean {
+  const el = document.getElementById('camera-pip');
+  if (!el) return false;
+  // Home is where the panel sits with no offset on it.
+  const home = el.getBoundingClientRect().left - pipOffset(el).x;
+  setPipOffset(el, off ? window.innerWidth - home + PIP_OFF_CLEAR : 0, off ? PIP_OFF_DROP : 0);
+  return true;
+}
+
+/** Where the panel stands when the cut opens. */
+export type PipOpening = 'off' | 'home';
+
+const PIP_OPENING = 'color-taylor:pip-opening';
+let opening: PipOpening | null = null;
+
+/** The runner, as its schedule comes up: this is how the cut opens. */
+export function setPipOpening(state: PipOpening): void {
+  opening = state;
+  parkPip(state === 'off');
+  window.dispatchEvent(new CustomEvent<PipOpening>(PIP_OPENING, { detail: state }));
+}
+
+/** What the runner said, or null if no runner has said anything yet. */
+export const pipOpening = (): PipOpening | null => opening;
+
+/** The panel, for as long as it is mounted. Returns the unsubscribe. */
+export function onPipOpening(fn: (state: PipOpening) => void): () => void {
+  const handler = (e: Event) => fn((e as CustomEvent<PipOpening>).detail);
+  window.addEventListener(PIP_OPENING, handler);
+  return () => window.removeEventListener(PIP_OPENING, handler);
+}
+
+/**
+ * How long the panel waits for a runner to say how the cut opens before
+ * showing itself anyway. Long enough for the cut's JSON to arrive over a dev
+ * server, short enough that a page with no runner at all - `?webcam=live`,
+ * a cut whose script failed to load - is not left staring at nothing.
+ */
+export const PIP_OPENING_GRACE_MS = 1500;

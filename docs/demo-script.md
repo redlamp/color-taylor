@@ -742,6 +742,37 @@ the app's own entry with `mode="production"` (see "Shipping it" below).
   | `transport` | The separate, orthogonal knob for how much of the transport itself shows. `'full'` is the timeline with line spans and cue ticks, scrub, the time readout, the beat band on the plan clock, the line/action readout, and the keyboard transport (**Space** play/pause, arrow-left/right seek `±5s`). `'reduced'` is play/pause, a bare scrub bar and the time readout — nothing else — with **Space** still working. Defaults to `'full'` when `mode` is `'dev'` and `'reduced'` when `mode` is `'production'`, so the shipped walkthrough is reduced unless told otherwise; production with `transport="full"` still makes zero `/__` requests, since that gate is `mode` alone. |
   | `voice` | An `<audio>` the host created and played inside the click that started the walkthrough — playback needs that gesture, and only the host can call `play()` synchronously with it. The component adopts it as its clock instead of rendering its own: it is appended into the transport wearing the `present-audio` test id (which is what the camera panel reads the clock off), and its `src` is written only when it does not already point at the cut's voice, so an element that is already playing is taken over mid-flight rather than restarted. |
 
+- **The opening starts together.** Three things on the shipped path used to
+  drift apart, and all three are the same gap: the host starts the voice inside
+  the click, and `PresentationMode`, `WebcamPip` and the cut's own JSON are a
+  lazy chunk and a fetch behind it.
+  - **The clock.** An adopted `voice` is wound back to `currentTime = 0` at the
+    moment the runner's schedule comes up and the cut's opening state is
+    applied - that is, when `ScriptRunner` hands its handle over. It keeps
+    playing across the rewind (playback permission is the document's, and it is
+    sticky), and the lead is silent, so there is nothing to hear in the fraction
+    that plays twice. Without it the runner joined a clock a few hundred ms in,
+    the t=0 cue fired late, and the drag landed after the first word.
+  - **The panel.** Where the cut opens the camera panel is *stated* as well as
+    applied: `setPipOpening` in `handover.ts`, which parks the panel if it is in
+    the document and is read by `WebcamPip` as it mounts if it is not. The panel
+    holds itself invisible - `visibility`, so the footage still decodes - until
+    a runner has said, and shows itself at home after a grace if none ever does.
+    Before that it painted in its corner for the moment before the hand reached
+    off the right edge for it.
+  - **The hand.** A cut that opens with the panel off screen seeds the ghost
+    *beside* the parked panel - off the same edge, level with its grip - rather
+    than in the off-screen bottom-right corner it parks in otherwise. The corner
+    is 500-odd px from a panel that is itself off the right edge, which is over
+    the speed cap for a 400 ms reach and came back stretched to 700-odd. The
+    seed is also written into the cursor's first painted frame: the frame loop
+    is an effect, and effects run after the paint, so the ghost was drawn once
+    in the top-left corner of the window.
+- **Play dispatches at once.** The transport's play button, on either clock,
+  calls `ScriptRunnerHandle.step()` after starting it: `play()` clears `paused`
+  in the same task, so a cue at the top of the cut belongs to that frame rather
+  than the next one.
+
 - **`src/demo/currentCut.ts`** is the one place the shipping cut is named
   (`CURRENT_CUT`). The walkthrough entry passes it as `name`, the camera panel
   falls back to it when there is no `?present=`, and only that cut's assets

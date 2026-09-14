@@ -31,7 +31,8 @@ import DemoCursor, { CURSOR_BOX, cursorKind, hotspotOf, type CursorKind } from '
 import { Driver, DemoAborted, centerOf, type Point, type Stage } from './drive';
 import { fieldPoint, hexClientPoint, smooth, type DemoHost } from './steps';
 import {
-  handoverPoint, markCursor, markScriptRunner, onHoldColour, reportCursor, setScriptOverDemo,
+  handoverPoint, markCursor, markScriptRunner, onHoldColour, parkPip, pipOffset, reportCursor,
+  setPipOffset, setPipOpening, setScriptOverDemo, PIP_OFF_CLEAR, PIP_OFF_DROP,
 } from './handover';
 import { CENTER_X, CENTER_Y, HUE_LABEL_OFFSET, PI, RADIUS } from '../components/hex/hexConstants';
 
@@ -201,6 +202,18 @@ export interface ScriptRunnerHandle {
    * so an OBS capture of either mode has the same mark to cut on.
    */
   flash: () => void;
+  /**
+   * Dispatch whatever the clock is already due, now rather than on the next
+   * animation frame.
+   *
+   * The schedule reads the clock once a frame, which is right for everything
+   * except the frame the clock *starts* on: a cut whose first cue is at t=0
+   * spent that frame with nothing on screen doing anything, and the gesture it
+   * opens with - a 400 ms reach and a 1100 ms drag, against a voice whose
+   * first word is at 1.8 s - started a frame's worth of the lead behind. The
+   * owner of the clock says when it starts, so it says when to look.
+   */
+  step: () => void;
 }
 
 export interface ScriptRunnerProps {
@@ -247,21 +260,8 @@ const tipEl = () => {
   return joints.length ? joints[joints.length - 1] : null;
 };
 
-/**
- * How far the camera panel is currently pushed off its home position, and how
- * to put it there. Kept on the element rather than in the schedule, so a seek
- * can set it without replaying the drag, and so the panel's own markup is the
- * only thing that knows how it is moved.
- */
-const pipOffset = (el: HTMLElement): Point => ({
-  x: Number(el.dataset.pipX ?? '0') || 0,
-  y: Number(el.dataset.pipY ?? '0') || 0,
-});
-function setPipOffset(el: HTMLElement, x: number, y = 0) {
-  el.dataset.pipX = String(Math.round(x));
-  el.dataset.pipY = String(Math.round(y));
-  el.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
-}
+/* The panel's offset and how to set it live in handover.ts: the panel's own
+ * component reads them too, to open where the cut says before it first paints. */
 
 /** Hue, in degrees, of each corner of the hexagon. */
 const CORNER_HUE: Record<string, number> = { r: 0, y: 60, g: 120, c: 180, b: 240, m: 300 };
@@ -486,9 +486,6 @@ const OFFSCREEN_REACH = 180;
 const OFFSCREEN_BR = (): Point => ({ x: window.innerWidth + OFFSCREEN_REACH, y: window.innerHeight + OFFSCREEN_REACH });
 const PIP_GRIP_X = 28;
 const PIP_GRIP_Y = 14;
-const PIP_OFF_CLEAR = 8;
-/** How much lower the panel's off-screen resting position sits than home. */
-const PIP_OFF_DROP = 80;
 /**
  * The bow on the panel's own trip out through the right edge, as a fraction
  * of the travel: at the home end, at the off-screen end, and how far below
@@ -1813,29 +1810,18 @@ export default function ScriptRunner({
     requestAnimationFrame(() => { startColor = fieldHsb(); });
 
     /*
-     * Park the camera panel where the cut opens, before anything is drawn: off
-     * screen when the first `pip` cue drags it on. The panel mounts on its own
-     * schedule, so this keeps asking for a few frames rather than assuming it
-     * is already there. See `opensOffScreen`.
+     * Where the camera panel stands when the cut opens: off screen when the
+     * first `pip` cue drags it on, home otherwise. See `opensOffScreen`.
+     *
+     * Stated rather than only applied. The panel is a component of its own,
+     * mounted beside this one and lazy like it, so which of the two is up
+     * first is a race; `setPipOpening` parks it now if it is there, and the
+     * panel reads the same statement as it mounts if it is not - holding
+     * itself invisible until there is one to read rather than painting at
+     * home first. See handover.setPipOpening.
      */
-    const pipHome = (el: HTMLElement) =>
-      el.getBoundingClientRect().left - pipOffset(el).x;
-    const parkPip = (off: boolean) => {
-      const el = document.getElementById('camera-pip');
-      if (!el) return false;
-      const home = pipHome(el);
-      setPipOffset(el, off ? window.innerWidth - home + PIP_OFF_CLEAR : 0, off ? PIP_OFF_DROP : 0);
-      return true;
-    };
     const opensOff = opensOffScreen(script.actions);
-    if (opensOff) {
-      let tries = 0;
-      const park = () => {
-        if (parkPip(true) || tries++ > 30) return;
-        requestAnimationFrame(park);
-      };
-      park();
-    }
+    setPipOpening(opensOff ? 'off' : 'home');
 
     /*
      * Open the About panel before anything is drawn, for a cut whose opening
@@ -1844,8 +1830,8 @@ export default function ScriptRunner({
      * this is only for the `?present=` URL entry, which mounts cold. An
      * opening step, not a gesture: it presses the app's own ? button
      * (`help-button` / `#demo-button`) directly, with no ghost travel, the
-     * same way `parkPip` above sets the camera panel's start state without a
-     * move.
+     * same way `setPipOpening` above sets the camera panel's start state
+     * without a move.
      */
     const opensAbout = opensAboutOpen(script.actions);
     if (opensAbout && !aboutIsOpen()) {
@@ -2765,8 +2751,38 @@ export default function ScriptRunner({
       };
     }
 
+    /*
+     * Where the hand waits for a cut that opens with the panel off screen.
+     *
+     * The corner it parks in otherwise is the right corner to *arrive* from,
+     * but it is 500-odd px from a panel that is itself off the right edge -
+     * and the reach the cut budgets for taking hold of it is 400 ms, which at
+     * that distance is over the speed cap and comes back stretched to 700-odd.
+     * The whole opening then lands past the first word of the lead. A hand
+     * about to take something off the right edge waits beside it, off the same
+     * edge and level with it: the same 400 ms, a reach rather than a flight,
+     * and nothing of either the hand or the panel on screen until the drag
+     * brings them both on. The panel has to be in the document to be measured,
+     * so this asks for a few frames the way the park does.
+     */
+    if (opensOff) {
+      let tries = 0;
+      const waitBeside = () => {
+        // Once the cut is under way the hand is the cut's, not this.
+        if (next > 0) return;
+        const el = document.getElementById('camera-pip');
+        if (el) {
+          placeGhost({ x: window.innerWidth + OFFSCREEN_REACH, y: el.getBoundingClientRect().top + PIP_GRIP_Y });
+          return;
+        }
+        if (tries++ > 30) return;
+        requestAnimationFrame(waitBeside);
+      };
+      waitBeside();
+    }
+
     loop = requestAnimationFrame(tick);
-    onHandleRef.current?.({ seek, flash: syncFlash });
+    onHandleRef.current?.({ seek, flash: syncFlash, step });
     // The built-in demo's goodbye asks whether a script is on screen before it
     // decides how long to wait for one. See handover.ts.
     markScriptRunner(true);
@@ -2796,6 +2812,19 @@ export default function ScriptRunner({
   }, [script, kind, external]);
 
   const hot = hotspotOf(kind);
+  /*
+   * Where the ghost is drawn on the very first paint.
+   *
+   * The frame loop writes `left`/`top` every frame, but it is an effect and
+   * effects run after the paint: for one frame the cursor was drawn at the
+   * top-left corner of the window - visible, because under an external clock
+   * the ghost is on screen from the start. A cut that opens with the hand
+   * reaching off the *bottom-right* edge for the camera panel therefore began
+   * with a hand sitting in the opposite corner. Seeded here with the same
+   * point the schedule starts the driver at, the first painted frame is
+   * already the one the schedule means. See `OFFSCREEN_BR`.
+   */
+  const [seed] = useState(OFFSCREEN_BR);
 
   return createPortal(
     /*
@@ -2837,6 +2866,8 @@ export default function ScriptRunner({
         style={{
           width: CURSOR_BOX,
           height: CURSOR_BOX,
+          left: seed.x,
+          top: seed.y,
           marginLeft: -hot.x,
           marginTop: -hot.y,
           transformOrigin: `${hot.x}px ${hot.y}px`,

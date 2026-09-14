@@ -432,7 +432,38 @@ export default function PresentationMode({
       return !!a && !a.paused && !a.ended;
     },
   }), [planMode, planTime]);
-  const onHandle = useCallback((h: ScriptRunnerHandle | null) => { handleRef.current = h; }, []);
+  /**
+   * The host's voice track and the schedule, started together.
+   *
+   * On the shipped path the track is playing before this component exists:
+   * the browser only grants playback inside the click, so the About panel's
+   * Presentation button creates the `<audio>` and calls `play()` there, and
+   * this component and the runner inside it are a lazy chunk and a fetch
+   * behind that. The runner then joined a clock that was already several
+   * hundred ms in, so the cut's t=0 cue - the 400 ms reach and 1100 ms drag
+   * that brings the camera panel on - fired late and landed after the first
+   * word, which the plan puts at 1.8 s.
+   *
+   * So the track is wound back to the top at the moment the schedule is up
+   * and the cut's opening state is applied, which is exactly when the runner
+   * hands its handle over. It keeps playing across the rewind - playback
+   * permission is the document's and it is sticky, so nothing has to be
+   * started again - and the lead is silent, so there is nothing to hear in
+   * the fraction of it that plays twice.
+   *
+   * Once only, and only for an adopted element: the `?present=` entry starts
+   * its own track from the top off the transport's own button.
+   */
+  const rewound = useRef(false);
+  const onHandle = useCallback((h: ScriptRunnerHandle | null) => {
+    handleRef.current = h;
+    if (!h || !voice || rewound.current) return;
+    rewound.current = true;
+    const a = audioRef.current;
+    if (a && a.currentTime > 0) a.currentTime = 0;
+    // And dispatch what is due at the top rather than a frame later.
+    h.step();
+  }, [voice]);
 
   /*
    * The framing layer, for capture. Nothing of it mounts without `frames=` in
@@ -505,6 +536,8 @@ export default function PresentationMode({
           handleRef.current?.flash();
         }
         run.current.since = performance.now();
+        // The clock is running as of this line; see ScriptRunnerHandle.step.
+        handleRef.current?.step();
       } else {
         run.current = { base: planTime(), since: null };
       }
@@ -513,8 +546,13 @@ export default function PresentationMode({
     }
     const a = audioRef.current;
     if (!a) return;
-    if (a.paused) a.play().catch((err: unknown) => console.warn('[present] audio did not start', err));
-    else a.pause();
+    if (a.paused) {
+      a.play().catch((err: unknown) => console.warn('[present] audio did not start', err));
+      // `play()` clears `paused` in this task, so the schedule's clock is
+      // running as of this line: a cue at t=0 belongs to this frame rather
+      // than the next one. See ScriptRunnerHandle.step.
+      handleRef.current?.step();
+    } else a.pause();
   }, [planMode, planTime]);
 
   /* Space plays and pauses; N opens a note. Neither while typing. */

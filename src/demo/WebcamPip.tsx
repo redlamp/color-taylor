@@ -39,11 +39,14 @@
  * replaying the gesture.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Video } from 'lucide-react';
 import { CURRENT_CUT } from './currentCut';
 import { captureBox, onFrameChange } from './frameState';
+import {
+  onPipOpening, parkPip, pipOpening, PIP_OPENING_GRACE_MS, type PipOpening,
+} from './handover';
 
 /** The OBS picture-in-picture box, to the pixel. Square since round 8. */
 export const PIP_WIDTH = 400;
@@ -179,6 +182,41 @@ export default function WebcamPip({ webcam }: WebcamPipProps = {}) {
    * sitting in a letterbox band that is not being captured.
    */
   const [homeBottom, setHomeBottom] = useState<number>(PIP_MARGIN);
+
+  /**
+   * Where the cut this panel belongs to opens it, and the wait for an answer.
+   *
+   * A cut whose first `pip` cue drags the panel on opens with it off screen,
+   * and the script runner is the one that knows so - but the runner is a lazy
+   * chunk and a fetch away, and this panel is a lazy chunk of its own. On the
+   * shipped path the panel won the race: it painted in the corner, at home,
+   * and sat there for a moment before the hand reached off the right edge for
+   * it. So it does not paint at all until a runner has said how the cut opens
+   * - `visibility`, not unmounting, so the footage decodes meanwhile and the
+   * first frame is ready when the panel is shown - and it is put where the
+   * answer says before that first paint, in a layout effect.
+   *
+   * `waited` is the way out for a page with no runner in it, or one whose cut
+   * never loaded: after the grace the panel simply shows itself at home.
+   */
+  const [opening, setOpening] = useState<PipOpening | null>(pipOpening);
+  const [waited, setWaited] = useState(false);
+  useEffect(() => onPipOpening(setOpening), []);
+  useEffect(() => {
+    if (opening) return;
+    const t = window.setTimeout(() => setWaited(true), PIP_OPENING_GRACE_MS);
+    return () => window.clearTimeout(t);
+  }, [opening]);
+  /*
+   * Once, as the answer arrives: a park is the opening state, not a standing
+   * rule. Re-running it when the panel's home moves - a resize, a frame layer
+   * coming up - would snap a panel the cut had since dragged somewhere. The
+   * offset it writes is measured against whatever home is current, and the
+   * `pip` cue re-measures its own before it drags, so a home that moves after
+   * this leaves the panel further off screen rather than wrong.
+   */
+  useLayoutEffect(() => { if (opening) parkPip(opening === 'off'); }, [opening]);
+  const hidden = !opening && !waited;
 
   useEffect(() => {
     const compute = () => {
@@ -500,6 +538,7 @@ export default function WebcamPip({ webcam }: WebcamPipProps = {}) {
         boxShadow: '0 10px 28px rgba(0,0,0,0.45)',
         transform: 'translateX(0px)',
         willChange: 'transform',
+        visibility: hidden ? 'hidden' : undefined,
       }}
     >
       {/* The host's element stands in for this one when there is one: it is
