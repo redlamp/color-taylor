@@ -55,6 +55,7 @@ import {
   LABEL_ANGLE_DEG, labelRowHeight, layoutSectionLabels, loadSections, resolveSectionMarks,
   type Section,
 } from './sections';
+import { Button } from '@/components/ui/button';
 
 /** One spoken line of the cut, with where it sits in the voice track. */
 interface ScriptLine {
@@ -863,51 +864,13 @@ export default function PresentationMode({
           </div>
           )}
 
-          {/* Transport and timeline on one row: the buttons and the clock are
-              what you use while you watch the bar, and stacked above it they
-              were a second line of chrome for the same job. The timeline takes
-              whatever the row leaves. */}
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', margin: '2px 0' }}>
-            <button
-              type="button"
-              data-testid="present-prev-beat"
-              onClick={() => toBeat(-1)}
-              title="Previous beat"
-              aria-label="Previous beat"
-              style={buttonStyle}
-            >
-              <PrevBeatIcon />
-            </button>
-            <button
-              type="button"
-              data-testid="present-play"
-              onClick={toggle}
-              aria-label={playing ? 'Pause' : 'Play'}
-              style={buttonStyle}
-            >
-              {playing ? <PauseIcon /> : <PlayIcon />}
-            </button>
-            <button
-              type="button"
-              data-testid="present-next-beat"
-              onClick={() => toBeat(1)}
-              title="Next beat"
-              aria-label="Next beat"
-              style={buttonStyle}
-            >
-              <NextBeatIcon />
-            </button>
-            <span data-testid="present-time" style={{ minWidth: 96, whiteSpace: 'nowrap' }}>
-              {mmssTenths(time)} / {mmss(duration)}
-            </span>
-          {/* The timeline and, outside it, the playhead: the head stands taller
-              than the track it marks, and the track clips its own decoration,
-              so the two cannot live in the same box. The section labels sit
-              in their own row above both, so the tall playhead's box stays
-              exactly the timeline's height regardless of how tall the label
-              row needs to be. */}
-          <div style={{ display: shrunk ? 'none' : 'block', position: 'relative', flex: 1, margin: '8px 0' }}>
-          {labelLayout.length > 0 && (
+          {/* The section-label row, shared by both transports: a single tilted
+              row above the bar, each label anchored at its section's start
+              marker. Built once and reused below so the reduced transport can
+              place it above the buttons+bar row instead of sharing a row with
+              them. */}
+          {(() => {
+          const labelsRow = labelLayout.length > 0 && (
             <div
               data-testid="present-section-labels"
               style={{
@@ -926,8 +889,8 @@ export default function PresentationMode({
                     position: 'absolute',
                     bottom: 0,
                     left: leftPx,
-                    fontSize: 12,
-                    lineHeight: '14px',
+                    fontSize: 14,
+                    lineHeight: '16px',
                     whiteSpace: 'nowrap',
                     fontFamily: 'ui-monospace, Consolas, monospace',
                     color: mark.id === currentSectionId ? '#ffffff' : '#cfcfcf',
@@ -942,8 +905,15 @@ export default function PresentationMode({
                 </span>
               ))}
             </div>
-          )}
-          <div style={{ position: 'relative' }}>
+          );
+          {/* The timeline and, outside it, the playhead: the head stands taller
+              than the track it marks, and the track clips its own decoration,
+              so the two cannot live in the same box. `flex: 1` only matters on
+              the reduced transport, where this sits directly in the
+              buttons+bar row; on the full transport it's inert since that
+              row isn't itself a flex container. */}
+          const timelineBar = (
+          <div style={{ position: 'relative', flex: 1 }}>
           <div
             ref={timelineRef}
             data-testid="present-timeline"
@@ -1144,8 +1114,101 @@ export default function PresentationMode({
               }}
             />
           </div>
+          );
+          /* Full transport: unchanged from before — small buttons, clock and
+             the labels+timeline column all on one row, vertically centered
+             together. Reduced (shipped) transport: the label row becomes its
+             own full-width block, and the buttons — now the app's shadcn
+             `Button`, sized to at least 40px square — share a row with just
+             the clock and the bar, so they land vertically centered on the
+             28px bar itself rather than on the (now taller, 14px) label row
+             above it. */
+          return fullTransport ? (
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', margin: '2px 0' }}>
+            <button
+              type="button"
+              data-testid="present-prev-beat"
+              onClick={() => toBeat(-1)}
+              title="Previous beat"
+              aria-label="Previous beat"
+              style={buttonStyle}
+            >
+              <PrevBeatIcon />
+            </button>
+            <button
+              type="button"
+              data-testid="present-play"
+              onClick={toggle}
+              aria-label={playing ? 'Pause' : 'Play'}
+              style={buttonStyle}
+            >
+              {playing ? <PauseIcon /> : <PlayIcon />}
+            </button>
+            <button
+              type="button"
+              data-testid="present-next-beat"
+              onClick={() => toBeat(1)}
+              title="Next beat"
+              aria-label="Next beat"
+              style={buttonStyle}
+            >
+              <NextBeatIcon />
+            </button>
+            <span data-testid="present-time" style={{ minWidth: 96, whiteSpace: 'nowrap' }}>
+              {mmssTenths(time)} / {mmss(duration)}
+            </span>
+            <div style={{ display: shrunk ? 'none' : 'block', position: 'relative', flex: 1, margin: '8px 0' }}>
+              {labelsRow}
+              {timelineBar}
+            </div>
           </div>
+          ) : (
+          <div style={{ display: shrunk ? 'none' : 'block', margin: '8px 0' }}>
+            {labelsRow}
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <Button
+                type="button"
+                data-testid="present-prev-beat"
+                onClick={() => toBeat(-1)}
+                title="Previous beat"
+                aria-label="Previous beat"
+                variant="secondary"
+                size="icon"
+                className="size-10"
+              >
+                <PrevBeatIcon />
+              </Button>
+              <Button
+                type="button"
+                data-testid="present-play"
+                onClick={toggle}
+                aria-label={playing ? 'Pause' : 'Play'}
+                variant="secondary"
+                size="icon"
+                className="size-10"
+              >
+                {playing ? <PauseIcon /> : <PlayIcon />}
+              </Button>
+              <Button
+                type="button"
+                data-testid="present-next-beat"
+                onClick={() => toBeat(1)}
+                title="Next beat"
+                aria-label="Next beat"
+                variant="secondary"
+                size="icon"
+                className="size-10"
+              >
+                <NextBeatIcon />
+              </Button>
+              <span data-testid="present-time" style={{ minWidth: 96, whiteSpace: 'nowrap' }}>
+                {mmssTenths(time)} / {mmss(duration)}
+              </span>
+              {timelineBar}
+            </div>
           </div>
+          );
+          })()}
 
           {/* What is left of the old control row: the authoring affordances,
               which stay exactly as they were. Play, the clock and the beat

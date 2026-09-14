@@ -71,10 +71,10 @@ export interface SectionLabelLayout {
   text: string;
 }
 
-const LABEL_FONT_PX = 12;
+const LABEL_FONT_PX = 14;
 const LABEL_FONT = `${LABEL_FONT_PX}px ui-monospace, Consolas, monospace`;
 /** Line height of a label, pre-rotation. */
-const LABEL_LINE_HEIGHT = 14;
+const LABEL_LINE_HEIGHT = 16;
 /** Counterclockwise tilt applied to every label, like a spreadsheet column
  *  header: the left end stays pinned to the section's start marker and the
  *  text reads upward to the right. */
