@@ -312,7 +312,7 @@ function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }: Equat
                     <br />
                     Count 0-9, then A-F (stands for 10-15).
                     <br />
-                    9 = 9,{' '}A = 10,{' '}F = 15,{' '}10 = 16,{' '}FF = 255.
+                    9 = 9,{'   '}A = 10,{'   '}F = 15,{'   '}10 = 16,{'   '}FF = 255.
                     <br />
                     Two hex digits pair into red, green, blue.
                   </TooltipContent>
