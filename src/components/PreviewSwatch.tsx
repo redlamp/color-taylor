@@ -1,8 +1,7 @@
-import { useCallback, memo, type CSSProperties } from 'react';
+import { useCallback, memo } from 'react';
 import { toast } from 'sonner';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { getContrastTextColor } from '../utils/colorConversions';
 
 function PreviewSwatch({ hex, className }: { hex: string; className?: string }) {
   const handleClick = useCallback(() => {
@@ -11,13 +10,6 @@ function PreviewSwatch({ hex, className }: { hex: string; className?: string }) 
       if (navigator.vibrate) navigator.vibrate(8);
     });
   }, [hex]);
-
-  const textColor = (() => {
-    const r = parseInt(hex.slice(1, 3), 16) || 0;
-    const g = parseInt(hex.slice(3, 5), 16) || 0;
-    const b = parseInt(hex.slice(5, 7), 16) || 0;
-    return getContrastTextColor(r, g, b, 150);
-  })();
 
   return (
     <Tooltip>
@@ -34,12 +26,7 @@ function PreviewSwatch({ hex, className }: { hex: string; className?: string }) 
           onClick={handleClick}
         />
       </TooltipTrigger>
-      <TooltipContent
-        side="bottom"
-        sideOffset={8}
-        className="text-xs font-semibold border-0"
-        style={{ '--tooltip-bg': hex, backgroundColor: hex, color: textColor } as CSSProperties}
-      >
+      <TooltipContent side="top" sideOffset={4} className="text-sm font-semibold">
         Click to copy
       </TooltipContent>
     </Tooltip>
