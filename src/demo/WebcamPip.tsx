@@ -42,6 +42,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Video } from 'lucide-react';
 import { CURRENT_CUT } from './currentCut';
+import { captureBox, onFrameChange } from './frameState';
 
 /** The OBS picture-in-picture box, to the pixel. Square since round 8. */
 export const PIP_WIDTH = 400;
@@ -153,8 +154,30 @@ export default function WebcamPip({ webcam }: WebcamPipProps = {}) {
    */
   const [homeLeft, setHomeLeft] = useState<number | null>(null);
 
+  /**
+   * How far the panel sits above the foot of the screen. The fixed 20px
+   * margin, unless a frame layer is up: then it is 20px above the foot of the
+   * capture box, so the panel keeps its corner of the picture rather than
+   * sitting in a letterbox band that is not being captured.
+   */
+  const [homeBottom, setHomeBottom] = useState<number>(PIP_MARGIN);
+
   useEffect(() => {
     const compute = () => {
+      /*
+       * With a frame layer up the panel belongs to the capture, not to the
+       * page: the page is being scaled and panned underneath it, so measuring
+       * the app's right edge would walk the panel around with the frame. The
+       * capture box's own bottom-right corner is the one fixed thing in the
+       * picture, which is where the OBS layout puts it too.
+       */
+      const box = captureBox();
+      if (box) {
+        setHomeLeft(box.left + box.width - PIP_WIDTH - PIP_MARGIN);
+        setHomeBottom(Math.max(0, window.innerHeight - (box.top + box.height)) + PIP_MARGIN);
+        return;
+      }
+      setHomeBottom(PIP_MARGIN);
       const app = document.querySelector('#color-editor-group');
       const appRight = app?.getBoundingClientRect().right;
       if (appRight == null) { setHomeLeft(null); return; }
@@ -163,7 +186,11 @@ export default function WebcamPip({ webcam }: WebcamPipProps = {}) {
     };
     compute();
     window.addEventListener('resize', compute);
-    return () => window.removeEventListener('resize', compute);
+    const off = onFrameChange(compute);
+    return () => {
+      window.removeEventListener('resize', compute);
+      off();
+    };
   }, []);
 
   /* The cut's camera footage, when this presentation has any. */
@@ -441,7 +468,7 @@ export default function WebcamPip({ webcam }: WebcamPipProps = {}) {
       className="pointer-events-none fixed overflow-hidden"
       style={{
         ...(homeLeft != null ? { left: homeLeft } : { right: PIP_MARGIN }),
-        bottom: PIP_MARGIN,
+        bottom: homeBottom,
         width: PIP_WIDTH,
         height: PIP_HEIGHT,
         borderRadius: PIP_RADIUS,
