@@ -107,7 +107,7 @@ test.describe('Welcome panel', () => {
     const ids = await panel(page).locator('button').evaluateAll((els) => els.map((e) => e.id));
     expect(ids).toEqual(['about-close', 'about-watch-demo', 'about-presentation']);
     await expect(panel(page)).toContainText('40 seconds');
-    await expect(panel(page)).toContainText('~6 min');
+    await expect(panel(page)).toContainText('~5.5 min');
   });
 
   test('Get Started spans row one; Demo and Presentation split row two evenly', async ({ page }) => {
