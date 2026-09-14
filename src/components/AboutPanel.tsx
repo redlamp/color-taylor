@@ -159,7 +159,7 @@ export function AboutPanel({ open, onClose, onWatchDemo, onPresentation }: About
                     <Film />
                     Presentation
                   </Button>
-                  <Caption>four minutes</Caption>
+                  <Caption>~6 min</Caption>
                 </div>
               )}
             </div>
