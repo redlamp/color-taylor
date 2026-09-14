@@ -181,9 +181,9 @@ export default function SBBox({ hue, saturation, brightness, onChange, blMode = 
         }}
       />
       {/*
-        Along the top bound, left to right: saturation runs 0 at the left
-        edge to 100 at the right, so the word reads the same direction as the
-        axis it names. text-shadow rather than this project's usual token
+        Centred along the top bound, left to right: saturation runs 0 at the
+        left edge to 100 at the right, so the word reads the same direction
+        as the axis it names, and sits mid-axis rather than at either end. text-shadow rather than this project's usual token
         because the ground underneath is the field itself, not a card
         surface - the corner it starts from is white, so a plain foreground
         color would vanish without one.
@@ -192,27 +192,23 @@ export default function SBBox({ hue, saturation, brightness, onChange, blMode = 
         id="sb-sat-title"
         ref={satLabelRef}
         className={AXIS_LABEL_CLASS}
-        style={{ top: 4, left: 4, opacity: AXIS_LABEL_SHOWN_OPACITY, textShadow: '0 0 3px rgb(0 0 0 / .7)' }}
+        style={{ top: 4, left: '50%', translate: '-50% 0', opacity: AXIS_LABEL_SHOWN_OPACITY, textShadow: '0 0 3px rgb(0 0 0 / .7)' }}
       >
         Saturation
       </div>
       {/*
-        Along the left bound, bottom to top: brightness (or, in HSL mode,
-        lightness) runs 0 at the bottom to 100 at the top. Same construction
-        as HexBar's vertical bl-title - vertical-rl flows top-to-bottom, and
-        the 180 turns that into bottom-to-top without moving the box's own
-        footprint, which is what lets `top`/`left` alone place it.
+        Centred along the left bound, bottom to top: brightness (or, in HSL
+        mode, lightness) runs 0 at the bottom to 100 at the top. Same
+        construction as HexBar's vertical bl-title - vertical-rl flows
+        top-to-bottom, and the 180 turns that into bottom-to-top. Centring
+        on the edge also keeps the two labels' hide zones apart, so nearing
+        one never reads as nearing both.
       */}
       <div
         id="sb-bl-title"
         ref={blLabelRef}
         className={`${AXIS_LABEL_CLASS} rotate-180 [writing-mode:vertical-rl]`}
-        // top starts below the Saturation label's own row rather than flush
-        // with it: anchored at the same corner, the two hide-zones (and the
-        // glyphs themselves) would overlap, and hovering near either one
-        // would always read as "near both" - the opposite of each fading on
-        // its own approach.
-        style={{ top: 40, left: 4, opacity: AXIS_LABEL_SHOWN_OPACITY, textShadow: '0 0 3px rgb(0 0 0 / .7)' }}
+        style={{ top: '50%', left: 4, translate: '0 -50%', opacity: AXIS_LABEL_SHOWN_OPACITY, textShadow: '0 0 3px rgb(0 0 0 / .7)' }}
       >
         {blMode === 'lightness' ? 'Lightness' : 'Brightness'}
       </div>
