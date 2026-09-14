@@ -942,6 +942,16 @@ export default function PresentationMode({
                 borderRadius: 2,
                 background: '#7fd4ff',
                 boxShadow: '0 0 4px rgba(127,212,255,0.9)',
+                // Decoration, not a control: pressing it should scrub the
+                // track underneath, not swallow the click. Without this, the
+                // first click of a double-click seeks the playhead to sit
+                // exactly under the pointer, so the second click lands on
+                // this div instead of the timeline and never reaches
+                // onTimelineDouble — a real mouse double-click stopped
+                // opening the clip editor while a synthetic dblclick
+                // (dispatched straight at the timeline element, skipping
+                // hit-testing) still did.
+                pointerEvents: 'none',
               }}
             />
           </div>
