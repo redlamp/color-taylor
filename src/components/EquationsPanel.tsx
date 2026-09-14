@@ -201,11 +201,11 @@ function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }: Equat
    * column but the equations had not.
    */
   return (
-    <div className="grid grid-cols-1 min-[800px]:grid-cols-[1.1fr_1.2fr_1fr_0.75fr] gap-2 w-full text-sm font-mono text-muted-foreground">
-      <div className="flex flex-col gap-1 border border-border rounded-lg p-1.5 min-w-0">
+    <div className="grid grid-cols-1 min-[800px]:grid-cols-[1.1fr_1.2fr_1fr_0.75fr] gap-2 w-full text-sm leading-tight font-mono text-muted-foreground">
+      <div className="flex flex-col gap-0.5 border border-border rounded-lg p-1.5 min-w-0">
         <span className="text-sm font-semibold font-sans text-foreground">Variables</span>
         <hr className="border-border" />
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-0.5">
           <div className="flex flex-wrap items-baseline gap-x-2">
             <span><span
               className="rounded px-1.5 py-0.5"
@@ -237,7 +237,7 @@ function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }: Equat
         nothing names that one, and an id that nothing reads is a claim that
         something does.
       */}
-      <div id="equations-hue" className="flex flex-col gap-1 border border-border rounded-lg p-1.5 min-w-0">
+      <div id="equations-hue" className="flex flex-col gap-0.5 border border-border rounded-lg p-1.5 min-w-0">
         <Row
           left={<span className="text-sm font-semibold font-sans text-foreground">Hue</span>}
           right={`${hue}°`}
@@ -248,7 +248,7 @@ function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }: Equat
         <span className={maxChKey === 'g' ? '' : 'opacity-30'}>{Hg}: 60(({bv}-{rv})/{chrT(pad(delta))}+2){maxChKey === 'g' && <> = <span className={RESULT_CLASS} style={RESULT_STYLE}>{hue}°</span></>}</span>
         <span className={maxChKey === 'b' ? '' : 'opacity-30'}>{Hb}: 60(({rv}-{gv})/{chrT(pad(delta))}+4){maxChKey === 'b' && <> = <span className={RESULT_CLASS} style={RESULT_STYLE}>{hue}°</span></>}</span>
       </div>
-      <div id="equations-saturation" className="flex flex-col gap-1 border border-border rounded-lg p-1.5 min-w-0">
+      <div id="equations-saturation" className="flex flex-col gap-0.5 border border-border rounded-lg p-1.5 min-w-0">
         <Row
           left={<span className="text-sm font-semibold font-sans text-foreground">Saturation</span>}
           right={blMode === 'brightness' ? `${saturation}%` : `${hsl?.s ?? 0}%`}
@@ -267,7 +267,7 @@ function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }: Equat
       {/* The same block answers for brightness and, in HSL mode, for lightness;
           it keeps the one id, because what a callout means by it is "the third
           channel's block" either way. */}
-      <div id="equations-brightness" className="flex flex-col gap-1 border border-border rounded-lg p-1.5">
+      <div id="equations-brightness" className="flex flex-col gap-0.5 border border-border rounded-lg p-1.5">
         {blMode === 'brightness' ? (
           <>
             <Row
@@ -299,7 +299,7 @@ function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }: Equat
       <div className="col-span-full grid grid-cols-1 min-[800px]:grid-cols-2 gap-2">
         {/* The id is a target for the walkthrough's cursor, which highlights
             this block while it hovers the editor's hex field. */}
-        <div id="equations-hex" className="flex flex-col gap-1 border border-border rounded-lg p-1.5 min-w-0">
+        <div id="equations-hex" className="flex flex-col gap-0.5 border border-border rounded-lg p-1.5 min-w-0">
           <Row
             left={
               <span className="inline-flex items-center gap-1.5">
@@ -351,7 +351,7 @@ function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }: Equat
             );
           })}
         </div>
-        <div className="flex flex-col gap-1 border border-border rounded-lg p-1.5 min-w-0">
+        <div className="flex flex-col gap-0.5 border border-border rounded-lg p-1.5 min-w-0">
           <Row
             left={<span className="text-sm font-semibold font-sans text-foreground" title="Normalized RGB: each channel over 255, 0 to 1 - copied as CSS color(srgb …)">Normalized</span>}
             right={<CopyableResult text={normalizedValue} color={hexValue} />}
