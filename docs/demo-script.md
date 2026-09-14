@@ -930,6 +930,25 @@ layer is showing the whole app, the scale is 1 and the cap is the constant.
 The stretch warning in the console names the effective cap, so a cue stretched
 inside a push-in says so.
 
+A stretched move is usually only slower than the cut asked for. A stretched
+**click** is different: the press is at the end of the travel, so a move that
+cannot finish before the next cue takes the hands loses the press as well, and
+every beat after it plays against a screen that never changed. Beat 2.1 was
+exactly that — the hand has just pushed the camera panel out through the right
+edge, the About panel's Close is 1.5s of travel back the other way at the cap,
+and the cut leaves 0.95s before the first slider. The panel stayed up for the
+rest of the cut.
+
+So a `click` compares its ground against the gap to the next cue that takes the
+hands, and when it cannot be covered the press goes **at the cue** and the hand
+follows it over: late arrival rather than no arrival. The console says so
+(`…ms of ground in a …ms gap`), which is the sign the cue wants more room. An
+interruption the test could not see coming still lands the press, from wherever
+the hand got to — except on a seek, where the state at the new `t` is the
+seek's to restore rather than this cue's to replay. `swatches:recent-clear`
+keeps the slow path: its protocol is two presses and a wait, which is more than
+a dropped gesture's worth.
+
 ### The editor (dev only)
 
 Alongside the notes and the clip editor, and only under `mode: 'dev'`.

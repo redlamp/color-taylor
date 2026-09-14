@@ -1771,6 +1771,22 @@ export default function ScriptRunner({
      */
     let holding: ScriptAction | null = null;
     /*
+     * How many times the clock has been jumped. A cue that finds this changed
+     * under it is looking at a screen that is no longer the one it was cued
+     * against, and anything it was about to put right belongs to the seek
+     * instead. See the `click` case.
+     */
+    let scrubs = 0;
+    /*
+     * How long a cue has the hands for: its own time to the next cue that
+     * takes them, in ms, and Infinity when it is the last of them. The
+     * hands-free cues are skipped - they take nothing and cut nothing short.
+     */
+    const handsGap = (a: ScriptAction): number => {
+      const taker = actions.find((x) => x.at > a.at && !handsFree(x));
+      return taker ? (taker.at - a.at) * 1000 : Infinity;
+    };
+    /*
      * The ceiling the hand is actually held to.
      *
      * MAX_MOVE_PX_PER_S is stated in page px, and the frame layer scales the
@@ -2024,14 +2040,63 @@ export default function ScriptRunner({
           // no `anchor` stay inside the control, which is what a press needs.
           const p = anchoredPoint(t, a)();
           const dist = Math.hypot(p.x - d.pos.x, p.y - d.pos.y);
-          await d.moveTo(() => p, clamp(dist * 1.2, 160, 520));
           // Recent's own toggle opens rather than toggles. The cut asks for the
           // group to be open before it clears it, and CollapsibleSection
           // remembers what the session has opened, so a replay or a scrub back
           // into beat 7 finds it open already - and a press there would close
           // the thing the next three cues are about. The hand still crosses to
           // the header, which is the gesture; there is just nothing to press.
-          if (a.target === 'swatches:recent' && t.el.getAttribute('aria-expanded') === 'true') return;
+          const nothingToPress = a.target === 'swatches:recent'
+            && t.el.getAttribute('aria-expanded') === 'true';
+          /*
+           * A press that runs out of road still presses.
+           *
+           * Beat 2.1 is the case. The hand has just pushed the camera panel
+           * out through the right edge and is out there with it; the About
+           * panel's Close is most of a screen back the other way, which is
+           * 1.5s of travel at MAX_MOVE_PX_PER_S against the 0.95s the cut
+           * leaves before the first slider takes the hands. The move was cut
+           * short at 60%, and the press with it - so every beat after 2.1
+           * played behind a panel that was still up.
+           *
+           * A click is the one cue that is not only a gesture: the hand
+           * crossing to the button is the performance, but the state on the
+           * far side of the press is what the rest of the cut is played
+           * against. So when the ground cannot be covered in the time the cut
+           * allows, the press goes at the cue and the hand follows it over -
+           * late arrival rather than no arrival, and the cue after this one
+           * takes the hands from a screen that is in the state it expects.
+           *
+           * The recent-clear protocol below is two presses and a wait, which
+           * is more than a dropped gesture's worth, so it keeps the slow path
+           * and the interrupt net underneath.
+           */
+          const scrubbedAt = scrubs;
+          // The floor on the travel: the ground the cap has to cover, whatever
+          // the cue asked for. Measured straight, so the bow the move actually
+          // flies only ever makes this an under-estimate.
+          const reach = (dist / effectiveCap()) * 1000;
+          const gap = handsGap(a);
+          const overrun = reach > gap && a.target !== 'swatches:recent-clear';
+          if (overrun) {
+            console.warn(`[script] t=${a.at}s click ${a.target ?? ''}: ${Math.round(reach)}ms of ground`
+              + ` in a ${Math.round(gap)}ms gap - pressing at the cue, hand following`);
+            if (!nothingToPress) d.pressNow(t.el, p);
+          }
+          try {
+            await d.moveTo(() => p, clamp(dist * 1.2, 160, 520));
+          } catch (err: unknown) {
+            if (!(err instanceof DemoAborted) || scrubs !== scrubbedAt) throw err;
+            // Cut short by something the reach test could not see coming. The
+            // press is still owed, unless it has already been paid.
+            //
+            // Not on a seek: there the screen is being rebuilt around this cue
+            // rather than moved on from, and the About panel's own state at the
+            // new `t` is the seek's to restore (see `seek`).
+            if (!overrun && !nothingToPress) d.pressNow(t.el, p);
+            return;
+          }
+          if (overrun || nothingToPress) return;
           await d.click(t.el);
           // Clear arms on the first click and says "Sure?"; the second inside
           // three seconds is what empties the list. One cue is one gesture, so
@@ -2656,6 +2721,7 @@ export default function ScriptRunner({
      * replaying them: the color, and where the hands rest.
      */
     const seek = (t: number) => {
+      scrubs += 1;
       if (running > 0) d.interrupt();
       callouts.clear();
       // Whoever had the screen, this is a jump: the gesture that took it off

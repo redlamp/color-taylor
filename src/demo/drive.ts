@@ -491,6 +491,23 @@ export class Driver {
     }));
   }
 
+  /**
+   * The press on its own: no travel, no press-and-release, and no abort check.
+   *
+   * For a click cue whose travel was cut short by the cue behind it. A click
+   * is the one cue that is not only a gesture - the hand crossing to the
+   * button is the performance, but the state at the far side of the press is
+   * what every later beat is played against, and a hand that ran out of road
+   * must not take that with it. So the arrival is droppable and the press is
+   * not. See ScriptRunner's `click` case, which is the only caller.
+   */
+  pressNow(el: Element, at?: Point): void {
+    const { x, y } = at ?? centerOf(el);
+    el.dispatchEvent(new MouseEvent('click', {
+      bubbles: true, cancelable: true, composed: true, clientX: x, clientY: y,
+    }));
+  }
+
   private releaseNow() {
     if (!this.pressedEl) return;
     this.pressedEl = null;
