@@ -32,6 +32,14 @@
  *
  * This is a tool, not a surface of the app: the styling is deliberately not
  * the app's. See docs/demo-script.md, "Presentation mode".
+ *
+ * A caption - the current line's text, above the bar - is part of the same
+ * component on both transports: on by default wherever `mode` is
+ * `'production'`, off by default under `'dev'` (which already has the
+ * line/action readout) but reachable there behind a toggle in the authoring
+ * row. With `frames=` in the URL (see Frames.tsx) the whole bar, labels and
+ * caption included, starts hidden - a capture shows only the app, the ghost
+ * and the webcam panel - and **T** brings it back for editing.
  */
 
 import {
@@ -117,6 +125,14 @@ export interface PresentationModeProps {
 
 /** How far an arrow key moves the playhead when the full transport is up. */
 const SEEK_STEP = 5;
+
+/** The caption crossfade's duration, each way. Short: a caption is a
+ *  subtitle, not a title card. */
+const CAPTION_FADE_MS = 200;
+
+/** How long a gap between two lines still carries the first one's caption.
+ *  Past this the caption blanks rather than sit there through a long pause. */
+const CAPTION_GAP_S = 1.5;
 
 /** Transport icons, sized to the row and matching the button text's color via
  *  `currentColor`. Kept as plain inline SVG rather than a dependency. */
@@ -214,6 +230,28 @@ function lineAt(lines: ScriptLine[], t: number): ScriptLine | null {
   return last;
 }
 
+/**
+ * The caption text at `t`: the line whose span contains the playhead while
+ * one does, otherwise the line just finished - but only through a gap of
+ * `CAPTION_GAP_S` or less before the next one starts. A longer gap blanks the
+ * caption rather than leave it sitting there through a pause it wasn't
+ * spoken across.
+ */
+function captionAt(lines: ScriptLine[], t: number): string | null {
+  let lastIdx = -1;
+  for (let i = 0; i < lines.length; i += 1) {
+    const l = lines[i];
+    if (l.start > t) break;
+    if (l.end > t) return l.text;
+    lastIdx = i;
+  }
+  if (lastIdx < 0) return null;
+  const last = lines[lastIdx];
+  const next = lines[lastIdx + 1];
+  const gap = next ? next.start - last.end : Infinity;
+  return gap <= CAPTION_GAP_S ? last.text : null;
+}
+
 const describe = (a: ScriptAction) => {
   const target = a.target ?? (a.targets ? a.targets.join(' > ') : '');
   const extra = a.do === 'color' ? ` ${a.h ?? 0}/${a.s ?? 0}/${a.b ?? 0}` : a.do === 'tip' ? ` ${a.degrees ?? 0}deg` : '';
@@ -300,6 +338,22 @@ export default function PresentationMode({
   }, [collapsed]);
   /** Collapsing is an authoring convenience; the shipped transport is one row. */
   const shrunk = authoring && collapsed;
+
+  /**
+   * Captions: on by default everywhere the shipped walkthrough shows up
+   * (`authoring` false), off by default in the dev transport, which already
+   * has the line/action readout above the timeline - available there too,
+   * behind the toggle in the authoring row below.
+   */
+  const [captionsOn, setCaptionsOn] = useState<boolean>(!authoring);
+  /** The crossfade: at most two layers on screen, the outgoing one fading out
+   *  while the incoming one fades in. Recomputed off `time` the same way the
+   *  line readout above is - only the DOM update is gated behind a ref check,
+   *  so a steady caption doesn't re-render every frame. */
+  const captionTextRef = useRef<string | null>(null);
+  const captionIdRef = useRef(0);
+  const [captionLayers, setCaptionLayers] = useState<{ id: number; text: string; out: boolean }[]>([]);
+  const captionFadeTimer = useRef<number | null>(null);
 
   /**
    * Adopting the host's `<audio>`.
@@ -486,6 +540,17 @@ export default function PresentationMode({
    * viewer owns their window. See Frames.tsx.
    */
   const frames = useFrames({ name, host, time, enabled: mode !== 'production', authoring });
+  /**
+   * With `frames=` in the URL the capture is meant to show only the app, the
+   * ghost cursor and the webcam panel - the transport bar (and everything
+   * drawn on it: the labels, the captions) is furniture that belongs to
+   * editing, not to the picture. So it starts hidden whenever the frame layer
+   * is active, and **T** brings it back for editing (see the keydown effect
+   * below). Without `frames=` this never applies: `frames.active` is false
+   * and the bar renders exactly as it always has.
+   */
+  const [framesBarVisible, setFramesBarVisible] = useState(false);
+  const hiddenForCapture = frames.active && !framesBarVisible;
 
   const seek = useCallback((t: number) => {
     // A seek lands on the frame the cut says is in force there, rather than
@@ -593,11 +658,18 @@ export default function PresentationMode({
         e.preventDefault();
         e.stopPropagation();
         setCollapsed((v) => !v);
+      } else if (frames.active && (e.key === 't' || e.key === 'T')) {
+        // Brings the transport bar back over a capture for editing; see
+        // `hiddenForCapture` above. Only reachable at all with `frames=` in
+        // the URL, which is a dev-only entry.
+        e.preventDefault();
+        e.stopPropagation();
+        setFramesBarVisible((v) => !v);
       }
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
-  }, [toggle, editing, authoring, fullTransport, seekBy]);
+  }, [toggle, editing, authoring, fullTransport, seekBy, frames.active]);
 
   useEffect(() => {
     if (noting) noteInputRef.current?.focus();
@@ -699,6 +771,28 @@ export default function PresentationMode({
   // The built-in demo runs from its action until the next scheduled one.
   const demoWouldRun = current?.do === 'demo' && (!following || time < following.at);
 
+  /* The caption's crossfade: a new layer starts on top whenever the text
+   * changes, and the one it replaces is marked to fade out and dropped once
+   * the fade is done. */
+  useEffect(() => {
+    const next = captionAt(lines, time);
+    if (next === captionTextRef.current) return;
+    captionTextRef.current = next;
+    captionIdRef.current += 1;
+    const id = captionIdRef.current;
+    setCaptionLayers((prev) => [
+      ...prev.map((l) => ({ ...l, out: true })),
+      ...(next !== null ? [{ id, text: next, out: false }] : []),
+    ]);
+    if (captionFadeTimer.current !== null) window.clearTimeout(captionFadeTimer.current);
+    captionFadeTimer.current = window.setTimeout(() => {
+      setCaptionLayers((prev) => prev.filter((l) => !l.out));
+    }, CAPTION_FADE_MS + 50);
+  }, [lines, time]);
+  useEffect(() => () => {
+    if (captionFadeTimer.current !== null) window.clearTimeout(captionFadeTimer.current);
+  }, []);
+
   const pct = (t: number) => (duration ? `${(100 * t) / duration}%` : '0%');
 
   /**
@@ -775,10 +869,17 @@ export default function PresentationMode({
    * panel's home corner can sit above it rather than under it - see
    * WebcamPip.tsx's `compute`. Both transports measure themselves here, full
    * and reduced alike, since the bar's height differs between them (the
-   * label row alone can change it). */
+   * label row alone can change it). Hidden for a capture (`hiddenForCapture`)
+   * the bar is `display: none`, so its own box is 0 already - but that is
+   * asserted outright here rather than left to a resize-observer round trip,
+   * so the panel's home corner moves on the same frame the bar disappears. */
   useEffect(() => {
     const el = transportRef.current;
     if (!el) return;
+    if (hiddenForCapture) {
+      setTransportHeight(0);
+      return;
+    }
     // contentRect excludes the bar's own padding and border, so measure the
     // full box directly rather than trust the observer entry's rect.
     const ro = new ResizeObserver(() => setTransportHeight(el.getBoundingClientRect().height));
@@ -788,7 +889,7 @@ export default function PresentationMode({
       ro.disconnect();
       setTransportHeight(0);
     };
-  }, []);
+  }, [hiddenForCapture]);
   const labelLayout = useMemo(
     () => layoutSectionLabels(sectionMarks, duration, timelineWidth),
     [sectionMarks, duration, timelineWidth],
@@ -835,7 +936,15 @@ export default function PresentationMode({
         <div
           ref={transportRef}
           data-testid="present-transport"
+          data-frames-hidden={hiddenForCapture ? 'true' : undefined}
           style={{
+            // Hidden for a capture rather than unmounted: the audio element
+            // and the voice host below have to stay put so playback and the
+            // schedule's clock are untouched by the toggle. `display: none`
+            // takes the whole bar - labels and captions included - out of the
+            // capture and collapses its own box, which is what zeroes the
+            // height published to frameState above.
+            display: hiddenForCapture ? 'none' : undefined,
             position: 'fixed',
             left: 0,
             right: 0,
@@ -871,6 +980,52 @@ export default function PresentationMode({
             />
           )}
           {voice && <span ref={voiceHostRef} data-testid="present-voice-host" />}
+
+          {/* The caption: the current line's text, centered above the label
+              row and the rest of the bar. Its own layer, not a sibling of the
+              line/action readout above - that readout is full-transport only
+              and stays a developer's tool; this is meant to read from across
+              the room, so it is bigger, higher contrast, and capped to a
+              couple of lines. Crossfades between lines rather than cutting. */}
+          {captionsOn && captionLayers.length > 0 && (
+            <div
+              data-testid="present-captions"
+              aria-live="polite"
+              style={{
+                position: 'absolute',
+                left: '50%',
+                bottom: '100%',
+                transform: 'translateX(-50%)',
+                marginBottom: 10,
+                maxWidth: '60vw',
+                textAlign: 'center',
+                pointerEvents: 'none',
+              }}
+            >
+              {captionLayers.map((l) => (
+                <div
+                  key={l.id}
+                  style={{
+                    position: l.out ? 'absolute' : 'relative',
+                    inset: l.out ? 0 : undefined,
+                    fontSize: 18,
+                    lineHeight: 1.3,
+                    fontFamily: 'ui-monospace, Consolas, monospace',
+                    color: '#fff',
+                    textShadow: '0 1px 2px rgba(0,0,0,0.95), 0 0 10px rgba(0,0,0,0.8)',
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden',
+                    opacity: l.out ? 0 : 1,
+                    transition: `opacity ${CAPTION_FADE_MS}ms ease`,
+                  }}
+                >
+                  {l.text}
+                </div>
+              ))}
+            </div>
+          )}
 
           {fullTransport && (
           <div style={{ display: shrunk ? 'none' : 'flex', gap: 16, alignItems: 'baseline', minHeight: 18 }}>
@@ -1188,7 +1343,14 @@ export default function PresentationMode({
           </div>
           ) : (
           <div style={{ display: shrunk ? 'none' : 'block', margin: '8px 0' }}>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            {/* Bottom-aligned on the track's own bottom edge, not centered on
+                the whole row: the row's cross-axis extent is the label row
+                (when there is one) plus the track, and centering the buttons
+                against that put them too high whenever a label row was up.
+                `flex-end` lands every item's bottom on the row's bottom,
+                which is the track's bottom - the label row, if any, sits
+                above it and does not move that edge. */}
+            <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
               <Button
                 type="button"
                 data-testid="present-prev-beat"
@@ -1243,6 +1405,21 @@ export default function PresentationMode({
             {authoring && (
             <button type="button" data-testid="present-note" onClick={() => setNoting(true)} style={buttonStyle}>
               Note (N)
+            </button>
+            )}
+            {/* Captions default off here - the line/action readout above
+                already says what's being spoken - but the same component the
+                shipped transport shows is available behind this toggle. */}
+            {authoring && (
+            <button
+              type="button"
+              data-testid="present-captions-toggle"
+              onClick={() => setCaptionsOn((v) => !v)}
+              title="Toggle the caption shown above the bar"
+              aria-pressed={captionsOn}
+              style={captionsOn ? { ...buttonStyle, color: '#111', background: '#f5a623', borderColor: '#f5a623' } : buttonStyle}
+            >
+              Captions
             </button>
             )}
             <FrameControls frames={frames} button={buttonStyle} />

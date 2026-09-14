@@ -692,6 +692,22 @@ the app's own entry with `mode="production"` (see "Shipping it" below).
   in hand and the one after (`do` + target). While the `demo` action's span
   runs - from its `at` to the next action's - the readout says "demo would
   be running".
+- **On the reduced transport** the buttons and the clock sit in the same flex
+  row as the labels+timeline column, bottom-aligned on the track's own bottom
+  edge (`alignItems: 'flex-end'`) rather than centered on the whole row - a
+  row whose height is the label row (when a sections file resolved one) plus
+  the track, so centering put the buttons too high whenever labels were up.
+  The full transport, whose buttons/clock/timeline row has never had a label
+  row of its own to contend with, is unchanged.
+- **Captions.** The same component on both transports: the current line's
+  text (`captionAt` in `PresentationMode.tsx` - the line whose span contains
+  the playhead, kept through a gap to the next line of 1.5s or less, blank
+  through anything longer), centered above the label row, about 18px, capped
+  to two lines and about 60% of the viewport wide, with a short crossfade
+  between lines. On by default wherever `mode` is `'production'` - the
+  shipped walkthrough's transport has no line/action readout to say the same
+  thing - off by default under `'dev'`, which does, but reachable there too
+  behind a **Captions** toggle in the authoring row.
 - **Section labels.** `public/scripts/<name>-sections.json`, when present
   (`{ source, sections: [{ id, label, line }] }`), names a handful of
   sections of the cut, each anchored to a line id — `"11.2"` starts mid-beat,
@@ -949,6 +965,22 @@ seek's to restore rather than this cue's to replay. `swatches:recent-clear`
 keeps the slow path: its protocol is two presses and a wait, which is more than
 a dropped gesture's worth.
 
+### The transport bar, hidden
+
+With `frames=` in the URL the capture is meant to show only the app, the
+ghost cursor and the webcam panel - the transport bar is editing furniture,
+not the picture, and that goes for everything drawn on it: the labels and the
+caption too. So the bar starts hidden whenever the frame layer is active
+(`hiddenForCapture` in `PresentationMode.tsx`, `display: none` rather than
+unmounting it - the audio element and the adopted voice track stay put, so
+playback and the schedule's clock are untouched by the toggle), and **T**
+brings it back for editing. With the bar hidden its own box is zero height, so
+the height it publishes to `frameState` (`setTransportHeight`) goes to 0 with
+it, and the camera panel's home corner sits at the usual bottom margin as if
+there were no bar at all - see "The camera panel" above. None of this touches
+the About panel's Presentation entry or a plain `?present=` with no `frames=`:
+`hiddenForCapture` is `false` whenever the frame layer is not active.
+
 ### The editor (dev only)
 
 Alongside the notes and the clip editor, and only under `mode: 'dev'`.
@@ -957,6 +989,9 @@ Alongside the notes and the clip editor, and only under `mode: 'dev'`.
   capture box drawn as an outline and everything outside it dimmed, so what
   will be captured is visible — and the **framed view**, which is what the
   capture will show.
+- **T** toggles the transport bar back over the capture for editing — it
+  starts hidden whenever `frames=` is on; see "The transport bar, hidden"
+  above.
 - The **ratio picker** in the transport row chooses which ratio a drawn region
   is for. It defaults to the one in the URL.
 - **Frame** arms the tool (and switches to the full page, since a region is
