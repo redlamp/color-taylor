@@ -16,6 +16,10 @@
  *
  * The scale is the same across all three panels — the previous line's tail, the
  * clip, the next line's head — so the gaps either side read as widths.
+ *
+ * It also follows along: prev/next walk the cut a line at a time, and the
+ * follow toggle hands the editor over to the presentation's own playhead, so
+ * trimming can be done while listening to the cut rather than between plays.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
@@ -77,13 +81,41 @@ interface ClipDoc {
   next: ClipNeighbour | null;
 }
 
+/** A line of the cut, as presentation mode holds it. Master seconds. */
+export interface FollowLine { beat: number; line: number; start: number; end: number }
+
+/**
+ * The line being spoken at `t`. A copy of presentation mode's own rather than
+ * an import: that module imports this one, and one small function is cheaper
+ * than the cycle.
+ */
+function lineAt(lines: FollowLine[], t: number): FollowLine | null {
+  let last: FollowLine | null = null;
+  for (const l of lines) {
+    if (l.start > t) break;
+    if (l.end > t) return l;
+    last = l;
+  }
+  return last;
+}
+
 export interface ClipEditorProps {
   name: string;
-  /** Line id, `beat.line`. */
+  /** Line id, `beat.line`. The editor may walk off it; see `onIdChange`. */
   id: string;
   onClose: () => void;
   /** Called after a successful apply, so the transport can reload the cut. */
   onApplied: () => void;
+  /** The cut's lines, so the follow toggle knows what is under the playhead. */
+  lines?: FollowLine[];
+  /**
+   * The presentation's clock, in master seconds. A getter rather than a value:
+   * the editor's own rAF reads it per frame, so the transport does not have to
+   * re-render to move this playhead.
+   */
+  now?: () => number;
+  /** Told when prev/next or follow moves the editor to another line. */
+  onIdChange?: (id: string) => void;
 }
 
 const MAIN_W = 720, SIDE_W = 110, WAVE_H = 116;
@@ -156,7 +188,22 @@ function drawWave(
   });
 }
 
-export default function ClipEditor({ name, id, onClose, onApplied }: ClipEditorProps) {
+export default function ClipEditor({
+  name, id, onClose, onApplied, lines, now, onIdChange,
+}: ClipEditorProps) {
+  // The line on screen. It starts at the prop and then walks: prev/next and
+  // follow both move it, and `onIdChange` tells the transport so the prop
+  // catches up rather than fighting it.
+  const [curId, setCurId] = useState(id);
+  useEffect(() => { setCurId(id); }, [id]);
+  /** Follow the presentation's playhead. Off by default, remembered per
+   *  viewer, the way the transport's own toggles are. */
+  const [follow, setFollow] = useState<boolean>(() => {
+    try { return localStorage.getItem('present:clip-follow') === '1'; } catch { return false; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('present:clip-follow', follow ? '1' : '0'); } catch { /* private mode */ }
+  }, [follow]);
   const [doc, setDoc] = useState<ClipDoc | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [buf, setBuf] = useState<AudioBuffer | null>(null);
@@ -177,14 +224,36 @@ export default function ClipEditor({ name, id, onClose, onApplied }: ClipEditorP
   const nextRef = useRef<HTMLCanvasElement | null>(null);
   const audioCtx = useRef<AudioContext | null>(null);
   const playing = useRef<AudioBufferSourceNode[]>([]);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const headRef = useRef<HTMLDivElement | null>(null);
+  /**
+   * What the preview has scheduled: the context time it started at, the spans
+   * of this clip within it, and where it ends. The playhead is read off this
+   * rather than off a source node, which has no position to ask for.
+   */
+  const sched = useRef<{ t0: number; segs: { at: number; dur: number; clipAt: number }[]; end: number } | null>(null);
+  const [previewing, setPreviewing] = useState(false);
+  /** The waveform's pixels per second, for the playhead's rAF, which moves the
+   *  line by style and so never sees a re-render's fresh value. */
+  const perSecRef = useRef(1);
+
+  /* The dialog takes focus so `[`, `]` and Esc reach it on opening. */
+  useEffect(() => { rootRef.current?.focus(); }, []);
 
   /*
-   * The clip: its record, and the WAVs for it and its two neighbours. Nothing
-   * is reset here because the editor is keyed on the line id and a different
-   * line is a different instance - see PresentationMode.
+   * The clip: its record, and the WAVs for it and its two neighbours. The
+   * editor outlives a change of line now that it can walk to one, so this
+   * clears what the last line left behind - including any unapplied handle
+   * edits, which are discarded by design: Apply is explicit.
    */
   useEffect(() => {
     let live = true;
+    setDoc(null);
+    setBuf(null);
+    setPrevBuf(null);
+    setNextBuf(null);
+    setError(null);
+    setLog(null);
     const ctx = audioCtx.current ?? new AudioContext();
     audioCtx.current = ctx;
     const decode = (url: string) => fetch(url)
@@ -193,7 +262,7 @@ export default function ClipEditor({ name, id, onClose, onApplied }: ClipEditorP
         return r.arrayBuffer();
       })
       .then((b) => ctx.decodeAudioData(b));
-    fetch(`/__clip/${name}/${id}`)
+    fetch(`/__clip/${name}/${curId}`)
       .then((r) => r.json() as Promise<ClipDoc & { error?: string }>)
       .then((d) => {
         if (!live) return;
@@ -211,7 +280,7 @@ export default function ClipEditor({ name, id, onClose, onApplied }: ClipEditorP
       })
       .catch((e: unknown) => { if (live) setError(e instanceof Error ? e.message : String(e)); });
     return () => { live = false; };
-  }, [name, id]);
+  }, [name, curId]);
 
   const full = doc?.full ?? 1;
   const perSec = MAIN_W / Math.max(0.001, full);
@@ -229,6 +298,7 @@ export default function ClipEditor({ name, id, onClose, onApplied }: ClipEditorP
     return k;
   }, [trimStart, trimEnd, cuts]);
 
+  useEffect(() => { perSecRef.current = perSec; }, [perSec]);
   useEffect(() => {
     if (mainRef.current && buf) drawWave(mainRef.current, buf, 0, full, keep);
   }, [buf, full, keep]);
@@ -249,6 +319,8 @@ export default function ClipEditor({ name, id, onClose, onApplied }: ClipEditorP
   const stop = useCallback(() => {
     for (const s of playing.current) { try { s.stop(); } catch { /* already done */ } }
     playing.current = [];
+    sched.current = null;
+    setPreviewing(false);
   }, []);
   useEffect(() => stop, [stop]);
 
@@ -266,7 +338,16 @@ export default function ClipEditor({ name, id, onClose, onApplied }: ClipEditorP
       src.start(t0 + p.at, Math.max(0, p.offset), p.dur);
       playing.current.push(src);
     }
-  }, [stop]);
+    // Only this clip's own parts carry a playhead; a neighbour's tail is not
+    // anywhere on this waveform.
+    sched.current = {
+      t0,
+      segs: parts.filter((p) => p.buf === buf && p.dur > 0.005)
+        .map((p) => ({ at: p.at, dur: p.dur, clipAt: p.offset })),
+      end: parts.reduce((m, p) => Math.max(m, p.at + p.dur), 0),
+    };
+    setPreviewing(true);
+  }, [stop, buf]);
 
   /** The trimmed clip, cuts and all: what this line will sound like. */
   const playClip = useCallback(() => {
@@ -309,6 +390,108 @@ export default function ClipEditor({ name, id, onClose, onApplied }: ClipEditorP
     }
     play(parts);
   }, [buf, nextBuf, doc, trimStart, trimEnd, play]);
+
+  /** Walk to another line. Unapplied handle edits go with it, by design. */
+  const goTo = useCallback((next: string | null | undefined) => {
+    if (!next || next === curId) return;
+    stop();
+    setCurId(next);
+    onIdChange?.(next);
+  }, [curId, onIdChange, stop]);
+
+  /** Preview from a point of the clip, skipping whatever is trimmed or cut. */
+  const playFrom = useCallback((from: number) => {
+    if (!buf) return;
+    let at = 0;
+    const parts: { buf: AudioBuffer; offset: number; dur: number; at: number }[] = [];
+    for (const [a, b] of keep) {
+      if (b <= from) continue;
+      const s = Math.max(a, from);
+      parts.push({ buf, offset: s, dur: b - s, at });
+      at += b - s;
+    }
+    play(parts);
+  }, [buf, keep, play]);
+
+  /**
+   * Master seconds into this clip's own seconds. `effective.clipStart` is
+   * where the clip's first *kept* sample sits in the master, so the trim's
+   * start is not folded into it and has to be added back; interior cuts are
+   * stepped over the same way the join stepped over them. Null when the
+   * master time is outside this clip.
+   */
+  const masterToClip = useCallback((t: number): number | null => {
+    const e = doc?.effective;
+    if (!e) return null;
+    let left = t - e.clipStart;
+    if (left < 0 || left > e.dur + 0.001) return null;
+    let at = e.trim.start;
+    for (const [a, b] of e.cuts) {
+      if (a <= at) continue;
+      const run = a - at;
+      if (left < run) break;
+      left -= run;
+      at = b;
+    }
+    return at + left;
+  }, [doc]);
+
+  /** The playhead moves by style, not by state: one line at 60 Hz is not
+   *  worth a render of the whole editor. */
+  const setPlayhead = useCallback((t: number | null) => {
+    const el = headRef.current;
+    if (!el) return;
+    if (t === null) { el.style.display = 'none'; return; }
+    el.style.display = 'block';
+    el.style.left = `${t * perSecRef.current}px`;
+  }, []);
+
+  /** Where the preview has got to, in the clip's own seconds. */
+  const previewClipTime = useCallback((): number | null => {
+    const ctx = audioCtx.current, sc = sched.current;
+    if (!ctx || !sc) return null;
+    const e = ctx.currentTime - sc.t0;
+    if (e < 0) return sc.segs[0]?.clipAt ?? null;
+    const seg = sc.segs.find((g) => e >= g.at && e < g.at + g.dur);
+    return seg ? seg.clipAt + (e - seg.at) : null;
+  }, []);
+
+  /*
+   * The playhead's frame loop. It runs while a preview plays or follow is on,
+   * and nothing else; when following it also walks the editor to whichever
+   * line the presentation is speaking.
+   */
+  useEffect(() => {
+    if (!previewing && !follow) { setPlayhead(null); return; }
+    let raf = 0;
+    const tick = () => {
+      raf = requestAnimationFrame(tick);
+      if (follow) {
+        const t = now?.() ?? 0;
+        const l = lines ? lineAt(lines, t) : null;
+        if (l) goTo(`${l.beat}.${l.line}`);
+        setPlayhead(masterToClip(t));
+        return;
+      }
+      const sc = sched.current, ctx = audioCtx.current;
+      // The last part has finished: park the loop rather than spin on it.
+      if (sc && ctx && ctx.currentTime - sc.t0 > sc.end) { stop(); return; }
+      setPlayhead(previewClipTime());
+    };
+    raf = requestAnimationFrame(tick);
+    return () => { cancelAnimationFrame(raf); setPlayhead(null); };
+  }, [previewing, follow, now, lines, goTo, masterToClip, setPlayhead, previewClipTime, stop]);
+
+  /* Following means the presentation's audio is what is heard, so a preview
+   * would only talk over it. */
+  useEffect(() => { if (follow) stop(); }, [follow, stop]);
+
+  /** Click the waveform to hear from there. */
+  const onWaveClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!buf || follow) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    playFrom(Math.max(0, Math.min(full, ((e.clientX - rect.left) / rect.width) * full)));
+  };
 
   /* Dragging a handle. Clip-local seconds from the pointer's x. */
   const drag = (which: 'in' | 'out') => (e: React.PointerEvent<HTMLDivElement>) => {
@@ -354,7 +537,7 @@ export default function ClipEditor({ name, id, onClose, onApplied }: ClipEditorP
     if (movedIn || movedOut || pinTail !== !!eff?.explicitEnd) {
       body.trim = { start: +trimStart.toFixed(3), end: pinTail ? +trimEnd.toFixed(3) : null };
     }
-    fetch(`/__clip/${name}/${id}`, {
+    fetch(`/__clip/${name}/${curId}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(body),
@@ -368,10 +551,14 @@ export default function ClipEditor({ name, id, onClose, onApplied }: ClipEditorP
       .finally(() => setApplying(false));
   };
 
-  /* Esc closes, and no key reaches the transport underneath. */
+  /* Esc closes, [ and ] walk the cut, and no key reaches the transport
+   * underneath. A key typed into one of the number fields is the field's. */
   const onKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') { e.stopPropagation(); onClose(); }
-    else e.stopPropagation();
+    if (e.key === 'Escape') { e.stopPropagation(); onClose(); return; }
+    e.stopPropagation();
+    if ((e.target as HTMLElement | null)?.tagName === 'INPUT') return;
+    if (e.key === '[') { e.preventDefault(); goTo(doc?.prev?.id); }
+    else if (e.key === ']') { e.preventDefault(); goTo(doc?.next?.id); }
   };
 
   const eff = doc?.effective;
@@ -380,10 +567,11 @@ export default function ClipEditor({ name, id, onClose, onApplied }: ClipEditorP
 
   return (
     <div
+      ref={rootRef}
       data-testid="clip-editor"
       onKeyDown={onKeyDown}
       role="dialog"
-      aria-label={`clip ${id}`}
+      aria-label={`clip ${curId}`}
       tabIndex={-1}
       style={{
         position: 'fixed',
@@ -403,8 +591,42 @@ export default function ClipEditor({ name, id, onClose, onApplied }: ClipEditorP
       }}
     >
       <div style={{ display: 'flex', gap: 10, alignItems: 'baseline' }}>
-        <strong style={{ color: '#f5a623' }}>{id}</strong>
-        <span style={{ flex: 1, color: '#fff', fontSize: 13 }}>{doc?.text ?? '…'}</span>
+        <strong style={{ color: '#f5a623' }}>{curId}</strong>
+        <span style={{ flex: 1, color: '#fff', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {doc?.text ?? '…'}
+        </span>
+        <button
+          type="button"
+          data-testid="clip-editor-prev"
+          onClick={() => goTo(doc?.prev?.id)}
+          disabled={!doc?.prev}
+          title="the line before — ["
+          style={btn}
+        >
+          ‹ prev
+        </button>
+        <button
+          type="button"
+          data-testid="clip-editor-next"
+          onClick={() => goTo(doc?.next?.id)}
+          disabled={!doc?.next}
+          title="the line after — ]"
+          style={btn}
+        >
+          next ›
+        </button>
+        <label
+          title="move with the presentation's playhead, and show it on the waveform"
+          style={{ display: 'flex', gap: 4, alignItems: 'center', color: follow ? '#f5a623' : '#888' }}
+        >
+          <input
+            data-testid="clip-editor-follow"
+            type="checkbox"
+            checked={follow}
+            onChange={(e) => setFollow(e.currentTarget.checked)}
+          />
+          follow timeline
+        </label>
         <button type="button" data-testid="clip-editor-close" onClick={onClose} style={btn}>
           Close (Esc)
         </button>
@@ -431,7 +653,15 @@ export default function ClipEditor({ name, id, onClose, onApplied }: ClipEditorP
               <canvas
                 ref={mainRef}
                 data-testid="clip-editor-wave"
-                style={{ width: MAIN_W, height: WAVE_H, display: 'block', background: '#101014', borderRadius: 3 }}
+                onClick={onWaveClick}
+                style={{
+                  width: MAIN_W,
+                  height: WAVE_H,
+                  display: 'block',
+                  background: '#101014',
+                  borderRadius: 3,
+                  cursor: follow ? 'default' : 'text',
+                }}
               />
               {/* The kept region, and the two handles over it. */}
               <div style={{ ...shade, left: 0, width: trimStart * perSec }} />
@@ -439,6 +669,9 @@ export default function ClipEditor({ name, id, onClose, onApplied }: ClipEditorP
               {cuts.map(([a, b], i) => (
                 <div key={`cut-${i}`} style={{ ...shade, left: a * perSec, width: (b - a) * perSec, background: 'rgba(255,110,110,0.30)' }} />
               ))}
+              {/* The playhead: the preview's position, or the presentation's
+                  while following. Moved by style from the rAF above. */}
+              <div ref={headRef} data-testid="clip-editor-playhead" style={playhead} />
               <div
                 data-testid="clip-editor-in"
                 role="slider"
@@ -636,6 +869,17 @@ const shade: CSSProperties = {
   height: WAVE_H,
   background: 'rgba(10,10,14,0.62)',
   pointerEvents: 'none',
+};
+const playhead: CSSProperties = {
+  position: 'absolute',
+  top: 14,
+  height: WAVE_H,
+  width: 2,
+  marginLeft: -1,
+  background: '#fff',
+  boxShadow: '0 0 4px rgba(255,255,255,0.7)',
+  pointerEvents: 'none',
+  display: 'none',
 };
 const handle: CSSProperties = {
   position: 'absolute',

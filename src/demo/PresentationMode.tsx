@@ -611,12 +611,17 @@ export default function PresentationMode({
     handleRef.current?.seek(clamped);
   }, [planMode, frames]);
 
+  /** The live position, whichever clock is running. A getter, so a reader
+   *  that wants it every frame - the clip editor's playhead - does not need
+   *  this component to re-render to see it move. */
+  const nowMaster = useCallback(
+    () => (planMode ? planTime() : (audioRef.current?.currentTime ?? 0)),
+    [planMode, planTime],
+  );
+
   /** Arrow-key seeking: reads the live position rather than closing over
    *  `time`, so the keydown effect below does not need to churn every frame. */
-  const seekBy = useCallback((delta: number) => {
-    const t = planMode ? planTime() : (audioRef.current?.currentTime ?? 0);
-    seek(t + delta);
-  }, [planMode, planTime, seek]);
+  const seekBy = useCallback((delta: number) => seek(nowMaster() + delta), [nowMaster, seek]);
 
   /**
    * After the clip editor's Apply: the audio, the lines and the cues have all
@@ -1690,9 +1695,15 @@ export default function PresentationMode({
       )}
       {authoring && editing !== null && createPortal(
         <ClipEditor
-          key={`${name}:${editing}`}
+          // Keyed on the cut, not the line: the editor walks between lines
+          // itself now, with prev/next and the follow toggle, and a remount
+          // per line would throw its audio context away every time.
+          key={name}
           name={name}
           id={editing}
+          lines={lines}
+          now={nowMaster}
+          onIdChange={setEditing}
           onClose={() => setEditing(null)}
           onApplied={onApplied}
         />,
