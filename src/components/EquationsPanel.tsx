@@ -86,7 +86,7 @@ function CopyableResult({ text, color }: { text: string; color: string }) {
             type="button"
             onClick={handleClick}
             aria-label={`Copy ${text}`}
-            className="inline cursor-pointer border-0 m-0 rounded px-1.5 py-0.5 outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+            className="inline cursor-pointer border-0 m-0 rounded px-1.5 py-0.5 font-normal outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
             style={{ backgroundColor: color, color: textOnColor(color) }}
           >
             {copied ? 'Copied' : text}
