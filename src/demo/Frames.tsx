@@ -608,6 +608,7 @@ export function useFrames({ name, host, time, enabled, authoring }: UseFramesOpt
       root.style.transition = 'none';
       root.style.transform = '';
       root.style.transformOrigin = '';
+      document.documentElement.style.overflow = '';
       setFrameState({ scale: 1, box });
     } else {
       const { scale, tx, ty } = transformFor(rect, box);
@@ -615,6 +616,10 @@ export function useFrames({ name, host, time, enabled, authoring }: UseFramesOpt
       root.style.willChange = 'transform';
       root.style.transition = 'none';
       root.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`;
+      // A zoomed root is bigger than the viewport. Left alone the document
+      // grows scroll bars, which are in the picture and also narrow the
+      // viewport, reflowing the app under the frame (the framed take, 2026-09-15).
+      document.documentElement.style.overflow = 'hidden';
       setFrameState({ scale, box });
     }
     // Only the full page has room for the outlines, and only the editor wants
@@ -639,6 +644,7 @@ export function useFrames({ name, host, time, enabled, authoring }: UseFramesOpt
       root.style.transformOrigin = '';
       root.style.willChange = '';
     }
+    document.documentElement.style.overflow = '';
     setFrameState({ scale: 1, box: null });
   }, []);
 
