@@ -3997,704 +3997,704 @@
  },
  {
   "text": "Start",
-  "start": 276.442,
-  "end": 276.592,
+  "start": 277.137,
+  "end": 277.287,
   "line": "10.1"
  },
  {
   "text": "with",
-  "start": 276.602,
-  "end": 276.732,
+  "start": 277.297,
+  "end": 277.427,
   "line": "10.1"
  },
  {
   "text": "the",
-  "start": 276.742,
-  "end": 276.872,
+  "start": 277.437,
+  "end": 277.567,
   "line": "10.1"
  },
  {
   "text": "sliders",
-  "start": 276.882,
-  "end": 277.272,
+  "start": 277.577,
+  "end": 277.967,
   "line": "10.1"
  },
  {
   "text": "and",
-  "start": 277.282,
-  "end": 277.592,
+  "start": 277.977,
+  "end": 278.287,
   "line": "10.1"
  },
  {
   "text": "controls",
-  "start": 277.602,
-  "end": 277.832,
+  "start": 278.297,
+  "end": 278.527,
   "line": "10.1"
  },
  {
   "text": "you",
-  "start": 277.842,
-  "end": 278.212,
+  "start": 278.537,
+  "end": 278.907,
   "line": "10.1"
  },
  {
   "text": "already",
-  "start": 278.222,
-  "end": 278.762,
+  "start": 278.917,
+  "end": 279.457,
   "line": "10.1"
  },
  {
   "text": "Moving",
-  "start": 284.827,
-  "end": 285.117,
+  "start": 285.522,
+  "end": 285.812,
   "line": "10.2"
  },
  {
   "text": "one",
-  "start": 285.127,
-  "end": 285.497,
+  "start": 285.822,
+  "end": 286.192,
   "line": "10.2"
  },
  {
   "text": "slider",
-  "start": 285.507,
-  "end": 285.697,
+  "start": 286.202,
+  "end": 286.392,
   "line": "10.2"
  },
  {
   "text": "will",
-  "start": 285.707,
-  "end": 286.037,
+  "start": 286.402,
+  "end": 286.732,
   "line": "10.2"
  },
  {
   "text": "highlight",
-  "start": 286.047,
-  "end": 286.377,
+  "start": 286.742,
+  "end": 287.072,
   "line": "10.2"
  },
  {
   "text": "every",
-  "start": 286.387,
-  "end": 286.617,
+  "start": 287.082,
+  "end": 287.312,
   "line": "10.2"
  },
  {
   "text": "other",
-  "start": 286.627,
-  "end": 286.957,
+  "start": 287.322,
+  "end": 287.652,
   "line": "10.2"
  },
  {
   "text": "slider",
-  "start": 286.967,
-  "end": 287.157,
+  "start": 287.662,
+  "end": 287.852,
   "line": "10.2"
  },
  {
   "text": "it",
-  "start": 287.167,
-  "end": 287.537,
+  "start": 287.862,
+  "end": 288.232,
   "line": "10.2"
  },
  {
   "text": "affects.",
-  "start": 287.547,
-  "end": 287.907,
+  "start": 288.242,
+  "end": 288.602,
   "line": "10.2"
  },
  {
   "text": "Click",
-  "start": 292.842,
-  "end": 292.992,
+  "start": 293.537,
+  "end": 293.687,
   "line": "10.3"
  },
  {
   "text": "the",
-  "start": 293.002,
-  "end": 293.152,
+  "start": 293.697,
+  "end": 293.847,
   "line": "10.3"
  },
  {
   "text": "droplet",
-  "start": 293.162,
-  "end": 293.212,
+  "start": 293.857,
+  "end": 293.907,
   "line": "10.3"
  },
  {
   "text": "button",
-  "start": 293.162,
-  "end": 293.212,
+  "start": 293.857,
+  "end": 293.907,
   "line": "10.3"
  },
  {
   "text": "to",
-  "start": 293.162,
-  "end": 293.212,
+  "start": 293.857,
+  "end": 293.907,
   "line": "10.3"
  },
  {
   "text": "switch",
-  "start": 293.162,
-  "end": 293.212,
+  "start": 293.857,
+  "end": 293.907,
   "line": "10.3"
  },
  {
   "text": "between",
-  "start": 293.162,
-  "end": 293.212,
+  "start": 293.857,
+  "end": 293.907,
   "line": "10.3"
  },
  {
   "text": "source",
-  "start": 293.162,
-  "end": 293.212,
+  "start": 293.857,
+  "end": 293.907,
   "line": "10.3"
  },
  {
   "text": "or",
-  "start": 293.162,
-  "end": 293.212,
+  "start": 293.857,
+  "end": 293.907,
   "line": "10.3"
  },
  {
   "text": "mixed",
-  "start": 293.162,
-  "end": 293.212,
+  "start": 293.857,
+  "end": 293.907,
   "line": "10.3"
  },
  {
   "text": "color",
-  "start": 293.162,
-  "end": 293.212,
+  "start": 293.857,
+  "end": 293.907,
   "line": "10.3"
  },
  {
   "text": "sliders.",
-  "start": 293.162,
-  "end": 294.362,
+  "start": 293.857,
+  "end": 295.057,
   "line": "10.3"
  },
  {
   "text": "Click",
-  "start": 298.422,
-  "end": 298.612,
+  "start": 299.117,
+  "end": 299.307,
   "line": "10.4"
  },
  {
   "text": "the",
-  "start": 298.622,
-  "end": 298.872,
+  "start": 299.317,
+  "end": 299.567,
   "line": "10.4"
  },
  {
   "text": "tags",
-  "start": 298.882,
-  "end": 299.152,
+  "start": 299.577,
+  "end": 299.847,
   "line": "10.4"
  },
  {
   "text": "button",
-  "start": 299.162,
-  "end": 299.352,
+  "start": 299.857,
+  "end": 300.047,
   "line": "10.4"
  },
  {
   "text": "to",
-  "start": 299.362,
-  "end": 299.592,
+  "start": 300.057,
+  "end": 300.287,
   "line": "10.4"
  },
  {
   "text": "show",
-  "start": 299.602,
-  "end": 300.072,
+  "start": 300.297,
+  "end": 300.767,
   "line": "10.4"
  },
  {
   "text": "HTML",
-  "start": 300.082,
-  "end": 300.512,
+  "start": 300.777,
+  "end": 301.207,
   "line": "10.4"
  },
  {
   "text": "colors",
-  "start": 300.522,
-  "end": 300.712,
+  "start": 301.217,
+  "end": 301.407,
   "line": "10.4"
  },
  {
   "text": "on",
-  "start": 300.722,
-  "end": 300.872,
+  "start": 301.417,
+  "end": 301.567,
   "line": "10.4"
  },
  {
   "text": "the",
-  "start": 300.882,
-  "end": 301.012,
+  "start": 301.577,
+  "end": 301.707,
   "line": "10.4"
  },
  {
   "text": "hexagon.",
-  "start": 301.022,
-  "end": 301.582,
+  "start": 301.717,
+  "end": 302.277,
   "line": "10.4"
  },
  {
   "text": "Drag",
-  "start": 303.947,
-  "end": 304.097,
+  "start": 304.642,
+  "end": 304.792,
   "line": "10.5"
  },
  {
   "text": "a",
-  "start": 304.107,
-  "end": 304.297,
+  "start": 304.802,
+  "end": 304.992,
   "line": "10.5"
  },
  {
   "text": "handle",
-  "start": 304.307,
-  "end": 304.497,
+  "start": 305.002,
+  "end": 305.192,
   "line": "10.5"
  },
  {
   "text": "on",
-  "start": 304.507,
-  "end": 304.617,
+  "start": 305.202,
+  "end": 305.312,
   "line": "10.5"
  },
  {
   "text": "the",
-  "start": 304.627,
-  "end": 304.817,
+  "start": 305.322,
+  "end": 305.512,
   "line": "10.5"
  },
  {
   "text": "hexagon",
-  "start": 304.827,
-  "end": 305.377,
+  "start": 305.522,
+  "end": 306.072,
   "line": "10.5"
  },
  {
   "text": "and",
-  "start": 305.387,
-  "end": 305.617,
+  "start": 306.082,
+  "end": 306.312,
   "line": "10.5"
  },
  {
   "text": "watch",
-  "start": 305.627,
-  "end": 305.777,
+  "start": 306.322,
+  "end": 306.472,
   "line": "10.5"
  },
  {
   "text": "the",
-  "start": 305.787,
-  "end": 306.137,
+  "start": 306.482,
+  "end": 306.832,
   "line": "10.5"
  },
  {
   "text": "RGB",
-  "start": 306.147,
-  "end": 306.517,
+  "start": 306.842,
+  "end": 307.212,
   "line": "10.5"
  },
  {
   "text": "and",
-  "start": 306.527,
-  "end": 306.677,
+  "start": 307.222,
+  "end": 307.372,
   "line": "10.5"
  },
  {
   "text": "HSB",
-  "start": 306.687,
-  "end": 307.177,
+  "start": 307.382,
+  "end": 307.872,
   "line": "10.5"
  },
  {
   "text": "sliders",
-  "start": 307.187,
-  "end": 307.817,
+  "start": 307.882,
+  "end": 308.512,
   "line": "10.5"
  },
  {
   "text": "follow.",
-  "start": 307.827,
-  "end": 308.077,
+  "start": 308.522,
+  "end": 308.772,
   "line": "10.5"
  },
  {
   "text": "Have",
-  "start": 314.052,
-  "end": 314.242,
+  "start": 314.747,
+  "end": 314.937,
   "line": "10.6"
  },
  {
   "text": "fun",
-  "start": 314.252,
-  "end": 314.702,
+  "start": 314.947,
+  "end": 315.397,
   "line": "10.6"
  },
  {
   "text": "exploring",
-  "start": 314.712,
-  "end": 314.882,
+  "start": 315.407,
+  "end": 315.577,
   "line": "10.6"
  },
  {
   "text": "and",
-  "start": 314.892,
-  "end": 315.102,
+  "start": 315.587,
+  "end": 315.797,
   "line": "10.6"
  },
  {
   "text": "learning",
-  "start": 315.112,
-  "end": 315.342,
+  "start": 315.807,
+  "end": 316.037,
   "line": "10.6"
  },
  {
   "text": "about",
-  "start": 315.352,
-  "end": 315.662,
+  "start": 316.047,
+  "end": 316.357,
   "line": "10.6"
  },
  {
   "text": "different",
-  "start": 315.672,
-  "end": 315.822,
+  "start": 316.367,
+  "end": 316.517,
   "line": "10.6"
  },
  {
   "text": "color",
-  "start": 315.832,
-  "end": 316.282,
+  "start": 316.527,
+  "end": 316.977,
   "line": "10.6"
  },
  {
   "text": "models.",
-  "start": 316.292,
-  "end": 316.632,
+  "start": 316.987,
+  "end": 317.327,
   "line": "10.6"
  },
  {
   "text": "If",
-  "start": 318.332,
-  "end": 319.532,
+  "start": 319.027,
+  "end": 320.227,
   "line": "11.1"
  },
  {
   "text": "you",
-  "start": 320.352,
-  "end": 320.562,
+  "start": 321.047,
+  "end": 321.257,
   "line": "11.1"
  },
  {
   "text": "use",
-  "start": 320.572,
-  "end": 320.742,
+  "start": 321.267,
+  "end": 321.437,
   "line": "11.1"
  },
  {
   "text": "Figma,",
-  "start": 320.752,
-  "end": 321.142,
+  "start": 321.447,
+  "end": 321.837,
   "line": "11.1"
  },
  {
   "text": "I've",
-  "start": 321.152,
-  "end": 321.382,
+  "start": 321.847,
+  "end": 322.077,
   "line": "11.1"
  },
  {
   "text": "also",
-  "start": 321.392,
-  "end": 321.522,
+  "start": 322.087,
+  "end": 322.217,
   "line": "11.1"
  },
  {
   "text": "made",
-  "start": 321.532,
-  "end": 321.702,
+  "start": 322.227,
+  "end": 322.397,
   "line": "11.1"
  },
  {
   "text": "a",
-  "start": 321.712,
-  "end": 321.922,
+  "start": 322.407,
+  "end": 322.617,
   "line": "11.1"
  },
  {
   "text": "color-tailor",
-  "start": 321.932,
-  "end": 322.542,
+  "start": 322.627,
+  "end": 323.237,
   "line": "11.1"
  },
  {
   "text": "plugin",
-  "start": 322.552,
-  "end": 322.822,
+  "start": 323.247,
+  "end": 323.517,
   "line": "11.1"
  },
  {
   "text": "that",
-  "start": 322.832,
-  "end": 322.962,
+  "start": 323.527,
+  "end": 323.657,
   "line": "11.1"
  },
  {
   "text": "you",
-  "start": 322.972,
-  "end": 323.122,
+  "start": 323.667,
+  "end": 323.817,
   "line": "11.1"
  },
  {
   "text": "might",
-  "start": 323.132,
-  "end": 323.342,
+  "start": 323.827,
+  "end": 324.037,
   "line": "11.1"
  },
  {
   "text": "like",
-  "start": 323.352,
-  "end": 323.482,
+  "start": 324.047,
+  "end": 324.177,
   "line": "11.1"
  },
  {
   "text": "to",
-  "start": 323.492,
-  "end": 323.682,
+  "start": 324.187,
+  "end": 324.377,
   "line": "11.1"
  },
  {
   "text": "check",
-  "start": 323.692,
-  "end": 324.052,
+  "start": 324.387,
+  "end": 324.747,
   "line": "11.1"
  },
  {
   "text": "That's",
-  "start": 325.502,
-  "end": 325.812,
+  "start": 326.197,
+  "end": 326.507,
   "line": "11.2"
  },
  {
   "text": "color-tailor.",
-  "start": 325.822,
-  "end": 326.692,
+  "start": 326.517,
+  "end": 327.387,
   "line": "11.2"
  },
  {
   "text": "Go",
-  "start": 326.962,
-  "end": 327.132,
+  "start": 327.657,
+  "end": 327.827,
   "line": "11.3"
  },
  {
   "text": "play",
-  "start": 327.142,
-  "end": 327.272,
+  "start": 327.837,
+  "end": 327.967,
   "line": "11.3"
  },
  {
   "text": "with",
-  "start": 327.282,
-  "end": 327.452,
+  "start": 327.977,
+  "end": 328.147,
   "line": "11.3"
  },
  {
   "text": "it.",
-  "start": 327.462,
-  "end": 327.712,
+  "start": 328.157,
+  "end": 328.407,
   "line": "11.3"
  },
  {
   "text": "And",
-  "start": 327.722,
-  "end": 327.812,
+  "start": 328.417,
+  "end": 328.507,
   "line": "11.3"
  },
  {
   "text": "I",
-  "start": 327.822,
-  "end": 327.912,
+  "start": 328.517,
+  "end": 328.607,
   "line": "11.3"
  },
  {
   "text": "hope",
-  "start": 327.922,
-  "end": 328.052,
+  "start": 328.617,
+  "end": 328.747,
   "line": "11.3"
  },
  {
   "text": "it",
-  "start": 328.062,
-  "end": 328.232,
+  "start": 328.757,
+  "end": 328.927,
   "line": "11.3"
  },
  {
   "text": "helps",
-  "start": 328.242,
-  "end": 328.392,
+  "start": 328.937,
+  "end": 329.087,
   "line": "11.3"
  },
  {
   "text": "you",
-  "start": 328.402,
-  "end": 328.532,
+  "start": 329.097,
+  "end": 329.227,
   "line": "11.3"
  },
  {
   "text": "see",
-  "start": 328.542,
-  "end": 328.652,
+  "start": 329.237,
+  "end": 329.347,
   "line": "11.3"
  },
  {
   "text": "the",
-  "start": 328.662,
-  "end": 329.132,
+  "start": 329.357,
+  "end": 329.827,
   "line": "11.3"
  },
  {
   "text": "relationship",
-  "start": 329.142,
-  "end": 329.552,
+  "start": 329.837,
+  "end": 330.247,
   "line": "11.3"
  },
  {
   "text": "between",
-  "start": 329.562,
-  "end": 329.972,
+  "start": 330.257,
+  "end": 330.667,
   "line": "11.3"
  },
  {
   "text": "RGB",
-  "start": 329.982,
-  "end": 330.372,
+  "start": 330.677,
+  "end": 331.067,
   "line": "11.3"
  },
  {
   "text": "and",
-  "start": 330.382,
-  "end": 330.572,
+  "start": 331.077,
+  "end": 331.267,
   "line": "11.3"
  },
  {
   "text": "HSB",
-  "start": 330.582,
-  "end": 331.152,
+  "start": 331.277,
+  "end": 331.847,
   "line": "11.3"
  },
  {
   "text": "in",
-  "start": 331.162,
-  "end": 331.272,
+  "start": 331.857,
+  "end": 331.967,
   "line": "11.3"
  },
  {
   "text": "a",
-  "start": 331.282,
-  "end": 331.472,
+  "start": 331.977,
+  "end": 332.167,
   "line": "11.3"
  },
  {
   "text": "different",
-  "start": 331.482,
-  "end": 331.712,
+  "start": 332.177,
+  "end": 332.407,
   "line": "11.3"
  },
  {
   "text": "light.",
-  "start": 331.722,
-  "end": 331.892,
+  "start": 332.417,
+  "end": 332.587,
   "line": "11.3"
  },
  {
   "text": "If",
-  "start": 333.272,
-  "end": 333.382,
+  "start": 333.967,
+  "end": 334.077,
   "line": "11.4"
  },
  {
   "text": "it's",
-  "start": 333.392,
-  "end": 333.822,
+  "start": 334.087,
+  "end": 334.517,
   "line": "11.4"
  },
  {
   "text": "useful,",
-  "start": 333.832,
-  "end": 334.062,
+  "start": 334.527,
+  "end": 334.757,
   "line": "11.4"
  },
  {
   "text": "I'd",
-  "start": 334.072,
-  "end": 334.202,
+  "start": 334.767,
+  "end": 334.897,
   "line": "11.4"
  },
  {
   "text": "like",
-  "start": 334.212,
-  "end": 334.302,
+  "start": 334.907,
+  "end": 334.997,
   "line": "11.4"
  },
  {
   "text": "to",
-  "start": 334.312,
-  "end": 334.422,
+  "start": 335.007,
+  "end": 335.117,
   "line": "11.4"
  },
  {
   "text": "hear",
-  "start": 334.432,
-  "end": 334.602,
+  "start": 335.127,
+  "end": 335.297,
   "line": "11.4"
  },
  {
   "text": "from",
-  "start": 334.612,
-  "end": 334.762,
+  "start": 335.307,
+  "end": 335.457,
   "line": "11.4"
  },
  {
   "text": "you.",
-  "start": 334.772,
-  "end": 335.202,
+  "start": 335.467,
+  "end": 335.897,
   "line": "11.4"
  },
  {
   "text": "Questions",
-  "start": 335.212,
-  "end": 335.442,
+  "start": 335.907,
+  "end": 336.137,
   "line": "11.4"
  },
  {
   "text": "and",
-  "start": 335.452,
-  "end": 335.642,
+  "start": 336.147,
+  "end": 336.337,
   "line": "11.4"
  },
  {
   "text": "feedback",
-  "start": 335.652,
-  "end": 335.942,
+  "start": 336.347,
+  "end": 336.637,
   "line": "11.4"
  },
  {
   "text": "are",
-  "start": 335.952,
-  "end": 336.282,
+  "start": 336.647,
+  "end": 336.977,
   "line": "11.4"
  },
  {
   "text": "welcome.",
-  "start": 336.292,
-  "end": 336.502,
+  "start": 336.987,
+  "end": 337.197,
   "line": "11.4"
  }
 ]

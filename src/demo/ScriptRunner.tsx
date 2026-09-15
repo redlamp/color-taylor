@@ -61,6 +61,21 @@ export interface ScriptAction {
   anchor?: 'below' | 'above' | 'left' | 'right';
   dx?: number;
   dy?: number;
+  /**
+   * `wander`: a short path of `[dx, dy]` offsets from the anchored point of a
+   * single `target`, splined through in order - so the hand can bob about
+   * *beside* a control rather than meander over it or arrive at one place.
+   *
+   * Round 3 of cut 05, note 16: the sway under the plugin banner's button read
+   * as jerky, and what Taylor asked for is "the cursor moving under the button
+   * with a little up/down motion as if about to click". A `sway` retraces a
+   * figure of eight on the spot; a `wander` through two or three gentle points
+   * is a hand hesitating. The last offset is where the hand is left, so
+   * `[0, y]` ends it centred under the target.
+   *
+   * Only meaningful with a single `target`; `targets[]` names its own places.
+   */
+  points?: [number, number][];
   /** `tip`: take the hexagon's hue pill round the ring instead of the tip handle. */
   via?: 'hue-label';
   /**
@@ -450,7 +465,10 @@ const followsTarget = (name: string) =>
   // slider's does: they are where a value is. Beat 5.2's ring on the
   // saturation handle has to still be round it at 5.5, with the bar dragged
   // to nought underneath. Round 2 of cut 05, note 7.
-  || name === 'hex-sat-handle' || name === 'hex-bri-handle';
+  || name === 'hex-sat-handle' || name === 'hex-bri-handle'
+  // A joint on the hexagon's chain is a value too - it is where its channel
+  // ends - and it moves with every one of them. Round 3 of cut 05, note 9.
+  || name.startsWith('hex-handle:');
 /** How far a `rect`'s diagonal bows off the straight line, in px: a hand, not a ruler. */
 const DIAG_BOW = 6;
 /**
@@ -1376,6 +1394,8 @@ export const sortActions = (actions: ScriptAction[]) => [...actions].sort((a, b)
  */
 /** `<bank>-<ch>` from a target's suffix; a bare `r`/`g`/`b` is the RGB bank's. */
 const bankChannel = (c: string) => (c.includes('-') ? c : `rgb-${c}`);
+/** `hex-handle:<c>` to the name ColorHexagon's chain gives that joint. */
+const HEX_DOT_NAME: Record<string, string> = { r: 'red', g: 'green', b: 'blue' };
 const sliderChannel = (name: string) => bankChannel(name.slice(7));
 /**
  * A slider's marker. ColorSlider draws either a ring (`-handle`) or an arrow
@@ -1467,6 +1487,11 @@ function resolve(name: string, host: DemoHost): Target | null {
   // has had since it was written - which is also the thing that would have to
   // change for a person to stop recognising it.
   if (name === 'editor-hex') return byEl(q('input[aria-label="Hex color value"]'));
+  // The Color Editor's big colour swatch (`#preview-swatch`, PreviewSwatch).
+  // Round 3 of cut 05, note 1: 2.3's "let's say I have this turquoise" pointed
+  // at the hex readout, and the thing a person looks at when a colour is named
+  // is the colour, not its six digits.
+  if (name === 'editor-swatch') return byEl(q('#preview-swatch'));
   if (name === 'demo-caption') {
     // The line the built-in demo is showing, as its own inline span rather
     // than the paragraph, whose box is the whole caption column: an
@@ -1544,6 +1569,24 @@ function resolve(name: string, host: DemoHost): Target | null {
   if (name === 'settings-button') return byEl(q('#settings-button'));
   if (name === 'settings-about') return byEl(q('#settings-about'));
   if (name.startsWith('stem:')) return byEl(q(`[data-stem][data-hold="hex:${name.slice(5)}"]`));
+  // The movable point at the end of one channel's stem - the joint ColorHexagon
+  // draws as `#rgb-dot-<name>`, inside the `<g data-joint>` that carries the
+  // channel tooltip's own pointer handlers, so a hover here raises the tooltip
+  // the way a real pointer would. `stem:<c>` is the leg; this is the handle on
+  // the end of it. Round 3 of cut 05, note 9: 3.12 closed on "the blue handle"
+  // and was hovering the line instead. Aimed at exactly (see EXACT_AIM): the
+  // point is a grip on something small, not a place to stand near.
+  if (name.startsWith('hex-handle:')) {
+    const el = q(`#rgb-dot-${HEX_DOT_NAME[name.slice(11)] ?? ''}`);
+    if (!el) return null;
+    const half = () => { const r = el.getBoundingClientRect(); return Math.max(r.width, r.height) / 2; };
+    return {
+      el,
+      at: () => centerOf(el),
+      radius: () => Math.max(HANDLE_RING_MIN, HANDLE_RING * half()),
+      rect: () => unionRect([el], HANDLE_BOX_PAD),
+    };
+  }
   if (name.startsWith('corner:')) {
     // `corner:<target>:<tl|tr|bl|br>` is a corner of another target's box - a
     // place for the hand to be waiting when a marquee is due to start on a
@@ -1852,6 +1895,7 @@ const AIM_CENTER_EPS = 1;
 const EXACT_AIM = (name: string | undefined): boolean => !!name && (
   name.startsWith('handle:') || name.startsWith('corner:') || name.startsWith('stem:')
   || name.startsWith('hue-at:') || name.startsWith('zero:')
+  || name.startsWith('hex-handle:')
   || name === 'hex-tip' || name === 'hue-label');
 
 /** The default aim on `t`, low in its box unless the target is aimed exactly. */
@@ -2761,6 +2805,17 @@ export default function ScriptRunner({
           if (!stops.length) return;
           for (const t of stops) await d.bring(t.el);
           const here = { ...d.pos };
+          if (stops.length === 1 && a.points?.length) {
+            // A short path of offsets from the anchored point: two or three
+            // gentle places beside a control, splined through in order, the
+            // last of them where the hand is left. Round 3 of cut 05, note 16
+            // - a hand hesitating under the plugin banner's button, in place
+            // of a `sway`'s figure of eight on the spot.
+            const base = anchoredPoint(stops[0], a)();
+            const pts = a.points.map(([px, py]) => ({ x: base.x + px, y: base.y + py }));
+            await d.path(splinePoint([here, ...pts]), a.ms ?? 1500);
+            return;
+          }
           if (stops.length === 1 && stops[0].rect && !a.anchor) {
             // A target with a box is a region rather than a place: the hand
             // meanders over it on one spline instead of arriving at its
@@ -2888,19 +2943,57 @@ export default function ScriptRunner({
           // so the drag is done before the next action takes the hands. The
           // hexagon's bars and the slider banks keep the travel outside.
           const hueStrip = name === 'editor-hue';
-          // Where the handle is now, for a cue that does not say. The bank
-          // sliders have no reading here, so they still start from 0 unless
-          // the cue gives a `from`; the three controls that carry a whole
-          // channel of the app's own color do.
+          // Where the handle is now, for a cue that does not say.
+          //
+          // Round 3 of cut 05, note 2: Taylor asked for the hue reset on 2.9
+          // and the play on 2.15 to be done on the Color Editor's own H
+          // slider rather than on the hexagon's hue pill, "more thematically
+          // accurate at this point". The `slider` action already drove
+          // `slider:hsb-h` - every `slider:<c>` resolves to its track - but a
+          // cue that did not name a `from` started the press at 0, which
+          // slams the hue to red before the drag has begun, and no cue can
+          // write the `from` down when what is on screen is whatever the RGB
+          // drags before it left. So a bank slider carrying a channel of the
+          // app's own colour now reads it, exactly as the hexagon's two bars
+          // and the hue strip already did. The RGB bank still starts at 0
+          // unless the cue says otherwise: those cues name both ends, and the
+          // hexagon's RGB is a chain the runner does not read here.
           const f = hostRef.current.field();
-          const current = hueStrip ? f.h : name === 'hex-sat' ? f.s : name === 'hex-bri' ? f.b : 0;
+          const bankCh = name.startsWith('slider:') ? sliderChannel(name) : '';
+          const bankNow = bankCh === 'hsb-h' || bankCh === 'hsl-h' ? f.h / 3.6
+            : bankCh === 'hsb-s' ? f.s
+            : bankCh === 'hsb-b' ? f.b
+            : null;
+          const current = hueStrip ? f.h : name === 'hex-sat' ? f.s : name === 'hex-bri' ? f.b : bankNow ?? 0;
           const from = typeof a.from === 'number' ? a.from : current;
           const to = typeof a.to === 'number' ? a.to : from;
           const budget = a.ms ?? 1000;
           const split = hueStrip ? splitBudget(budget) : null;
+          // A drag down the H row has to land on the number, for the same
+          // reason the hue pill's absolute `to` does: 2.15 plays the hue
+          // out and back and the colour has to come home to the teal it
+          // started on, and a track 300 px wide carries 360 degrees, so a
+          // pixel of rounding is more than a degree. Where the reading
+          // disagrees, nudge the grip a third of a degree at a time, still
+          // pressed, until it agrees. The two bank sliders that are not hue
+          // read 0-100 off a track of the same width and need none of this.
+          const wantHue = (bankCh === 'hsb-h' || bankCh === 'hsl-h') && typeof a.to === 'number'
+            ? ((Math.round(a.to * 3.6) % 360) + 360) % 360
+            : null;
+          const settle = wantHue === null ? undefined : async () => {
+            for (const bias of HUE_SETTLE) {
+              if (hostRef.current.field().h === wantHue) return;
+              d.dragTo(trackPoint(name, t.el, ((wantHue + bias) % 360) / 3.6));
+              await d.wait(SETTLE_POLL_MS);
+            }
+            if (hostRef.current.field().h !== wantHue) {
+              console.warn(`[script] t=${a.at}s slider ${name}: hue settled at ${hostRef.current.field().h}, wanted ${wantHue}`);
+            }
+          };
           await d.bring(t.el);
           await d.moveTo(() => trackPoint(name, t.el, from), split?.travel);
-          await d.drag(t.el, (u) => trackPoint(name, t.el, from + (to - from) * smooth(u)), split?.gesture ?? budget, true);
+          await d.drag(t.el, (u) => trackPoint(name, t.el, from + (to - from) * smooth(u)),
+            split?.gesture ?? budget, true, settle);
           return;
         }
         case 'box': {

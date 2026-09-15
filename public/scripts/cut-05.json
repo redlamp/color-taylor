@@ -51,7 +51,7 @@
     },
     {
       "do": "hover",
-      "target": "editor-hex",
+      "target": "editor-swatch",
       "ms": 1400,
       "anchor": "below",
       "at": 25.35
@@ -81,10 +81,10 @@
       "at": 36.97
     },
     {
-      "do": "tip",
-      "via": "hue-label",
-      "to": 180,
-      "ms": 900,
+      "do": "slider",
+      "target": "slider:hsb-h",
+      "to": 50,
+      "ms": 1100,
       "at": 39.37
     },
     {
@@ -116,31 +116,56 @@
       "at": 47.99
     },
     {
+      "do": "rest",
+      "target": "corner:sliders:hsb:tl",
+      "at": 51.97
+    },
+    {
+      "do": "rect",
+      "target": "sliders:hsb",
+      "from": "tl",
+      "pre": true,
+      "ms": 1300,
+      "hold": 1600,
+      "at": 53.69
+    },
+    {
       "do": "hover",
-      "target": "hsb-tab",
-      "ms": 3600,
-      "at": 51.77
-    },
-    {
-      "do": "sway",
-      "target": "hex-mode-toggle",
+      "target": "editor-group:hsl",
       "anchor": "below",
-      "ms": 6000,
-      "waves": 4,
-      "amp": 30,
-      "at": 56.85
+      "ms": 2800,
+      "at": 57.43
     },
     {
-      "do": "click",
-      "target": "hex-tip",
-      "at": 62.35
+      "do": "circle",
+      "target": "editor-group:hsl",
+      "ms": 700,
+      "hold": 1400,
+      "at": 57.63
     },
     {
-      "do": "orbit",
-      "ms": 4600,
-      "turns": 1,
-      "wobble": 0.18,
-      "at": 63.05
+      "do": "slider",
+      "target": "slider:hsb-h",
+      "from": 50,
+      "to": 43,
+      "ms": 1000,
+      "at": 62.45
+    },
+    {
+      "do": "slider",
+      "target": "slider:hsb-h",
+      "from": 43,
+      "to": 58,
+      "ms": 1700,
+      "at": 64.05
+    },
+    {
+      "do": "slider",
+      "target": "slider:hsb-h",
+      "from": 58,
+      "to": 50,
+      "ms": 1200,
+      "at": 66.35
     },
     {
       "do": "box",
@@ -179,17 +204,17 @@
       "at": 75.5
     },
     {
-      "do": "tip",
-      "to": 348,
-      "sat": 91,
-      "ms": 1800,
-      "at": 81.35
-    },
-    {
       "do": "slider",
       "target": "hex-bri",
       "to": 86,
       "ms": 800,
+      "at": 81.35
+    },
+    {
+      "do": "tip",
+      "to": 348,
+      "sat": 91,
+      "ms": 1800,
       "at": 83.45
     },
     {
@@ -208,8 +233,8 @@
       "do": "tip",
       "via": "hue-label",
       "degrees": 360,
-      "ms": 1600,
-      "at": 91.74
+      "ms": 2600,
+      "at": 90.9
     },
     {
       "do": "rect",
@@ -368,9 +393,19 @@
     },
     {
       "do": "hover",
-      "target": "stem:b",
-      "ms": 3300,
+      "target": "hex-handle:b",
+      "ms": 1300,
       "at": 114.7
+    },
+    {
+      "do": "wander",
+      "targets": [
+        "hex-handle:r",
+        "hex-handle:g",
+        "hex-handle:b"
+      ],
+      "ms": 3400,
+      "at": 116.13
     },
     {
       "do": "hover",
@@ -613,7 +648,7 @@
       "do": "circle",
       "target": "hex-sat-handle",
       "ms": 900,
-      "hold": 16060,
+      "hold": 20610,
       "group": "beat5-sat",
       "at": 154.22
     },
@@ -621,7 +656,7 @@
       "do": "circle",
       "target": "handle:hsb-s",
       "ms": 900,
-      "hold": 16060,
+      "hold": 20610,
       "group": "beat5-sat",
       "at": 154.22
     },
@@ -631,7 +666,7 @@
       "from": "tl",
       "live": true,
       "ms": 1200,
-      "hold": 12300,
+      "hold": 16850,
       "group": "beat5-sat",
       "at": 157.68
     },
@@ -676,15 +711,6 @@
       "at": 172.55
     },
     {
-      "do": "rect",
-      "target": "range:rgb",
-      "from": "tl",
-      "live": true,
-      "ms": 1200,
-      "hold": 1400,
-      "at": 173.9
-    },
-    {
       "do": "circle",
       "target": "handle:r",
       "hands": "free",
@@ -692,6 +718,13 @@
       "ms": 1200,
       "hold": 9700,
       "at": 177.03
+    },
+    {
+      "do": "hover",
+      "target": "value:rgb-r",
+      "anchor": "below",
+      "ms": 2100,
+      "at": 177.43
     },
     {
       "do": "slider",
@@ -705,7 +738,7 @@
       "do": "slider",
       "target": "hex-sat",
       "from": 45,
-      "to": 100,
+      "to": 80,
       "ms": 1600,
       "at": 186.25
     },
@@ -1073,61 +1106,78 @@
       "at": 270.85
     },
     {
+      "do": "rest",
+      "target": "help-button",
+      "at": 272.66
+    },
+    {
       "do": "click",
       "target": "help-button",
-      "at": 274.61
+      "at": 274.46
+    },
+    {
+      "do": "rest",
+      "target": "about-watch-demo",
+      "dx": 55,
+      "dy": 14,
+      "at": 275.66
     },
     {
       "do": "click",
       "target": "about-watch-demo",
       "dx": 55,
       "dy": 14,
-      "at": 275.61
+      "at": 277.26
     },
     {
-      "do": "drift",
-      "ms": 100,
-      "over": "demo",
-      "at": 313.8
-    },
-    {
-      "do": "sway",
+      "do": "underline",
       "target": "demo-caption",
-      "anchor": "below",
-      "ms": 1400,
-      "waves": 1,
+      "ms": 1200,
       "over": "demo",
-      "at": 314.1
+      "at": 315.5
     },
     {
       "do": "drift",
       "ms": 2200,
-      "at": 315.5
+      "at": 317.5
     },
     {
       "do": "scroll",
       "target": "top",
-      "at": 318.33
+      "at": 319.03
     },
     {
       "do": "underline",
       "target": "figma-text",
       "ms": 900,
-      "at": 319.83
+      "at": 320.53
     },
     {
-      "do": "sway",
+      "do": "wander",
       "target": "figma-button",
       "anchor": "below",
-      "ms": 1000,
-      "waves": 1,
-      "at": 321.73
+      "points": [
+        [
+          -30,
+          8
+        ],
+        [
+          22,
+          -4
+        ],
+        [
+          0,
+          4
+        ]
+      ],
+      "ms": 1200,
+      "at": 322.03
     },
     {
       "do": "pip",
       "to": "on",
       "ms": 1100,
-      "at": 322.93
+      "at": 323.63
     },
     {
       "do": "box",
@@ -1137,7 +1187,7 @@
         80
       ],
       "ms": 1200,
-      "at": 325.35
+      "at": 326.05
     },
     {
       "do": "box",
@@ -1147,31 +1197,31 @@
         74
       ],
       "ms": 1000,
-      "at": 326.85
+      "at": 327.55
     },
     {
       "do": "slider",
       "target": "hex-sat",
       "to": 60,
       "ms": 1400,
-      "at": 329.11
+      "at": 329.81
     },
     {
       "do": "slider",
       "target": "hex-sat",
       "to": 68,
       "ms": 700,
-      "at": 331.11
+      "at": 331.81
     },
     {
       "do": "rest",
       "target": "help-button",
-      "at": 331.39
+      "at": 332.09
     },
     {
       "do": "click",
       "target": "help-button",
-      "at": 333.99
+      "at": 334.69
     },
     {
       "do": "sway",
@@ -1179,13 +1229,13 @@
       "anchor": "below",
       "ms": 4000,
       "waves": 3,
-      "at": 334.99
+      "at": 335.69
     },
     {
       "do": "pip",
       "to": "off",
       "ms": 500,
-      "at": 338.69
+      "at": 339.39
     }
   ]
 }

@@ -162,9 +162,9 @@
       "id": "full",
       "file": "pip/cut-05/full.mp4",
       "cutStart": 0,
-      "cutEnd": 342.132,
+      "cutEnd": 342.827,
       "clipOffset": 0,
-      "duration": 342.133333,
+      "duration": 342.833333,
       "parts": [
         {
           "id": "intro",
@@ -173,8 +173,8 @@
         },
         {
           "id": "outro",
-          "cutStart": 317.832,
-          "cutEnd": 342.132
+          "cutStart": 318.527,
+          "cutEnd": 342.827
         }
       ],
       "lines": [
@@ -210,32 +210,32 @@
         },
         {
           "id": "11.1",
-          "cutStart": 318.132,
-          "cutEnd": 324.052,
+          "cutStart": 318.827,
+          "cutEnd": 324.747,
           "text": "If you use Figma, I've also made a Color Taylor plugin that you might like to check out."
         },
         {
           "id": "11.2",
-          "cutStart": 324.952,
-          "cutEnd": 326.692,
+          "cutStart": 325.647,
+          "cutEnd": 327.387,
           "text": "That's Color Taylor!"
         },
         {
           "id": "11.3",
-          "cutStart": 326.692,
-          "cutEnd": 331.892,
+          "cutStart": 327.387,
+          "cutEnd": 332.587,
           "text": "Go play with it, and I hope it helps you see the relationship between RGB and HSB in a different light."
         },
         {
           "id": "11.4",
-          "cutStart": 332.792,
-          "cutEnd": 336.502,
+          "cutStart": 333.487,
+          "cutEnd": 337.197,
           "text": "If it's useful, I'd like to hear from you. Questions and feedback are welcome."
         },
         {
           "id": "11.5",
-          "cutStart": 337.402,
-          "cutEnd": 339.732,
+          "cutStart": 338.097,
+          "cutEnd": 340.427,
           "text": "Thanks for watching. See ya."
         }
       ]
