@@ -5,7 +5,7 @@
       "beat": 1,
       "title": "Intro",
       "line": 1,
-      "text": "Hey, I'm Taylor. I'm a real person.",
+      "text": "Hey, I'm Taylor, and I'm a real person.",
       "start": 0.45,
       "end": 3.01
     },
@@ -149,7 +149,7 @@
       "beat": 2,
       "title": "Thesis",
       "line": 14,
-      "text": "The app supports HSL as well, so you can use what's familiar to you.",
+      "text": "This app supports HSL as well, so you can use what's familiar to you.",
       "start": 70.2,
       "end": 74.5
     },
@@ -181,7 +181,7 @@
       "beat": 3,
       "title": "The hexagon and hue",
       "line": 1,
-      "text": "The color editor on the right side should be familiar to most people who have worked with creative tools.",
+      "text": "The color editor on the right should be familiar to most people who have worked with creative tools.",
       "start": 94.14,
       "end": 98.89
     },
@@ -269,7 +269,7 @@
       "beat": 3,
       "title": "The hexagon and hue",
       "line": 12,
-      "text": "red, green, and blue combine to make the color.",
+      "text": "red, green, and blue combine to make a color.",
       "start": 134.57,
       "end": 137.1
     },
@@ -277,7 +277,7 @@
       "beat": 3,
       "title": "The hexagon and hue",
       "line": 13,
-      "text": "You'll notice, between each of the primary colors we see combinations:",
+      "text": "You'll notice on the hexagon between each of the primary colors, we see combinations:",
       "start": 137.85,
       "end": 142.35
     },
@@ -421,7 +421,7 @@
       "beat": 5,
       "title": "Saturation",
       "line": 9,
-      "text": "Green and blue move toward red or away from it",
+      "text": "Green and blue move towards red or away from it",
       "start": 225.64,
       "end": 230.65
     },
@@ -445,7 +445,7 @@
       "beat": 5,
       "title": "Saturation",
       "line": 12,
-      "text": "We're still at 30, which is the same orangey source color we started with.",
+      "text": "We're still at hue 30, which is the same orangey source color we started with.",
       "start": 237.86,
       "end": 242.27
     },
@@ -485,7 +485,7 @@
       "beat": 6,
       "title": "Brightness",
       "line": 5,
-      "text": "This is done by scaling the RGB values proportionally to each other.",
+      "text": "This is done by scaling the RGB values proportionally off of zero.",
       "start": 255.24,
       "end": 259.4
     },
@@ -501,7 +501,7 @@
       "beat": 6,
       "title": "Brightness",
       "line": 8,
-      "text": "As we lower it, the hexagon contracts,",
+      "text": "As we lower the brightness, the hexagon contracts,",
       "start": 264.47,
       "end": 267.3
     },
@@ -509,7 +509,7 @@
       "beat": 6,
       "title": "Brightness",
       "line": 9,
-      "text": "and the red, green, and blue stems shorten with it,",
+      "text": "and red, green, and blue stems shorten with it,",
       "start": 267.42,
       "end": 269.65
     },
@@ -525,7 +525,7 @@
       "beat": 6,
       "title": "Brightness",
       "line": 11,
-      "text": "Notice we stay at that same 30 degree orangey color while moving the brightness.",
+      "text": "Notice we stay at the same 30 degree orangey color while moving the brightness.",
       "start": 272.7,
       "end": 277.1
     },
@@ -653,7 +653,7 @@
       "beat": 10,
       "title": "The demo",
       "line": 3,
-      "text": "Click the droplet button to switch between Source or Mixed colored sliders.",
+      "text": "Click the droplet button to switch between source or mixed color sliders.",
       "start": 345.48,
       "end": 349.41
     },
