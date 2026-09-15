@@ -63,7 +63,7 @@ import ScriptRunner, {
 } from './ScriptRunner';
 import type { DemoHost } from './steps';
 import ClipEditor from './ClipEditor';
-import { FrameControls, RATIO_COLOR, RATIOS, useFrames } from './Frames';
+import { captureFlag, FrameControls, RATIO_COLOR, RATIOS, useFrames } from './Frames';
 import { setTransportHeight } from './frameState';
 import {
   LABEL_ANGLE_DEG, labelRowHeight, layoutSectionLabels, loadSections, resolveSectionMarks,
@@ -195,6 +195,21 @@ export function presentClock(): 'audio' | 'plan' {
   }
 }
 
+/**
+ * `&flash=1` paints the one-frame white sync flash at the start of a run on the
+ * voice clock too, not only under `&clock=plan`: a screen grab of
+ * `?present=<cut>` then has a white frame to trim to, so the recording lines up
+ * on the cut's t=0 rather than by eye against the first word. Opt-in, so the
+ * shipped path - the About panel's Presentation button - never paints it.
+ */
+export function presentFlash(): boolean {
+  try {
+    return new URLSearchParams(window.location.search).get('flash') === '1';
+  } catch {
+    return false;
+  }
+}
+
 /** A beat of the plan, drawn as a band along the top of the timeline. */
 interface PlanBeat {
   n: number;
@@ -321,6 +336,9 @@ export default function PresentationMode({
   );
   /** Fired once, at the first start, so a capture has its mark. */
   const flashed = useRef(false);
+  /** Whether that mark is painted at all: always in plan mode, and on the
+   *  voice clock when `&flash=1` asks for it. */
+  const syncFlash = useMemo(() => planMode || presentFlash(), [planMode]);
   const [notes, setNotes] = useState<Note[]>([]);
   const [notesError, setNotesError] = useState<string | null>(null);
   const [time, setTime] = useState(0);
@@ -586,11 +604,13 @@ export default function PresentationMode({
    * drawn on it: the labels, the captions) is furniture that belongs to
    * editing, not to the picture. So it starts hidden whenever the frame layer
    * is active, and **T** brings it back for editing (see the keydown effect
-   * below). Without `frames=` this never applies: `frames.active` is false
-   * and the bar renders exactly as it always has.
+   * below). `?capture=1` asks for the same thing with no frame layer at all -
+   * a full-page grab - so it hides the bar on its own. Without either this
+   * never applies: both are false and the bar renders exactly as it always has.
    */
   const [framesBarVisible, setFramesBarVisible] = useState(false);
-  const hiddenForCapture = frames.active && !framesBarVisible;
+  const capturing = useMemo(() => captureFlag(), []);
+  const hiddenForCapture = (frames.active || capturing) && !framesBarVisible;
 
   const seek = useCallback((t: number) => {
     // A seek lands on the frame the cut says is in force there, rather than
@@ -687,13 +707,19 @@ export default function PresentationMode({
     const a = audioRef.current;
     if (!a) return;
     if (a.paused) {
+      // The same mark plan mode paints, on the same terms: once, at the start
+      // of the cut, never on a resume - and only when `&flash=1` asked for it.
+      if (syncFlash && !flashed.current && a.currentTime === 0) {
+        flashed.current = true;
+        handleRef.current?.flash();
+      }
       a.play().catch((err: unknown) => console.warn('[present] audio did not start', err));
       // `play()` clears `paused` in this task, so the schedule's clock is
       // running as of this line: a cue at t=0 belongs to this frame rather
       // than the next one. See ScriptRunnerHandle.step.
       handleRef.current?.step();
     } else a.pause();
-  }, [planMode, planTime]);
+  }, [planMode, planTime, syncFlash]);
 
   /* Space plays and pauses; N opens a note. Neither while typing. */
   useEffect(() => {
@@ -718,10 +744,10 @@ export default function PresentationMode({
         e.preventDefault();
         e.stopPropagation();
         setCollapsed((v) => !v);
-      } else if (frames.active && (e.key === 't' || e.key === 'T')) {
+      } else if ((frames.active || capturing) && (e.key === 't' || e.key === 'T')) {
         // Brings the transport bar back over a capture for editing; see
-        // `hiddenForCapture` above. Only reachable at all with `frames=` in
-        // the URL, which is a dev-only entry.
+        // `hiddenForCapture` above. Only reachable at all with `frames=` or
+        // `capture=1` in the URL, which are dev-only entries.
         e.preventDefault();
         e.stopPropagation();
         setFramesBarVisible((v) => !v);
@@ -729,7 +755,7 @@ export default function PresentationMode({
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
-  }, [toggle, editing, authoring, fullTransport, seekBy, frames.active]);
+  }, [toggle, editing, authoring, fullTransport, seekBy, frames.active, capturing]);
 
   useEffect(() => {
     if (noting) noteInputRef.current?.focus();

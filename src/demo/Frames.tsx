@@ -136,6 +136,22 @@ export function framesRatio(): Ratio | null {
   }
 }
 
+/**
+ * `?capture=1`: hide the transport for a screen grab without mounting any of
+ * the frame layer. The grab is then the app at 1x in a 1920x1080 window, with
+ * no framing applied - the no-frames variant of a capture. Nothing else of
+ * this module is involved; only `hiddenForCapture` in `PresentationMode.tsx`
+ * is shared, and **T** brings the bar back the same way it does under
+ * `frames=`.
+ */
+export function captureFlag(): boolean {
+  try {
+    return new URLSearchParams(window.location.search).get('capture') === '1';
+  } catch {
+    return false;
+  }
+}
+
 const framesUrl = (name: string) => `/__frames/${name}`;
 const appRoot = () => document.getElementById('root');
 
