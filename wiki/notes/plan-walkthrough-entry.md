@@ -2,13 +2,13 @@
 tags:
   - domain/presentation
   - domain/ui
-  - status/draft
+  - status/adopted
   - origin/user-call
 ---
 
 # Plan: Shipping The Walkthrough In The App
 
-**2026-09-13.** The narrated walkthrough (`src/demo/PresentationMode.tsx`, `ScriptRunner.tsx`, `CameraPip.tsx`, on `prez/cut-03`, draft PR #104) mounts in dev builds only. The spec from the presentation side is `redlamp-videos/HANDOFF-cut-02-presentation.md`, "Shipping the walkthrough in the app". This note is the app side's plan against it, drafted for Taylor to answer before anything is briefed. Not built.
+**2026-09-13.** The narrated walkthrough (`src/demo/PresentationMode.tsx`, `ScriptRunner.tsx`, `WebcamPip.tsx`, then on `prez/cut-03`, draft PR #104) mounted in dev builds only. The spec from the presentation side is `redlamp-videos/HANDOFF-cut-02-presentation.md`, "Shipping the walkthrough in the app". This note is the app side's plan against it, drafted for Taylor to answer before anything was briefed. **Built; see the end.** #104 merged into `dev` on 2026-09-15; [[presentation-system]] describes the whole.
 
 Ownership: `src/components` and `App.tsx` are the app session's; `src/demo`, `public/scripts` naming and the cue files are the presentation session's.
 
@@ -48,3 +48,17 @@ Their `src/demo` API, landed on `prez/cut-03` at `64b2c40` (details in `docs/dem
 7. **The end state is the runner's.** The cut's last cue already opens the About panel and underlines Taylor Wright, so the host's button only has to leave the panel where the runner left it. `?script=`, the notes endpoint and the clip editor stay dev-only.
 
 Stable ids in `SwatchLibrary.tsx` for the runner, on `prez/cut-03` at `2875bce`: `#recent-clear`, `#recent-grid`, `#saved-grid` (and the existing `#swatches-group-trigger`, `#recent-colors-trigger`). [[plan-narrow-widths]] stages 5 and 6 touch that file; cherry-pick `2875bce` onto their branch first so the two do not conflict.
+
+## Built (2026-09-13 to 09-15)
+
+Every item went into `prez/cut-03` through the presentation session, which merged them; #104 carried the branch to `dev`.
+
+- **#119**: the About panel is the door. The header's `?` (`#demo-button`, aria "About") opens it; three buttons, Get Started (`#about-close`), Demo (`#about-watch-demo`, "40 seconds") and Presentation (`#about-presentation`); the 900px gate is live (`useMinWidth`), so a phone renders two. `startPresentation` in `ColorPicker.tsx` creates the voice `Audio` and the webcam `<video>` and calls `play()` on both synchronously in the click, then mounts `PresentationMode` (production, reduced transport) and `WebcamPip` with them. `?present=<cut>` works in a build, paused, with the full transport; on the dev server it mounts dev mode (their b0fa258). The asset URLs are `scripts/<cut>.m4a` and `scripts/pip/<cut>/full.mp4`, spelled in `walkthroughVoiceUrl` and `walkthroughCameraUrl`, with the cut from `CURRENT_CUT`.
+- **#120**: Get Started spans row one; Demo and Presentation split row two. `id="about-title"` on the title, for the runner's underline.
+- **#127**: the Presentation button leaves the panel open. Cut 04's first beat underlines the title inside the panel and the runner clicks Get Started at the top of beat two, so the host only writes the seen flag. Demo still closes it. (Answer 4 above still holds in outcome: the cut ends on the panel.)
+- **#128, #131**: the Presentation caption is "~5.5 min", following the cut; the panel's line reads "color models".
+- **#129**: the Intro button (the colour-history deck) shows only under `?intro`. The `VITE_INTRO_ENABLED` flag is gone; the route was never gated.
+- **Runner contract worth knowing**: the panel's buttons are plain React `onClick`s. A synthetic click has to bubble (`bubbles: true`, and `composed: true` since the panel is portaled) or React's root listener never sees it; `element.click()` also works. Measured 2026-09-14 when a non-bubbling dispatch left the panel up.
+
+Open on the app side: nothing. The cut, its media hosting and the capture are the presentation side's ([[presentation-system]]).
+
