@@ -1,0 +1,4700 @@
+[
+ {
+  "text": "Hey,",
+  "start": 0.7,
+  "end": 1.21,
+  "line": "1.1"
+ },
+ {
+  "text": "I'm",
+  "start": 1.22,
+  "end": 1.55,
+  "line": "1.1"
+ },
+ {
+  "text": "Taylor,",
+  "start": 1.56,
+  "end": 1.95,
+  "line": "1.1"
+ },
+ {
+  "text": "and",
+  "start": 1.96,
+  "end": 2.05,
+  "line": "1.1"
+ },
+ {
+  "text": "I'm",
+  "start": 2.06,
+  "end": 2.15,
+  "line": "1.1"
+ },
+ {
+  "text": "a",
+  "start": 2.16,
+  "end": 2.29,
+  "line": "1.1"
+ },
+ {
+  "text": "real",
+  "start": 2.3,
+  "end": 2.67,
+  "line": "1.1"
+ },
+ {
+  "text": "person.",
+  "start": 2.68,
+  "end": 3.01,
+  "line": "1.1"
+ },
+ {
+  "text": "I'm",
+  "start": 3.18,
+  "end": 3.41,
+  "line": "1.2"
+ },
+ {
+  "text": "also",
+  "start": 3.42,
+  "end": 3.51,
+  "line": "1.2"
+ },
+ {
+  "text": "a",
+  "start": 3.52,
+  "end": 3.69,
+  "line": "1.2"
+ },
+ {
+  "text": "user",
+  "start": 3.7,
+  "end": 4.19,
+  "line": "1.2"
+ },
+ {
+  "text": "experience",
+  "start": 4.2,
+  "end": 4.39,
+  "line": "1.2"
+ },
+ {
+  "text": "and",
+  "start": 4.4,
+  "end": 4.65,
+  "line": "1.2"
+ },
+ {
+  "text": "product",
+  "start": 4.66,
+  "end": 5.11,
+  "line": "1.2"
+ },
+ {
+  "text": "designer,",
+  "start": 5.12,
+  "end": 5.61,
+  "line": "1.2"
+ },
+ {
+  "text": "and",
+  "start": 5.78,
+  "end": 5.89,
+  "line": "1.3"
+ },
+ {
+  "text": "I'd",
+  "start": 5.9,
+  "end": 6.01,
+  "line": "1.3"
+ },
+ {
+  "text": "like",
+  "start": 6.02,
+  "end": 6.13,
+  "line": "1.3"
+ },
+ {
+  "text": "to",
+  "start": 6.14,
+  "end": 6.27,
+  "line": "1.3"
+ },
+ {
+  "text": "show",
+  "start": 6.28,
+  "end": 6.39,
+  "line": "1.3"
+ },
+ {
+  "text": "you",
+  "start": 6.4,
+  "end": 6.59,
+  "line": "1.3"
+ },
+ {
+  "text": "something",
+  "start": 6.6,
+  "end": 6.79,
+  "line": "1.3"
+ },
+ {
+  "text": "I've",
+  "start": 6.8,
+  "end": 6.93,
+  "line": "1.3"
+ },
+ {
+  "text": "been",
+  "start": 6.94,
+  "end": 7.19,
+  "line": "1.3"
+ },
+ {
+  "text": "working",
+  "start": 7.2,
+  "end": 7.67,
+  "line": "1.3"
+ },
+ {
+  "text": "on.",
+  "start": 7.68,
+  "end": 8.062,
+  "line": "1.3"
+ },
+ {
+  "text": "It's",
+  "start": 8.38,
+  "end": 8.69,
+  "line": "1.4"
+ },
+ {
+  "text": "called",
+  "start": 8.7,
+  "end": 8.95,
+  "line": "1.4"
+ },
+ {
+  "text": "Color",
+  "start": 8.96,
+  "end": 9.21,
+  "line": "1.4"
+ },
+ {
+  "text": "Taylor.",
+  "start": 9.22,
+  "end": 10.232,
+  "line": "1.4"
+ },
+ {
+  "text": "I'll",
+  "start": 13.732,
+  "end": 13.902,
+  "line": "1.5"
+ },
+ {
+  "text": "just",
+  "start": 13.912,
+  "end": 14.082,
+  "line": "1.5"
+ },
+ {
+  "text": "move",
+  "start": 14.092,
+  "end": 14.382,
+  "line": "1.5"
+ },
+ {
+  "text": "myself",
+  "start": 14.392,
+  "end": 14.582,
+  "line": "1.5"
+ },
+ {
+  "text": "out",
+  "start": 14.592,
+  "end": 14.662,
+  "line": "1.5"
+ },
+ {
+  "text": "of",
+  "start": 14.672,
+  "end": 14.742,
+  "line": "1.5"
+ },
+ {
+  "text": "the",
+  "start": 14.752,
+  "end": 14.882,
+  "line": "1.5"
+ },
+ {
+  "text": "way",
+  "start": 14.892,
+  "end": 15.022,
+  "line": "1.5"
+ },
+ {
+  "text": "for",
+  "start": 15.032,
+  "end": 15.262,
+  "line": "1.5"
+ },
+ {
+  "text": "now.",
+  "start": 15.272,
+  "end": 15.412,
+  "line": "1.5"
+ },
+ {
+  "text": "I",
+  "start": 20.322,
+  "end": 20.392,
+  "line": "2.1"
+ },
+ {
+  "text": "used",
+  "start": 20.402,
+  "end": 20.552,
+  "line": "2.1"
+ },
+ {
+  "text": "to",
+  "start": 20.562,
+  "end": 20.812,
+  "line": "2.1"
+ },
+ {
+  "text": "struggle",
+  "start": 20.822,
+  "end": 20.992,
+  "line": "2.1"
+ },
+ {
+  "text": "with",
+  "start": 21.002,
+  "end": 21.272,
+  "line": "2.1"
+ },
+ {
+  "text": "picking",
+  "start": 21.282,
+  "end": 21.632,
+  "line": "2.1"
+ },
+ {
+  "text": "colors",
+  "start": 21.642,
+  "end": 21.992,
+  "line": "2.1"
+ },
+ {
+  "text": "using",
+  "start": 22.002,
+  "end": 22.452,
+  "line": "2.1"
+ },
+ {
+  "text": "RGB.",
+  "start": 22.462,
+  "end": 23.066,
+  "line": "2.1"
+ },
+ {
+  "text": "In",
+  "start": 23.362,
+  "end": 23.632,
+  "line": "2.2"
+ },
+ {
+  "text": "time,",
+  "start": 23.642,
+  "end": 23.992,
+  "line": "2.2"
+ },
+ {
+  "text": "I",
+  "start": 24.002,
+  "end": 24.212,
+  "line": "2.2"
+ },
+ {
+  "text": "found",
+  "start": 24.222,
+  "end": 24.492,
+  "line": "2.2"
+ },
+ {
+  "text": "human",
+  "start": 24.502,
+  "end": 24.972,
+  "line": "2.2"
+ },
+ {
+  "text": "saturation",
+  "start": 24.982,
+  "end": 25.472,
+  "line": "2.2"
+ },
+ {
+  "text": "models",
+  "start": 25.482,
+  "end": 25.712,
+  "line": "2.2"
+ },
+ {
+  "text": "were",
+  "start": 25.722,
+  "end": 26.092,
+  "line": "2.2"
+ },
+ {
+  "text": "helpful",
+  "start": 26.102,
+  "end": 26.352,
+  "line": "2.2"
+ },
+ {
+  "text": "for",
+  "start": 26.362,
+  "end": 26.592,
+  "line": "2.2"
+ },
+ {
+  "text": "dialing",
+  "start": 26.602,
+  "end": 26.972,
+  "line": "2.2"
+ },
+ {
+  "text": "in",
+  "start": 26.982,
+  "end": 27.132,
+  "line": "2.2"
+ },
+ {
+  "text": "the",
+  "start": 27.142,
+  "end": 27.392,
+  "line": "2.2"
+ },
+ {
+  "text": "colors",
+  "start": 27.402,
+  "end": 27.632,
+  "line": "2.2"
+ },
+ {
+  "text": "I",
+  "start": 27.642,
+  "end": 27.872,
+  "line": "2.2"
+ },
+ {
+  "text": "want.",
+  "start": 27.882,
+  "end": 28.036,
+  "line": "2.2"
+ },
+ {
+  "text": "Let's",
+  "start": 31.956,
+  "end": 32.126,
+  "line": "2.3"
+ },
+ {
+  "text": "say",
+  "start": 32.136,
+  "end": 32.246,
+  "line": "2.3"
+ },
+ {
+  "text": "I",
+  "start": 32.256,
+  "end": 32.386,
+  "line": "2.3"
+ },
+ {
+  "text": "have",
+  "start": 32.396,
+  "end": 32.586,
+  "line": "2.3"
+ },
+ {
+  "text": "this",
+  "start": 32.596,
+  "end": 32.786,
+  "line": "2.3"
+ },
+ {
+  "text": "turquoise,",
+  "start": 32.796,
+  "end": 33.466,
+  "line": "2.3"
+ },
+ {
+  "text": "but",
+  "start": 33.596,
+  "end": 33.706,
+  "line": "2.4"
+ },
+ {
+  "text": "I",
+  "start": 33.716,
+  "end": 33.786,
+  "line": "2.4"
+ },
+ {
+  "text": "want",
+  "start": 33.796,
+  "end": 33.906,
+  "line": "2.4"
+ },
+ {
+  "text": "to",
+  "start": 33.916,
+  "end": 34.006,
+  "line": "2.4"
+ },
+ {
+  "text": "get",
+  "start": 34.016,
+  "end": 34.146,
+  "line": "2.4"
+ },
+ {
+  "text": "it",
+  "start": 34.156,
+  "end": 34.286,
+  "line": "2.4"
+ },
+ {
+  "text": "to",
+  "start": 34.296,
+  "end": 34.486,
+  "line": "2.4"
+ },
+ {
+  "text": "teal,",
+  "start": 34.496,
+  "end": 34.976,
+  "line": "2.4"
+ },
+ {
+  "text": "which",
+  "start": 35.256,
+  "end": 35.386,
+  "line": "2.5"
+ },
+ {
+  "text": "is",
+  "start": 35.396,
+  "end": 35.526,
+  "line": "2.5"
+ },
+ {
+  "text": "a",
+  "start": 35.536,
+  "end": 35.786,
+  "line": "2.5"
+ },
+ {
+  "text": "harmonious",
+  "start": 35.796,
+  "end": 36.366,
+  "line": "2.5"
+ },
+ {
+  "text": "but",
+  "start": 36.376,
+  "end": 36.706,
+  "line": "2.5"
+ },
+ {
+  "text": "darker",
+  "start": 36.716,
+  "end": 37.046,
+  "line": "2.5"
+ },
+ {
+  "text": "color.",
+  "start": 37.056,
+  "end": 37.476,
+  "line": "2.5"
+ },
+ {
+  "text": "How",
+  "start": 37.596,
+  "end": 37.666,
+  "line": "2.6"
+ },
+ {
+  "text": "do",
+  "start": 37.676,
+  "end": 37.766,
+  "line": "2.6"
+ },
+ {
+  "text": "I",
+  "start": 37.776,
+  "end": 38.006,
+  "line": "2.6"
+ },
+ {
+  "text": "dial",
+  "start": 38.016,
+  "end": 38.206,
+  "line": "2.6"
+ },
+ {
+  "text": "that",
+  "start": 38.216,
+  "end": 38.486,
+  "line": "2.6"
+ },
+ {
+  "text": "into",
+  "start": 38.496,
+  "end": 38.966,
+  "line": "2.6"
+ },
+ {
+  "text": "RGB?",
+  "start": 38.976,
+  "end": 39.256,
+  "line": "2.6"
+ },
+ {
+  "text": "I",
+  "start": 43.146,
+  "end": 43.236,
+  "line": "2.7"
+ },
+ {
+  "text": "think",
+  "start": 43.246,
+  "end": 43.356,
+  "line": "2.7"
+ },
+ {
+  "text": "I",
+  "start": 43.366,
+  "end": 43.476,
+  "line": "2.7"
+ },
+ {
+  "text": "need",
+  "start": 43.486,
+  "end": 43.596,
+  "line": "2.7"
+ },
+ {
+  "text": "to",
+  "start": 43.606,
+  "end": 43.776,
+  "line": "2.7"
+ },
+ {
+  "text": "lower",
+  "start": 43.786,
+  "end": 43.956,
+  "line": "2.7"
+ },
+ {
+  "text": "the",
+  "start": 43.966,
+  "end": 44.276,
+  "line": "2.7"
+ },
+ {
+  "text": "red",
+  "start": 44.286,
+  "end": 44.446,
+  "line": "2.7"
+ },
+ {
+  "text": "and",
+  "start": 44.506,
+  "end": 44.616,
+  "line": "2.8"
+ },
+ {
+  "text": "the",
+  "start": 44.626,
+  "end": 44.976,
+  "line": "2.8"
+ },
+ {
+  "text": "blue.",
+  "start": 44.986,
+  "end": 45.356,
+  "line": "2.8"
+ },
+ {
+  "text": "But",
+  "start": 47.426,
+  "end": 47.556,
+  "line": "2.9"
+ },
+ {
+  "text": "how",
+  "start": 47.566,
+  "end": 47.716,
+  "line": "2.9"
+ },
+ {
+  "text": "much",
+  "start": 47.726,
+  "end": 47.916,
+  "line": "2.9"
+ },
+ {
+  "text": "do",
+  "start": 47.926,
+  "end": 47.996,
+  "line": "2.9"
+ },
+ {
+  "text": "I",
+  "start": 48.006,
+  "end": 48.256,
+  "line": "2.9"
+ },
+ {
+  "text": "change",
+  "start": 48.266,
+  "end": 48.396,
+  "line": "2.9"
+ },
+ {
+  "text": "the",
+  "start": 48.406,
+  "end": 48.716,
+  "line": "2.9"
+ },
+ {
+  "text": "RGB",
+  "start": 48.726,
+  "end": 49.016,
+  "line": "2.9"
+ },
+ {
+  "text": "before",
+  "start": 49.026,
+  "end": 49.116,
+  "line": "2.9"
+ },
+ {
+  "text": "I",
+  "start": 49.126,
+  "end": 49.396,
+  "line": "2.9"
+ },
+ {
+  "text": "stray",
+  "start": 49.406,
+  "end": 49.636,
+  "line": "2.9"
+ },
+ {
+  "text": "too",
+  "start": 49.646,
+  "end": 49.856,
+  "line": "2.9"
+ },
+ {
+  "text": "far",
+  "start": 49.866,
+  "end": 50.036,
+  "line": "2.9"
+ },
+ {
+  "text": "from",
+  "start": 50.046,
+  "end": 50.196,
+  "line": "2.9"
+ },
+ {
+  "text": "my",
+  "start": 50.206,
+  "end": 50.456,
+  "line": "2.9"
+ },
+ {
+  "text": "source?",
+  "start": 50.466,
+  "end": 50.816,
+  "line": "2.9"
+ },
+ {
+  "text": "Once",
+  "start": 51.786,
+  "end": 51.936,
+  "line": "2.10"
+ },
+ {
+  "text": "I",
+  "start": 51.946,
+  "end": 52.316,
+  "line": "2.10"
+ },
+ {
+  "text": "understood",
+  "start": 52.326,
+  "end": 52.656,
+  "line": "2.10"
+ },
+ {
+  "text": "how",
+  "start": 52.666,
+  "end": 52.896,
+  "line": "2.10"
+ },
+ {
+  "text": "hue",
+  "start": 52.906,
+  "end": 53.216,
+  "line": "2.10"
+ },
+ {
+  "text": "models",
+  "start": 53.226,
+  "end": 53.416,
+  "line": "2.10"
+ },
+ {
+  "text": "and",
+  "start": 53.426,
+  "end": 53.736,
+  "line": "2.10"
+ },
+ {
+  "text": "RGB",
+  "start": 53.746,
+  "end": 54.016,
+  "line": "2.10"
+ },
+ {
+  "text": "work",
+  "start": 54.026,
+  "end": 54.496,
+  "line": "2.10"
+ },
+ {
+  "text": "together,",
+  "start": 54.506,
+  "end": 55.106,
+  "line": "2.10"
+ },
+ {
+  "text": "I",
+  "start": 55.206,
+  "end": 55.316,
+  "line": "2.11"
+ },
+ {
+  "text": "could",
+  "start": 55.326,
+  "end": 55.476,
+  "line": "2.11"
+ },
+ {
+  "text": "more",
+  "start": 55.486,
+  "end": 55.956,
+  "line": "2.11"
+ },
+ {
+  "text": "confidently",
+  "start": 55.966,
+  "end": 56.496,
+  "line": "2.11"
+ },
+ {
+  "text": "understand",
+  "start": 56.506,
+  "end": 56.796,
+  "line": "2.11"
+ },
+ {
+  "text": "how",
+  "start": 56.806,
+  "end": 57.076,
+  "line": "2.11"
+ },
+ {
+  "text": "colors",
+  "start": 57.086,
+  "end": 57.316,
+  "line": "2.11"
+ },
+ {
+  "text": "were",
+  "start": 57.326,
+  "end": 57.936,
+  "line": "2.11"
+ },
+ {
+  "text": "constructed.",
+  "start": 57.946,
+  "end": 58.226,
+  "line": "2.11"
+ },
+ {
+  "text": "There,",
+  "start": 63.436,
+  "end": 63.846,
+  "line": "2.12"
+ },
+ {
+  "text": "that's",
+  "start": 63.856,
+  "end": 64.086,
+  "line": "2.12"
+ },
+ {
+  "text": "teal.",
+  "start": 64.096,
+  "end": 64.366,
+  "line": "2.12"
+ },
+ {
+  "text": "Our",
+  "start": 65.356,
+  "end": 65.566,
+  "line": "2.13"
+ },
+ {
+  "text": "focus",
+  "start": 65.576,
+  "end": 65.786,
+  "line": "2.13"
+ },
+ {
+  "text": "for",
+  "start": 65.796,
+  "end": 65.906,
+  "line": "2.13"
+ },
+ {
+  "text": "this",
+  "start": 65.916,
+  "end": 66.386,
+  "line": "2.13"
+ },
+ {
+  "text": "presentation",
+  "start": 66.396,
+  "end": 66.586,
+  "line": "2.13"
+ },
+ {
+  "text": "will",
+  "start": 66.596,
+  "end": 66.746,
+  "line": "2.13"
+ },
+ {
+  "text": "be",
+  "start": 66.756,
+  "end": 66.926,
+  "line": "2.13"
+ },
+ {
+  "text": "on",
+  "start": 66.936,
+  "end": 67.226,
+  "line": "2.13"
+ },
+ {
+  "text": "hue,",
+  "start": 67.236,
+  "end": 68.126,
+  "line": "2.13"
+ },
+ {
+  "text": "saturation,",
+  "start": 68.136,
+  "end": 68.626,
+  "line": "2.13"
+ },
+ {
+  "text": "and",
+  "start": 68.636,
+  "end": 68.966,
+  "line": "2.13"
+ },
+ {
+  "text": "brightness.",
+  "start": 68.976,
+  "end": 70.076,
+  "line": "2.13"
+ },
+ {
+  "text": "This",
+  "start": 70.136,
+  "end": 70.346,
+  "line": "2.14"
+ },
+ {
+  "text": "app",
+  "start": 70.356,
+  "end": 70.826,
+  "line": "2.14"
+ },
+ {
+  "text": "supports",
+  "start": 70.836,
+  "end": 71.166,
+  "line": "2.14"
+ },
+ {
+  "text": "HSL",
+  "start": 71.176,
+  "end": 71.886,
+  "line": "2.14"
+ },
+ {
+  "text": "as",
+  "start": 71.896,
+  "end": 72.206,
+  "line": "2.14"
+ },
+ {
+  "text": "well,",
+  "start": 72.216,
+  "end": 72.806,
+  "line": "2.14"
+ },
+ {
+  "text": "so",
+  "start": 72.816,
+  "end": 72.906,
+  "line": "2.14"
+ },
+ {
+  "text": "you",
+  "start": 72.916,
+  "end": 73.046,
+  "line": "2.14"
+ },
+ {
+  "text": "can",
+  "start": 73.056,
+  "end": 73.246,
+  "line": "2.14"
+ },
+ {
+  "text": "use",
+  "start": 73.256,
+  "end": 73.426,
+  "line": "2.14"
+ },
+ {
+  "text": "what's",
+  "start": 73.436,
+  "end": 73.746,
+  "line": "2.14"
+ },
+ {
+  "text": "familiar",
+  "start": 73.756,
+  "end": 74.066,
+  "line": "2.14"
+ },
+ {
+  "text": "to",
+  "start": 74.076,
+  "end": 74.496,
+  "line": "2.14"
+ },
+ {
+  "text": "Color",
+  "start": 75.496,
+  "end": 75.646,
+  "line": "2.15"
+ },
+ {
+  "text": "Tailor",
+  "start": 75.656,
+  "end": 75.866,
+  "line": "2.15"
+ },
+ {
+  "text": "is",
+  "start": 75.876,
+  "end": 75.986,
+  "line": "2.15"
+ },
+ {
+  "text": "meant",
+  "start": 75.996,
+  "end": 76.106,
+  "line": "2.15"
+ },
+ {
+  "text": "to",
+  "start": 76.116,
+  "end": 76.226,
+  "line": "2.15"
+ },
+ {
+  "text": "be",
+  "start": 76.236,
+  "end": 76.346,
+  "line": "2.15"
+ },
+ {
+  "text": "a",
+  "start": 76.356,
+  "end": 76.666,
+  "line": "2.15"
+ },
+ {
+  "text": "playground",
+  "start": 76.676,
+  "end": 77.066,
+  "line": "2.15"
+ },
+ {
+  "text": "and",
+  "start": 77.076,
+  "end": 77.526,
+  "line": "2.15"
+ },
+ {
+  "text": "educational",
+  "start": 77.536,
+  "end": 77.966,
+  "line": "2.15"
+ },
+ {
+  "text": "tool",
+  "start": 77.976,
+  "end": 78.166,
+  "line": "2.15"
+ },
+ {
+  "text": "for",
+  "start": 78.176,
+  "end": 78.346,
+  "line": "2.15"
+ },
+ {
+  "text": "how",
+  "start": 78.356,
+  "end": 78.786,
+  "line": "2.15"
+ },
+ {
+  "text": "RGB",
+  "start": 78.796,
+  "end": 79.246,
+  "line": "2.15"
+ },
+ {
+  "text": "and",
+  "start": 79.256,
+  "end": 79.446,
+  "line": "2.15"
+ },
+ {
+  "text": "HSB",
+  "start": 79.456,
+  "end": 79.986,
+  "line": "2.15"
+ },
+ {
+  "text": "work",
+  "start": 79.996,
+  "end": 80.506,
+  "line": "2.15"
+ },
+ {
+  "text": "together.",
+  "start": 80.516,
+  "end": 80.726,
+  "line": "2.15"
+ },
+ {
+  "text": "You",
+  "start": 82.146,
+  "end": 82.256,
+  "line": "2.16"
+ },
+ {
+  "text": "see",
+  "start": 82.266,
+  "end": 82.376,
+  "line": "2.16"
+ },
+ {
+  "text": "the",
+  "start": 82.386,
+  "end": 82.856,
+  "line": "2.16"
+ },
+ {
+  "text": "relationships",
+  "start": 82.866,
+  "end": 83.276,
+  "line": "2.16"
+ },
+ {
+  "text": "in",
+  "start": 83.286,
+  "end": 83.436,
+  "line": "2.16"
+ },
+ {
+  "text": "real",
+  "start": 83.446,
+  "end": 83.736,
+  "line": "2.16"
+ },
+ {
+  "text": "time,",
+  "start": 83.746,
+  "end": 84.036,
+  "line": "2.16"
+ },
+ {
+  "text": "which",
+  "start": 84.106,
+  "end": 84.316,
+  "line": "2.17"
+ },
+ {
+  "text": "can",
+  "start": 84.326,
+  "end": 84.716,
+  "line": "2.17"
+ },
+ {
+  "text": "strengthen",
+  "start": 84.726,
+  "end": 84.916,
+  "line": "2.17"
+ },
+ {
+  "text": "your",
+  "start": 84.926,
+  "end": 85.376,
+  "line": "2.17"
+ },
+ {
+  "text": "understanding",
+  "start": 85.386,
+  "end": 85.576,
+  "line": "2.17"
+ },
+ {
+  "text": "of",
+  "start": 85.586,
+  "end": 85.796,
+  "line": "2.17"
+ },
+ {
+  "text": "how",
+  "start": 85.806,
+  "end": 86.036,
+  "line": "2.17"
+ },
+ {
+  "text": "colors",
+  "start": 86.046,
+  "end": 86.356,
+  "line": "2.17"
+ },
+ {
+  "text": "work",
+  "start": 86.366,
+  "end": 86.556,
+  "line": "2.17"
+ },
+ {
+  "text": "on",
+  "start": 86.566,
+  "end": 86.936,
+  "line": "2.17"
+ },
+ {
+  "text": "displays.",
+  "start": 86.946,
+  "end": 87.416,
+  "line": "2.17"
+ },
+ {
+  "text": "The",
+  "start": 94.366,
+  "end": 94.516,
+  "line": "3.1"
+ },
+ {
+  "text": "color",
+  "start": 94.526,
+  "end": 94.856,
+  "line": "3.1"
+ },
+ {
+  "text": "editor",
+  "start": 94.866,
+  "end": 95.056,
+  "line": "3.1"
+ },
+ {
+  "text": "on",
+  "start": 95.066,
+  "end": 95.176,
+  "line": "3.1"
+ },
+ {
+  "text": "the",
+  "start": 95.186,
+  "end": 95.396,
+  "line": "3.1"
+ },
+ {
+  "text": "right",
+  "start": 95.406,
+  "end": 95.656,
+  "line": "3.1"
+ },
+ {
+  "text": "should",
+  "start": 95.666,
+  "end": 95.776,
+  "line": "3.1"
+ },
+ {
+  "text": "be",
+  "start": 95.786,
+  "end": 96.036,
+  "line": "3.1"
+ },
+ {
+  "text": "familiar",
+  "start": 96.046,
+  "end": 96.276,
+  "line": "3.1"
+ },
+ {
+  "text": "to",
+  "start": 96.286,
+  "end": 96.456,
+  "line": "3.1"
+ },
+ {
+  "text": "most",
+  "start": 96.466,
+  "end": 96.856,
+  "line": "3.1"
+ },
+ {
+  "text": "people",
+  "start": 96.866,
+  "end": 97.236,
+  "line": "3.1"
+ },
+ {
+  "text": "who",
+  "start": 97.246,
+  "end": 97.356,
+  "line": "3.1"
+ },
+ {
+  "text": "have",
+  "start": 97.366,
+  "end": 97.556,
+  "line": "3.1"
+ },
+ {
+  "text": "worked",
+  "start": 97.566,
+  "end": 97.816,
+  "line": "3.1"
+ },
+ {
+  "text": "with",
+  "start": 97.826,
+  "end": 98.136,
+  "line": "3.1"
+ },
+ {
+  "text": "creative",
+  "start": 98.146,
+  "end": 98.576,
+  "line": "3.1"
+ },
+ {
+  "text": "tools.",
+  "start": 98.586,
+  "end": 98.886,
+  "line": "3.1"
+ },
+ {
+  "text": "The",
+  "start": 103.876,
+  "end": 104.066,
+  "line": "3.2"
+ },
+ {
+  "text": "hexagon",
+  "start": 104.076,
+  "end": 104.446,
+  "line": "3.2"
+ },
+ {
+  "text": "on",
+  "start": 104.456,
+  "end": 104.546,
+  "line": "3.2"
+ },
+ {
+  "text": "the",
+  "start": 104.556,
+  "end": 104.746,
+  "line": "3.2"
+ },
+ {
+  "text": "left",
+  "start": 104.756,
+  "end": 105.066,
+  "line": "3.2"
+ },
+ {
+  "text": "is",
+  "start": 105.076,
+  "end": 105.186,
+  "line": "3.2"
+ },
+ {
+  "text": "a",
+  "start": 105.196,
+  "end": 105.406,
+  "line": "3.2"
+ },
+ {
+  "text": "different",
+  "start": 105.416,
+  "end": 105.646,
+  "line": "3.2"
+ },
+ {
+  "text": "way",
+  "start": 105.656,
+  "end": 105.766,
+  "line": "3.2"
+ },
+ {
+  "text": "of",
+  "start": 105.776,
+  "end": 106.146,
+  "line": "3.2"
+ },
+ {
+  "text": "displaying",
+  "start": 106.156,
+  "end": 106.366,
+  "line": "3.2"
+ },
+ {
+  "text": "the",
+  "start": 106.376,
+  "end": 106.566,
+  "line": "3.2"
+ },
+ {
+  "text": "same",
+  "start": 106.576,
+  "end": 107.206,
+  "line": "3.2"
+ },
+ {
+  "text": "information.",
+  "start": 107.216,
+  "end": 107.486,
+  "line": "3.2"
+ },
+ {
+  "text": "Around",
+  "start": 111.036,
+  "end": 111.186,
+  "line": "3.3"
+ },
+ {
+  "text": "the",
+  "start": 111.196,
+  "end": 111.366,
+  "line": "3.3"
+ },
+ {
+  "text": "hexagon,",
+  "start": 111.376,
+  "end": 111.766,
+  "line": "3.3"
+ },
+ {
+  "text": "we",
+  "start": 111.776,
+  "end": 111.986,
+  "line": "3.3"
+ },
+ {
+  "text": "have",
+  "start": 111.996,
+  "end": 112.166,
+  "line": "3.3"
+ },
+ {
+  "text": "the",
+  "start": 112.176,
+  "end": 112.386,
+  "line": "3.3"
+ },
+ {
+  "text": "hue,",
+  "start": 112.396,
+  "end": 112.926,
+  "line": "3.3"
+ },
+ {
+  "text": "which",
+  "start": 113.036,
+  "end": 113.186,
+  "line": "3.4"
+ },
+ {
+  "text": "is",
+  "start": 113.196,
+  "end": 113.346,
+  "line": "3.4"
+ },
+ {
+  "text": "an",
+  "start": 113.356,
+  "end": 113.626,
+  "line": "3.4"
+ },
+ {
+  "text": "angle",
+  "start": 113.636,
+  "end": 113.846,
+  "line": "3.4"
+ },
+ {
+  "text": "that",
+  "start": 113.856,
+  "end": 114.126,
+  "line": "3.4"
+ },
+ {
+  "text": "ranges",
+  "start": 114.136,
+  "end": 114.466,
+  "line": "3.4"
+ },
+ {
+  "text": "from",
+  "start": 114.476,
+  "end": 114.866,
+  "line": "3.4"
+ },
+ {
+  "text": "zero",
+  "start": 114.876,
+  "end": 115.206,
+  "line": "3.4"
+ },
+ {
+  "text": "to",
+  "start": 115.516,
+  "end": 116.306,
+  "line": "3.5"
+ },
+ {
+  "text": "360",
+  "start": 116.316,
+  "end": 116.906,
+  "line": "3.5"
+ },
+ {
+  "text": "degrees.",
+  "start": 116.916,
+  "end": 118.036,
+  "line": "3.5"
+ },
+ {
+  "text": "Red",
+  "start": 118.536,
+  "end": 118.906,
+  "line": "3.6"
+ },
+ {
+  "text": "is",
+  "start": 118.916,
+  "end": 119.426,
+  "line": "3.6"
+ },
+ {
+  "text": "zero,",
+  "start": 119.436,
+  "end": 119.736,
+  "line": "3.6"
+ },
+ {
+  "text": "green",
+  "start": 121.166,
+  "end": 121.456,
+  "line": "3.7"
+ },
+ {
+  "text": "is",
+  "start": 121.466,
+  "end": 122.356,
+  "line": "3.7"
+ },
+ {
+  "text": "120,",
+  "start": 122.366,
+  "end": 123.456,
+  "line": "3.7"
+ },
+ {
+  "text": "and",
+  "start": 123.746,
+  "end": 124.096,
+  "line": "3.8"
+ },
+ {
+  "text": "blue",
+  "start": 124.106,
+  "end": 124.596,
+  "line": "3.8"
+ },
+ {
+  "text": "is",
+  "start": 124.606,
+  "end": 125.436,
+  "line": "3.8"
+ },
+ {
+  "text": "240.",
+  "start": 125.446,
+  "end": 125.826,
+  "line": "3.8"
+ },
+ {
+  "text": "By",
+  "start": 126.306,
+  "end": 126.476,
+  "line": "3.9"
+ },
+ {
+  "text": "laying",
+  "start": 126.486,
+  "end": 126.656,
+  "line": "3.9"
+ },
+ {
+  "text": "the",
+  "start": 126.666,
+  "end": 126.976,
+  "line": "3.9"
+ },
+ {
+  "text": "primary",
+  "start": 126.986,
+  "end": 127.316,
+  "line": "3.9"
+ },
+ {
+  "text": "colors",
+  "start": 127.326,
+  "end": 127.556,
+  "line": "3.9"
+ },
+ {
+  "text": "out",
+  "start": 127.566,
+  "end": 127.736,
+  "line": "3.9"
+ },
+ {
+  "text": "like",
+  "start": 127.746,
+  "end": 127.996,
+  "line": "3.9"
+ },
+ {
+  "text": "this,",
+  "start": 128.006,
+  "end": 128.116,
+  "line": "3.9"
+ },
+ {
+  "text": "we",
+  "start": 128.206,
+  "end": 128.356,
+  "line": "3.10"
+ },
+ {
+  "text": "can",
+  "start": 128.366,
+  "end": 128.676,
+  "line": "3.10"
+ },
+ {
+  "text": "visualize",
+  "start": 128.686,
+  "end": 129.016,
+  "line": "3.10"
+ },
+ {
+  "text": "how",
+  "start": 129.026,
+  "end": 129.416,
+  "line": "3.10"
+ },
+ {
+  "text": "RGB",
+  "start": 129.426,
+  "end": 129.996,
+  "line": "3.10"
+ },
+ {
+  "text": "values",
+  "start": 130.006,
+  "end": 130.576,
+  "line": "3.10"
+ },
+ {
+  "text": "determine",
+  "start": 130.586,
+  "end": 130.896,
+  "line": "3.10"
+ },
+ {
+  "text": "a",
+  "start": 130.906,
+  "end": 131.136,
+  "line": "3.10"
+ },
+ {
+  "text": "color's",
+  "start": 131.146,
+  "end": 131.596,
+  "line": "3.10"
+ },
+ {
+  "text": "hue.",
+  "start": 131.606,
+  "end": 131.806,
+  "line": "3.10"
+ },
+ {
+  "text": "Drag",
+  "start": 132.806,
+  "end": 132.956,
+  "line": "3.11"
+ },
+ {
+  "text": "the",
+  "start": 132.966,
+  "end": 133.196,
+  "line": "3.11"
+ },
+ {
+  "text": "handles",
+  "start": 133.206,
+  "end": 133.536,
+  "line": "3.11"
+ },
+ {
+  "text": "around",
+  "start": 133.546,
+  "end": 133.836,
+  "line": "3.11"
+ },
+ {
+  "text": "and",
+  "start": 133.846,
+  "end": 133.936,
+  "line": "3.11"
+ },
+ {
+  "text": "you",
+  "start": 133.946,
+  "end": 134.096,
+  "line": "3.11"
+ },
+ {
+  "text": "see",
+  "start": 134.106,
+  "end": 134.276,
+  "line": "3.11"
+ },
+ {
+  "text": "how",
+  "start": 134.286,
+  "end": 134.446,
+  "line": "3.11"
+ },
+ {
+  "text": "red,",
+  "start": 134.526,
+  "end": 134.896,
+  "line": "3.12"
+ },
+ {
+  "text": "green,",
+  "start": 134.906,
+  "end": 135.116,
+  "line": "3.12"
+ },
+ {
+  "text": "and",
+  "start": 135.126,
+  "end": 135.336,
+  "line": "3.12"
+ },
+ {
+  "text": "blue",
+  "start": 135.346,
+  "end": 135.776,
+  "line": "3.12"
+ },
+ {
+  "text": "combine",
+  "start": 135.786,
+  "end": 136.196,
+  "line": "3.12"
+ },
+ {
+  "text": "to",
+  "start": 136.206,
+  "end": 136.336,
+  "line": "3.12"
+ },
+ {
+  "text": "make",
+  "start": 136.346,
+  "end": 136.576,
+  "line": "3.12"
+ },
+ {
+  "text": "a",
+  "start": 136.586,
+  "end": 136.856,
+  "line": "3.12"
+ },
+ {
+  "text": "color.",
+  "start": 136.866,
+  "end": 137.096,
+  "line": "3.12"
+ },
+ {
+  "text": "You'll",
+  "start": 138.096,
+  "end": 138.386,
+  "line": "3.13"
+ },
+ {
+  "text": "notice",
+  "start": 138.396,
+  "end": 138.526,
+  "line": "3.13"
+ },
+ {
+  "text": "on",
+  "start": 138.536,
+  "end": 138.626,
+  "line": "3.13"
+ },
+ {
+  "text": "the",
+  "start": 138.636,
+  "end": 138.826,
+  "line": "3.13"
+ },
+ {
+  "text": "hexagon",
+  "start": 138.836,
+  "end": 139.506,
+  "line": "3.13"
+ },
+ {
+  "text": "between",
+  "start": 139.516,
+  "end": 139.766,
+  "line": "3.13"
+ },
+ {
+  "text": "each",
+  "start": 139.776,
+  "end": 139.886,
+  "line": "3.13"
+ },
+ {
+  "text": "of",
+  "start": 139.896,
+  "end": 139.986,
+  "line": "3.13"
+ },
+ {
+  "text": "the",
+  "start": 139.996,
+  "end": 140.326,
+  "line": "3.13"
+ },
+ {
+  "text": "primary",
+  "start": 140.336,
+  "end": 140.766,
+  "line": "3.13"
+ },
+ {
+  "text": "colors,",
+  "start": 140.776,
+  "end": 140.966,
+  "line": "3.13"
+ },
+ {
+  "text": "we",
+  "start": 140.976,
+  "end": 141.166,
+  "line": "3.13"
+ },
+ {
+  "text": "see",
+  "start": 141.176,
+  "end": 142.026,
+  "line": "3.13"
+ },
+ {
+  "text": "combinations.",
+  "start": 142.036,
+  "end": 142.346,
+  "line": "3.13"
+ },
+ {
+  "text": "Yellow,",
+  "start": 147.116,
+  "end": 147.566,
+  "line": "3.14"
+ },
+ {
+  "text": "which",
+  "start": 147.576,
+  "end": 147.706,
+  "line": "3.14"
+ },
+ {
+  "text": "is",
+  "start": 147.716,
+  "end": 147.886,
+  "line": "3.14"
+ },
+ {
+  "text": "red",
+  "start": 147.896,
+  "end": 148.046,
+  "line": "3.14"
+ },
+ {
+  "text": "and",
+  "start": 148.056,
+  "end": 148.266,
+  "line": "3.14"
+ },
+ {
+  "text": "green",
+  "start": 148.276,
+  "end": 148.786,
+  "line": "3.14"
+ },
+ {
+  "text": "combined.",
+  "start": 148.796,
+  "end": 149.106,
+  "line": "3.14"
+ },
+ {
+  "text": "Cyan,",
+  "start": 152.216,
+  "end": 152.526,
+  "line": "3.15"
+ },
+ {
+  "text": "which",
+  "start": 152.536,
+  "end": 152.726,
+  "line": "3.15"
+ },
+ {
+  "text": "is",
+  "start": 152.736,
+  "end": 152.866,
+  "line": "3.15"
+ },
+ {
+  "text": "green",
+  "start": 152.876,
+  "end": 153.026,
+  "line": "3.15"
+ },
+ {
+  "text": "and",
+  "start": 153.036,
+  "end": 153.226,
+  "line": "3.15"
+ },
+ {
+  "text": "blue",
+  "start": 153.236,
+  "end": 153.746,
+  "line": "3.15"
+ },
+ {
+  "text": "combined.",
+  "start": 153.756,
+  "end": 153.956,
+  "line": "3.15"
+ },
+ {
+  "text": "And",
+  "start": 156.466,
+  "end": 156.596,
+  "line": "3.16"
+ },
+ {
+  "text": "magenta,",
+  "start": 156.606,
+  "end": 157.236,
+  "line": "3.16"
+ },
+ {
+  "text": "which",
+  "start": 157.246,
+  "end": 157.376,
+  "line": "3.16"
+ },
+ {
+  "text": "is",
+  "start": 157.386,
+  "end": 157.576,
+  "line": "3.16"
+ },
+ {
+  "text": "blue",
+  "start": 157.586,
+  "end": 157.716,
+  "line": "3.16"
+ },
+ {
+  "text": "and",
+  "start": 157.726,
+  "end": 157.916,
+  "line": "3.16"
+ },
+ {
+  "text": "red",
+  "start": 157.926,
+  "end": 158.456,
+  "line": "3.16"
+ },
+ {
+  "text": "combined.",
+  "start": 158.466,
+  "end": 158.616,
+  "line": "3.16"
+ },
+ {
+  "text": "Let's",
+  "start": 163.196,
+  "end": 163.386,
+  "line": "4.1"
+ },
+ {
+  "text": "use",
+  "start": 163.396,
+  "end": 163.546,
+  "line": "4.1"
+ },
+ {
+  "text": "an",
+  "start": 163.556,
+  "end": 163.746,
+  "line": "4.1"
+ },
+ {
+  "text": "orangey",
+  "start": 163.756,
+  "end": 164.106,
+  "line": "4.1"
+ },
+ {
+  "text": "color",
+  "start": 164.116,
+  "end": 164.286,
+  "line": "4.1"
+ },
+ {
+  "text": "as",
+  "start": 164.296,
+  "end": 164.426,
+  "line": "4.1"
+ },
+ {
+  "text": "a",
+  "start": 164.436,
+  "end": 164.706,
+  "line": "4.1"
+ },
+ {
+  "text": "reference",
+  "start": 164.716,
+  "end": 165.226,
+  "line": "4.1"
+ },
+ {
+  "text": "Around",
+  "start": 167.346,
+  "end": 167.756,
+  "line": "4.2"
+ },
+ {
+  "text": "30",
+  "start": 167.766,
+  "end": 168.036,
+  "line": "4.2"
+ },
+ {
+  "text": "degrees,",
+  "start": 168.046,
+  "end": 168.316,
+  "line": "4.2"
+ },
+ {
+  "text": "we'll",
+  "start": 168.326,
+  "end": 168.616,
+  "line": "4.2"
+ },
+ {
+  "text": "always",
+  "start": 168.626,
+  "end": 168.876,
+  "line": "4.2"
+ },
+ {
+  "text": "have",
+  "start": 168.886,
+  "end": 169.076,
+  "line": "4.2"
+ },
+ {
+  "text": "this",
+  "start": 169.086,
+  "end": 169.416,
+  "line": "4.2"
+ },
+ {
+  "text": "warm",
+  "start": 169.426,
+  "end": 169.796,
+  "line": "4.2"
+ },
+ {
+  "text": "tone",
+  "start": 169.806,
+  "end": 170.216,
+  "line": "4.2"
+ },
+ {
+  "text": "between",
+  "start": 170.226,
+  "end": 170.496,
+  "line": "4.2"
+ },
+ {
+  "text": "red",
+  "start": 170.506,
+  "end": 170.636,
+  "line": "4.2"
+ },
+ {
+  "text": "and",
+  "start": 170.646,
+  "end": 170.976,
+  "line": "4.2"
+ },
+ {
+  "text": "yellow.",
+  "start": 170.986,
+  "end": 171.246,
+  "line": "4.2"
+ },
+ {
+  "text": "At",
+  "start": 175.356,
+  "end": 175.446,
+  "line": "4.3"
+ },
+ {
+  "text": "the",
+  "start": 175.456,
+  "end": 175.686,
+  "line": "4.3"
+ },
+ {
+  "text": "highest",
+  "start": 175.696,
+  "end": 176.206,
+  "line": "4.3"
+ },
+ {
+  "text": "saturation",
+  "start": 176.216,
+  "end": 176.586,
+  "line": "4.3"
+ },
+ {
+  "text": "and",
+  "start": 176.596,
+  "end": 176.926,
+  "line": "4.3"
+ },
+ {
+  "text": "brightness,",
+  "start": 176.936,
+  "end": 177.206,
+  "line": "4.3"
+ },
+ {
+  "text": "the",
+  "start": 177.216,
+  "end": 177.406,
+  "line": "4.3"
+ },
+ {
+  "text": "color",
+  "start": 177.416,
+  "end": 177.586,
+  "line": "4.3"
+ },
+ {
+  "text": "will",
+  "start": 177.596,
+  "end": 177.806,
+  "line": "4.3"
+ },
+ {
+  "text": "be",
+  "start": 177.816,
+  "end": 177.986,
+  "line": "4.3"
+ },
+ {
+  "text": "a",
+  "start": 177.996,
+  "end": 178.386,
+  "line": "4.3"
+ },
+ {
+  "text": "combination",
+  "start": 178.396,
+  "end": 178.706,
+  "line": "4.3"
+ },
+ {
+  "text": "of",
+  "start": 178.716,
+  "end": 178.886,
+  "line": "4.3"
+ },
+ {
+  "text": "two",
+  "start": 178.976,
+  "end": 179.226,
+  "line": "4.4"
+ },
+ {
+  "text": "parts",
+  "start": 179.236,
+  "end": 179.506,
+  "line": "4.4"
+ },
+ {
+  "text": "red,",
+  "start": 179.516,
+  "end": 180.296,
+  "line": "4.4"
+ },
+ {
+  "text": "one",
+  "start": 180.356,
+  "end": 180.646,
+  "line": "4.5"
+ },
+ {
+  "text": "part",
+  "start": 180.656,
+  "end": 181.006,
+  "line": "4.5"
+ },
+ {
+  "text": "green,",
+  "start": 181.016,
+  "end": 181.486,
+  "line": "4.5"
+ },
+ {
+  "text": "zero",
+  "start": 181.656,
+  "end": 182.086,
+  "line": "4.6"
+ },
+ {
+  "text": "parts",
+  "start": 182.096,
+  "end": 182.486,
+  "line": "4.6"
+ },
+ {
+  "text": "blue.",
+  "start": 182.496,
+  "end": 182.646,
+  "line": "4.6"
+ },
+ {
+  "text": "Saturation",
+  "start": 187.616,
+  "end": 188.386,
+  "line": "5.1"
+ },
+ {
+  "text": "determines",
+  "start": 188.396,
+  "end": 188.686,
+  "line": "5.1"
+ },
+ {
+  "text": "how",
+  "start": 188.696,
+  "end": 189.266,
+  "line": "5.1"
+ },
+ {
+  "text": "colorful",
+  "start": 189.276,
+  "end": 189.686,
+  "line": "5.1"
+ },
+ {
+  "text": "a",
+  "start": 189.696,
+  "end": 189.946,
+  "line": "5.1"
+ },
+ {
+  "text": "color",
+  "start": 189.956,
+  "end": 190.566,
+  "line": "5.1"
+ },
+ {
+  "text": "is.",
+  "start": 190.576,
+  "end": 190.746,
+  "line": "5.1"
+ },
+ {
+  "text": "100%",
+  "start": 191.896,
+  "end": 192.886,
+  "line": "5.2"
+ },
+ {
+  "text": "saturation,",
+  "start": 192.896,
+  "end": 193.446,
+  "line": "5.2"
+ },
+ {
+  "text": "like",
+  "start": 193.456,
+  "end": 193.626,
+  "line": "5.2"
+ },
+ {
+  "text": "what",
+  "start": 193.636,
+  "end": 193.766,
+  "line": "5.2"
+ },
+ {
+  "text": "we",
+  "start": 193.776,
+  "end": 193.946,
+  "line": "5.2"
+ },
+ {
+  "text": "have",
+  "start": 193.956,
+  "end": 194.326,
+  "line": "5.2"
+ },
+ {
+  "text": "here,",
+  "start": 194.336,
+  "end": 194.606,
+  "line": "5.2"
+ },
+ {
+  "text": "means",
+  "start": 194.936,
+  "end": 195.106,
+  "line": "5.3"
+ },
+ {
+  "text": "the",
+  "start": 195.116,
+  "end": 195.346,
+  "line": "5.3"
+ },
+ {
+  "text": "highest",
+  "start": 195.356,
+  "end": 195.566,
+  "line": "5.3"
+ },
+ {
+  "text": "and",
+  "start": 195.576,
+  "end": 195.766,
+  "line": "5.3"
+ },
+ {
+  "text": "lowest",
+  "start": 195.776,
+  "end": 196.206,
+  "line": "5.3"
+ },
+ {
+  "text": "values",
+  "start": 196.216,
+  "end": 196.506,
+  "line": "5.3"
+ },
+ {
+  "text": "are",
+  "start": 196.516,
+  "end": 196.626,
+  "line": "5.3"
+ },
+ {
+  "text": "as",
+  "start": 196.636,
+  "end": 196.946,
+  "line": "5.3"
+ },
+ {
+  "text": "far",
+  "start": 196.956,
+  "end": 197.266,
+  "line": "5.3"
+ },
+ {
+  "text": "apart",
+  "start": 197.276,
+  "end": 197.506,
+  "line": "5.3"
+ },
+ {
+  "text": "as",
+  "start": 197.516,
+  "end": 197.626,
+  "line": "5.3"
+ },
+ {
+  "text": "they",
+  "start": 197.636,
+  "end": 197.806,
+  "line": "5.3"
+ },
+ {
+  "text": "can",
+  "start": 197.816,
+  "end": 198.206,
+  "line": "5.3"
+ },
+ {
+  "text": "Desaturating",
+  "start": 200.576,
+  "end": 201.626,
+  "line": "5.4"
+ },
+ {
+  "text": "reduces",
+  "start": 201.636,
+  "end": 201.926,
+  "line": "5.4"
+ },
+ {
+  "text": "the",
+  "start": 201.936,
+  "end": 202.146,
+  "line": "5.4"
+ },
+ {
+  "text": "range",
+  "start": 202.156,
+  "end": 202.506,
+  "line": "5.4"
+ },
+ {
+  "text": "between",
+  "start": 202.516,
+  "end": 202.806,
+  "line": "5.4"
+ },
+ {
+  "text": "red,",
+  "start": 202.816,
+  "end": 203.106,
+  "line": "5.4"
+ },
+ {
+  "text": "green",
+  "start": 203.116,
+  "end": 203.286,
+  "line": "5.4"
+ },
+ {
+  "text": "and",
+  "start": 203.296,
+  "end": 203.506,
+  "line": "5.4"
+ },
+ {
+  "text": "blue",
+  "start": 203.516,
+  "end": 203.886,
+  "line": "5.4"
+ },
+ {
+  "text": "proportionally.",
+  "start": 203.896,
+  "end": 204.496,
+  "line": "5.4"
+ },
+ {
+  "text": "When",
+  "start": 207.326,
+  "end": 207.476,
+  "line": "5.5"
+ },
+ {
+  "text": "all",
+  "start": 207.486,
+  "end": 207.696,
+  "line": "5.5"
+ },
+ {
+  "text": "three",
+  "start": 207.706,
+  "end": 208.036,
+  "line": "5.5"
+ },
+ {
+  "text": "values",
+  "start": 208.046,
+  "end": 208.236,
+  "line": "5.5"
+ },
+ {
+  "text": "are",
+  "start": 208.246,
+  "end": 208.576,
+  "line": "5.5"
+ },
+ {
+  "text": "equal,",
+  "start": 208.586,
+  "end": 208.876,
+  "line": "5.5"
+ },
+ {
+  "text": "there's",
+  "start": 208.886,
+  "end": 209.136,
+  "line": "5.5"
+ },
+ {
+  "text": "no",
+  "start": 209.146,
+  "end": 209.656,
+  "line": "5.5"
+ },
+ {
+  "text": "saturation",
+  "start": 209.666,
+  "end": 210.156,
+  "line": "5.5"
+ },
+ {
+  "text": "and",
+  "start": 210.166,
+  "end": 210.256,
+  "line": "5.5"
+ },
+ {
+  "text": "you're",
+  "start": 210.266,
+  "end": 210.456,
+  "line": "5.5"
+ },
+ {
+  "text": "left",
+  "start": 210.466,
+  "end": 210.676,
+  "line": "5.5"
+ },
+ {
+  "text": "with",
+  "start": 210.686,
+  "end": 210.996,
+  "line": "5.5"
+ },
+ {
+  "text": "gray.",
+  "start": 211.006,
+  "end": 211.226,
+  "line": "5.5"
+ },
+ {
+  "text": "Adding",
+  "start": 215.756,
+  "end": 216.226,
+  "line": "5.6"
+ },
+ {
+  "text": "saturation",
+  "start": 216.236,
+  "end": 216.946,
+  "line": "5.6"
+ },
+ {
+  "text": "increases",
+  "start": 216.956,
+  "end": 217.246,
+  "line": "5.6"
+ },
+ {
+  "text": "the",
+  "start": 217.256,
+  "end": 217.446,
+  "line": "5.6"
+ },
+ {
+  "text": "range",
+  "start": 217.456,
+  "end": 217.806,
+  "line": "5.6"
+ },
+ {
+  "text": "between",
+  "start": 217.816,
+  "end": 218.466,
+  "line": "5.6"
+ },
+ {
+  "text": "values.",
+  "start": 218.476,
+  "end": 218.786,
+  "line": "5.6"
+ },
+ {
+  "text": "Saturation",
+  "start": 219.786,
+  "end": 220.416,
+  "line": "5.7"
+ },
+ {
+  "text": "scales",
+  "start": 220.426,
+  "end": 220.616,
+  "line": "5.7"
+ },
+ {
+  "text": "off",
+  "start": 220.626,
+  "end": 220.756,
+  "line": "5.7"
+ },
+ {
+  "text": "the",
+  "start": 220.766,
+  "end": 221.016,
+  "line": "5.7"
+ },
+ {
+  "text": "highest",
+  "start": 221.026,
+  "end": 221.516,
+  "line": "5.7"
+ },
+ {
+  "text": "value.",
+  "start": 221.526,
+  "end": 222.226,
+  "line": "5.7"
+ },
+ {
+  "text": "For",
+  "start": 222.346,
+  "end": 222.496,
+  "line": "5.8"
+ },
+ {
+  "text": "this",
+  "start": 222.506,
+  "end": 222.836,
+  "line": "5.8"
+ },
+ {
+  "text": "orange,",
+  "start": 222.846,
+  "end": 223.156,
+  "line": "5.8"
+ },
+ {
+  "text": "it's",
+  "start": 223.166,
+  "end": 223.496,
+  "line": "5.8"
+ },
+ {
+  "text": "red,",
+  "start": 223.506,
+  "end": 223.996,
+  "line": "5.8"
+ },
+ {
+  "text": "which",
+  "start": 224.006,
+  "end": 224.216,
+  "line": "5.8"
+ },
+ {
+  "text": "holds",
+  "start": 224.226,
+  "end": 224.676,
+  "line": "5.8"
+ },
+ {
+  "text": "still.",
+  "start": 224.686,
+  "end": 224.886,
+  "line": "5.8"
+ },
+ {
+  "text": "Green",
+  "start": 225.886,
+  "end": 227.086,
+  "line": "5.9"
+ },
+ {
+  "text": "and",
+  "start": 232.006,
+  "end": 232.196,
+  "line": "5.9"
+ },
+ {
+  "text": "blue",
+  "start": 232.206,
+  "end": 232.496,
+  "line": "5.9"
+ },
+ {
+  "text": "move",
+  "start": 232.506,
+  "end": 232.736,
+  "line": "5.9"
+ },
+ {
+  "text": "towards",
+  "start": 232.746,
+  "end": 233.096,
+  "line": "5.9"
+ },
+ {
+  "text": "red",
+  "start": 233.106,
+  "end": 233.356,
+  "line": "5.9"
+ },
+ {
+  "text": "or",
+  "start": 233.366,
+  "end": 233.576,
+  "line": "5.9"
+ },
+ {
+  "text": "away",
+  "start": 233.586,
+  "end": 233.796,
+  "line": "5.9"
+ },
+ {
+  "text": "from",
+  "start": 233.806,
+  "end": 233.916,
+  "line": "5.9"
+ },
+ {
+  "text": "it",
+  "start": 233.926,
+  "end": 234.046,
+  "line": "5.9"
+ },
+ {
+  "text": "as",
+  "start": 234.146,
+  "end": 234.296,
+  "line": "5.10"
+ },
+ {
+  "text": "we",
+  "start": 234.306,
+  "end": 234.436,
+  "line": "5.10"
+ },
+ {
+  "text": "move",
+  "start": 234.446,
+  "end": 234.596,
+  "line": "5.10"
+ },
+ {
+  "text": "the",
+  "start": 234.606,
+  "end": 234.996,
+  "line": "5.10"
+ },
+ {
+  "text": "saturation",
+  "start": 235.006,
+  "end": 235.616,
+  "line": "5.10"
+ },
+ {
+  "text": "slider.",
+  "start": 235.626,
+  "end": 235.766,
+  "line": "5.10"
+ },
+ {
+  "text": "Notice",
+  "start": 236.766,
+  "end": 237.136,
+  "line": "5.11"
+ },
+ {
+  "text": "that",
+  "start": 237.146,
+  "end": 237.276,
+  "line": "5.11"
+ },
+ {
+  "text": "the",
+  "start": 237.286,
+  "end": 237.396,
+  "line": "5.11"
+ },
+ {
+  "text": "hue",
+  "start": 237.406,
+  "end": 237.596,
+  "line": "5.11"
+ },
+ {
+  "text": "didn't",
+  "start": 237.606,
+  "end": 238.056,
+  "line": "5.11"
+ },
+ {
+  "text": "change,",
+  "start": 238.066,
+  "end": 238.456,
+  "line": "5.11"
+ },
+ {
+  "text": "only",
+  "start": 238.466,
+  "end": 238.676,
+  "line": "5.11"
+ },
+ {
+  "text": "the",
+  "start": 238.686,
+  "end": 238.916,
+  "line": "5.11"
+ },
+ {
+  "text": "range",
+  "start": 238.926,
+  "end": 239.296,
+  "line": "5.11"
+ },
+ {
+  "text": "between",
+  "start": 239.306,
+  "end": 239.816,
+  "line": "5.11"
+ },
+ {
+  "text": "RGB",
+  "start": 239.826,
+  "end": 240.356,
+  "line": "5.11"
+ },
+ {
+  "text": "values",
+  "start": 240.366,
+  "end": 240.836,
+  "line": "5.11"
+ },
+ {
+  "text": "changed.",
+  "start": 240.846,
+  "end": 241.136,
+  "line": "5.11"
+ },
+ {
+  "text": "or",
+  "start": 241.461,
+  "end": 242.171,
+  "line": "5.12"
+ },
+ {
+  "text": "source",
+  "start": 242.181,
+  "end": 243.381,
+  "line": "5.12"
+ },
+ {
+  "text": "color",
+  "start": 244.581,
+  "end": 244.791,
+  "line": "5.12"
+ },
+ {
+  "text": "we",
+  "start": 244.801,
+  "end": 245.111,
+  "line": "5.12"
+ },
+ {
+  "text": "started",
+  "start": 245.121,
+  "end": 245.666,
+  "line": "5.12"
+ },
+ {
+  "text": "Brightness",
+  "start": 246.666,
+  "end": 247.256,
+  "line": "6.1"
+ },
+ {
+  "text": "determines",
+  "start": 247.266,
+  "end": 247.616,
+  "line": "6.1"
+ },
+ {
+  "text": "how",
+  "start": 247.626,
+  "end": 247.836,
+  "line": "6.1"
+ },
+ {
+  "text": "light",
+  "start": 247.846,
+  "end": 248.056,
+  "line": "6.1"
+ },
+ {
+  "text": "or",
+  "start": 248.066,
+  "end": 248.276,
+  "line": "6.1"
+ },
+ {
+  "text": "dark",
+  "start": 248.286,
+  "end": 248.456,
+  "line": "6.1"
+ },
+ {
+  "text": "a",
+  "start": 248.466,
+  "end": 248.676,
+  "line": "6.1"
+ },
+ {
+  "text": "color",
+  "start": 248.686,
+  "end": 249.176,
+  "line": "6.1"
+ },
+ {
+  "text": "is.",
+  "start": 249.186,
+  "end": 249.306,
+  "line": "6.1"
+ },
+ {
+  "text": "The",
+  "start": 251.406,
+  "end": 251.676,
+  "line": "6.2"
+ },
+ {
+  "text": "highest",
+  "start": 251.686,
+  "end": 252.116,
+  "line": "6.2"
+ },
+ {
+  "text": "RGB",
+  "start": 252.126,
+  "end": 252.576,
+  "line": "6.2"
+ },
+ {
+  "text": "value",
+  "start": 252.586,
+  "end": 252.936,
+  "line": "6.2"
+ },
+ {
+  "text": "sets",
+  "start": 252.946,
+  "end": 253.176,
+  "line": "6.2"
+ },
+ {
+  "text": "the",
+  "start": 253.186,
+  "end": 253.536,
+  "line": "6.2"
+ },
+ {
+  "text": "brightness.",
+  "start": 253.546,
+  "end": 253.936,
+  "line": "6.2"
+ },
+ {
+  "text": "As",
+  "start": 254.936,
+  "end": 255.066,
+  "line": "6.3"
+ },
+ {
+  "text": "we",
+  "start": 255.076,
+  "end": 255.306,
+  "line": "6.3"
+ },
+ {
+  "text": "adjust",
+  "start": 255.316,
+  "end": 255.486,
+  "line": "6.3"
+ },
+ {
+  "text": "the",
+  "start": 255.496,
+  "end": 255.726,
+  "line": "6.3"
+ },
+ {
+  "text": "brightness,",
+  "start": 255.736,
+  "end": 256.056,
+  "line": "6.3"
+ },
+ {
+  "text": "the",
+  "start": 256.176,
+  "end": 256.326,
+  "line": "6.4"
+ },
+ {
+  "text": "hue",
+  "start": 256.336,
+  "end": 256.446,
+  "line": "6.4"
+ },
+ {
+  "text": "and",
+  "start": 256.456,
+  "end": 256.826,
+  "line": "6.4"
+ },
+ {
+  "text": "saturation",
+  "start": 256.836,
+  "end": 257.126,
+  "line": "6.4"
+ },
+ {
+  "text": "are",
+  "start": 257.136,
+  "end": 257.646,
+  "line": "6.4"
+ },
+ {
+  "text": "maintained.",
+  "start": 257.656,
+  "end": 258.518,
+  "line": "6.4"
+ },
+ {
+  "text": "This",
+  "start": 258.916,
+  "end": 259.046,
+  "line": "6.5"
+ },
+ {
+  "text": "is",
+  "start": 259.056,
+  "end": 259.226,
+  "line": "6.5"
+ },
+ {
+  "text": "done",
+  "start": 259.236,
+  "end": 259.426,
+  "line": "6.5"
+ },
+ {
+  "text": "by",
+  "start": 259.436,
+  "end": 259.766,
+  "line": "6.5"
+ },
+ {
+  "text": "scaling",
+  "start": 259.776,
+  "end": 259.966,
+  "line": "6.5"
+ },
+ {
+  "text": "the",
+  "start": 259.976,
+  "end": 260.326,
+  "line": "6.5"
+ },
+ {
+  "text": "RGB",
+  "start": 260.336,
+  "end": 260.866,
+  "line": "6.5"
+ },
+ {
+  "text": "values",
+  "start": 260.876,
+  "end": 261.246,
+  "line": "6.5"
+ },
+ {
+  "text": "proportionally",
+  "start": 261.256,
+  "end": 262.066,
+  "line": "6.5"
+ },
+ {
+  "text": "off",
+  "start": 262.076,
+  "end": 262.266,
+  "line": "6.5"
+ },
+ {
+  "text": "of",
+  "start": 262.276,
+  "end": 262.546,
+  "line": "6.5"
+ },
+ {
+  "text": "zero.",
+  "start": 262.556,
+  "end": 262.798,
+  "line": "6.5"
+ },
+ {
+  "text": "At",
+  "start": 263.798,
+  "end": 264.168,
+  "line": "6.7"
+ },
+ {
+  "text": "100%",
+  "start": 264.178,
+  "end": 264.848,
+  "line": "6.7"
+ },
+ {
+  "text": "brightness,",
+  "start": 264.858,
+  "end": 265.188,
+  "line": "6.7"
+ },
+ {
+  "text": "the",
+  "start": 265.198,
+  "end": 265.388,
+  "line": "6.7"
+ },
+ {
+  "text": "hexagon",
+  "start": 265.398,
+  "end": 265.808,
+  "line": "6.7"
+ },
+ {
+  "text": "is",
+  "start": 265.818,
+  "end": 265.968,
+  "line": "6.7"
+ },
+ {
+  "text": "at",
+  "start": 265.978,
+  "end": 266.128,
+  "line": "6.7"
+ },
+ {
+  "text": "its",
+  "start": 266.138,
+  "end": 266.568,
+  "line": "6.7"
+ },
+ {
+  "text": "largest.",
+  "start": 266.578,
+  "end": 267.748,
+  "line": "6.7"
+ },
+ {
+  "text": "As",
+  "start": 267.858,
+  "end": 268.008,
+  "line": "6.8"
+ },
+ {
+  "text": "we",
+  "start": 268.018,
+  "end": 268.188,
+  "line": "6.8"
+ },
+ {
+  "text": "lower",
+  "start": 268.198,
+  "end": 268.348,
+  "line": "6.8"
+ },
+ {
+  "text": "the",
+  "start": 268.358,
+  "end": 268.668,
+  "line": "6.8"
+ },
+ {
+  "text": "brightness,",
+  "start": 268.678,
+  "end": 269.028,
+  "line": "6.8"
+ },
+ {
+  "text": "the",
+  "start": 269.038,
+  "end": 269.248,
+  "line": "6.8"
+ },
+ {
+  "text": "hexagon",
+  "start": 269.258,
+  "end": 269.988,
+  "line": "6.8"
+ },
+ {
+  "text": "contracts",
+  "start": 269.998,
+  "end": 270.698,
+  "line": "6.8"
+ },
+ {
+  "text": "and",
+  "start": 270.758,
+  "end": 270.988,
+  "line": "6.9"
+ },
+ {
+  "text": "red,",
+  "start": 270.998,
+  "end": 271.248,
+  "line": "6.9"
+ },
+ {
+  "text": "green,",
+  "start": 271.258,
+  "end": 271.448,
+  "line": "6.9"
+ },
+ {
+  "text": "and",
+  "start": 271.458,
+  "end": 271.628,
+  "line": "6.9"
+ },
+ {
+  "text": "blue",
+  "start": 271.638,
+  "end": 272.088,
+  "line": "6.9"
+ },
+ {
+  "text": "stems",
+  "start": 272.098,
+  "end": 272.428,
+  "line": "6.9"
+ },
+ {
+  "text": "shorten",
+  "start": 272.438,
+  "end": 272.748,
+  "line": "6.9"
+ },
+ {
+  "text": "with",
+  "start": 272.758,
+  "end": 273.048,
+  "line": "6.9"
+ },
+ {
+  "text": "Keeping",
+  "start": 273.898,
+  "end": 274.088,
+  "line": "6.10"
+ },
+ {
+  "text": "the",
+  "start": 274.098,
+  "end": 274.308,
+  "line": "6.10"
+ },
+ {
+  "text": "same",
+  "start": 274.318,
+  "end": 274.668,
+  "line": "6.10"
+ },
+ {
+  "text": "angles",
+  "start": 274.678,
+  "end": 274.848,
+  "line": "6.10"
+ },
+ {
+  "text": "and",
+  "start": 274.858,
+  "end": 275.348,
+  "line": "6.10"
+ },
+ {
+  "text": "proportions,",
+  "start": 275.358,
+  "end": 275.978,
+  "line": "6.10"
+ },
+ {
+  "text": "notice",
+  "start": 276.098,
+  "end": 276.368,
+  "line": "6.11"
+ },
+ {
+  "text": "we",
+  "start": 276.378,
+  "end": 276.648,
+  "line": "6.11"
+ },
+ {
+  "text": "stay",
+  "start": 276.658,
+  "end": 276.848,
+  "line": "6.11"
+ },
+ {
+  "text": "at",
+  "start": 276.858,
+  "end": 276.988,
+  "line": "6.11"
+ },
+ {
+  "text": "the",
+  "start": 276.998,
+  "end": 277.228,
+  "line": "6.11"
+ },
+ {
+  "text": "same",
+  "start": 277.238,
+  "end": 277.688,
+  "line": "6.11"
+ },
+ {
+  "text": "30",
+  "start": 277.698,
+  "end": 278.008,
+  "line": "6.11"
+ },
+ {
+  "text": "degree",
+  "start": 278.018,
+  "end": 278.348,
+  "line": "6.11"
+ },
+ {
+  "text": "orangy",
+  "start": 278.358,
+  "end": 278.848,
+  "line": "6.11"
+ },
+ {
+  "text": "color",
+  "start": 278.858,
+  "end": 279.228,
+  "line": "6.11"
+ },
+ {
+  "text": "while",
+  "start": 279.238,
+  "end": 279.548,
+  "line": "6.11"
+ },
+ {
+  "text": "moving",
+  "start": 279.558,
+  "end": 279.748,
+  "line": "6.11"
+ },
+ {
+  "text": "the",
+  "start": 279.758,
+  "end": 280.108,
+  "line": "6.11"
+ },
+ {
+  "text": "brightness.",
+  "start": 280.118,
+  "end": 280.498,
+  "line": "6.11"
+ },
+ {
+  "text": "We'll",
+  "start": 281.478,
+  "end": 281.608,
+  "line": "7.1"
+ },
+ {
+  "text": "use",
+  "start": 281.618,
+  "end": 281.748,
+  "line": "7.1"
+ },
+ {
+  "text": "the",
+  "start": 281.758,
+  "end": 281.928,
+  "line": "7.1"
+ },
+ {
+  "text": "swatches",
+  "start": 281.938,
+  "end": 282.368,
+  "line": "7.1"
+ },
+ {
+  "text": "section",
+  "start": 282.378,
+  "end": 282.648,
+  "line": "7.1"
+ },
+ {
+  "text": "to",
+  "start": 282.658,
+  "end": 282.828,
+  "line": "7.1"
+ },
+ {
+  "text": "show",
+  "start": 282.838,
+  "end": 283.048,
+  "line": "7.1"
+ },
+ {
+  "text": "how",
+  "start": 283.058,
+  "end": 283.188,
+  "line": "7.1"
+ },
+ {
+  "text": "we",
+  "start": 283.198,
+  "end": 283.368,
+  "line": "7.1"
+ },
+ {
+  "text": "can",
+  "start": 283.378,
+  "end": 283.568,
+  "line": "7.1"
+ },
+ {
+  "text": "use",
+  "start": 283.578,
+  "end": 283.848,
+  "line": "7.1"
+ },
+ {
+  "text": "HSB",
+  "start": 283.858,
+  "end": 284.588,
+  "line": "7.1"
+ },
+ {
+  "text": "to",
+  "start": 284.598,
+  "end": 284.788,
+  "line": "7.1"
+ },
+ {
+  "text": "set",
+  "start": 284.798,
+  "end": 285.048,
+  "line": "7.1"
+ },
+ {
+  "text": "six",
+  "start": 285.058,
+  "end": 285.368,
+  "line": "7.1"
+ },
+ {
+  "text": "different",
+  "start": 285.378,
+  "end": 285.928,
+  "line": "7.1"
+ },
+ {
+  "text": "variations",
+  "start": 285.938,
+  "end": 286.248,
+  "line": "7.1"
+ },
+ {
+  "text": "of",
+  "start": 286.258,
+  "end": 286.408,
+  "line": "7.1"
+ },
+ {
+  "text": "the",
+  "start": 286.418,
+  "end": 286.648,
+  "line": "7.1"
+ },
+ {
+  "text": "same",
+  "start": 286.658,
+  "end": 286.928,
+  "line": "7.1"
+ },
+ {
+  "text": "hue.",
+  "start": 286.938,
+  "end": 287.178,
+  "line": "7.1"
+ },
+ {
+  "text": "We",
+  "start": 289.828,
+  "end": 289.958,
+  "line": "7.2"
+ },
+ {
+  "text": "can",
+  "start": 289.968,
+  "end": 290.138,
+  "line": "7.2"
+ },
+ {
+  "text": "use",
+  "start": 290.148,
+  "end": 290.418,
+  "line": "7.2"
+ },
+ {
+  "text": "HSB",
+  "start": 290.428,
+  "end": 290.918,
+  "line": "7.2"
+ },
+ {
+  "text": "to",
+  "start": 290.928,
+  "end": 291.078,
+  "line": "7.2"
+ },
+ {
+  "text": "come",
+  "start": 291.088,
+  "end": 291.258,
+  "line": "7.2"
+ },
+ {
+  "text": "up",
+  "start": 291.268,
+  "end": 291.438,
+  "line": "7.2"
+ },
+ {
+  "text": "with",
+  "start": 291.448,
+  "end": 291.578,
+  "line": "7.2"
+ },
+ {
+  "text": "a",
+  "start": 291.588,
+  "end": 291.938,
+  "line": "7.2"
+ },
+ {
+  "text": "bright,",
+  "start": 291.948,
+  "end": 292.318,
+  "line": "7.2"
+ },
+ {
+  "text": "desaturated",
+  "start": 292.328,
+  "end": 293.318,
+  "line": "7.2"
+ },
+ {
+  "text": "orange,",
+  "start": 293.328,
+  "end": 293.642,
+  "line": "7.2"
+ },
+ {
+  "text": "then",
+  "start": 293.948,
+  "end": 294.118,
+  "line": "7.3"
+ },
+ {
+  "text": "go",
+  "start": 294.128,
+  "end": 294.358,
+  "line": "7.3"
+ },
+ {
+  "text": "down",
+  "start": 294.368,
+  "end": 294.538,
+  "line": "7.3"
+ },
+ {
+  "text": "the",
+  "start": 294.548,
+  "end": 294.858,
+  "line": "7.3"
+ },
+ {
+  "text": "scale",
+  "start": 294.868,
+  "end": 295.238,
+  "line": "7.3"
+ },
+ {
+  "text": "until",
+  "start": 295.248,
+  "end": 295.358,
+  "line": "7.3"
+ },
+ {
+  "text": "we",
+  "start": 295.368,
+  "end": 295.538,
+  "line": "7.3"
+ },
+ {
+  "text": "have",
+  "start": 295.548,
+  "end": 295.758,
+  "line": "7.3"
+ },
+ {
+  "text": "a",
+  "start": 295.768,
+  "end": 296.018,
+  "line": "7.3"
+ },
+ {
+  "text": "dark,",
+  "start": 296.028,
+  "end": 296.678,
+  "line": "7.3"
+ },
+ {
+  "text": "vibrant",
+  "start": 296.688,
+  "end": 297.298,
+  "line": "7.3"
+ },
+ {
+  "text": "variant.",
+  "start": 297.308,
+  "end": 297.652,
+  "line": "7.3"
+ },
+ {
+  "text": "This",
+  "start": 302.202,
+  "end": 302.332,
+  "line": "7.4"
+ },
+ {
+  "text": "is",
+  "start": 302.342,
+  "end": 302.532,
+  "line": "7.4"
+ },
+ {
+  "text": "hinting",
+  "start": 302.542,
+  "end": 302.812,
+  "line": "7.4"
+ },
+ {
+  "text": "at",
+  "start": 302.822,
+  "end": 302.972,
+  "line": "7.4"
+ },
+ {
+  "text": "what",
+  "start": 302.982,
+  "end": 303.112,
+  "line": "7.4"
+ },
+ {
+  "text": "a",
+  "start": 303.122,
+  "end": 303.372,
+  "line": "7.4"
+ },
+ {
+  "text": "design",
+  "start": 303.382,
+  "end": 303.772,
+  "line": "7.4"
+ },
+ {
+  "text": "system",
+  "start": 303.782,
+  "end": 304.012,
+  "line": "7.4"
+ },
+ {
+  "text": "might",
+  "start": 304.022,
+  "end": 304.512,
+  "line": "7.4"
+ },
+ {
+  "text": "We've",
+  "start": 308.462,
+  "end": 308.652,
+  "line": "8.1"
+ },
+ {
+  "text": "been",
+  "start": 308.662,
+  "end": 309.052,
+  "line": "8.1"
+ },
+ {
+  "text": "exploring",
+  "start": 309.062,
+  "end": 309.252,
+  "line": "8.1"
+ },
+ {
+  "text": "the",
+  "start": 309.262,
+  "end": 309.632,
+  "line": "8.1"
+ },
+ {
+  "text": "playground,",
+  "start": 309.642,
+  "end": 310.122,
+  "line": "8.1"
+ },
+ {
+  "text": "but",
+  "start": 310.182,
+  "end": 310.272,
+  "line": "8.2"
+ },
+ {
+  "text": "if",
+  "start": 310.282,
+  "end": 310.372,
+  "line": "8.2"
+ },
+ {
+  "text": "you",
+  "start": 310.382,
+  "end": 310.552,
+  "line": "8.2"
+ },
+ {
+  "text": "want",
+  "start": 310.562,
+  "end": 310.752,
+  "line": "8.2"
+ },
+ {
+  "text": "the",
+  "start": 310.762,
+  "end": 311.172,
+  "line": "8.2"
+ },
+ {
+  "text": "classroom",
+  "start": 311.182,
+  "end": 311.732,
+  "line": "8.2"
+ },
+ {
+  "text": "perspective,",
+  "start": 311.742,
+  "end": 312.132,
+  "line": "8.2"
+ },
+ {
+  "text": "check",
+  "start": 312.222,
+  "end": 312.352,
+  "line": "8.3"
+ },
+ {
+  "text": "out",
+  "start": 312.362,
+  "end": 312.472,
+  "line": "8.3"
+ },
+ {
+  "text": "the",
+  "start": 312.482,
+  "end": 312.832,
+  "line": "8.3"
+ },
+ {
+  "text": "equations",
+  "start": 312.842,
+  "end": 313.352,
+  "line": "8.3"
+ },
+ {
+  "text": "section.",
+  "start": 313.362,
+  "end": 313.592,
+  "line": "8.3"
+ },
+ {
+  "text": "It",
+  "start": 319.422,
+  "end": 319.652,
+  "line": "8.4"
+ },
+ {
+  "text": "shows",
+  "start": 319.662,
+  "end": 319.872,
+  "line": "8.4"
+ },
+ {
+  "text": "the",
+  "start": 319.882,
+  "end": 320.072,
+  "line": "8.4"
+ },
+ {
+  "text": "math",
+  "start": 320.082,
+  "end": 320.572,
+  "line": "8.4"
+ },
+ {
+  "text": "behind",
+  "start": 320.582,
+  "end": 320.812,
+  "line": "8.4"
+ },
+ {
+  "text": "hue,",
+  "start": 320.942,
+  "end": 321.472,
+  "line": "8.5"
+ },
+ {
+  "text": "saturation,",
+  "start": 321.582,
+  "end": 322.112,
+  "line": "8.6"
+ },
+ {
+  "text": "and",
+  "start": 322.122,
+  "end": 322.242,
+  "line": "8.6"
+ },
+ {
+  "text": "brightness,",
+  "start": 322.542,
+  "end": 322.892,
+  "line": "8.7"
+ },
+ {
+  "text": "as",
+  "start": 326.382,
+  "end": 326.552,
+  "line": "8.8"
+ },
+ {
+  "text": "well",
+  "start": 326.562,
+  "end": 326.712,
+  "line": "8.8"
+ },
+ {
+  "text": "as",
+  "start": 326.722,
+  "end": 326.912,
+  "line": "8.8"
+ },
+ {
+  "text": "how",
+  "start": 326.922,
+  "end": 327.212,
+  "line": "8.8"
+ },
+ {
+  "text": "hex",
+  "start": 327.222,
+  "end": 327.532,
+  "line": "8.8"
+ },
+ {
+  "text": "and",
+  "start": 327.542,
+  "end": 327.892,
+  "line": "8.8"
+ },
+ {
+  "text": "normalized",
+  "start": 327.902,
+  "end": 328.272,
+  "line": "8.8"
+ },
+ {
+  "text": "colors",
+  "start": 328.282,
+  "end": 328.492,
+  "line": "8.8"
+ },
+ {
+  "text": "are",
+  "start": 328.502,
+  "end": 329.072,
+  "line": "8.8"
+ },
+ {
+  "text": "calculated.",
+  "start": 329.082,
+  "end": 329.342,
+  "line": "8.8"
+ },
+ {
+  "text": "Now",
+  "start": 334.692,
+  "end": 334.822,
+  "line": "9.1"
+ },
+ {
+  "text": "we",
+  "start": 334.832,
+  "end": 334.962,
+  "line": "9.1"
+ },
+ {
+  "text": "can",
+  "start": 334.972,
+  "end": 335.102,
+  "line": "9.1"
+ },
+ {
+  "text": "move",
+  "start": 335.112,
+  "end": 335.302,
+  "line": "9.1"
+ },
+ {
+  "text": "on",
+  "start": 335.312,
+  "end": 335.462,
+  "line": "9.1"
+ },
+ {
+  "text": "to",
+  "start": 335.472,
+  "end": 335.582,
+  "line": "9.1"
+ },
+ {
+  "text": "the",
+  "start": 335.592,
+  "end": 335.822,
+  "line": "9.1"
+ },
+ {
+  "text": "demo.",
+  "start": 335.832,
+  "end": 336.032,
+  "line": "9.1"
+ },
+ {
+  "text": "Start",
+  "start": 340.562,
+  "end": 340.712,
+  "line": "10.1"
+ },
+ {
+  "text": "with",
+  "start": 340.722,
+  "end": 340.852,
+  "line": "10.1"
+ },
+ {
+  "text": "the",
+  "start": 340.862,
+  "end": 340.992,
+  "line": "10.1"
+ },
+ {
+  "text": "sliders",
+  "start": 341.002,
+  "end": 341.392,
+  "line": "10.1"
+ },
+ {
+  "text": "and",
+  "start": 341.402,
+  "end": 341.712,
+  "line": "10.1"
+ },
+ {
+  "text": "controls",
+  "start": 341.722,
+  "end": 341.952,
+  "line": "10.1"
+ },
+ {
+  "text": "you",
+  "start": 341.962,
+  "end": 342.332,
+  "line": "10.1"
+ },
+ {
+  "text": "already",
+  "start": 342.342,
+  "end": 342.882,
+  "line": "10.1"
+ },
+ {
+  "text": "Moving",
+  "start": 345.052,
+  "end": 345.342,
+  "line": "10.2"
+ },
+ {
+  "text": "one",
+  "start": 345.352,
+  "end": 345.722,
+  "line": "10.2"
+ },
+ {
+  "text": "slider",
+  "start": 345.732,
+  "end": 345.922,
+  "line": "10.2"
+ },
+ {
+  "text": "will",
+  "start": 345.932,
+  "end": 346.262,
+  "line": "10.2"
+ },
+ {
+  "text": "highlight",
+  "start": 346.272,
+  "end": 346.602,
+  "line": "10.2"
+ },
+ {
+  "text": "every",
+  "start": 346.612,
+  "end": 346.842,
+  "line": "10.2"
+ },
+ {
+  "text": "other",
+  "start": 346.852,
+  "end": 347.182,
+  "line": "10.2"
+ },
+ {
+  "text": "slider",
+  "start": 347.192,
+  "end": 347.382,
+  "line": "10.2"
+ },
+ {
+  "text": "it",
+  "start": 347.392,
+  "end": 347.762,
+  "line": "10.2"
+ },
+ {
+  "text": "affects.",
+  "start": 347.772,
+  "end": 348.132,
+  "line": "10.2"
+ },
+ {
+  "text": "Click",
+  "start": 349.112,
+  "end": 349.262,
+  "line": "10.3"
+ },
+ {
+  "text": "the",
+  "start": 349.272,
+  "end": 349.422,
+  "line": "10.3"
+ },
+ {
+  "text": "droplet",
+  "start": 349.432,
+  "end": 349.482,
+  "line": "10.3"
+ },
+ {
+  "text": "button",
+  "start": 349.432,
+  "end": 349.482,
+  "line": "10.3"
+ },
+ {
+  "text": "to",
+  "start": 349.432,
+  "end": 349.482,
+  "line": "10.3"
+ },
+ {
+  "text": "switch",
+  "start": 349.432,
+  "end": 349.482,
+  "line": "10.3"
+ },
+ {
+  "text": "between",
+  "start": 349.432,
+  "end": 349.482,
+  "line": "10.3"
+ },
+ {
+  "text": "source",
+  "start": 349.432,
+  "end": 349.482,
+  "line": "10.3"
+ },
+ {
+  "text": "or",
+  "start": 349.432,
+  "end": 349.482,
+  "line": "10.3"
+ },
+ {
+  "text": "mixed",
+  "start": 349.432,
+  "end": 349.482,
+  "line": "10.3"
+ },
+ {
+  "text": "color",
+  "start": 349.432,
+  "end": 349.482,
+  "line": "10.3"
+ },
+ {
+  "text": "sliders.",
+  "start": 349.432,
+  "end": 350.632,
+  "line": "10.3"
+ },
+ {
+  "text": "Click",
+  "start": 357.362,
+  "end": 357.552,
+  "line": "10.4"
+ },
+ {
+  "text": "the",
+  "start": 357.562,
+  "end": 357.812,
+  "line": "10.4"
+ },
+ {
+  "text": "tags",
+  "start": 357.822,
+  "end": 358.092,
+  "line": "10.4"
+ },
+ {
+  "text": "button",
+  "start": 358.102,
+  "end": 358.292,
+  "line": "10.4"
+ },
+ {
+  "text": "to",
+  "start": 358.302,
+  "end": 358.532,
+  "line": "10.4"
+ },
+ {
+  "text": "show",
+  "start": 358.542,
+  "end": 359.012,
+  "line": "10.4"
+ },
+ {
+  "text": "HTML",
+  "start": 359.022,
+  "end": 359.452,
+  "line": "10.4"
+ },
+ {
+  "text": "colors",
+  "start": 359.462,
+  "end": 359.652,
+  "line": "10.4"
+ },
+ {
+  "text": "on",
+  "start": 359.662,
+  "end": 359.812,
+  "line": "10.4"
+ },
+ {
+  "text": "the",
+  "start": 359.822,
+  "end": 359.952,
+  "line": "10.4"
+ },
+ {
+  "text": "hexagon.",
+  "start": 359.962,
+  "end": 360.522,
+  "line": "10.4"
+ },
+ {
+  "text": "Drag",
+  "start": 363.172,
+  "end": 363.322,
+  "line": "10.5"
+ },
+ {
+  "text": "a",
+  "start": 363.332,
+  "end": 363.522,
+  "line": "10.5"
+ },
+ {
+  "text": "handle",
+  "start": 363.532,
+  "end": 363.722,
+  "line": "10.5"
+ },
+ {
+  "text": "on",
+  "start": 363.732,
+  "end": 363.842,
+  "line": "10.5"
+ },
+ {
+  "text": "the",
+  "start": 363.852,
+  "end": 364.042,
+  "line": "10.5"
+ },
+ {
+  "text": "hexagon",
+  "start": 364.052,
+  "end": 364.602,
+  "line": "10.5"
+ },
+ {
+  "text": "and",
+  "start": 364.612,
+  "end": 364.842,
+  "line": "10.5"
+ },
+ {
+  "text": "watch",
+  "start": 364.852,
+  "end": 365.002,
+  "line": "10.5"
+ },
+ {
+  "text": "the",
+  "start": 365.012,
+  "end": 365.362,
+  "line": "10.5"
+ },
+ {
+  "text": "RGB",
+  "start": 365.372,
+  "end": 365.742,
+  "line": "10.5"
+ },
+ {
+  "text": "and",
+  "start": 365.752,
+  "end": 365.902,
+  "line": "10.5"
+ },
+ {
+  "text": "HSB",
+  "start": 365.912,
+  "end": 366.402,
+  "line": "10.5"
+ },
+ {
+  "text": "sliders",
+  "start": 366.412,
+  "end": 367.042,
+  "line": "10.5"
+ },
+ {
+  "text": "follow.",
+  "start": 367.052,
+  "end": 367.302,
+  "line": "10.5"
+ },
+ {
+  "text": "Have",
+  "start": 368.302,
+  "end": 368.492,
+  "line": "10.6"
+ },
+ {
+  "text": "fun",
+  "start": 368.502,
+  "end": 368.952,
+  "line": "10.6"
+ },
+ {
+  "text": "exploring",
+  "start": 368.962,
+  "end": 369.132,
+  "line": "10.6"
+ },
+ {
+  "text": "and",
+  "start": 369.142,
+  "end": 369.352,
+  "line": "10.6"
+ },
+ {
+  "text": "learning",
+  "start": 369.362,
+  "end": 369.592,
+  "line": "10.6"
+ },
+ {
+  "text": "about",
+  "start": 369.602,
+  "end": 369.912,
+  "line": "10.6"
+ },
+ {
+  "text": "different",
+  "start": 369.922,
+  "end": 370.072,
+  "line": "10.6"
+ },
+ {
+  "text": "color",
+  "start": 370.082,
+  "end": 370.532,
+  "line": "10.6"
+ },
+ {
+  "text": "models.",
+  "start": 370.542,
+  "end": 370.882,
+  "line": "10.6"
+ },
+ {
+  "text": "If",
+  "start": 374.722,
+  "end": 375.922,
+  "line": "11.1"
+ },
+ {
+  "text": "you",
+  "start": 376.742,
+  "end": 376.952,
+  "line": "11.1"
+ },
+ {
+  "text": "use",
+  "start": 376.962,
+  "end": 377.132,
+  "line": "11.1"
+ },
+ {
+  "text": "Figma,",
+  "start": 377.142,
+  "end": 377.532,
+  "line": "11.1"
+ },
+ {
+  "text": "I've",
+  "start": 377.542,
+  "end": 377.772,
+  "line": "11.1"
+ },
+ {
+  "text": "also",
+  "start": 377.782,
+  "end": 377.912,
+  "line": "11.1"
+ },
+ {
+  "text": "made",
+  "start": 377.922,
+  "end": 378.092,
+  "line": "11.1"
+ },
+ {
+  "text": "a",
+  "start": 378.102,
+  "end": 378.312,
+  "line": "11.1"
+ },
+ {
+  "text": "color-tailor",
+  "start": 378.322,
+  "end": 378.932,
+  "line": "11.1"
+ },
+ {
+  "text": "plugin",
+  "start": 378.942,
+  "end": 379.212,
+  "line": "11.1"
+ },
+ {
+  "text": "that",
+  "start": 379.222,
+  "end": 379.352,
+  "line": "11.1"
+ },
+ {
+  "text": "you",
+  "start": 379.362,
+  "end": 379.512,
+  "line": "11.1"
+ },
+ {
+  "text": "might",
+  "start": 379.522,
+  "end": 379.732,
+  "line": "11.1"
+ },
+ {
+  "text": "like",
+  "start": 379.742,
+  "end": 379.872,
+  "line": "11.1"
+ },
+ {
+  "text": "to",
+  "start": 379.882,
+  "end": 380.072,
+  "line": "11.1"
+ },
+ {
+  "text": "check",
+  "start": 380.082,
+  "end": 380.442,
+  "line": "11.1"
+ },
+ {
+  "text": "That's",
+  "start": 381.542,
+  "end": 381.852,
+  "line": "11.2"
+ },
+ {
+  "text": "color-tailor.",
+  "start": 381.862,
+  "end": 382.732,
+  "line": "11.2"
+ },
+ {
+  "text": "Go",
+  "start": 383.002,
+  "end": 383.172,
+  "line": "11.3"
+ },
+ {
+  "text": "play",
+  "start": 383.182,
+  "end": 383.312,
+  "line": "11.3"
+ },
+ {
+  "text": "with",
+  "start": 383.322,
+  "end": 383.492,
+  "line": "11.3"
+ },
+ {
+  "text": "it.",
+  "start": 383.502,
+  "end": 383.752,
+  "line": "11.3"
+ },
+ {
+  "text": "And",
+  "start": 383.762,
+  "end": 383.852,
+  "line": "11.3"
+ },
+ {
+  "text": "I",
+  "start": 383.862,
+  "end": 383.952,
+  "line": "11.3"
+ },
+ {
+  "text": "hope",
+  "start": 383.962,
+  "end": 384.092,
+  "line": "11.3"
+ },
+ {
+  "text": "it",
+  "start": 384.102,
+  "end": 384.272,
+  "line": "11.3"
+ },
+ {
+  "text": "helps",
+  "start": 384.282,
+  "end": 384.432,
+  "line": "11.3"
+ },
+ {
+  "text": "you",
+  "start": 384.442,
+  "end": 384.572,
+  "line": "11.3"
+ },
+ {
+  "text": "see",
+  "start": 384.582,
+  "end": 384.692,
+  "line": "11.3"
+ },
+ {
+  "text": "the",
+  "start": 384.702,
+  "end": 385.172,
+  "line": "11.3"
+ },
+ {
+  "text": "relationship",
+  "start": 385.182,
+  "end": 385.592,
+  "line": "11.3"
+ },
+ {
+  "text": "between",
+  "start": 385.602,
+  "end": 386.012,
+  "line": "11.3"
+ },
+ {
+  "text": "RGB",
+  "start": 386.022,
+  "end": 386.412,
+  "line": "11.3"
+ },
+ {
+  "text": "and",
+  "start": 386.422,
+  "end": 386.612,
+  "line": "11.3"
+ },
+ {
+  "text": "HSB",
+  "start": 386.622,
+  "end": 387.192,
+  "line": "11.3"
+ },
+ {
+  "text": "in",
+  "start": 387.202,
+  "end": 387.312,
+  "line": "11.3"
+ },
+ {
+  "text": "a",
+  "start": 387.322,
+  "end": 387.512,
+  "line": "11.3"
+ },
+ {
+  "text": "different",
+  "start": 387.522,
+  "end": 387.752,
+  "line": "11.3"
+ },
+ {
+  "text": "light.",
+  "start": 387.762,
+  "end": 387.932,
+  "line": "11.3"
+ },
+ {
+  "text": "If",
+  "start": 392.572,
+  "end": 392.682,
+  "line": "11.4"
+ },
+ {
+  "text": "it's",
+  "start": 392.692,
+  "end": 393.122,
+  "line": "11.4"
+ },
+ {
+  "text": "useful,",
+  "start": 393.132,
+  "end": 393.362,
+  "line": "11.4"
+ },
+ {
+  "text": "I'd",
+  "start": 393.372,
+  "end": 393.502,
+  "line": "11.4"
+ },
+ {
+  "text": "like",
+  "start": 393.512,
+  "end": 393.602,
+  "line": "11.4"
+ },
+ {
+  "text": "to",
+  "start": 393.612,
+  "end": 393.722,
+  "line": "11.4"
+ },
+ {
+  "text": "hear",
+  "start": 393.732,
+  "end": 393.902,
+  "line": "11.4"
+ },
+ {
+  "text": "from",
+  "start": 393.912,
+  "end": 394.062,
+  "line": "11.4"
+ },
+ {
+  "text": "you.",
+  "start": 394.072,
+  "end": 394.502,
+  "line": "11.4"
+ },
+ {
+  "text": "Questions",
+  "start": 394.512,
+  "end": 394.742,
+  "line": "11.4"
+ },
+ {
+  "text": "and",
+  "start": 394.752,
+  "end": 394.942,
+  "line": "11.4"
+ },
+ {
+  "text": "feedback",
+  "start": 394.952,
+  "end": 395.242,
+  "line": "11.4"
+ },
+ {
+  "text": "are",
+  "start": 395.252,
+  "end": 395.582,
+  "line": "11.4"
+ },
+ {
+  "text": "welcome.",
+  "start": 395.592,
+  "end": 395.802,
+  "line": "11.4"
+ }
+]
