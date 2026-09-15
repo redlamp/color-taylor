@@ -15,9 +15,12 @@
  * keyframes, `{ t, ms?, ease?, regions }`, where `regions` holds one region
  * per ratio: `"16:9"` always, and `"1:1"`, `"9:16"`, `"4:5"` when they have
  * been set. A region is `{ target, pad? }` (preferred: it survives a layout
- * change), `{ x, y, w, h }` in CSS px, or the string `"reset"`. Separate from
- * the action cues on purpose - a re-time of the choreography must never touch
- * the frames, and the choreography stays ratio-agnostic.
+ * change), `{ zoom, at? }` (the capture box's own size divided by `zoom`,
+ * centred on `at`'s target - the app root when `at` is not said - and slid,
+ * never shrunk, to stay inside the app root), `{ x, y, w, h }` in CSS px, or
+ * the string `"reset"`. Separate from the action cues on purpose - a re-time
+ * of the choreography must never touch the frames, and the choreography
+ * stays ratio-agnostic.
  *
  * **Timing: `t`, `ms`, `hold`.** They are three different things and the file
  * is unreadable if they are confused, so, exactly:
@@ -102,6 +105,7 @@ const outlineLabel: CSSProperties = {
 
 export type Region =
   | { target: string; pad?: number }
+  | { zoom: number; at?: string }
   | { x: number; y: number; w: number; h: number }
   | 'reset';
 
@@ -189,12 +193,33 @@ function frameTargetRect(name: string, host: DemoHost): Rect | null {
   return r ? toRect(r) : null;
 }
 
+/**
+ * Slide `r` inside `b` rather than shrink it: each axis is clamped only when
+ * `r` fits within `b` on that axis, and centred on it when `r` is the larger
+ * of the two - which is what a zoom past the app root's own size needs.
+ */
+function slideInto(r: Rect, b: Rect): Rect {
+  const x = r.w <= b.w ? Math.min(Math.max(r.x, b.x), b.x + b.w - r.w) : b.x + (b.w - r.w) / 2;
+  const y = r.h <= b.h ? Math.min(Math.max(r.y, b.y), b.y + b.h - r.h) : b.y + (b.h - r.h) / 2;
+  return { x, y, w: r.w, h: r.h };
+}
+
 /** A region as a rect of the page, measured now. Null when it cannot be. */
-function regionRect(region: Region, host: DemoHost): Rect | null {
+function regionRect(region: Region, host: DemoHost, box?: CaptureBox | null): Rect | null {
   if (region === 'reset') return frameTargetRect('app-root', host);
   if ('target' in region) {
     const r = frameTargetRect(region.target, host);
     return r ? pad(r, region.pad ?? 0) : null;
+  }
+  if ('zoom' in region) {
+    if (!box) return null;
+    const root = frameTargetRect('app-root', host);
+    const w = box.width / region.zoom;
+    const h = box.height / region.zoom;
+    const center = (region.at ? frameTargetRect(region.at, host) : null) ?? root;
+    if (!center) return null;
+    const raw = { x: center.x + center.w / 2 - w / 2, y: center.y + center.h / 2 - h / 2, w, h };
+    return root ? slideInto(raw, root) : raw;
   }
   return { x: region.x, y: region.y, w: region.w, h: region.h };
 }
@@ -540,7 +565,7 @@ export function useFrames({ name, host, time, enabled, authoring }: UseFramesOpt
     if (measured.current?.key !== measureKey) {
       const measure = (i: number): Rect | null => {
         const region = i >= 0 ? regionFor(keyframes[i] ?? null, ratio) : 'reset';
-        return withIdentity(root, () => regionRect(region, hostRef.current))
+        return withIdentity(root, () => regionRect(region, hostRef.current, box))
           ?? withIdentity(root, () => frameTargetRect('app-root', hostRef.current));
       };
       // The keyframe in force is the one the editor is composing, so its other
@@ -550,7 +575,7 @@ export function useFrames({ name, host, time, enabled, authoring }: UseFramesOpt
       if (kf) {
         for (const r of RATIOS) {
           if (r === ratio || !kf.regions[r]) continue;
-          const rect = withIdentity(root, () => regionRect(kf.regions[r]!, hostRef.current));
+          const rect = withIdentity(root, () => regionRect(kf.regions[r]!, hostRef.current, box));
           if (rect) others.push({ ratio: r, rect });
         }
       }
