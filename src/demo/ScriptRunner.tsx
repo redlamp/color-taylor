@@ -26,7 +26,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { frameScale } from './frameState';
+import { captureBox } from './frameState';
 import DemoCursor, {
   CURSOR_BOX, CURSOR_TILT_MAX, cursorKind, cursorTilt, hotspotOf, type CursorKind,
 } from './DemoCursor';
@@ -2216,15 +2216,21 @@ export default function ScriptRunner({
       return taker ? (taker.at - a.at) * 1000 : Infinity;
     };
     /*
-     * The ceiling the hand is actually held to.
+     * The ceiling the hand is actually held to: MAX_MOVE_PX_PER_S, in page
+     * px, whatever the frame layer is doing.
      *
-     * MAX_MOVE_PX_PER_S is stated in page px, and the frame layer scales the
-     * page: pushed in by 2x, a move that keeps to 700 page px/s crosses the
-     * capture at 1400 px/s, which is the jetting the cap exists to stop. So
-     * the cap is divided by the live scale, and with no frame layer mounted
-     * `frameScale()` is 1 and this is the constant.
+     * It used to be divided by the live frame scale, so that a page pushed in
+     * by 1.3x still crossed the capture at 700 px/s. But the cut's timing was
+     * authored at 1.0: every reach is budgeted in page px against the cue
+     * behind it, and dividing the cap stretched each reach by the zoom, so
+     * the drag after it was still running when the next cue took the hands
+     * and cut it off. The framed take of 2026-09-15 landed the hexagon's
+     * saturation drag at 84 of 100 that way (the 0.9 s drag at 76% when the
+     * 1.8 s to the next cue ran out), and the closing drag-in of the camera
+     * panel arrived seconds late. A hand that is a little quicker on the
+     * screen under a zoom is the lesser cost by far.
      */
-    const effectiveCap = () => MAX_MOVE_PX_PER_S / frameScale();
+    const effectiveCap = () => MAX_MOVE_PX_PER_S;
     const d = new Driver(stage, {
       reduced: false,
       speed: 1,
@@ -3246,6 +3252,13 @@ export default function ScriptRunner({
           return;
         }
         case 'scroll': {
+          // Under a frame layer the frame does the framing: its regions are
+          // measured against the unscrolled page, so a scroll here moves the
+          // app under a frame that stays put, and the framed take of
+          // 2026-09-15 lost the app's title bar at 3:57 that way. The zoom
+          // plan is written so that what a scroll would bring in already
+          // fits, and beats that need the whole page fit it with `reset`.
+          if (captureBox()) return;
           if (a.target === 'top') {
             window.scrollTo({ top: 0, behavior: 'smooth' });
             return;
