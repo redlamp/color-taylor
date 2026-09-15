@@ -1,6 +1,6 @@
 {
   "source": "masters/cut-05.m4a",
-  "notes": "Built from cues/cut-05-actions-extra.json on the line times in cues/cut-05-lines.json; see tools/script-table/retime-actions.mjs.",
+  "notes": "Built from videos/color-taylor-demo-test/cues/cut-05-actions-extra.json on the line times in videos/color-taylor-demo-test/cues/cut-05-lines.json; see tools/script-table/retime-actions.mjs.",
   "actions": [
     {
       "do": "pip",
@@ -958,7 +958,7 @@
       "hands": "free",
       "live": true,
       "ms": 900,
-      "hold": 8830,
+      "hold": 11500,
       "at": 242.52
     },
     {
@@ -1009,7 +1009,7 @@
         38
       ],
       "ms": 400,
-      "at": 250.14
+      "at": 250.39
     },
     {
       "do": "click",
@@ -1172,14 +1172,14 @@
           4
         ]
       ],
-      "ms": 1200,
+      "ms": 1000,
       "at": 322.03
     },
     {
       "do": "pip",
       "to": "on",
       "ms": 1100,
-      "at": 323.63
+      "at": 323.03
     },
     {
       "do": "box",
@@ -1188,8 +1188,8 @@
         62,
         80
       ],
-      "ms": 1200,
-      "at": 326.05
+      "ms": 1100,
+      "at": 326.25
     },
     {
       "do": "box",
