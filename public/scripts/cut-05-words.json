@@ -2707,1994 +2707,1994 @@
  },
  {
   "text": "and",
-  "start": 232.006,
-  "end": 232.196,
+  "start": 228.606,
+  "end": 228.796,
   "line": "5.9"
  },
  {
   "text": "blue",
-  "start": 232.206,
-  "end": 232.496,
+  "start": 228.806,
+  "end": 229.096,
   "line": "5.9"
  },
  {
   "text": "move",
-  "start": 232.506,
-  "end": 232.736,
+  "start": 229.106,
+  "end": 229.336,
   "line": "5.9"
  },
  {
   "text": "towards",
-  "start": 232.746,
-  "end": 233.096,
+  "start": 229.346,
+  "end": 229.696,
   "line": "5.9"
  },
  {
   "text": "red",
-  "start": 233.106,
-  "end": 233.356,
+  "start": 229.706,
+  "end": 229.956,
   "line": "5.9"
  },
  {
   "text": "or",
-  "start": 233.366,
-  "end": 233.576,
+  "start": 229.966,
+  "end": 230.176,
   "line": "5.9"
  },
  {
   "text": "away",
-  "start": 233.586,
-  "end": 233.796,
+  "start": 230.186,
+  "end": 230.396,
   "line": "5.9"
  },
  {
   "text": "from",
-  "start": 233.806,
-  "end": 233.916,
+  "start": 230.406,
+  "end": 230.516,
   "line": "5.9"
  },
  {
   "text": "it",
-  "start": 233.926,
-  "end": 234.046,
+  "start": 230.526,
+  "end": 230.646,
   "line": "5.9"
  },
  {
   "text": "as",
-  "start": 234.146,
-  "end": 234.296,
+  "start": 230.746,
+  "end": 230.896,
   "line": "5.10"
  },
  {
   "text": "we",
-  "start": 234.306,
-  "end": 234.436,
+  "start": 230.906,
+  "end": 231.036,
   "line": "5.10"
  },
  {
   "text": "move",
-  "start": 234.446,
-  "end": 234.596,
+  "start": 231.046,
+  "end": 231.196,
   "line": "5.10"
  },
  {
   "text": "the",
-  "start": 234.606,
-  "end": 234.996,
+  "start": 231.206,
+  "end": 231.596,
   "line": "5.10"
  },
  {
   "text": "saturation",
-  "start": 235.006,
-  "end": 235.616,
+  "start": 231.606,
+  "end": 232.216,
   "line": "5.10"
  },
  {
   "text": "slider.",
-  "start": 235.626,
-  "end": 235.766,
+  "start": 232.226,
+  "end": 232.366,
   "line": "5.10"
  },
  {
   "text": "Notice",
-  "start": 236.766,
-  "end": 237.136,
+  "start": 233.366,
+  "end": 233.736,
   "line": "5.11"
  },
  {
   "text": "that",
-  "start": 237.146,
-  "end": 237.276,
+  "start": 233.746,
+  "end": 233.876,
   "line": "5.11"
  },
  {
   "text": "the",
-  "start": 237.286,
-  "end": 237.396,
+  "start": 233.886,
+  "end": 233.996,
   "line": "5.11"
  },
  {
   "text": "hue",
-  "start": 237.406,
-  "end": 237.596,
+  "start": 234.006,
+  "end": 234.196,
   "line": "5.11"
  },
  {
   "text": "didn't",
-  "start": 237.606,
-  "end": 238.056,
+  "start": 234.206,
+  "end": 234.656,
   "line": "5.11"
  },
  {
   "text": "change,",
-  "start": 238.066,
-  "end": 238.456,
+  "start": 234.666,
+  "end": 235.056,
   "line": "5.11"
  },
  {
   "text": "only",
-  "start": 238.466,
-  "end": 238.676,
+  "start": 235.066,
+  "end": 235.276,
   "line": "5.11"
  },
  {
   "text": "the",
-  "start": 238.686,
-  "end": 238.916,
+  "start": 235.286,
+  "end": 235.516,
   "line": "5.11"
  },
  {
   "text": "range",
-  "start": 238.926,
-  "end": 239.296,
+  "start": 235.526,
+  "end": 235.896,
   "line": "5.11"
  },
  {
   "text": "between",
-  "start": 239.306,
-  "end": 239.816,
+  "start": 235.906,
+  "end": 236.416,
   "line": "5.11"
  },
  {
   "text": "RGB",
-  "start": 239.826,
-  "end": 240.356,
+  "start": 236.426,
+  "end": 236.956,
   "line": "5.11"
  },
  {
   "text": "values",
-  "start": 240.366,
-  "end": 240.836,
+  "start": 236.966,
+  "end": 237.436,
   "line": "5.11"
  },
  {
   "text": "changed.",
-  "start": 240.846,
-  "end": 241.136,
+  "start": 237.446,
+  "end": 237.736,
   "line": "5.11"
  },
  {
   "text": "or",
-  "start": 241.461,
-  "end": 242.171,
+  "start": 238.061,
+  "end": 238.771,
   "line": "5.12"
  },
  {
   "text": "source",
-  "start": 242.181,
-  "end": 243.381,
+  "start": 238.781,
+  "end": 239.981,
   "line": "5.12"
  },
  {
   "text": "color",
-  "start": 244.581,
-  "end": 244.791,
+  "start": 241.181,
+  "end": 241.391,
   "line": "5.12"
  },
  {
   "text": "we",
-  "start": 244.801,
-  "end": 245.111,
+  "start": 241.401,
+  "end": 241.711,
   "line": "5.12"
  },
  {
   "text": "started",
-  "start": 245.121,
-  "end": 245.666,
+  "start": 241.721,
+  "end": 242.266,
   "line": "5.12"
  },
  {
   "text": "Brightness",
-  "start": 246.666,
-  "end": 247.256,
+  "start": 243.266,
+  "end": 243.856,
   "line": "6.1"
  },
  {
   "text": "determines",
-  "start": 247.266,
-  "end": 247.616,
+  "start": 243.866,
+  "end": 244.216,
   "line": "6.1"
  },
  {
   "text": "how",
-  "start": 247.626,
-  "end": 247.836,
+  "start": 244.226,
+  "end": 244.436,
   "line": "6.1"
  },
  {
   "text": "light",
-  "start": 247.846,
-  "end": 248.056,
+  "start": 244.446,
+  "end": 244.656,
   "line": "6.1"
  },
  {
   "text": "or",
-  "start": 248.066,
-  "end": 248.276,
+  "start": 244.666,
+  "end": 244.876,
   "line": "6.1"
  },
  {
   "text": "dark",
-  "start": 248.286,
-  "end": 248.456,
+  "start": 244.886,
+  "end": 245.056,
   "line": "6.1"
  },
  {
   "text": "a",
-  "start": 248.466,
-  "end": 248.676,
+  "start": 245.066,
+  "end": 245.276,
   "line": "6.1"
  },
  {
   "text": "color",
-  "start": 248.686,
-  "end": 249.176,
+  "start": 245.286,
+  "end": 245.776,
   "line": "6.1"
  },
  {
   "text": "is.",
-  "start": 249.186,
-  "end": 249.306,
+  "start": 245.786,
+  "end": 245.906,
   "line": "6.1"
  },
  {
   "text": "The",
-  "start": 251.406,
-  "end": 251.676,
+  "start": 248.006,
+  "end": 248.276,
   "line": "6.2"
  },
  {
   "text": "highest",
-  "start": 251.686,
-  "end": 252.116,
+  "start": 248.286,
+  "end": 248.716,
   "line": "6.2"
  },
  {
   "text": "RGB",
-  "start": 252.126,
-  "end": 252.576,
+  "start": 248.726,
+  "end": 249.176,
   "line": "6.2"
  },
  {
   "text": "value",
-  "start": 252.586,
-  "end": 252.936,
+  "start": 249.186,
+  "end": 249.536,
   "line": "6.2"
  },
  {
   "text": "sets",
-  "start": 252.946,
-  "end": 253.176,
+  "start": 249.546,
+  "end": 249.776,
   "line": "6.2"
  },
  {
   "text": "the",
-  "start": 253.186,
-  "end": 253.536,
+  "start": 249.786,
+  "end": 250.136,
   "line": "6.2"
  },
  {
   "text": "brightness.",
-  "start": 253.546,
-  "end": 253.936,
+  "start": 250.146,
+  "end": 250.536,
   "line": "6.2"
  },
  {
   "text": "As",
-  "start": 254.936,
-  "end": 255.066,
+  "start": 251.536,
+  "end": 251.666,
   "line": "6.3"
  },
  {
   "text": "we",
-  "start": 255.076,
-  "end": 255.306,
+  "start": 251.676,
+  "end": 251.906,
   "line": "6.3"
  },
  {
   "text": "adjust",
-  "start": 255.316,
-  "end": 255.486,
+  "start": 251.916,
+  "end": 252.086,
   "line": "6.3"
  },
  {
   "text": "the",
-  "start": 255.496,
-  "end": 255.726,
+  "start": 252.096,
+  "end": 252.326,
   "line": "6.3"
  },
  {
   "text": "brightness,",
-  "start": 255.736,
-  "end": 256.056,
+  "start": 252.336,
+  "end": 252.656,
   "line": "6.3"
  },
  {
   "text": "the",
-  "start": 256.176,
-  "end": 256.326,
+  "start": 252.776,
+  "end": 252.926,
   "line": "6.4"
  },
  {
   "text": "hue",
-  "start": 256.336,
-  "end": 256.446,
+  "start": 252.936,
+  "end": 253.046,
   "line": "6.4"
  },
  {
   "text": "and",
-  "start": 256.456,
-  "end": 256.826,
+  "start": 253.056,
+  "end": 253.426,
   "line": "6.4"
  },
  {
   "text": "saturation",
-  "start": 256.836,
-  "end": 257.126,
+  "start": 253.436,
+  "end": 253.726,
   "line": "6.4"
  },
  {
   "text": "are",
-  "start": 257.136,
-  "end": 257.646,
+  "start": 253.736,
+  "end": 254.246,
   "line": "6.4"
  },
  {
   "text": "maintained.",
-  "start": 257.656,
-  "end": 258.518,
+  "start": 254.256,
+  "end": 255.118,
   "line": "6.4"
  },
  {
   "text": "This",
-  "start": 258.916,
-  "end": 259.046,
+  "start": 255.516,
+  "end": 255.646,
   "line": "6.5"
  },
  {
   "text": "is",
-  "start": 259.056,
-  "end": 259.226,
+  "start": 255.656,
+  "end": 255.826,
   "line": "6.5"
  },
  {
   "text": "done",
-  "start": 259.236,
-  "end": 259.426,
+  "start": 255.836,
+  "end": 256.026,
   "line": "6.5"
  },
  {
   "text": "by",
-  "start": 259.436,
-  "end": 259.766,
+  "start": 256.036,
+  "end": 256.366,
   "line": "6.5"
  },
  {
   "text": "scaling",
-  "start": 259.776,
-  "end": 259.966,
+  "start": 256.376,
+  "end": 256.566,
   "line": "6.5"
  },
  {
   "text": "the",
-  "start": 259.976,
-  "end": 260.326,
+  "start": 256.576,
+  "end": 256.926,
   "line": "6.5"
  },
  {
   "text": "RGB",
-  "start": 260.336,
-  "end": 260.866,
+  "start": 256.936,
+  "end": 257.466,
   "line": "6.5"
  },
  {
   "text": "values",
-  "start": 260.876,
-  "end": 261.246,
+  "start": 257.476,
+  "end": 257.846,
   "line": "6.5"
  },
  {
   "text": "proportionally",
-  "start": 261.256,
-  "end": 262.066,
+  "start": 257.856,
+  "end": 258.666,
   "line": "6.5"
  },
  {
   "text": "off",
-  "start": 262.076,
-  "end": 262.266,
+  "start": 258.676,
+  "end": 258.866,
   "line": "6.5"
  },
  {
   "text": "of",
-  "start": 262.276,
-  "end": 262.546,
+  "start": 258.876,
+  "end": 259.146,
   "line": "6.5"
  },
  {
   "text": "zero.",
-  "start": 262.556,
-  "end": 262.798,
+  "start": 259.156,
+  "end": 259.398,
   "line": "6.5"
  },
  {
   "text": "At",
-  "start": 263.798,
-  "end": 264.168,
+  "start": 260.398,
+  "end": 260.768,
   "line": "6.7"
  },
  {
   "text": "100%",
-  "start": 264.178,
-  "end": 264.848,
+  "start": 260.778,
+  "end": 261.448,
   "line": "6.7"
  },
  {
   "text": "brightness,",
-  "start": 264.858,
-  "end": 265.188,
+  "start": 261.458,
+  "end": 261.788,
   "line": "6.7"
  },
  {
   "text": "the",
-  "start": 265.198,
-  "end": 265.388,
+  "start": 261.798,
+  "end": 261.988,
   "line": "6.7"
  },
  {
   "text": "hexagon",
-  "start": 265.398,
-  "end": 265.808,
+  "start": 261.998,
+  "end": 262.408,
   "line": "6.7"
  },
  {
   "text": "is",
-  "start": 265.818,
-  "end": 265.968,
+  "start": 262.418,
+  "end": 262.568,
   "line": "6.7"
  },
  {
   "text": "at",
-  "start": 265.978,
-  "end": 266.128,
+  "start": 262.578,
+  "end": 262.728,
   "line": "6.7"
  },
  {
   "text": "its",
-  "start": 266.138,
-  "end": 266.568,
+  "start": 262.738,
+  "end": 263.168,
   "line": "6.7"
  },
  {
   "text": "largest.",
-  "start": 266.578,
-  "end": 267.748,
+  "start": 263.178,
+  "end": 264.348,
   "line": "6.7"
  },
  {
   "text": "As",
-  "start": 267.858,
-  "end": 268.008,
+  "start": 264.458,
+  "end": 264.608,
   "line": "6.8"
  },
  {
   "text": "we",
-  "start": 268.018,
-  "end": 268.188,
+  "start": 264.618,
+  "end": 264.788,
   "line": "6.8"
  },
  {
   "text": "lower",
-  "start": 268.198,
-  "end": 268.348,
+  "start": 264.798,
+  "end": 264.948,
   "line": "6.8"
  },
  {
   "text": "the",
-  "start": 268.358,
-  "end": 268.668,
+  "start": 264.958,
+  "end": 265.268,
   "line": "6.8"
  },
  {
   "text": "brightness,",
-  "start": 268.678,
-  "end": 269.028,
+  "start": 265.278,
+  "end": 265.628,
   "line": "6.8"
  },
  {
   "text": "the",
-  "start": 269.038,
-  "end": 269.248,
+  "start": 265.638,
+  "end": 265.848,
   "line": "6.8"
  },
  {
   "text": "hexagon",
-  "start": 269.258,
-  "end": 269.988,
+  "start": 265.858,
+  "end": 266.588,
   "line": "6.8"
  },
  {
   "text": "contracts",
-  "start": 269.998,
-  "end": 270.698,
+  "start": 266.598,
+  "end": 267.298,
   "line": "6.8"
  },
  {
   "text": "and",
-  "start": 270.758,
-  "end": 270.988,
+  "start": 267.358,
+  "end": 267.588,
   "line": "6.9"
  },
  {
   "text": "red,",
-  "start": 270.998,
-  "end": 271.248,
+  "start": 267.598,
+  "end": 267.848,
   "line": "6.9"
  },
  {
   "text": "green,",
-  "start": 271.258,
-  "end": 271.448,
+  "start": 267.858,
+  "end": 268.048,
   "line": "6.9"
  },
  {
   "text": "and",
-  "start": 271.458,
-  "end": 271.628,
+  "start": 268.058,
+  "end": 268.228,
   "line": "6.9"
  },
  {
   "text": "blue",
-  "start": 271.638,
-  "end": 272.088,
+  "start": 268.238,
+  "end": 268.688,
   "line": "6.9"
  },
  {
   "text": "stems",
-  "start": 272.098,
-  "end": 272.428,
+  "start": 268.698,
+  "end": 269.028,
   "line": "6.9"
  },
  {
   "text": "shorten",
-  "start": 272.438,
-  "end": 272.748,
+  "start": 269.038,
+  "end": 269.348,
   "line": "6.9"
  },
  {
   "text": "with",
-  "start": 272.758,
-  "end": 273.048,
+  "start": 269.358,
+  "end": 269.648,
   "line": "6.9"
  },
  {
   "text": "Keeping",
-  "start": 273.898,
-  "end": 274.088,
+  "start": 270.498,
+  "end": 270.688,
   "line": "6.10"
  },
  {
   "text": "the",
-  "start": 274.098,
-  "end": 274.308,
+  "start": 270.698,
+  "end": 270.908,
   "line": "6.10"
  },
  {
   "text": "same",
-  "start": 274.318,
-  "end": 274.668,
+  "start": 270.918,
+  "end": 271.268,
   "line": "6.10"
  },
  {
   "text": "angles",
-  "start": 274.678,
-  "end": 274.848,
+  "start": 271.278,
+  "end": 271.448,
   "line": "6.10"
  },
  {
   "text": "and",
-  "start": 274.858,
-  "end": 275.348,
+  "start": 271.458,
+  "end": 271.948,
   "line": "6.10"
  },
  {
   "text": "proportions,",
-  "start": 275.358,
-  "end": 275.978,
+  "start": 271.958,
+  "end": 272.578,
   "line": "6.10"
  },
  {
   "text": "notice",
-  "start": 276.098,
-  "end": 276.368,
+  "start": 272.698,
+  "end": 272.968,
   "line": "6.11"
  },
  {
   "text": "we",
-  "start": 276.378,
-  "end": 276.648,
+  "start": 272.978,
+  "end": 273.248,
   "line": "6.11"
  },
  {
   "text": "stay",
-  "start": 276.658,
-  "end": 276.848,
+  "start": 273.258,
+  "end": 273.448,
   "line": "6.11"
  },
  {
   "text": "at",
-  "start": 276.858,
-  "end": 276.988,
+  "start": 273.458,
+  "end": 273.588,
   "line": "6.11"
  },
  {
   "text": "the",
-  "start": 276.998,
-  "end": 277.228,
+  "start": 273.598,
+  "end": 273.828,
   "line": "6.11"
  },
  {
   "text": "same",
-  "start": 277.238,
-  "end": 277.688,
+  "start": 273.838,
+  "end": 274.288,
   "line": "6.11"
  },
  {
   "text": "30",
-  "start": 277.698,
-  "end": 278.008,
+  "start": 274.298,
+  "end": 274.608,
   "line": "6.11"
  },
  {
   "text": "degree",
-  "start": 278.018,
-  "end": 278.348,
+  "start": 274.618,
+  "end": 274.948,
   "line": "6.11"
  },
  {
   "text": "orangy",
-  "start": 278.358,
-  "end": 278.848,
+  "start": 274.958,
+  "end": 275.448,
   "line": "6.11"
  },
  {
   "text": "color",
-  "start": 278.858,
-  "end": 279.228,
+  "start": 275.458,
+  "end": 275.828,
   "line": "6.11"
  },
  {
   "text": "while",
-  "start": 279.238,
-  "end": 279.548,
+  "start": 275.838,
+  "end": 276.148,
   "line": "6.11"
  },
  {
   "text": "moving",
-  "start": 279.558,
-  "end": 279.748,
+  "start": 276.158,
+  "end": 276.348,
   "line": "6.11"
  },
  {
   "text": "the",
-  "start": 279.758,
-  "end": 280.108,
+  "start": 276.358,
+  "end": 276.708,
   "line": "6.11"
  },
  {
   "text": "brightness.",
-  "start": 280.118,
-  "end": 280.498,
+  "start": 276.718,
+  "end": 277.098,
   "line": "6.11"
  },
  {
   "text": "We'll",
-  "start": 281.478,
-  "end": 281.608,
+  "start": 278.078,
+  "end": 278.208,
   "line": "7.1"
  },
  {
   "text": "use",
-  "start": 281.618,
-  "end": 281.748,
+  "start": 278.218,
+  "end": 278.348,
   "line": "7.1"
  },
  {
   "text": "the",
-  "start": 281.758,
-  "end": 281.928,
+  "start": 278.358,
+  "end": 278.528,
   "line": "7.1"
  },
  {
   "text": "swatches",
-  "start": 281.938,
-  "end": 282.368,
+  "start": 278.538,
+  "end": 278.968,
   "line": "7.1"
  },
  {
   "text": "section",
-  "start": 282.378,
-  "end": 282.648,
+  "start": 278.978,
+  "end": 279.248,
   "line": "7.1"
  },
  {
   "text": "to",
-  "start": 282.658,
-  "end": 282.828,
+  "start": 279.258,
+  "end": 279.428,
   "line": "7.1"
  },
  {
   "text": "show",
-  "start": 282.838,
-  "end": 283.048,
+  "start": 279.438,
+  "end": 279.648,
   "line": "7.1"
  },
  {
   "text": "how",
-  "start": 283.058,
-  "end": 283.188,
+  "start": 279.658,
+  "end": 279.788,
   "line": "7.1"
  },
  {
   "text": "we",
-  "start": 283.198,
-  "end": 283.368,
+  "start": 279.798,
+  "end": 279.968,
   "line": "7.1"
  },
  {
   "text": "can",
-  "start": 283.378,
-  "end": 283.568,
+  "start": 279.978,
+  "end": 280.168,
   "line": "7.1"
  },
  {
   "text": "use",
-  "start": 283.578,
-  "end": 283.848,
+  "start": 280.178,
+  "end": 280.448,
   "line": "7.1"
  },
  {
   "text": "HSB",
-  "start": 283.858,
-  "end": 284.588,
+  "start": 280.458,
+  "end": 281.188,
   "line": "7.1"
  },
  {
   "text": "to",
-  "start": 284.598,
-  "end": 284.788,
+  "start": 281.198,
+  "end": 281.388,
   "line": "7.1"
  },
  {
   "text": "set",
-  "start": 284.798,
-  "end": 285.048,
+  "start": 281.398,
+  "end": 281.648,
   "line": "7.1"
  },
  {
   "text": "six",
-  "start": 285.058,
-  "end": 285.368,
+  "start": 281.658,
+  "end": 281.968,
   "line": "7.1"
  },
  {
   "text": "different",
-  "start": 285.378,
-  "end": 285.928,
+  "start": 281.978,
+  "end": 282.528,
   "line": "7.1"
  },
  {
   "text": "variations",
-  "start": 285.938,
-  "end": 286.248,
+  "start": 282.538,
+  "end": 282.848,
   "line": "7.1"
  },
  {
   "text": "of",
-  "start": 286.258,
-  "end": 286.408,
+  "start": 282.858,
+  "end": 283.008,
   "line": "7.1"
  },
  {
   "text": "the",
-  "start": 286.418,
-  "end": 286.648,
+  "start": 283.018,
+  "end": 283.248,
   "line": "7.1"
  },
  {
   "text": "same",
-  "start": 286.658,
-  "end": 286.928,
+  "start": 283.258,
+  "end": 283.528,
   "line": "7.1"
  },
  {
   "text": "hue.",
-  "start": 286.938,
-  "end": 287.178,
+  "start": 283.538,
+  "end": 283.778,
   "line": "7.1"
  },
  {
   "text": "We",
-  "start": 289.828,
-  "end": 289.958,
+  "start": 286.428,
+  "end": 286.558,
   "line": "7.2"
  },
  {
   "text": "can",
-  "start": 289.968,
-  "end": 290.138,
+  "start": 286.568,
+  "end": 286.738,
   "line": "7.2"
  },
  {
   "text": "use",
-  "start": 290.148,
-  "end": 290.418,
+  "start": 286.748,
+  "end": 287.018,
   "line": "7.2"
  },
  {
   "text": "HSB",
-  "start": 290.428,
-  "end": 290.918,
+  "start": 287.028,
+  "end": 287.518,
   "line": "7.2"
  },
  {
   "text": "to",
-  "start": 290.928,
-  "end": 291.078,
+  "start": 287.528,
+  "end": 287.678,
   "line": "7.2"
  },
  {
   "text": "come",
-  "start": 291.088,
-  "end": 291.258,
+  "start": 287.688,
+  "end": 287.858,
   "line": "7.2"
  },
  {
   "text": "up",
-  "start": 291.268,
-  "end": 291.438,
+  "start": 287.868,
+  "end": 288.038,
   "line": "7.2"
  },
  {
   "text": "with",
-  "start": 291.448,
-  "end": 291.578,
+  "start": 288.048,
+  "end": 288.178,
   "line": "7.2"
  },
  {
   "text": "a",
-  "start": 291.588,
-  "end": 291.938,
+  "start": 288.188,
+  "end": 288.538,
   "line": "7.2"
  },
  {
   "text": "bright,",
-  "start": 291.948,
-  "end": 292.318,
+  "start": 288.548,
+  "end": 288.918,
   "line": "7.2"
  },
  {
   "text": "desaturated",
-  "start": 292.328,
-  "end": 293.318,
+  "start": 288.928,
+  "end": 289.918,
   "line": "7.2"
  },
  {
   "text": "orange,",
-  "start": 293.328,
-  "end": 293.642,
+  "start": 289.928,
+  "end": 290.242,
   "line": "7.2"
  },
  {
   "text": "then",
-  "start": 293.948,
-  "end": 294.118,
+  "start": 290.548,
+  "end": 290.718,
   "line": "7.3"
  },
  {
   "text": "go",
-  "start": 294.128,
-  "end": 294.358,
+  "start": 290.728,
+  "end": 290.958,
   "line": "7.3"
  },
  {
   "text": "down",
-  "start": 294.368,
-  "end": 294.538,
+  "start": 290.968,
+  "end": 291.138,
   "line": "7.3"
  },
  {
   "text": "the",
-  "start": 294.548,
-  "end": 294.858,
+  "start": 291.148,
+  "end": 291.458,
   "line": "7.3"
  },
  {
   "text": "scale",
-  "start": 294.868,
-  "end": 295.238,
+  "start": 291.468,
+  "end": 291.838,
   "line": "7.3"
  },
  {
   "text": "until",
-  "start": 295.248,
-  "end": 295.358,
+  "start": 291.848,
+  "end": 291.958,
   "line": "7.3"
  },
  {
   "text": "we",
-  "start": 295.368,
-  "end": 295.538,
+  "start": 291.968,
+  "end": 292.138,
   "line": "7.3"
  },
  {
   "text": "have",
-  "start": 295.548,
-  "end": 295.758,
+  "start": 292.148,
+  "end": 292.358,
   "line": "7.3"
  },
  {
   "text": "a",
-  "start": 295.768,
-  "end": 296.018,
+  "start": 292.368,
+  "end": 292.618,
   "line": "7.3"
  },
  {
   "text": "dark,",
-  "start": 296.028,
-  "end": 296.678,
+  "start": 292.628,
+  "end": 293.278,
   "line": "7.3"
  },
  {
   "text": "vibrant",
-  "start": 296.688,
-  "end": 297.298,
+  "start": 293.288,
+  "end": 293.898,
   "line": "7.3"
  },
  {
   "text": "variant.",
-  "start": 297.308,
-  "end": 297.652,
+  "start": 293.908,
+  "end": 294.252,
   "line": "7.3"
  },
  {
   "text": "This",
-  "start": 302.202,
-  "end": 302.332,
+  "start": 298.802,
+  "end": 298.932,
   "line": "7.4"
  },
  {
   "text": "is",
-  "start": 302.342,
-  "end": 302.532,
+  "start": 298.942,
+  "end": 299.132,
   "line": "7.4"
  },
  {
   "text": "hinting",
-  "start": 302.542,
-  "end": 302.812,
+  "start": 299.142,
+  "end": 299.412,
   "line": "7.4"
  },
  {
   "text": "at",
-  "start": 302.822,
-  "end": 302.972,
+  "start": 299.422,
+  "end": 299.572,
   "line": "7.4"
  },
  {
   "text": "what",
-  "start": 302.982,
-  "end": 303.112,
+  "start": 299.582,
+  "end": 299.712,
   "line": "7.4"
  },
  {
   "text": "a",
-  "start": 303.122,
-  "end": 303.372,
+  "start": 299.722,
+  "end": 299.972,
   "line": "7.4"
  },
  {
   "text": "design",
-  "start": 303.382,
-  "end": 303.772,
+  "start": 299.982,
+  "end": 300.372,
   "line": "7.4"
  },
  {
   "text": "system",
-  "start": 303.782,
-  "end": 304.012,
+  "start": 300.382,
+  "end": 300.612,
   "line": "7.4"
  },
  {
   "text": "might",
-  "start": 304.022,
-  "end": 304.512,
+  "start": 300.622,
+  "end": 301.112,
   "line": "7.4"
  },
  {
   "text": "We've",
-  "start": 308.462,
-  "end": 308.652,
+  "start": 305.062,
+  "end": 305.252,
   "line": "8.1"
  },
  {
   "text": "been",
-  "start": 308.662,
-  "end": 309.052,
+  "start": 305.262,
+  "end": 305.652,
   "line": "8.1"
  },
  {
   "text": "exploring",
-  "start": 309.062,
-  "end": 309.252,
+  "start": 305.662,
+  "end": 305.852,
   "line": "8.1"
  },
  {
   "text": "the",
-  "start": 309.262,
-  "end": 309.632,
+  "start": 305.862,
+  "end": 306.232,
   "line": "8.1"
  },
  {
   "text": "playground,",
-  "start": 309.642,
-  "end": 310.122,
+  "start": 306.242,
+  "end": 306.722,
   "line": "8.1"
  },
  {
   "text": "but",
-  "start": 310.182,
-  "end": 310.272,
+  "start": 306.782,
+  "end": 306.872,
   "line": "8.2"
  },
  {
   "text": "if",
-  "start": 310.282,
-  "end": 310.372,
+  "start": 306.882,
+  "end": 306.972,
   "line": "8.2"
  },
  {
   "text": "you",
-  "start": 310.382,
-  "end": 310.552,
+  "start": 306.982,
+  "end": 307.152,
   "line": "8.2"
  },
  {
   "text": "want",
-  "start": 310.562,
-  "end": 310.752,
+  "start": 307.162,
+  "end": 307.352,
   "line": "8.2"
  },
  {
   "text": "the",
-  "start": 310.762,
-  "end": 311.172,
+  "start": 307.362,
+  "end": 307.772,
   "line": "8.2"
  },
  {
   "text": "classroom",
-  "start": 311.182,
-  "end": 311.732,
+  "start": 307.782,
+  "end": 308.332,
   "line": "8.2"
  },
  {
   "text": "perspective,",
-  "start": 311.742,
-  "end": 312.132,
+  "start": 308.342,
+  "end": 308.732,
   "line": "8.2"
  },
  {
   "text": "check",
-  "start": 312.222,
-  "end": 312.352,
+  "start": 308.822,
+  "end": 308.952,
   "line": "8.3"
  },
  {
   "text": "out",
-  "start": 312.362,
-  "end": 312.472,
+  "start": 308.962,
+  "end": 309.072,
   "line": "8.3"
  },
  {
   "text": "the",
-  "start": 312.482,
-  "end": 312.832,
+  "start": 309.082,
+  "end": 309.432,
   "line": "8.3"
  },
  {
   "text": "equations",
-  "start": 312.842,
-  "end": 313.352,
+  "start": 309.442,
+  "end": 309.952,
   "line": "8.3"
  },
  {
   "text": "section.",
-  "start": 313.362,
-  "end": 313.592,
+  "start": 309.962,
+  "end": 310.192,
   "line": "8.3"
  },
  {
   "text": "It",
-  "start": 319.422,
-  "end": 319.652,
+  "start": 316.022,
+  "end": 316.252,
   "line": "8.4"
  },
  {
   "text": "shows",
-  "start": 319.662,
-  "end": 319.872,
+  "start": 316.262,
+  "end": 316.472,
   "line": "8.4"
  },
  {
   "text": "the",
-  "start": 319.882,
-  "end": 320.072,
+  "start": 316.482,
+  "end": 316.672,
   "line": "8.4"
  },
  {
   "text": "math",
-  "start": 320.082,
-  "end": 320.572,
+  "start": 316.682,
+  "end": 317.172,
   "line": "8.4"
  },
  {
   "text": "behind",
-  "start": 320.582,
-  "end": 320.812,
+  "start": 317.182,
+  "end": 317.412,
   "line": "8.4"
  },
  {
   "text": "hue,",
-  "start": 320.942,
-  "end": 321.472,
+  "start": 317.542,
+  "end": 318.072,
   "line": "8.5"
  },
  {
   "text": "saturation,",
-  "start": 321.582,
-  "end": 322.112,
+  "start": 318.182,
+  "end": 318.712,
   "line": "8.6"
  },
  {
   "text": "and",
-  "start": 322.122,
-  "end": 322.242,
+  "start": 318.722,
+  "end": 318.842,
   "line": "8.6"
  },
  {
   "text": "brightness,",
-  "start": 322.542,
-  "end": 322.892,
+  "start": 319.142,
+  "end": 319.492,
   "line": "8.7"
  },
  {
   "text": "as",
-  "start": 326.382,
-  "end": 326.552,
+  "start": 322.982,
+  "end": 323.152,
   "line": "8.8"
  },
  {
   "text": "well",
-  "start": 326.562,
-  "end": 326.712,
+  "start": 323.162,
+  "end": 323.312,
   "line": "8.8"
  },
  {
   "text": "as",
-  "start": 326.722,
-  "end": 326.912,
+  "start": 323.322,
+  "end": 323.512,
   "line": "8.8"
  },
  {
   "text": "how",
-  "start": 326.922,
-  "end": 327.212,
+  "start": 323.522,
+  "end": 323.812,
   "line": "8.8"
  },
  {
   "text": "hex",
-  "start": 327.222,
-  "end": 327.532,
+  "start": 323.822,
+  "end": 324.132,
   "line": "8.8"
  },
  {
   "text": "and",
-  "start": 327.542,
-  "end": 327.892,
+  "start": 324.142,
+  "end": 324.492,
   "line": "8.8"
  },
  {
   "text": "normalized",
-  "start": 327.902,
-  "end": 328.272,
+  "start": 324.502,
+  "end": 324.872,
   "line": "8.8"
  },
  {
   "text": "colors",
-  "start": 328.282,
-  "end": 328.492,
+  "start": 324.882,
+  "end": 325.092,
   "line": "8.8"
  },
  {
   "text": "are",
-  "start": 328.502,
-  "end": 329.072,
+  "start": 325.102,
+  "end": 325.672,
   "line": "8.8"
  },
  {
   "text": "calculated.",
-  "start": 329.082,
-  "end": 329.342,
+  "start": 325.682,
+  "end": 325.942,
   "line": "8.8"
  },
  {
   "text": "Now",
-  "start": 334.692,
-  "end": 334.822,
+  "start": 331.292,
+  "end": 331.422,
   "line": "9.1"
  },
  {
   "text": "we",
-  "start": 334.832,
-  "end": 334.962,
+  "start": 331.432,
+  "end": 331.562,
   "line": "9.1"
  },
  {
   "text": "can",
-  "start": 334.972,
-  "end": 335.102,
+  "start": 331.572,
+  "end": 331.702,
   "line": "9.1"
  },
  {
   "text": "move",
-  "start": 335.112,
-  "end": 335.302,
+  "start": 331.712,
+  "end": 331.902,
   "line": "9.1"
  },
  {
   "text": "on",
-  "start": 335.312,
-  "end": 335.462,
+  "start": 331.912,
+  "end": 332.062,
   "line": "9.1"
  },
  {
   "text": "to",
-  "start": 335.472,
-  "end": 335.582,
+  "start": 332.072,
+  "end": 332.182,
   "line": "9.1"
  },
  {
   "text": "the",
-  "start": 335.592,
-  "end": 335.822,
+  "start": 332.192,
+  "end": 332.422,
   "line": "9.1"
  },
  {
   "text": "demo.",
-  "start": 335.832,
-  "end": 336.032,
+  "start": 332.432,
+  "end": 332.632,
   "line": "9.1"
  },
  {
   "text": "Start",
-  "start": 340.562,
-  "end": 340.712,
+  "start": 337.162,
+  "end": 337.312,
   "line": "10.1"
  },
  {
   "text": "with",
-  "start": 340.722,
-  "end": 340.852,
+  "start": 337.322,
+  "end": 337.452,
   "line": "10.1"
  },
  {
   "text": "the",
-  "start": 340.862,
-  "end": 340.992,
+  "start": 337.462,
+  "end": 337.592,
   "line": "10.1"
  },
  {
   "text": "sliders",
-  "start": 341.002,
-  "end": 341.392,
+  "start": 337.602,
+  "end": 337.992,
   "line": "10.1"
  },
  {
   "text": "and",
-  "start": 341.402,
-  "end": 341.712,
+  "start": 338.002,
+  "end": 338.312,
   "line": "10.1"
  },
  {
   "text": "controls",
-  "start": 341.722,
-  "end": 341.952,
+  "start": 338.322,
+  "end": 338.552,
   "line": "10.1"
  },
  {
   "text": "you",
-  "start": 341.962,
-  "end": 342.332,
+  "start": 338.562,
+  "end": 338.932,
   "line": "10.1"
  },
  {
   "text": "already",
-  "start": 342.342,
-  "end": 342.882,
+  "start": 338.942,
+  "end": 339.482,
   "line": "10.1"
  },
  {
   "text": "Moving",
-  "start": 345.052,
-  "end": 345.342,
+  "start": 341.652,
+  "end": 341.942,
   "line": "10.2"
  },
  {
   "text": "one",
-  "start": 345.352,
-  "end": 345.722,
+  "start": 341.952,
+  "end": 342.322,
   "line": "10.2"
  },
  {
   "text": "slider",
-  "start": 345.732,
-  "end": 345.922,
+  "start": 342.332,
+  "end": 342.522,
   "line": "10.2"
  },
  {
   "text": "will",
-  "start": 345.932,
-  "end": 346.262,
+  "start": 342.532,
+  "end": 342.862,
   "line": "10.2"
  },
  {
   "text": "highlight",
-  "start": 346.272,
-  "end": 346.602,
+  "start": 342.872,
+  "end": 343.202,
   "line": "10.2"
  },
  {
   "text": "every",
-  "start": 346.612,
-  "end": 346.842,
+  "start": 343.212,
+  "end": 343.442,
   "line": "10.2"
  },
  {
   "text": "other",
-  "start": 346.852,
-  "end": 347.182,
+  "start": 343.452,
+  "end": 343.782,
   "line": "10.2"
  },
  {
   "text": "slider",
-  "start": 347.192,
-  "end": 347.382,
+  "start": 343.792,
+  "end": 343.982,
   "line": "10.2"
  },
  {
   "text": "it",
-  "start": 347.392,
-  "end": 347.762,
+  "start": 343.992,
+  "end": 344.362,
   "line": "10.2"
  },
  {
   "text": "affects.",
-  "start": 347.772,
-  "end": 348.132,
+  "start": 344.372,
+  "end": 344.732,
   "line": "10.2"
  },
  {
   "text": "Click",
-  "start": 349.112,
-  "end": 349.262,
+  "start": 345.712,
+  "end": 345.862,
   "line": "10.3"
  },
  {
   "text": "the",
-  "start": 349.272,
-  "end": 349.422,
+  "start": 345.872,
+  "end": 346.022,
   "line": "10.3"
  },
  {
   "text": "droplet",
-  "start": 349.432,
-  "end": 349.482,
+  "start": 346.032,
+  "end": 346.082,
   "line": "10.3"
  },
  {
   "text": "button",
-  "start": 349.432,
-  "end": 349.482,
+  "start": 346.032,
+  "end": 346.082,
   "line": "10.3"
  },
  {
   "text": "to",
-  "start": 349.432,
-  "end": 349.482,
+  "start": 346.032,
+  "end": 346.082,
   "line": "10.3"
  },
  {
   "text": "switch",
-  "start": 349.432,
-  "end": 349.482,
+  "start": 346.032,
+  "end": 346.082,
   "line": "10.3"
  },
  {
   "text": "between",
-  "start": 349.432,
-  "end": 349.482,
+  "start": 346.032,
+  "end": 346.082,
   "line": "10.3"
  },
  {
   "text": "source",
-  "start": 349.432,
-  "end": 349.482,
+  "start": 346.032,
+  "end": 346.082,
   "line": "10.3"
  },
  {
   "text": "or",
-  "start": 349.432,
-  "end": 349.482,
+  "start": 346.032,
+  "end": 346.082,
   "line": "10.3"
  },
  {
   "text": "mixed",
-  "start": 349.432,
-  "end": 349.482,
+  "start": 346.032,
+  "end": 346.082,
   "line": "10.3"
  },
  {
   "text": "color",
-  "start": 349.432,
-  "end": 349.482,
+  "start": 346.032,
+  "end": 346.082,
   "line": "10.3"
  },
  {
   "text": "sliders.",
-  "start": 349.432,
-  "end": 350.632,
+  "start": 346.032,
+  "end": 347.232,
   "line": "10.3"
  },
  {
   "text": "Click",
-  "start": 357.362,
-  "end": 357.552,
+  "start": 353.962,
+  "end": 354.152,
   "line": "10.4"
  },
  {
   "text": "the",
-  "start": 357.562,
-  "end": 357.812,
+  "start": 354.162,
+  "end": 354.412,
   "line": "10.4"
  },
  {
   "text": "tags",
-  "start": 357.822,
-  "end": 358.092,
+  "start": 354.422,
+  "end": 354.692,
   "line": "10.4"
  },
  {
   "text": "button",
-  "start": 358.102,
-  "end": 358.292,
+  "start": 354.702,
+  "end": 354.892,
   "line": "10.4"
  },
  {
   "text": "to",
-  "start": 358.302,
-  "end": 358.532,
+  "start": 354.902,
+  "end": 355.132,
   "line": "10.4"
  },
  {
   "text": "show",
-  "start": 358.542,
-  "end": 359.012,
+  "start": 355.142,
+  "end": 355.612,
   "line": "10.4"
  },
  {
   "text": "HTML",
-  "start": 359.022,
-  "end": 359.452,
+  "start": 355.622,
+  "end": 356.052,
   "line": "10.4"
  },
  {
   "text": "colors",
-  "start": 359.462,
-  "end": 359.652,
+  "start": 356.062,
+  "end": 356.252,
   "line": "10.4"
  },
  {
   "text": "on",
-  "start": 359.662,
-  "end": 359.812,
+  "start": 356.262,
+  "end": 356.412,
   "line": "10.4"
  },
  {
   "text": "the",
-  "start": 359.822,
-  "end": 359.952,
+  "start": 356.422,
+  "end": 356.552,
   "line": "10.4"
  },
  {
   "text": "hexagon.",
-  "start": 359.962,
-  "end": 360.522,
+  "start": 356.562,
+  "end": 357.122,
   "line": "10.4"
  },
  {
   "text": "Drag",
-  "start": 363.172,
-  "end": 363.322,
+  "start": 359.772,
+  "end": 359.922,
   "line": "10.5"
  },
  {
   "text": "a",
-  "start": 363.332,
-  "end": 363.522,
+  "start": 359.932,
+  "end": 360.122,
   "line": "10.5"
  },
  {
   "text": "handle",
-  "start": 363.532,
-  "end": 363.722,
+  "start": 360.132,
+  "end": 360.322,
   "line": "10.5"
  },
  {
   "text": "on",
-  "start": 363.732,
-  "end": 363.842,
+  "start": 360.332,
+  "end": 360.442,
   "line": "10.5"
  },
  {
   "text": "the",
-  "start": 363.852,
-  "end": 364.042,
+  "start": 360.452,
+  "end": 360.642,
   "line": "10.5"
  },
  {
   "text": "hexagon",
-  "start": 364.052,
-  "end": 364.602,
+  "start": 360.652,
+  "end": 361.202,
   "line": "10.5"
  },
  {
   "text": "and",
-  "start": 364.612,
-  "end": 364.842,
+  "start": 361.212,
+  "end": 361.442,
   "line": "10.5"
  },
  {
   "text": "watch",
-  "start": 364.852,
-  "end": 365.002,
+  "start": 361.452,
+  "end": 361.602,
   "line": "10.5"
  },
  {
   "text": "the",
-  "start": 365.012,
-  "end": 365.362,
+  "start": 361.612,
+  "end": 361.962,
   "line": "10.5"
  },
  {
   "text": "RGB",
-  "start": 365.372,
-  "end": 365.742,
+  "start": 361.972,
+  "end": 362.342,
   "line": "10.5"
  },
  {
   "text": "and",
-  "start": 365.752,
-  "end": 365.902,
+  "start": 362.352,
+  "end": 362.502,
   "line": "10.5"
  },
  {
   "text": "HSB",
-  "start": 365.912,
-  "end": 366.402,
+  "start": 362.512,
+  "end": 363.002,
   "line": "10.5"
  },
  {
   "text": "sliders",
-  "start": 366.412,
-  "end": 367.042,
+  "start": 363.012,
+  "end": 363.642,
   "line": "10.5"
  },
  {
   "text": "follow.",
-  "start": 367.052,
-  "end": 367.302,
+  "start": 363.652,
+  "end": 363.902,
   "line": "10.5"
  },
  {
   "text": "Have",
-  "start": 368.302,
-  "end": 368.492,
+  "start": 364.902,
+  "end": 365.092,
   "line": "10.6"
  },
  {
   "text": "fun",
-  "start": 368.502,
-  "end": 368.952,
+  "start": 365.102,
+  "end": 365.552,
   "line": "10.6"
  },
  {
   "text": "exploring",
-  "start": 368.962,
-  "end": 369.132,
+  "start": 365.562,
+  "end": 365.732,
   "line": "10.6"
  },
  {
   "text": "and",
-  "start": 369.142,
-  "end": 369.352,
+  "start": 365.742,
+  "end": 365.952,
   "line": "10.6"
  },
  {
   "text": "learning",
-  "start": 369.362,
-  "end": 369.592,
+  "start": 365.962,
+  "end": 366.192,
   "line": "10.6"
  },
  {
   "text": "about",
-  "start": 369.602,
-  "end": 369.912,
+  "start": 366.202,
+  "end": 366.512,
   "line": "10.6"
  },
  {
   "text": "different",
-  "start": 369.922,
-  "end": 370.072,
+  "start": 366.522,
+  "end": 366.672,
   "line": "10.6"
  },
  {
   "text": "color",
-  "start": 370.082,
-  "end": 370.532,
+  "start": 366.682,
+  "end": 367.132,
   "line": "10.6"
  },
  {
   "text": "models.",
-  "start": 370.542,
-  "end": 370.882,
+  "start": 367.142,
+  "end": 367.482,
   "line": "10.6"
  },
  {
   "text": "If",
-  "start": 374.722,
-  "end": 375.922,
+  "start": 371.322,
+  "end": 372.522,
   "line": "11.1"
  },
  {
   "text": "you",
-  "start": 376.742,
-  "end": 376.952,
+  "start": 373.342,
+  "end": 373.552,
   "line": "11.1"
  },
  {
   "text": "use",
-  "start": 376.962,
-  "end": 377.132,
+  "start": 373.562,
+  "end": 373.732,
   "line": "11.1"
  },
  {
   "text": "Figma,",
-  "start": 377.142,
-  "end": 377.532,
+  "start": 373.742,
+  "end": 374.132,
   "line": "11.1"
  },
  {
   "text": "I've",
-  "start": 377.542,
-  "end": 377.772,
+  "start": 374.142,
+  "end": 374.372,
   "line": "11.1"
  },
  {
   "text": "also",
-  "start": 377.782,
-  "end": 377.912,
+  "start": 374.382,
+  "end": 374.512,
   "line": "11.1"
  },
  {
   "text": "made",
-  "start": 377.922,
-  "end": 378.092,
+  "start": 374.522,
+  "end": 374.692,
   "line": "11.1"
  },
  {
   "text": "a",
-  "start": 378.102,
-  "end": 378.312,
+  "start": 374.702,
+  "end": 374.912,
   "line": "11.1"
  },
  {
   "text": "color-tailor",
-  "start": 378.322,
-  "end": 378.932,
+  "start": 374.922,
+  "end": 375.532,
   "line": "11.1"
  },
  {
   "text": "plugin",
-  "start": 378.942,
-  "end": 379.212,
+  "start": 375.542,
+  "end": 375.812,
   "line": "11.1"
  },
  {
   "text": "that",
-  "start": 379.222,
-  "end": 379.352,
+  "start": 375.822,
+  "end": 375.952,
   "line": "11.1"
  },
  {
   "text": "you",
-  "start": 379.362,
-  "end": 379.512,
+  "start": 375.962,
+  "end": 376.112,
   "line": "11.1"
  },
  {
   "text": "might",
-  "start": 379.522,
-  "end": 379.732,
+  "start": 376.122,
+  "end": 376.332,
   "line": "11.1"
  },
  {
   "text": "like",
-  "start": 379.742,
-  "end": 379.872,
+  "start": 376.342,
+  "end": 376.472,
   "line": "11.1"
  },
  {
   "text": "to",
-  "start": 379.882,
-  "end": 380.072,
+  "start": 376.482,
+  "end": 376.672,
   "line": "11.1"
  },
  {
   "text": "check",
-  "start": 380.082,
-  "end": 380.442,
+  "start": 376.682,
+  "end": 377.042,
   "line": "11.1"
  },
  {
   "text": "That's",
-  "start": 381.542,
-  "end": 381.852,
+  "start": 378.142,
+  "end": 378.452,
   "line": "11.2"
  },
  {
   "text": "color-tailor.",
-  "start": 381.862,
-  "end": 382.732,
+  "start": 378.462,
+  "end": 379.332,
   "line": "11.2"
  },
  {
   "text": "Go",
-  "start": 383.002,
-  "end": 383.172,
+  "start": 379.602,
+  "end": 379.772,
   "line": "11.3"
  },
  {
   "text": "play",
-  "start": 383.182,
-  "end": 383.312,
+  "start": 379.782,
+  "end": 379.912,
   "line": "11.3"
  },
  {
   "text": "with",
-  "start": 383.322,
-  "end": 383.492,
+  "start": 379.922,
+  "end": 380.092,
   "line": "11.3"
  },
  {
   "text": "it.",
-  "start": 383.502,
-  "end": 383.752,
+  "start": 380.102,
+  "end": 380.352,
   "line": "11.3"
  },
  {
   "text": "And",
-  "start": 383.762,
-  "end": 383.852,
+  "start": 380.362,
+  "end": 380.452,
   "line": "11.3"
  },
  {
   "text": "I",
-  "start": 383.862,
-  "end": 383.952,
+  "start": 380.462,
+  "end": 380.552,
   "line": "11.3"
  },
  {
   "text": "hope",
-  "start": 383.962,
-  "end": 384.092,
+  "start": 380.562,
+  "end": 380.692,
   "line": "11.3"
  },
  {
   "text": "it",
-  "start": 384.102,
-  "end": 384.272,
+  "start": 380.702,
+  "end": 380.872,
   "line": "11.3"
  },
  {
   "text": "helps",
-  "start": 384.282,
-  "end": 384.432,
+  "start": 380.882,
+  "end": 381.032,
   "line": "11.3"
  },
  {
   "text": "you",
-  "start": 384.442,
-  "end": 384.572,
+  "start": 381.042,
+  "end": 381.172,
   "line": "11.3"
  },
  {
   "text": "see",
-  "start": 384.582,
-  "end": 384.692,
+  "start": 381.182,
+  "end": 381.292,
   "line": "11.3"
  },
  {
   "text": "the",
-  "start": 384.702,
-  "end": 385.172,
+  "start": 381.302,
+  "end": 381.772,
   "line": "11.3"
  },
  {
   "text": "relationship",
-  "start": 385.182,
-  "end": 385.592,
+  "start": 381.782,
+  "end": 382.192,
   "line": "11.3"
  },
  {
   "text": "between",
-  "start": 385.602,
-  "end": 386.012,
+  "start": 382.202,
+  "end": 382.612,
   "line": "11.3"
  },
  {
   "text": "RGB",
-  "start": 386.022,
-  "end": 386.412,
+  "start": 382.622,
+  "end": 383.012,
   "line": "11.3"
  },
  {
   "text": "and",
-  "start": 386.422,
-  "end": 386.612,
+  "start": 383.022,
+  "end": 383.212,
   "line": "11.3"
  },
  {
   "text": "HSB",
-  "start": 386.622,
-  "end": 387.192,
+  "start": 383.222,
+  "end": 383.792,
   "line": "11.3"
  },
  {
   "text": "in",
-  "start": 387.202,
-  "end": 387.312,
+  "start": 383.802,
+  "end": 383.912,
   "line": "11.3"
  },
  {
   "text": "a",
-  "start": 387.322,
-  "end": 387.512,
+  "start": 383.922,
+  "end": 384.112,
   "line": "11.3"
  },
  {
   "text": "different",
-  "start": 387.522,
-  "end": 387.752,
+  "start": 384.122,
+  "end": 384.352,
   "line": "11.3"
  },
  {
   "text": "light.",
-  "start": 387.762,
-  "end": 387.932,
+  "start": 384.362,
+  "end": 384.532,
   "line": "11.3"
  },
  {
   "text": "If",
-  "start": 392.572,
-  "end": 392.682,
+  "start": 389.172,
+  "end": 389.282,
   "line": "11.4"
  },
  {
   "text": "it's",
-  "start": 392.692,
-  "end": 393.122,
+  "start": 389.292,
+  "end": 389.722,
   "line": "11.4"
  },
  {
   "text": "useful,",
-  "start": 393.132,
-  "end": 393.362,
+  "start": 389.732,
+  "end": 389.962,
   "line": "11.4"
  },
  {
   "text": "I'd",
-  "start": 393.372,
-  "end": 393.502,
+  "start": 389.972,
+  "end": 390.102,
   "line": "11.4"
  },
  {
   "text": "like",
-  "start": 393.512,
-  "end": 393.602,
+  "start": 390.112,
+  "end": 390.202,
   "line": "11.4"
  },
  {
   "text": "to",
-  "start": 393.612,
-  "end": 393.722,
+  "start": 390.212,
+  "end": 390.322,
   "line": "11.4"
  },
  {
   "text": "hear",
-  "start": 393.732,
-  "end": 393.902,
+  "start": 390.332,
+  "end": 390.502,
   "line": "11.4"
  },
  {
   "text": "from",
-  "start": 393.912,
-  "end": 394.062,
+  "start": 390.512,
+  "end": 390.662,
   "line": "11.4"
  },
  {
   "text": "you.",
-  "start": 394.072,
-  "end": 394.502,
+  "start": 390.672,
+  "end": 391.102,
   "line": "11.4"
  },
  {
   "text": "Questions",
-  "start": 394.512,
-  "end": 394.742,
+  "start": 391.112,
+  "end": 391.342,
   "line": "11.4"
  },
  {
   "text": "and",
-  "start": 394.752,
-  "end": 394.942,
+  "start": 391.352,
+  "end": 391.542,
   "line": "11.4"
  },
  {
   "text": "feedback",
-  "start": 394.952,
-  "end": 395.242,
+  "start": 391.552,
+  "end": 391.842,
   "line": "11.4"
  },
  {
   "text": "are",
-  "start": 395.252,
-  "end": 395.582,
+  "start": 391.852,
+  "end": 392.182,
   "line": "11.4"
  },
  {
   "text": "welcome.",
-  "start": 395.592,
-  "end": 395.802,
+  "start": 392.192,
+  "end": 392.402,
   "line": "11.4"
  }
 ]

@@ -626,7 +626,7 @@
       "target": "hex-hue-handle-label",
       "ms": 1200,
       "hold": 2000,
-      "at": 242.06
+      "at": 238.66
     },
     {
       "do": "circle",
@@ -634,7 +634,7 @@
       "ms": 1200,
       "hold": 1600,
       "ring": 20,
-      "at": 251.41
+      "at": 248.01
     },
     {
       "do": "circle",
@@ -642,7 +642,7 @@
       "ms": 1200,
       "hold": 1600,
       "ring": 20,
-      "at": 251.41
+      "at": 248.01
     },
     {
       "do": "slider",
@@ -650,7 +650,7 @@
       "from": 100,
       "to": 40,
       "ms": 5000,
-      "at": 255.09
+      "at": 251.69
     },
     {
       "do": "rect",
@@ -660,7 +660,7 @@
       "live": true,
       "ms": 1200,
       "hold": 5600,
-      "at": 255.09
+      "at": 251.69
     },
     {
       "do": "slider",
@@ -668,7 +668,7 @@
       "from": 40,
       "to": 100,
       "ms": 2000,
-      "at": 263.65
+      "at": 260.25
     },
     {
       "do": "slider",
@@ -676,7 +676,7 @@
       "from": 100,
       "to": 5,
       "ms": 1600,
-      "at": 268.07
+      "at": 264.67
     },
     {
       "do": "slider",
@@ -684,42 +684,42 @@
       "from": 5,
       "to": 100,
       "ms": 1400,
-      "at": 270.27
+      "at": 266.87
     },
     {
       "do": "rest",
       "target": "swatches",
-      "at": 281.45
+      "at": 278.05
     },
     {
       "do": "click",
       "target": "swatches",
-      "at": 282.25
+      "at": 278.85
     },
     {
       "do": "scroll",
       "target": "swatches",
-      "at": 282.45
+      "at": 279.05
     },
     {
       "do": "click",
       "target": "swatches:recent",
-      "at": 283.85
+      "at": 280.45
     },
     {
       "do": "click",
       "target": "swatches:recent-clear",
-      "at": 284.85
+      "at": 281.45
     },
     {
       "do": "scroll",
       "target": "swatches:recent-row",
-      "at": 285.85
+      "at": 282.45
     },
     {
       "do": "rest",
       "target": "editor-sb",
-      "at": 287.05
+      "at": 283.65
     },
     {
       "do": "box",
@@ -729,7 +729,7 @@
         100
       ],
       "ms": 800,
-      "at": 289.64
+      "at": 286.24
     },
     {
       "do": "rect",
@@ -739,7 +739,7 @@
       "live": true,
       "ms": 900,
       "hold": 8830,
-      "at": 289.64
+      "at": 286.24
     },
     {
       "do": "box",
@@ -749,7 +749,7 @@
         95
       ],
       "ms": 400,
-      "at": 291.54
+      "at": 288.14
     },
     {
       "do": "box",
@@ -759,7 +759,7 @@
         85
       ],
       "ms": 400,
-      "at": 293.04
+      "at": 289.64
     },
     {
       "do": "box",
@@ -769,7 +769,7 @@
         72
       ],
       "ms": 400,
-      "at": 294.54
+      "at": 291.14
     },
     {
       "do": "box",
@@ -779,7 +779,7 @@
         58
       ],
       "ms": 400,
-      "at": 296.04
+      "at": 292.64
     },
     {
       "do": "box",
@@ -789,44 +789,44 @@
         42
       ],
       "ms": 400,
-      "at": 297.54
+      "at": 294.14
     },
     {
       "do": "click",
       "target": "swatches",
-      "at": 305.45
+      "at": 302.05
     },
     {
       "do": "scroll",
       "target": "top",
-      "at": 306.45
+      "at": 303.05
     },
     {
       "do": "rest",
       "target": "equations",
-      "at": 308.31
+      "at": 304.91
     },
     {
       "do": "click",
       "target": "equations",
-      "at": 309.01
+      "at": 305.61
     },
     {
       "do": "scroll",
       "target": "equations:hue",
-      "at": 309.31
+      "at": 305.91
     },
     {
       "do": "hover",
       "target": "row:hsb-h",
       "ms": 600,
-      "at": 320.53
+      "at": 317.13
     },
     {
       "do": "hover",
       "target": "row:hsb-s",
       "ms": 600,
-      "at": 321.19
+      "at": 317.79
     },
     {
       "do": "rect",
@@ -835,7 +835,7 @@
       "hands": "free",
       "ms": 700,
       "hold": 2000,
-      "at": 321.23
+      "at": 317.83
     },
     {
       "do": "rect",
@@ -844,13 +844,13 @@
       "hands": "free",
       "ms": 700,
       "hold": 2000,
-      "at": 321.89
+      "at": 318.49
     },
     {
       "do": "hover",
       "target": "row:hsb-b",
       "ms": 600,
-      "at": 321.96
+      "at": 318.56
     },
     {
       "do": "rect",
@@ -859,13 +859,13 @@
       "hands": "free",
       "ms": 700,
       "hold": 2000,
-      "at": 322.66
+      "at": 319.26
     },
     {
       "do": "hover",
       "target": "editor-hex",
       "ms": 2200,
-      "at": 326.23
+      "at": 322.83
     },
     {
       "do": "rect",
@@ -874,35 +874,35 @@
       "hands": "free",
       "ms": 700,
       "hold": 2000,
-      "at": 326.83
+      "at": 323.43
     },
     {
       "do": "click",
       "target": "equations",
-      "at": 329.03
+      "at": 325.63
     },
     {
       "do": "scroll",
       "target": "top",
-      "at": 329.43
+      "at": 326.03
     },
     {
       "do": "click",
       "target": "help-button",
-      "at": 336.53
+      "at": 333.13
     },
     {
       "do": "click",
       "target": "about-watch-demo",
       "dx": 55,
       "dy": 14,
-      "at": 337.53
+      "at": 334.13
     },
     {
       "do": "drift",
       "ms": 100,
       "over": "demo",
-      "at": 368.05
+      "at": 364.65
     },
     {
       "do": "sway",
@@ -911,17 +911,17 @@
       "ms": 1400,
       "waves": 1,
       "over": "demo",
-      "at": 368.35
+      "at": 364.95
     },
     {
       "do": "drift",
       "ms": 2200,
-      "at": 369.75
+      "at": 366.35
     },
     {
       "do": "scroll",
       "target": "top",
-      "at": 374.72
+      "at": 371.32
     },
     {
       "do": "sway",
@@ -929,13 +929,13 @@
       "anchor": "below",
       "ms": 4000,
       "waves": 3,
-      "at": 374.72
+      "at": 371.32
     },
     {
       "do": "pip",
       "to": "on",
       "ms": 1100,
-      "at": 379.32
+      "at": 375.92
     },
     {
       "do": "box",
@@ -945,7 +945,7 @@
         80
       ],
       "ms": 1200,
-      "at": 381.39
+      "at": 377.99
     },
     {
       "do": "box",
@@ -955,31 +955,31 @@
         74
       ],
       "ms": 1000,
-      "at": 382.89
+      "at": 379.49
     },
     {
       "do": "slider",
       "target": "hex-sat",
       "to": 60,
       "ms": 1400,
-      "at": 385.15
+      "at": 381.75
     },
     {
       "do": "slider",
       "target": "hex-sat",
       "to": 68,
       "ms": 700,
-      "at": 387.15
+      "at": 383.75
     },
     {
       "do": "rest",
       "target": "help-button",
-      "at": 390.69
+      "at": 387.29
     },
     {
       "do": "click",
       "target": "help-button",
-      "at": 393.29
+      "at": 389.89
     },
     {
       "do": "sway",
@@ -987,13 +987,13 @@
       "anchor": "below",
       "ms": 4000,
       "waves": 3,
-      "at": 394.29
+      "at": 390.89
     },
     {
       "do": "pip",
       "to": "off",
       "ms": 500,
-      "at": 397.04
+      "at": 393.64
     }
   ]
 }
