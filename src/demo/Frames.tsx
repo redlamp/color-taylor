@@ -982,8 +982,10 @@ export function useFrames({ name, host, time, enabled, authoring }: UseFramesOpt
  * value anybody meant. Keyed by the keyframe, so moving the playhead reloads
  * the box from the file.
  */
-function TimingField({ field, frames, step, title, button }: {
+function TimingField({ field, label, frames, step, title, button }: {
   field: 'ms' | 'hold';
+  /** The dim tag before the input - survives a typed value, unlike a placeholder. */
+  label: string;
   frames: FramesApi;
   step: number;
   title: string;
@@ -995,21 +997,23 @@ function TimingField({ field, frames, step, title, button }: {
     frames.setTiming({ [field]: v === '' ? null : Number(v) });
   };
   return (
-    <input
-      type="number"
-      data-testid={`frame-${field}`}
-      key={`${frames.activeIndex}-${kf?.[field] ?? ''}`}
-      className="frame-timing-input"
-      defaultValue={kf?.[field] ?? ''}
-      min={0}
-      step={step}
-      placeholder={field}
-      disabled={!kf}
-      onBlur={(e) => commit(e.target.value)}
-      onKeyDown={(e) => { if (e.key === 'Enter') commit(e.currentTarget.value); }}
-      title={title}
-      style={{ ...button, width: 60, cursor: 'text' }}
-    />
+    <span title={title} style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+      <span style={framesLabelStyle}>{label}</span>
+      <input
+        type="number"
+        data-testid={`frame-${field}`}
+        key={`${frames.activeIndex}-${kf?.[field] ?? ''}`}
+        className="frame-timing-input"
+        defaultValue={kf?.[field] ?? ''}
+        min={0}
+        step={step}
+        disabled={!kf}
+        onBlur={(e) => commit(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Enter') commit(e.currentTarget.value); }}
+        title={title}
+        style={{ ...button, width: 60, cursor: 'text' }}
+      />
+    </span>
   );
 }
 
@@ -1064,7 +1068,7 @@ export function FrameControls({ frames, button }: { frames: FramesApi; button: C
           data-testid="frame-ratio"
           value={frames.ratio}
           onChange={(e) => frames.setRatio(e.target.value as Ratio)}
-          title="Which ratio a drawn frame is for"
+          title="Which ratio a drawn frame is for. 16:9 is the YouTube capture; the others are for social cuts."
           style={controlStyle}
         >
           {RATIOS.map((r) => <option key={r} value={r}>{r}</option>)}
@@ -1079,7 +1083,7 @@ export function FrameControls({ frames, button }: { frames: FramesApi; button: C
             // layer off: arming the tool is asking for the full page.
             if (next) frames.setFull(true);
           }}
-          title="Drag a region over the app; it saves as a keyframe at the playhead"
+          title="Draw a frame: drag a rectangle over the app. It snaps to the picked ratio and becomes the keyframe at the playhead."
           style={frames.drawing
             ? { ...button, color: '#111', background: FRAMES_ACCENT, borderColor: FRAMES_ACCENT }
             : controlStyle}
@@ -1090,7 +1094,7 @@ export function FrameControls({ frames, button }: { frames: FramesApi; button: C
           type="button"
           data-testid="frame-reset"
           onClick={frames.resetRegion}
-          title="Frame the whole app at the playhead (R)"
+          title="Keyframe at the playhead that returns to the whole app at 100% (R)."
           style={controlStyle}
         >
           Reset
@@ -1100,25 +1104,27 @@ export function FrameControls({ frames, button }: { frames: FramesApi; button: C
           data-testid="frame-delete"
           onClick={frames.removeActive}
           disabled={frames.activeIndex < 0}
-          title="Delete the keyframe at the playhead"
+          title="Delete the keyframe at the playhead."
           style={controlStyle}
         >
-          x
+          Delete
         </button>
         {/* The two timing fields of the keyframe at the playhead. Empty is the
             default: 800 ms into it, and no hold after it. */}
         <TimingField
           field="ms"
+          label="ease ms"
           frames={frames}
           step={100}
-          title="The move into this keyframe, in ms, ending at its time"
+          title="How long the move into the keyframe at the playhead takes, in milliseconds. 800 when empty."
           button={controlStyle}
         />
         <TimingField
           field="hold"
+          label="hold s"
           frames={frames}
           step={0.1}
-          title="Seconds this keyframe holds after its time, before the next move"
+          title="Seconds the frame stays still after arriving, before the next move may start. 0 when empty."
           button={controlStyle}
         />
       </div>

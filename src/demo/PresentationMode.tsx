@@ -1612,24 +1612,6 @@ export default function PresentationMode({
             </button>
             )}
             <FrameControls frames={frames} button={buttonStyle} />
-            {authoring && (
-            <button type="button" onClick={copyNotes} style={buttonStyle} disabled={!notes.length}>
-              {copied ? 'Copied' : 'Copy as markdown'}
-            </button>
-            )}
-            {authoring && (
-            <button
-              type="button"
-              data-testid="present-clear"
-              onClick={clearNotes}
-              onBlur={() => setClearArmed(false)}
-              title={clearArmed ? 'Click again to clear every note' : 'Clear notes'}
-              style={clearArmed ? { ...buttonStyle, color: '#fff', background: '#a12d2d', borderColor: '#d64545' } : buttonStyle}
-              disabled={!notes.length}
-            >
-              {clearArmed ? 'Sure?' : 'Clear notes'}
-            </button>
-            )}
             {noting && (
               <input
                 ref={noteInputRef}
@@ -1676,6 +1658,29 @@ export default function PresentationMode({
             >
               {shrunk ? '▴' : '▾'}
             </button>
+            )}
+            {/* The notes actions, at the row's far right: their own small
+                group so they read apart from the transport and framing
+                controls to their left. `marginLeft: auto` is enough in a
+                flex row - it eats the row's remaining space and pushes the
+                group (and nothing after it, since it is last) flush right. */}
+            {authoring && (
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginLeft: 'auto' }}>
+              <button type="button" onClick={copyNotes} style={buttonStyle} disabled={!notes.length}>
+                {copied ? 'Copied' : 'Copy as markdown'}
+              </button>
+              <button
+                type="button"
+                data-testid="present-clear"
+                onClick={clearNotes}
+                onBlur={() => setClearArmed(false)}
+                title={clearArmed ? 'Click again to clear every note' : 'Clear notes'}
+                style={clearArmed ? { ...buttonStyle, color: '#fff', background: '#a12d2d', borderColor: '#d64545' } : buttonStyle}
+                disabled={!notes.length}
+              >
+                {clearArmed ? 'Sure?' : 'Clear notes'}
+              </button>
+            </div>
             )}
           </div>
 
