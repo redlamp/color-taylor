@@ -1099,7 +1099,7 @@ export default function PresentationMode({
               word chunks (HyperFrames-style, a word brightening as the
               playhead passes its start) when `<name>-words.json` loaded, the
               current line's whole text otherwise. */}
-          {captionsOn && wordChunks && wordChunkLayers.length > 0 && (
+          {captionsOn && !hiddenForCapture && wordChunks && wordChunkLayers.length > 0 && (
             <div
               data-testid="present-captions"
               aria-live="polite"
@@ -1148,7 +1148,7 @@ export default function PresentationMode({
               ))}
             </div>
           )}
-          {captionsOn && !wordChunks && captionLayers.length > 0 && (
+          {captionsOn && !hiddenForCapture && !wordChunks && captionLayers.length > 0 && (
             <div
               data-testid="present-captions"
               aria-live="polite"
