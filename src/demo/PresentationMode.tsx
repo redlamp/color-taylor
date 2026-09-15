@@ -645,6 +645,21 @@ export default function PresentationMode({
     return () => a.removeEventListener('loadedmetadata', restore);
   }, [rebuilt]);
 
+  /**
+   * The camera panel is this component's sibling under `ColorPicker.tsx`, not
+   * its child, so `rebuilt` cannot reach it as a prop; a dynamic import of
+   * `WebcamPip.tsx`'s own `notifyRebuilt` is the bridge instead (see that
+   * file). Dynamic, not a static import, so this module does not drag the
+   * panel's chunk in behind it - `ColorPicker.tsx` already lazy-loads the two
+   * separately, and the About panel's shipped path may never render the panel
+   * at all. `rebuilt` is 0 until the first Apply, which is not a rebuild to
+   * announce.
+   */
+  useEffect(() => {
+    if (!rebuilt) return;
+    import('./WebcamPip').then((m) => m.notifyRebuilt(name, rebuilt));
+  }, [rebuilt, name]);
+
   const toggle = useCallback(() => {
     if (planMode) {
       if (run.current.since === null) {

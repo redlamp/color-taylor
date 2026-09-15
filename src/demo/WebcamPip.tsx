@@ -39,7 +39,7 @@
  * replaying the gesture.
  */
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Video } from 'lucide-react';
 import { CURRENT_CUT } from './currentCut';
@@ -121,6 +121,25 @@ function wantsLiveWebcam(): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * Told by `PresentationMode` once a clip-editor Apply's audio and lines have
+ * landed on disk, so this panel knows a re-cut of the camera footage may be
+ * on the way. The two are siblings under `ColorPicker.tsx`, not parent and
+ * child, so `rebuilt` cannot arrive as a prop the way the manifest header
+ * describes it; this small pub/sub - the same shape `handover.ts` already
+ * uses between these two - is the bridge instead. `name` is checked against
+ * `presentName()` by the listener, since a page can only ever be presenting
+ * one cut and a stray notification for another should be ignored.
+ */
+const rebuiltListeners = new Set<(name: string, rebuilt: number) => void>();
+export function notifyRebuilt(name: string, rebuilt: number) {
+  rebuiltListeners.forEach((fn) => fn(name, rebuilt));
+}
+function onRebuilt(fn: (name: string, rebuilt: number) => void): () => void {
+  rebuiltListeners.add(fn);
+  return () => { rebuiltListeners.delete(fn); };
 }
 
 /** The entry covering `t`, or the one to hold a frame of when none does. */
@@ -254,6 +273,37 @@ export default function WebcamPip({ webcam }: WebcamPipProps = {}) {
     };
   }, []);
 
+  /**
+   * The cache-buster on the manifest and on the video file it names: empty at
+   * mount, `?v=<rebuilt>` once a rebuild has landed (see the effect below),
+   * so neither is ever served from an earlier apply's HTTP cache. Read by the
+   * clip-playback effect further down at the moment it (re)fetches - it is
+   * not itself a dependency of anything, because `fetchManifest` below always
+   * hands back a fresh `clips` array, and a fresh array is what actually
+   * drives that effect to run again.
+   */
+  const bustRef = useRef('');
+
+  /**
+   * Fetch and parse `<name>-pip.json`, the one path both the mount effect and
+   * a post-rebuild reload use - see the two effects below - so the manifest's
+   * shape (`spans` now, `lines` for the tool's older --per-line mode) is
+   * handled in exactly one place.
+   */
+  const fetchManifest = useCallback((name: string, bust: string): Promise<PipClip[] | null> => {
+    bustRef.current = bust;
+    return fetch(`${import.meta.env.BASE_URL}scripts/${name}-pip.json${bust}`)
+      .then((res) => (res.ok ? (res.json() as Promise<{ spans?: PipClip[]; lines?: PipClip[] }>) : null))
+      .then((data) => {
+        const entries = data?.spans ?? data?.lines;
+        return Array.isArray(entries) && entries.length
+          ? [...entries].sort((a, b) => a.cutStart - b.cutStart)
+          : null;
+      })
+      // No manifest: the cut has no camera clips yet, and the webcam stands in.
+      .catch(() => null);
+  }, []);
+
   /* The cut's camera footage, when this presentation has any. */
   useEffect(() => {
     // The app's own walkthrough has no `?present=` in the URL to read; the host
@@ -261,19 +311,58 @@ export default function WebcamPip({ webcam }: WebcamPipProps = {}) {
     const name = presentName() ?? (webcam ? CURRENT_CUT : null);
     if (!name) return;
     let alive = true;
-    fetch(`${import.meta.env.BASE_URL}scripts/${name}-pip.json`)
-      .then((res) => (res.ok ? (res.json() as Promise<{ spans?: PipClip[]; lines?: PipClip[] }>) : null))
-      .then((data) => {
-        // `spans` is what the tool writes now; `lines` is its --per-line mode,
-        // which plays by the same rule, one entry to a line.
-        const entries = data?.spans ?? data?.lines;
-        if (!alive || !Array.isArray(entries) || !entries.length) return;
-        setClips([...entries].sort((a, b) => a.cutStart - b.cutStart));
-      })
-      // No manifest: the cut has no camera clips yet, and the webcam stands in.
-      .catch(() => { /* nothing to play */ });
+    fetchManifest(name, '').then((sorted) => { if (alive && sorted) setClips(sorted); });
     return () => { alive = false; };
-  }, [webcam]);
+  }, [webcam, fetchManifest]);
+
+  /**
+   * After a clip-editor Apply lands (dev only - `presentName()` is null on
+   * the shipped path, so this never fires there): the re-cut runs on the
+   * server in the background, so poll `GET /__clip/<name>/status` about once
+   * a second until it says `synced` or `error`, 90s pass, another rebuild
+   * notification arrives, or the panel unmounts. `idle` means there is no
+   * re-cut coming at all (no `<name>-pip-options.json` measured for this
+   * cut) - nothing to wait for, so the reload happens right away. `error`
+   * still reloads: the file on disk did not change, but re-fetching costs
+   * nothing and it is the best there is, and the log is worth a look.
+   */
+  useEffect(() => {
+    const name = presentName();
+    if (!name) return;
+    let cancelCurrent: (() => void) | null = null;
+    const off = onRebuilt((n, rebuilt) => {
+      if (n !== name) return;
+      cancelCurrent?.();
+      let alive = true;
+      let timer = 0;
+      const deadline = Date.now() + 90_000;
+      const reload = () => {
+        fetchManifest(name, `?v=${rebuilt}`).then((sorted) => { if (alive && sorted) setClips(sorted); });
+      };
+      const poll = () => {
+        fetch(`/__clip/${name}/status`)
+          .then((res) => (res.ok ? (res.json() as Promise<{ state?: string; log?: string }>) : null))
+          .then((data) => {
+            if (!alive) return;
+            const state = data?.state ?? 'idle';
+            if (state === 'error') console.warn('[camera pip] re-cut failed; showing the current file', data?.log);
+            if (state === 'synced' || state === 'error' || state === 'idle' || Date.now() >= deadline) {
+              reload();
+              return;
+            }
+            timer = window.setTimeout(poll, 1000);
+          })
+          .catch(() => {
+            if (!alive) return;
+            if (Date.now() >= deadline) { reload(); return; }
+            timer = window.setTimeout(poll, 1000);
+          });
+      };
+      poll();
+      cancelCurrent = () => { alive = false; window.clearTimeout(timer); };
+    });
+    return () => { off(); cancelCurrent?.(); };
+  }, [fetchManifest]);
 
   /**
    * Adopting the host's `<video>`: it is appended into the panel box and used
@@ -361,6 +450,12 @@ export default function WebcamPip({ webcam }: WebcamPipProps = {}) {
     if (!clips.length) return;
     let raf = 0;
     const base = `${import.meta.env.BASE_URL}scripts/`;
+    // Carries the manifest's own cache-buster (see `bustRef` above) onto the
+    // video files it names, so a reload after a rebuild pulls the re-cut
+    // bytes rather than the HTTP cache's copy of the old `full.mp4`. Read
+    // once, here: this effect reruns in full whenever `clips` gets a new
+    // array, which a reload always hands it, so a later change is a later run.
+    const bust = bustRef.current;
     /*
      * The file is fetched at mount and attached at play.
      *
@@ -382,7 +477,7 @@ export default function WebcamPip({ webcam }: WebcamPipProps = {}) {
     let begun = false;
     let alive = true;
     for (const file of new Set(clips.map((c) => c.file))) {
-      fetch(base + file)
+      fetch(base + file + bust)
         .then((res) => (res.ok ? res.blob() : null))
         .then((blob) => { if (alive && blob) fetched.set(file, URL.createObjectURL(blob)); })
         .catch(() => { /* the element will fetch it itself when it is attached */ });
@@ -411,7 +506,7 @@ export default function WebcamPip({ webcam }: WebcamPipProps = {}) {
       if (!begun && !s.el.src) return;
       s.entry = entry;
       s.parked = false;
-      const url = fetched.get(entry.file) ?? base + entry.file;
+      const url = fetched.get(entry.file) ?? base + entry.file + bust;
       // An adopted element arrives already pointed at the file, and often
       // already playing: writing the same `src` again would blank it and start
       // the download over.
