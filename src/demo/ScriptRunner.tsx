@@ -444,7 +444,13 @@ const RING_SAMPLES = 72;
  * (`value:*`) and a vertex letter do not move, so they are drawn once and
  * stand.
  */
-const followsTarget = (name: string) => name.startsWith('handle:') || name === 'hex-tip';
+const followsTarget = (name: string) =>
+  name.startsWith('handle:') || name === 'hex-tip'
+  // The markers on the hexagon's own two bars move for the same reason a
+  // slider's does: they are where a value is. Beat 5.2's ring on the
+  // saturation handle has to still be round it at 5.5, with the bar dragged
+  // to nought underneath. Round 2 of cut 05, note 7.
+  || name === 'hex-sat-handle' || name === 'hex-bri-handle';
 /** How far a `rect`'s diagonal bows off the straight line, in px: a hand, not a ruler. */
 const DIAG_BOW = 6;
 /**
@@ -1670,6 +1676,24 @@ function resolve(name: string, host: DemoHost): Target | null {
   }
   if (name === 'hex-sat') return byEl(q('#sat-bar'));
   if (name === 'hex-bri') return byEl(q('#bl-bar'));
+  // The marker on one of those two bars, with its readout - not the bar. Beat
+  // 5.2 says "100% saturation, like what we have here", and a ring round the
+  // whole 420px track is a ring round the control rather than round the value
+  // the line is reading out. Round 2 of cut 05, note 6.
+  //
+  // Two elements, because HexBar draws the marker in two pieces: the arrow on
+  // the track (`#<axis>-bar-arrow`) and, where the layout gives the bar a pill,
+  // the pill that carries the number (`#<axis>-handle`, which the arrow is
+  // repeated inside). The union is the handle and its tooltip together, which
+  // is what has to be inside the ring; at the stacked widths there is no pill
+  // and the arrow stands alone, and the union is then just the arrow.
+  if (name === 'hex-sat-handle' || name === 'hex-bri-handle') {
+    const axis = name === 'hex-sat-handle' ? 'sat' : 'bl';
+    const els = [q(`#${axis}-handle`), q(`#${axis}-bar-arrow`)].filter((e): e is Element => !!e);
+    if (!els.length) return null;
+    const rect = () => unionRect(els, HANDLE_BOX_PAD);
+    return { el: els[0], at: () => rectCenter(rect()), rect };
+  }
   // The color editor's own two controls, at the top of the panel: the
   // saturation/brightness box (`box` drags its handle) and the hue strip
   // beside it (`slider` runs 0-360 down it). Both carry a padded box.
@@ -1928,7 +1952,14 @@ function pipArc(p0: Point, p1: Point): (t: number) => Point {
  */
 const handsFree = (a: ScriptAction) =>
   a.do === 'circle' || a.do === 'ray' || a.do === 'scroll' || a.do === 'line' || a.do === 'arrow'
-  || (a.do === 'rect' && a.hands === 'free');
+  // A `live` box is hands free by definition - `run` draws it on the layer's
+  // own frame loop and returns at once, because the whole point of it is the
+  // drag going on underneath. It was not said here, though, so dispatching one
+  // still called `d.interrupt()` and killed the drag it was drawn to measure:
+  // beat 5.6's marquee went up 0.7s into "Adding saturation increases the
+  // range" and stopped the saturation ever being added. Round 2 of cut 05,
+  // note 8; the doc has claimed `live` is hands-free since cut 04.
+  || (a.do === 'rect' && (a.hands === 'free' || !!a.live));
 
 /**
  * The camera panel's state before the first `pip` cue fires.
