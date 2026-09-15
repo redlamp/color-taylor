@@ -159,7 +159,7 @@ function NamedColorMatch({ rgb, onAnimateToHsb, onHoverMatch, hoveredHtmlColor, 
               }
             />
             <TooltipContent side="top" sideOffset={4} className="text-sm font-semibold">
-              {showOnHex ? 'HTML colors on the hexagon' : 'HTML colors hidden'}
+              {showOnHex ? 'Hide HTML Colors' : 'Show HTML Colors'}
             </TooltipContent>
           </Tooltip>
         </ToggleGroup>
