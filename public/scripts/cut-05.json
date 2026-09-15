@@ -389,7 +389,7 @@
       "do": "slider",
       "target": "hex-bri",
       "from": 100,
-      "to": 28,
+      "to": 60,
       "ms": 700,
       "at": 113.25
     },
@@ -598,7 +598,7 @@
       "target": "hex-bri",
       "to": 100,
       "ms": 700,
-      "from": 28,
+      "from": 60,
       "at": 135.96
     },
     {

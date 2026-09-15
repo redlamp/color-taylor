@@ -2980,14 +2980,31 @@ export default function ScriptRunner({
           const wantHue = (bankCh === 'hsb-h' || bankCh === 'hsl-h') && typeof a.to === 'number'
             ? ((Math.round(a.to * 3.6) % 360) + 360) % 360
             : null;
-          const settle = wantHue === null ? undefined : async () => {
+          // The S and B rows carry a value the same way the H row carries a
+          // degree - a drag to 100 measured 98 in real-time play (2.10, cut
+          // 05) - and the fix is the same nudge, in the track's own 0-100
+          // units instead of degrees: no wrap, no /3.6.
+          const wantSB = (bankCh === 'hsb-s' || bankCh === 'hsb-b') && typeof a.to === 'number'
+            ? Math.round(a.to)
+            : null;
+          const readSB = () => (bankCh === 'hsb-s' ? hostRef.current.field().s : hostRef.current.field().b);
+          const settle = wantHue === null && wantSB === null ? undefined : async () => {
             for (const bias of HUE_SETTLE) {
-              if (hostRef.current.field().h === wantHue) return;
-              d.dragTo(trackPoint(name, t.el, ((wantHue + bias) % 360) / 3.6));
+              if (wantHue !== null) {
+                if (hostRef.current.field().h === wantHue) return;
+                d.dragTo(trackPoint(name, t.el, ((wantHue + bias) % 360) / 3.6));
+              } else if (wantSB !== null) {
+                if (readSB() === wantSB) return;
+                d.dragTo(trackPoint(name, t.el, clamp(wantSB + bias, 0, 100)));
+              }
               await d.wait(SETTLE_POLL_MS);
             }
-            if (hostRef.current.field().h !== wantHue) {
-              console.warn(`[script] t=${a.at}s slider ${name}: hue settled at ${hostRef.current.field().h}, wanted ${wantHue}`);
+            const ok = wantHue !== null ? hostRef.current.field().h === wantHue : readSB() === wantSB;
+            if (!ok) {
+              const label = wantHue !== null ? 'hue' : bankCh === 'hsb-s' ? 'saturation' : 'brightness';
+              const got = wantHue !== null ? hostRef.current.field().h : readSB();
+              const want = wantHue !== null ? wantHue : wantSB;
+              console.warn(`[script] t=${a.at}s slider ${name}: ${label} settled at ${got}, wanted ${want}`);
             }
           };
           await d.bring(t.el);
