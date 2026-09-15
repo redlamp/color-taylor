@@ -31,19 +31,20 @@ tags:
 
 ## Decisions, as the presentation side states them
 
-Each is a sentence or three in their wiki; recorded here so the app side does not relitigate them.
+Each is a sentence or three in their wiki; recorded here so the app side does not relitigate them. The canonical notes are in `redlamp-videos/wiki/notes/`, named in brackets; their maps are `mocs/color-taylor-walkthrough` and `mocs/pipeline`.
 
-- The demo is a subset of the presentation, overridden only at named moments (the demo's end restore, the exit walk).
+- The demo is a subset of the presentation, overridden only at named moments (the demo's end restore, the exit walk). `decision-demo-is-a-subset-of-the-presentation`
 - Cues are data, not code: keyed by line id with offsets, retimed to the audio.
-- The plan clock lets choreography be reviewed before the audio exists.
-- One cut ships (`CURRENT_CUT`); older cuts' assets stay out of the build.
+- The plan clock lets choreography be reviewed before the audio exists. `decision-plan-the-pacing-before-recording`
+- One cut ships (`CURRENT_CUT`); older cuts' assets stay out of the build. `decision-one-cut-per-recording-last-take-wins`
 - Host-created media elements with the synchronous `play()` in the click; the runner adopts them and never rewrites the voice `src`.
-- The About panel is the shipped entry and stays open through beat 1.
-- Frames are capture-only, never in the shipped presentation.
+- The About panel is the shipped entry and stays open through beat 1. `decision-about-panel-shipped-entry-point`
+- Frames are capture-only, never in the shipped presentation. `decision-frames-are-capture-only`
 - Every value change on screen is cursor-driven, and there is one cursor.
-- The speed cap above.
-- Taylor verifies in the browser; agents run tsc, eslint and seek checks only.
+- The speed cap above. `decision-speed-cap-divides-by-frame-scale`
+- Taylor verifies in the browser; agents run tsc, eslint and seek checks only. `decision-taylor-verifies-in-the-browser`
+- Also theirs, about the pipeline rather than the app: `decision-snap-boundaries-per-pair`, `decision-clip-editor-apply-rejoins-on-the-plan`, `decision-resolve-round-trip-in-reserve`, and the repo split itself, `decision-split-ownership-between-repos`.
 
 ## Media hosting
 
-Pages deploys `main` through `ci.yml` to `gh-pages` with base `/color-taylor/`. The plan, pending Taylor's approval of the cut: un-ignore exactly `public/scripts/cut-04.m4a` and `public/scripts/pip/cut-04/full.mp4` (about 11 MB together), commit them, PR to `dev`. Pages serves byte ranges so seeking works, and its ten-minute cache is fine. Not LFS (Pages would serve pointers), not release assets. The spellings `walkthroughVoiceUrl` and `walkthroughCameraUrl` in `ColorPicker.tsx` must match those paths to the character. Older cuts' media never enters the repo.
+Their plan is `plan-hosting-media-on-pages`; `plan-captions` and `plan-share-the-walkthrough` are stubs as of 2026-09-15. Pages deploys `main` through `ci.yml` to `gh-pages` with base `/color-taylor/`. The plan, pending Taylor's approval of the cut: un-ignore exactly `public/scripts/cut-04.m4a` and `public/scripts/pip/cut-04/full.mp4` (about 11 MB together), commit them, PR to `dev`. Pages serves byte ranges so seeking works, and its ten-minute cache is fine. Not LFS (Pages would serve pointers), not release assets. The spellings `walkthroughVoiceUrl` and `walkthroughCameraUrl` in `ColorPicker.tsx` must match those paths to the character. Older cuts' media never enters the repo.
