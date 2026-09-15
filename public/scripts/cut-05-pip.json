@@ -162,19 +162,19 @@
       "id": "full",
       "file": "pip/cut-05/full.mp4",
       "cutStart": 0,
-      "cutEnd": 397.682,
+      "cutEnd": 341.802,
       "clipOffset": 0,
-      "duration": 397.7,
+      "duration": 341.833333,
       "parts": [
         {
           "id": "intro",
           "cutStart": 0,
-          "cutEnd": 15.712
+          "cutEnd": 13.592
         },
         {
           "id": "outro",
-          "cutStart": 370.822,
-          "cutEnd": 397.682
+          "cutStart": 317.502,
+          "cutEnd": 341.802
         }
       ],
       "lines": [
@@ -204,38 +204,38 @@
         },
         {
           "id": "1.5",
-          "cutStart": 13.252,
-          "cutEnd": 15.412,
+          "cutStart": 11.132,
+          "cutEnd": 13.292,
           "text": "I'll just move myself out of the way, for now."
         },
         {
           "id": "11.1",
-          "cutStart": 371.122,
-          "cutEnd": 377.042,
+          "cutStart": 317.802,
+          "cutEnd": 323.722,
           "text": "If you use Figma, I've also made a Color Taylor plugin that you might like to check out."
         },
         {
           "id": "11.2",
-          "cutStart": 377.592,
-          "cutEnd": 379.332,
+          "cutStart": 324.622,
+          "cutEnd": 326.362,
           "text": "That's Color Taylor!"
         },
         {
           "id": "11.3",
-          "cutStart": 379.332,
-          "cutEnd": 384.532,
+          "cutStart": 326.362,
+          "cutEnd": 331.562,
           "text": "Go play with it, and I hope it helps you see the relationship between RGB and HSB in a different light."
         },
         {
           "id": "11.4",
-          "cutStart": 388.692,
-          "cutEnd": 392.402,
+          "cutStart": 332.462,
+          "cutEnd": 336.172,
           "text": "If it's useful, I'd like to hear from you. Questions and feedback are welcome."
         },
         {
           "id": "11.5",
-          "cutStart": 392.952,
-          "cutEnd": 395.282,
+          "cutStart": 337.072,
+          "cutEnd": 339.402,
           "text": "Thanks for watching. See ya."
         }
       ]
