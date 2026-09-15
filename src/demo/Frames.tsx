@@ -333,6 +333,56 @@ function snapToTarget(r: Rect, host: DemoHost): { target: string; pad: number } 
   return best ? { target: best.target, pad: best.pad } : null;
 }
 
+/** The four corners a region can be resized by. Edges would only repeat them. */
+type Corner = 'nw' | 'ne' | 'sw' | 'se';
+
+const CORNERS: Corner[] = ['nw', 'ne', 'sw', 'se'];
+const CORNER_CURSOR: Record<Corner, string> = {
+  nw: 'nwse-resize', se: 'nwse-resize', ne: 'nesw-resize', sw: 'nesw-resize',
+};
+
+/** The side of a handle, and how far a nudge moves plain and with Shift. */
+const HANDLE = 10;
+const NUDGE = 1;
+const NUDGE_SHIFT = 10;
+/** A hand-edited region never shrinks below this: it stays grabbable. */
+const MIN_REGION = 24;
+/** A nudge burst is one edit: the write waits this long for the next key. */
+const NUDGE_COMMIT_MS = 300;
+
+/** Keep a region inside the app - the fit rule assumes none of it hangs out. */
+function clampInto(r: Rect, b: Rect): Rect {
+  const w = Math.min(r.w, b.w);
+  const h = Math.min(r.h, b.h);
+  return {
+    w,
+    h,
+    x: Math.min(Math.max(r.x, b.x), b.x + b.w - w),
+    y: Math.min(Math.max(r.y, b.y), b.y + b.h - h),
+  };
+}
+
+/**
+ * A corner drag: the opposite corner stays put and the region keeps the
+ * ratio, so a resize recomposes the same shot larger or smaller rather than
+ * changing what shape it is. The pointer leads on whichever axis has moved
+ * further, which is what makes a diagonal drag feel like it is being followed.
+ */
+function resizedRect(base: Rect, corner: Corner, dx: number, dy: number, ratio: Ratio, b: Rect): Rect {
+  const sx = corner === 'ne' || corner === 'se' ? 1 : -1;
+  const sy = corner === 'sw' || corner === 'se' ? 1 : -1;
+  const ax = sx > 0 ? base.x : base.x + base.w;
+  const ay = sy > 0 ? base.y : base.y + base.h;
+  const want = RATIO_VALUE[ratio];
+  let w = Math.max(MIN_REGION, base.w + sx * dx, (base.h + sy * dy) * want);
+  // The app's edge caps the width on both axes; the ratio survives the cap.
+  w = Math.min(w, sx > 0 ? b.x + b.w - ax : ax - b.x);
+  w = Math.min(w, (sy > 0 ? b.y + b.h - ay : ay - b.y) * want);
+  w = Math.max(1, w);
+  const h = w / want;
+  return { x: sx > 0 ? ax : ax - w, y: sy > 0 ? ay : ay - h, w, h };
+}
+
 /** What the endpoint speaks; the file itself is the bare array. */
 interface FramesBody { source: string; frames: Keyframe[]; clear?: boolean }
 
@@ -407,6 +457,18 @@ export function useFrames({ name, host, time, enabled, authoring }: UseFramesOpt
   useEffect(() => { hostRef.current = host; });
   /** R's handler, so the key effect does not churn with every edit. */
   const resetRegionRef = useRef<() => void>(() => {});
+  /**
+   * The region being moved or resized by hand, in page px. It stands in front
+   * of the measured one for as long as the gesture and its write last, so the
+   * outlines follow the pointer without a POST per frame.
+   */
+  const [edited, setEdited] = useState<Rect | null>(null);
+  const gesture = useRef<{ mode: 'move' | Corner; px: number; py: number; base: Rect; bounds: Rect } | null>(null);
+  /** Set at the write, cleared once the saved keyframe has measured back. */
+  const awaitingSave = useRef(false);
+  /** The arrow keys' pending write, and the handler the key effect calls. */
+  const nudgeTimer = useRef<number | null>(null);
+  const nudgeRef = useRef<((key: string, shift: boolean) => void) | null>(null);
 
   const activeIndex = active ? keyframeAt(keyframes, time) : -1;
   const tween = useMemo(
@@ -532,14 +594,22 @@ export function useFrames({ name, host, time, enabled, authoring }: UseFramesOpt
     setFrameState({ scale: 1, box: null });
   }, []);
 
-  /* F toggles the full page against the framed view; R frames the whole app.
+  /* F toggles the full page against the framed view; R frames the whole app;
+     the arrows nudge the region while there is an editable one on screen.
      Authoring only. R is free in the transport, which keeps Space, the arrows,
-     N, C, T and F. */
+     N, C, T and F - and gets the arrows back the moment the region outline is
+     gone, which F alone is enough to do. */
   useEffect(() => {
     if (!active || !authoring) return;
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement | null;
       if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
+      if (e.key.startsWith('Arrow') && nudgeRef.current) {
+        e.preventDefault();
+        e.stopPropagation();
+        nudgeRef.current(e.key, e.shiftKey);
+        return;
+      }
       const key = e.key.toLowerCase();
       if (key !== 'f' && key !== 'r') return;
       e.preventDefault();
@@ -582,6 +652,85 @@ export function useFrames({ name, host, time, enabled, authoring }: UseFramesOpt
   /** Reset: the whole app, at the playhead, for the ratio being edited. */
   const resetRegion = useCallback(() => saveRegion('reset'), [saveRegion]);
   useEffect(() => { resetRegionRef.current = resetRegion; }, [resetRegion]);
+
+  /**
+   * A hand-edited region, back into the keyframe in force - not into a new one
+   * at the instant the playhead happens to read: the edit is of that frame.
+   *
+   * A region that named a target keeps naming it only while the same target
+   * with some pad still *reproduces* the rect - which a resize about the
+   * middle does and a move does not, since a pad cannot say "off to the left".
+   * Anything else, `"reset"` included, is pixels from the first edit on. The
+   * keyframe's other ratios are not touched: they are other shots.
+   */
+  const commitRegion = useCallback((r: Rect) => {
+    if (activeIndex < 0) return;
+    const kf = keyframes[activeIndex];
+    const was = regionFor(kf, ratio);
+    const root = appRoot();
+    const named = typeof was === 'object' && 'target' in was && root
+      ? withIdentity(root, () => {
+        const hit = snapToTarget(r, hostRef.current);
+        if (!hit || hit.target !== was.target) return null;
+        const back = regionRect(hit, hostRef.current);
+        return back && Math.abs(back.x - r.x) <= 2 && Math.abs(back.y - r.y) <= 2
+          && Math.abs(back.w - r.w) <= 2 && Math.abs(back.h - r.h) <= 2 ? hit : null;
+      })
+      : null;
+    const region: Region = named
+      ?? { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.w), h: Math.round(r.h) };
+    const next = [...keyframes];
+    next[activeIndex] = { ...kf, regions: { ...kf.regions, [ratio]: region } };
+    awaitingSave.current = true;
+    persist(next);
+  }, [activeIndex, keyframes, persist, ratio]);
+
+  /* The local rect stands until the saved keyframe has been measured back, so
+     the outline never flashes through the rect it is on its way from. The
+     keyframes are in the deps as well as the measurement: a write that changes
+     nothing measurable still has to hand the outline back. */
+  useEffect(() => {
+    if (!awaitingSave.current || gesture.current) return;
+    awaitingSave.current = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setEdited(null);
+  }, [keyframes, shown]);
+
+  /* The region is editable while the editor is showing one it can write back:
+     the full page, a keyframe in force, and no move running through it. */
+  const editable = active && authoring && full && !drawing
+    && activeIndex >= 0 && tween.from === tween.to && shown !== null;
+  /** The rect under the hand right now: the local one during an edit. */
+  const liveRegion = shown ? (edited ?? shown.region) : null;
+
+  /* Re-armed every render, so it closes over this render's rect. Null when
+     there is nothing to nudge, which is what hands the arrows back. */
+  useEffect(() => {
+    nudgeRef.current = editable && liveRegion ? (key, shift) => {
+      const step = shift ? NUDGE_SHIFT : NUDGE;
+      const d: Record<string, [number, number]> = {
+        ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step],
+      };
+      const move = d[key];
+      const root = appRoot();
+      const bounds = root ? withIdentity(root, () => frameTargetRect('app-root', hostRef.current)) : null;
+      if (!move || !bounds) return;
+      const next = clampInto(
+        { ...liveRegion, x: liveRegion.x + move[0], y: liveRegion.y + move[1] }, bounds,
+      );
+      setEdited(next);
+      if (nudgeTimer.current !== null) window.clearTimeout(nudgeTimer.current);
+      nudgeTimer.current = window.setTimeout(() => {
+        nudgeTimer.current = null;
+        commitRegion(next);
+      }, NUDGE_COMMIT_MS);
+    } : null;
+  });
+
+  /* A pending nudge does not outlive the layer. */
+  useEffect(() => () => {
+    if (nudgeTimer.current !== null) window.clearTimeout(nudgeTimer.current);
+  }, []);
 
   const setTiming = useCallback((patch: { ms?: number | null; hold?: number | null }) => {
     if (activeIndex < 0) return;
@@ -636,6 +785,45 @@ export function useFrames({ name, host, time, enabled, authoring }: UseFramesOpt
     });
   };
 
+  /* Moving and resizing the region by hand. Only the full page offers it, and
+     there the layer's transform is off, so a client px is a page px and the
+     pointer's numbers go straight into the rect. */
+  const onEditDown = (mode: 'move' | Corner) => (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (!editable || !liveRegion) return;
+    const root = appRoot();
+    const bounds = root ? withIdentity(root, () => frameTargetRect('app-root', hostRef.current)) : null;
+    if (!bounds) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    gesture.current = { mode, px: e.clientX, py: e.clientY, base: liveRegion, bounds };
+  };
+  const onEditMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const g = gesture.current;
+    if (!g) return;
+    const dx = e.clientX - g.px;
+    const dy = e.clientY - g.py;
+    // A move keeps the size and a resize keeps the ratio, so neither of them
+    // re-snaps the ratio the way a freshly drawn rect does.
+    setEdited(g.mode === 'move'
+      ? clampInto({ ...g.base, x: g.base.x + dx, y: g.base.y + dy }, g.bounds)
+      : resizedRect(g.base, g.mode, dx, dy, ratio, g.bounds));
+  };
+  const onEditUp = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (!gesture.current) return;
+    gesture.current = null;
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+    if (edited) commitRegion(edited);
+  };
+  const editHandlers = {
+    onPointerMove: onEditMove,
+    onPointerUp: onEditUp,
+    onPointerCancel: onEditUp,
+  };
+
+  /** What the framing keeps: the region grown to the ratio, edits included. */
+  const fitRect = shown ? (edited ? snapToRatio(edited, ratio) : shown.frame) : null;
+
   const live = drag ? {
     x: Math.min(drag.x, drag.x + drag.w),
     y: Math.min(drag.y, drag.y + drag.h),
@@ -672,7 +860,7 @@ export function useFrames({ name, host, time, enabled, authoring }: UseFramesOpt
           exactly as much page as growing the region about its middle does.
           Two rects because they are two different things, and a shot composed
           on the first is cropped by the second. Both move with the tween. */}
-      {full && shown && (
+      {full && shown && liveRegion && fitRect && (
         <>
           {shown.others.map((o) => (
             <div
@@ -693,8 +881,8 @@ export function useFrames({ name, host, time, enabled, authoring }: UseFramesOpt
             data-region-ratio={ratio}
             style={{
               position: 'absolute',
-              left: shown.frame.x, top: shown.frame.y,
-              width: shown.frame.w, height: shown.frame.h,
+              left: fitRect.x, top: fitRect.y,
+              width: fitRect.w, height: fitRect.h,
               outline: `1px solid ${RATIO_COLOR[ratio]}`,
             }}
           >
@@ -702,19 +890,46 @@ export function useFrames({ name, host, time, enabled, authoring }: UseFramesOpt
               {ratio} frame
             </span>
           </div>
+          {/* The region takes the pointer when there is a keyframe to write it
+              back to: the interior moves it, a corner resizes it at the ratio.
+              The write waits for the release, so the drag itself is local. */}
           <div
             data-testid="frame-region"
             data-region-ratio={ratio}
             data-region-current="1"
+            data-region-editable={editable ? '1' : '0'}
+            onPointerDown={onEditDown('move')}
+            {...editHandlers}
             style={{
               position: 'absolute',
-              left: shown.region.x, top: shown.region.y,
-              width: shown.region.w, height: shown.region.h,
+              left: liveRegion.x, top: liveRegion.y,
+              width: liveRegion.w, height: liveRegion.h,
               outline: `2px dashed ${RATIO_COLOR[ratio]}`,
               background: `${RATIO_COLOR[ratio]}14`,
+              pointerEvents: editable ? 'auto' : 'none',
+              cursor: editable ? 'move' : 'default',
+              touchAction: 'none',
             }}
           >
             <span style={{ ...outlineLabel, color: RATIO_COLOR[ratio] }}>region</span>
+            {editable && CORNERS.map((c) => (
+              <div
+                key={c}
+                data-testid={`frame-handle-${c}`}
+                onPointerDown={onEditDown(c)}
+                {...editHandlers}
+                style={{
+                  position: 'absolute',
+                  left: (c === 'nw' || c === 'sw' ? 0 : liveRegion.w) - HANDLE / 2,
+                  top: (c === 'nw' || c === 'ne' ? 0 : liveRegion.h) - HANDLE / 2,
+                  width: HANDLE, height: HANDLE,
+                  background: RATIO_COLOR[ratio],
+                  pointerEvents: 'auto',
+                  cursor: CORNER_CURSOR[c],
+                  touchAction: 'none',
+                }}
+              />
+            ))}
           </div>
         </>
       )}
