@@ -48,7 +48,7 @@
  */
 
 import {
-  useCallback, useEffect, useMemo, useRef, useState,
+  Fragment, useCallback, useEffect, useMemo, useRef, useState,
   type CSSProperties, type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
@@ -63,7 +63,7 @@ import ScriptRunner, {
 } from './ScriptRunner';
 import type { DemoHost } from './steps';
 import ClipEditor from './ClipEditor';
-import { FrameControls, RATIO_COLOR, useFrames } from './Frames';
+import { FrameControls, RATIO_COLOR, RATIOS, useFrames } from './Frames';
 import { setTransportHeight } from './frameState';
 import {
   LABEL_ANGLE_DEG, labelRowHeight, layoutSectionLabels, loadSections, resolveSectionMarks,
@@ -1348,32 +1348,65 @@ export default function PresentationMode({
                 }}
               />
             ))}
-            {/* The frame keyframes, in the color of the ratio being edited: a
-                shot change is a landmark of the cut as much as a beat is.
-                Pressing one seeks exactly to it, rather than to wherever on
-                the bar the marker was clicked. */}
-            {frames.active && frames.keyframes.map((k, i) => (
-              <div
-                key={`frame-${i}`}
-                data-testid="present-frame-mark"
-                data-frame-t={k.t}
-                title={`frame ${Object.keys(k.regions).join(' ')} — ${mmssTenths(k.t)}`}
-                onPointerDown={(e) => { e.stopPropagation(); seek(k.t); }}
-                style={{
-                  position: 'absolute',
-                  bottom: 0,
-                  height: 8,
-                  width: 7,
-                  marginLeft: -3,
-                  left: pct(k.t),
-                  background: RATIO_COLOR[frames.ratio],
-                  borderRadius: 1,
-                  cursor: 'pointer',
-                  pointerEvents: 'auto',
-                  opacity: i === frames.activeIndex ? 1 : 0.55,
-                }}
-              />
-            ))}
+            {/* The keyframe track: a marker per keyframe, in the colors of the
+                ratios it actually frames, so a shot set for YouTube alone
+                reads apart from one set for all four. A shot change is a
+                landmark of the cut as much as a beat is. Pressing one seeks
+                exactly to it, rather than to wherever on the bar the marker
+                was clicked. A hold trails the marker as a bar: the keyframe
+                arrives at its time and stands there for that long. */}
+            {frames.active && frames.keyframes.map((k, i) => {
+              const kRatios = RATIOS.filter((r) => k.regions[r]);
+              const paint = kRatios.length ? kRatios : [frames.ratio];
+              const held = Math.max(0, k.hold ?? 0);
+              return (
+                <Fragment key={`frame-${i}`}>
+                  {held > 0 && (
+                    <div
+                      data-testid="present-frame-hold"
+                      data-frame-t={k.t}
+                      title={`frame holds ${held}s from ${mmssTenths(k.t)}`}
+                      style={{
+                        position: 'absolute',
+                        bottom: 1,
+                        height: 3,
+                        left: pct(k.t),
+                        width: pct(held),
+                        background: RATIO_COLOR[paint[0]],
+                        opacity: i === frames.activeIndex ? 0.8 : 0.4,
+                      }}
+                    />
+                  )}
+                  <div
+                    data-testid="present-frame-mark"
+                    data-frame-t={k.t}
+                    data-frame-ratios={kRatios.join(' ')}
+                    data-frame-hold={held || undefined}
+                    data-frame-active={i === frames.activeIndex ? '1' : undefined}
+                    title={`frame ${Object.keys(k.regions).join(' ')} — ${mmssTenths(k.t)}`
+                      + `${k.ms ? ` · ${k.ms}ms in` : ''}${held ? ` · holds ${held}s` : ''}`}
+                    onPointerDown={(e) => { e.stopPropagation(); seek(k.t); }}
+                    style={{
+                      position: 'absolute',
+                      bottom: 0,
+                      height: 8,
+                      width: 7,
+                      marginLeft: -3,
+                      left: pct(k.t),
+                      background: paint.length > 1
+                        ? `linear-gradient(to bottom, ${paint
+                          .map((r, n) => `${RATIO_COLOR[r]} ${(100 * n) / paint.length}% ${(100 * (n + 1)) / paint.length}%`)
+                          .join(', ')})`
+                        : RATIO_COLOR[paint[0]],
+                      borderRadius: 1,
+                      cursor: 'pointer',
+                      pointerEvents: 'auto',
+                      opacity: i === frames.activeIndex ? 1 : 0.55,
+                    }}
+                  />
+                </Fragment>
+              );
+            })}
             {fullTransport && notes.map((n, i) => (
               <div
                 key={`note-${i}`}
