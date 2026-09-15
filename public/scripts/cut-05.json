@@ -98,7 +98,7 @@
       "do": "slider",
       "target": "slider:hsb-s",
       "to": 100,
-      "ms": 1800,
+      "ms": 1200,
       "at": 43.33
     },
     {
