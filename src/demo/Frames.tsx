@@ -84,6 +84,13 @@ export const RATIO_COLOR: Record<Ratio, string> = {
   '4:5': '#8bff6b',
 };
 
+/**
+ * The one cyan every frames control in the transport shares, so the group
+ * reads as a single linked thing at a glance. Not a ratio color - those stay
+ * in `RATIO_COLOR`, which keeps telling the four outlines apart.
+ */
+const FRAMES_ACCENT = '#22d3ee';
+
 /** The little name on an outline: inside its top-left corner, out of the way. */
 const outlineLabel: CSSProperties = {
   position: 'absolute',
@@ -992,6 +999,7 @@ function TimingField({ field, frames, step, title, button }: {
       type="number"
       data-testid={`frame-${field}`}
       key={`${frames.activeIndex}-${kf?.[field] ?? ''}`}
+      className="frame-timing-input"
       defaultValue={kf?.[field] ?? ''}
       min={0}
       step={step}
@@ -1005,70 +1013,115 @@ function TimingField({ field, frames, step, title, button }: {
   );
 }
 
-/** The transport row's frame controls, in the transport's own styling. */
+/**
+ * The border every frames control sits inside, so the group reads as one
+ * linked thing. No vertical padding and an outline rather than a border - an
+ * outline draws outside the box without adding to its height - so the group
+ * is exactly as tall as the buttons it holds and the transport row never
+ * grows to fit it.
+ */
+const framesGroupStyle: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 6,
+  padding: '0 6px',
+  borderRadius: 4,
+  outline: `1px solid ${FRAMES_ACCENT}`,
+  outlineOffset: 0,
+};
+
+/** The dim "frames" tag at the group's left edge - out of the way, cyan-tinted. */
+const framesLabelStyle: CSSProperties = {
+  font: '9px/1 ui-monospace, Consolas, monospace',
+  textTransform: 'uppercase',
+  letterSpacing: '0.05em',
+  color: 'rgba(34, 211, 238, 0.55)',
+  whiteSpace: 'nowrap',
+};
+
+/** A frames control's own button, in the group's one accent. */
+const framesButtonStyle = (button: CSSProperties): CSSProperties => (
+  { ...button, color: FRAMES_ACCENT, borderColor: FRAMES_ACCENT }
+);
+
+/** The transport row's frame controls, grouped in one cyan-bordered box. */
 export function FrameControls({ frames, button }: { frames: FramesApi; button: CSSProperties }) {
   if (!frames.active) return null;
+  const controlStyle = framesButtonStyle(button);
   return (
     <>
-      <select
-        data-testid="frame-ratio"
-        value={frames.ratio}
-        onChange={(e) => frames.setRatio(e.target.value as Ratio)}
-        title="Which ratio a drawn frame is for"
-        style={{ ...button, color: RATIO_COLOR[frames.ratio] }}
-      >
-        {RATIOS.map((r) => <option key={r} value={r}>{r}</option>)}
-      </select>
-      <button
-        type="button"
-        data-testid="frame-draw-tool"
-        onClick={() => {
-          const next = !frames.drawing;
-          frames.setDrawing(next);
-          // A region is drawn in page px, and the page is only itself with the
-          // layer off: arming the tool is asking for the full page.
-          if (next) frames.setFull(true);
-        }}
-        title="Drag a region over the app; it saves as a keyframe at the playhead"
-        style={frames.drawing ? { ...button, color: '#111', background: RATIO_COLOR[frames.ratio] } : button}
-      >
-        Frame
-      </button>
-      <button
-        type="button"
-        data-testid="frame-reset"
-        onClick={frames.resetRegion}
-        title="Frame the whole app at the playhead (R)"
-        style={button}
-      >
-        Reset
-      </button>
-      <button
-        type="button"
-        data-testid="frame-delete"
-        onClick={frames.removeActive}
-        disabled={frames.activeIndex < 0}
-        title="Delete the keyframe at the playhead"
-        style={button}
-      >
-        x
-      </button>
-      {/* The two timing fields of the keyframe at the playhead. Empty is the
-          default: 800 ms into it, and no hold after it. */}
-      <TimingField
-        field="ms"
-        frames={frames}
-        step={100}
-        title="The move into this keyframe, in ms, ending at its time"
-        button={button}
-      />
-      <TimingField
-        field="hold"
-        frames={frames}
-        step={0.1}
-        title="Seconds this keyframe holds after its time, before the next move"
-        button={button}
-      />
+      {/* Scoped rather than inline: a focus ring is a pseudo-class, and the
+          group's own inline styles cannot reach `:focus`. */}
+      <style>{`
+        .frame-timing-input:focus {
+          outline: 2px solid ${FRAMES_ACCENT};
+          outline-offset: 1px;
+        }
+      `}</style>
+      <div data-testid="frames-group" style={framesGroupStyle}>
+        <span style={framesLabelStyle}>frames</span>
+        <select
+          data-testid="frame-ratio"
+          value={frames.ratio}
+          onChange={(e) => frames.setRatio(e.target.value as Ratio)}
+          title="Which ratio a drawn frame is for"
+          style={controlStyle}
+        >
+          {RATIOS.map((r) => <option key={r} value={r}>{r}</option>)}
+        </select>
+        <button
+          type="button"
+          data-testid="frame-draw-tool"
+          onClick={() => {
+            const next = !frames.drawing;
+            frames.setDrawing(next);
+            // A region is drawn in page px, and the page is only itself with the
+            // layer off: arming the tool is asking for the full page.
+            if (next) frames.setFull(true);
+          }}
+          title="Drag a region over the app; it saves as a keyframe at the playhead"
+          style={frames.drawing
+            ? { ...button, color: '#111', background: FRAMES_ACCENT, borderColor: FRAMES_ACCENT }
+            : controlStyle}
+        >
+          Frame
+        </button>
+        <button
+          type="button"
+          data-testid="frame-reset"
+          onClick={frames.resetRegion}
+          title="Frame the whole app at the playhead (R)"
+          style={controlStyle}
+        >
+          Reset
+        </button>
+        <button
+          type="button"
+          data-testid="frame-delete"
+          onClick={frames.removeActive}
+          disabled={frames.activeIndex < 0}
+          title="Delete the keyframe at the playhead"
+          style={controlStyle}
+        >
+          x
+        </button>
+        {/* The two timing fields of the keyframe at the playhead. Empty is the
+            default: 800 ms into it, and no hold after it. */}
+        <TimingField
+          field="ms"
+          frames={frames}
+          step={100}
+          title="The move into this keyframe, in ms, ending at its time"
+          button={controlStyle}
+        />
+        <TimingField
+          field="hold"
+          frames={frames}
+          step={0.1}
+          title="Seconds this keyframe holds after its time, before the next move"
+          button={controlStyle}
+        />
+      </div>
       <span style={{ color: '#888', whiteSpace: 'nowrap' }}>
         {frames.full ? 'full page (F)' : 'framed (F)'}
         {frames.error ? ` · ${frames.error}` : ''}
