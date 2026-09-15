@@ -9,8 +9,9 @@ How Color Taylor is put together. For build commands and code conventions see th
 | App | `src/components/ColorPicker.tsx` | the full picker — hexagon, sliders, equations, conversions, saved/recent |
 | Presentation | `src/presentation/PresentationStage.tsx` | hash-routed slide deck; retro Mac CLUT palettes |
 | Figma plugin | `figma/ui/main.tsx` | see [[figma-plugin]] |
+| Walkthrough | `src/demo/PresentationMode.tsx`, entered from the About panel | the narrated tour that drives the app itself; on `dev` since 2026-09-15 (#104). See [[presentation-system]] |
 
-All three render the same `src/components/ColorHexagon.tsx`. The plugin does it without a port — [[decision-single-source-picker]].
+The first three render the same `src/components/ColorHexagon.tsx`; the walkthrough drives the app's own picker through a script runner rather than rendering a copy. The plugin does it without a port — [[decision-single-source-picker]].
 
 ## Color state
 

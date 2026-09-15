@@ -40,9 +40,10 @@ silent alias.
 
 ## The walkthrough
 
-Not this deck: the narrated walkthrough that runs inside the picker (`src/demo`, `prez/cut-03`, draft PR #104), whose script and cues live in the redlamp-videos repo.
+Not this deck: the narrated walkthrough that runs inside the picker. `src/demo` and the cut's cue files under `public/scripts/` are on `dev` since 2026-09-15 (#104); the script, the recordings and the cut pipeline live in the redlamp-videos repo. The presentation side keeps working on `prez/cut-03` and PRs to `dev`.
 
-- [[plan-walkthrough-entry]] - how it ships in production: entry from the About panel, `?present=` paused, the 900px gate, the play() gesture. Questions open for Taylor and the presentation side.
+- [[presentation-system]] - what it is made of: entry points and URL parameters, the files under `src/demo`, the dev middlewares, the presentation side's decisions, and the media hosting plan. `docs/demo-script.md` is the vocabulary reference.
+- [[plan-walkthrough-entry]] - how it ships: entry from the About panel, `?present=` paused, the 900px gate, the play() gesture, and what was built.
 
 ## Open
 

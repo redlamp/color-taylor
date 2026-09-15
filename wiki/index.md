@@ -6,7 +6,7 @@ Top-level Map of Content. See `CLAUDE.md` in this folder for conventions.
 
 ## MOCs
 
-- [[architecture]] — how the three surfaces share one picker
+- [[architecture]] — how the four surfaces share one picker
 - [[decisions]] — every decision note, and what hasn't been written up
 - [[figma-plugin]] — the plugin: status, decisions, platform knowledge
 - [[color-models]] — the colour maths: the geometry, where each model gives out, and the perceptual spaces
