@@ -1,7 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 
 /**
- * The self-running demo behind the ? button.
+ * The self-running demo, one entry down from the ? button.
  *
  * It runs at `?demospeed=N`, which divides every duration - the same shape as
  * `?fps`, a query param rather than stored state - so the whole five-step
@@ -14,6 +14,16 @@ import { test, expect, type Page } from '@playwright/test';
  */
 
 const FAST = '/?demospeed=8';
+
+/**
+ * The ? button opens the About panel; the demo is that panel's first entry.
+ * Every test that used to press ? presses both, because the panel is now the
+ * one door to the demo and to the narrated walkthrough.
+ */
+const startDemo = async (page: Page) => {
+  await page.locator('#demo-button').click();
+  await page.locator('#about-watch-demo').click();
+};
 
 /**
  * A colour to start from that is not the one the script lands on.
@@ -104,7 +114,7 @@ test.describe('Picker demo', () => {
   });
 
   test('the ? button runs the script through to the sign-off', async ({ page }) => {
-    await page.locator('#demo-button').click();
+    await startDemo(page);
     await expect(panel(page)).toBeVisible();
 
     // The tick for the step being played is lit, so the count is the step.
@@ -120,7 +130,7 @@ test.describe('Picker demo', () => {
   test('the colour it borrowed comes back when it finishes', async ({ page }) => {
     await seeded(page);
     const before = await rgb(page);
-    await page.locator('#demo-button').click();
+    await startDemo(page);
     await expect(primaryLabel(page)).toHaveText('Start exploring', { timeout: 25000 });
     // The restore is the same tween an undo uses, so it lands a moment later.
     await expect.poll(() => rgb(page), { timeout: 4000 }).toBe(before);
@@ -129,7 +139,7 @@ test.describe('Picker demo', () => {
   test('skipping restores the colour and takes the overlay down', async ({ page }) => {
     await seeded(page);
     const before = await rgb(page);
-    await page.locator('#demo-button').click();
+    await startDemo(page);
     // Far enough in that the demo has moved the colour off where it started -
     // which is only true because the page opened somewhere the script is not
     // heading. See SEEDED.
@@ -142,7 +152,7 @@ test.describe('Picker demo', () => {
   });
 
   test('a real press ends it; the demo\'s own presses do not', async ({ page }) => {
-    await page.locator('#demo-button').click();
+    await startDemo(page);
     // The script drives the app with synthetic events all the way through
     // step one. If those counted as user input it would skip itself here.
     await expect(litTicks(page)).toHaveCount(3, { timeout: 15000 });
@@ -153,7 +163,7 @@ test.describe('Picker demo', () => {
   });
 
   test('a key ends it too', async ({ page }) => {
-    await page.locator('#demo-button').click();
+    await startDemo(page);
     await expect(litTicks(page)).toHaveCount(1, { timeout: 5000 });
     await page.keyboard.press('Escape');
     await expect(panel(page)).toHaveCount(0);
@@ -163,13 +173,13 @@ test.describe('Picker demo', () => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto(FAST);
     await page.locator('#rgb-dot-green').waitFor();
-    await page.locator('#demo-button').click();
+    await startDemo(page);
     await expect.poll(() => allTicksLit(page), { timeout: 25000 }).toBe(true);
     await expect(primaryLabel(page)).toHaveText('Start exploring');
   });
 
   test('Next and Back walk the steps', async ({ page }) => {
-    await page.locator('#demo-button').click();
+    await startDemo(page);
     await expect(litTicks(page)).toHaveCount(1);
 
     await page.getByRole('button', { name: 'Next step' }).click();
@@ -187,7 +197,7 @@ test.describe('Picker demo', () => {
   });
 
   test('Next all the way through reaches the sign-off', async ({ page }) => {
-    await page.locator('#demo-button').click();
+    await startDemo(page);
     await toSignOff(page);
     await expect(page.getByRole('button', { name: 'Next step' })).toBeDisabled();
   });
@@ -197,7 +207,7 @@ test.describe('Picker demo', () => {
     // reads below can then fall either side of a step boundary.
     await page.goto('/?demospeed=3');
     await page.locator('#rgb-dot-green').waitFor();
-    await page.locator('#demo-button').click();
+    await startDemo(page);
     const head = page.getByTestId('demo-playhead');
     const fill = async () => Number(
       /scaleX\(([\d.]+)\)/.exec(await head.evaluate((el) => el.style.transform))?.[1] ?? 0,
@@ -215,7 +225,7 @@ test.describe('Picker demo', () => {
   test('the sign-off takes itself down, and hands the colour back on the way', async ({ page }) => {
     await seeded(page);
     const before = await rgb(page);
-    await page.locator('#demo-button').click();
+    await startDemo(page);
     await toSignOff(page);
 
     // Four real seconds, whatever ?demospeed says: it is reading time, not
@@ -234,7 +244,7 @@ test.describe('Picker demo', () => {
    * half-filled bar the loop had left stayed on screen behind a dimmed tick.
    */
   test('going back empties the tick it just left', async ({ page }) => {
-    await page.locator('#demo-button').click();
+    await startDemo(page);
     const scale = async (i: number) => Number(
       /scaleX\(([\d.]+)\)/.exec(
         await page.locator(`[data-testid="demo-ticks"] > span`).nth(i)
@@ -267,7 +277,7 @@ test.describe('Picker demo', () => {
   test('the script lands on the colour it aims at', async ({ page }) => {
     await seeded(page);
     expect(await hsb(page)).toBe('34/88/42');
-    await page.locator('#demo-button').click();
+    await startDemo(page);
     await expect.poll(() => hsb(page), { timeout: 15000, intervals: [50] }).toBe('216/69/100');
   });
 
@@ -292,7 +302,7 @@ test.describe('Picker demo', () => {
     await page.locator('#rgb-dot-green').waitFor();
     expect(await hsb(page)).toBe('34/88/0');
 
-    await page.locator('#demo-button').click();
+    await startDemo(page);
     // Step one gets there from black exactly as it would from anything else.
     await expect.poll(() => hsb(page), { timeout: 15000, intervals: [50] }).toBe('216/69/100');
 
@@ -329,7 +339,7 @@ test.describe('Picker demo', () => {
     await hsl.click();
     await expect(hsl).toHaveAttribute('aria-pressed', 'true');
 
-    await page.locator('#demo-button').click();
+    await startDemo(page);
     await expect(panel(page)).toBeVisible();
     await page.waitForTimeout(600);
     await expect(hsl).toHaveAttribute('aria-pressed', 'true');
@@ -350,7 +360,7 @@ test.describe('Picker demo', () => {
     await page.locator('h2', { hasText: /^Color Editor$/ }).click();
     await expect.poll(height).toBe(0);
 
-    await page.locator('#demo-button').click();
+    await startDemo(page);
     await expect.poll(height, { timeout: 5000 }).toBeGreaterThan(100);
 
     await primary(page).click();
@@ -380,7 +390,7 @@ test.describe('Picker demo', () => {
   test('the ghost never jumps while it is holding something', async ({ page }) => {
     await page.goto('/?demospeed=4');
     await page.locator('#rgb-dot-green').waitFor();
-    await page.locator('#demo-button').click();
+    await startDemo(page);
     await expect(panel(page)).toBeVisible();
 
     // Sampled in the page, so it is every frame rather than every round trip.
@@ -431,7 +441,7 @@ test.describe('Picker demo', () => {
     await page.setViewportSize({ width: 390, height: 664 });
     await page.goto(FAST);
     await page.locator('#rgb-dot-green').waitFor();
-    await page.locator('#demo-button').click();
+    await startDemo(page);
 
     // Ticks light up to and including the step being played; blend is third.
     await expect(litTicks(page)).toHaveCount(3, { timeout: 20000 });
@@ -471,7 +481,7 @@ test.describe('Picker demo', () => {
     await page.setViewportSize({ width: 390, height: 664 });
     await page.goto(FAST);
     await page.locator('#rgb-dot-green').waitFor();
-    await page.locator('#demo-button').click();
+    await startDemo(page);
     await expect(panel(page)).toBeVisible();
 
     let samples = 0;

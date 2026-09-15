@@ -1,0 +1,1055 @@
+{
+  "source": "masters/cut-04.m4a",
+  "notes": "Built from cues/cut-04-actions-extra.json on the line times in cues/cut-04-lines.json; see tools/script-table/retime-actions.mjs.",
+  "actions": [
+    {
+      "do": "pip",
+      "to": "on",
+      "ms": 1100,
+      "at": 0.2
+    },
+    {
+      "do": "underline",
+      "target": "about-title",
+      "ms": 1000,
+      "at": 9.33
+    },
+    {
+      "do": "pip",
+      "to": "off",
+      "ms": 1100,
+      "at": 11.15
+    },
+    {
+      "do": "click",
+      "target": "about-close",
+      "at": 14.83
+    },
+    {
+      "do": "slider",
+      "target": "slider:rgb-r",
+      "from": 31,
+      "to": 25.3,
+      "ms": 1800,
+      "at": 15.78
+    },
+    {
+      "do": "slider",
+      "target": "slider:rgb-g",
+      "from": 58.6,
+      "to": 87.8,
+      "ms": 1800,
+      "at": 18.18
+    },
+    {
+      "do": "slider",
+      "target": "slider:rgb-b",
+      "from": 100,
+      "to": 81.6,
+      "ms": 1800,
+      "at": 20.58
+    },
+    {
+      "do": "slider",
+      "target": "slider:rgb-r",
+      "from": 25.3,
+      "to": 6,
+      "ms": 1200,
+      "at": 31.36
+    },
+    {
+      "do": "slider",
+      "target": "slider:rgb-b",
+      "from": 81.6,
+      "to": 62,
+      "ms": 900,
+      "at": 32.36
+    },
+    {
+      "do": "slider",
+      "target": "slider:rgb-b",
+      "from": 62,
+      "to": 40,
+      "ms": 1400,
+      "at": 33.77
+    },
+    {
+      "do": "tip",
+      "via": "hue-label",
+      "to": 180,
+      "ms": 900,
+      "at": 35.37
+    },
+    {
+      "do": "tip",
+      "sat": 71,
+      "ms": 700,
+      "at": 38.33
+    },
+    {
+      "do": "tip",
+      "sat": 100,
+      "ms": 2000,
+      "at": 40.43
+    },
+    {
+      "do": "slider",
+      "target": "hex-bri",
+      "from": 88,
+      "to": 45,
+      "ms": 2200,
+      "at": 42.63
+    },
+    {
+      "do": "tip",
+      "sat": 90,
+      "ms": 900,
+      "at": 46.53
+    },
+    {
+      "do": "slider",
+      "target": "hex-bri",
+      "from": 45,
+      "to": 50,
+      "ms": 900,
+      "at": 48.23
+    },
+    {
+      "do": "tip",
+      "sat": 100,
+      "ms": 900,
+      "at": 49.93
+    },
+    {
+      "do": "hover",
+      "target": "hsb-tab",
+      "ms": 3600,
+      "at": 55.69
+    },
+    {
+      "do": "sway",
+      "target": "hex-mode-toggle",
+      "anchor": "below",
+      "ms": 6000,
+      "waves": 4,
+      "amp": 30,
+      "at": 60.06
+    },
+    {
+      "do": "click",
+      "target": "hex-tip",
+      "at": 67.55
+    },
+    {
+      "do": "orbit",
+      "ms": 4600,
+      "turns": 1,
+      "wobble": 0.18,
+      "at": 68.25
+    },
+    {
+      "do": "box",
+      "target": "editor-sb",
+      "to": [
+        22,
+        92
+      ],
+      "ms": 1500,
+      "at": 74.84
+    },
+    {
+      "do": "box",
+      "target": "editor-sb",
+      "to": [
+        58,
+        34
+      ],
+      "ms": 1400,
+      "at": 76.54
+    },
+    {
+      "do": "box",
+      "target": "editor-sb",
+      "to": [
+        100,
+        50
+      ],
+      "ms": 1500,
+      "at": 78.14
+    },
+    {
+      "do": "wander",
+      "target": "editor-card",
+      "ms": 5200,
+      "at": 81.83
+    },
+    {
+      "do": "tip",
+      "to": 348,
+      "sat": 91,
+      "ms": 1800,
+      "at": 87.82
+    },
+    {
+      "do": "slider",
+      "target": "hex-bri",
+      "to": 86,
+      "ms": 800,
+      "at": 89.92
+    },
+    {
+      "do": "rest",
+      "target": "hex-hue-label",
+      "at": 93.02
+    },
+    {
+      "do": "tip",
+      "via": "hue-label",
+      "to": 0,
+      "ms": 400,
+      "at": 94.73
+    },
+    {
+      "do": "tip",
+      "via": "hue-label",
+      "degrees": 360,
+      "ms": 1800,
+      "at": 96.63
+    },
+    {
+      "do": "rect",
+      "target": "row:r",
+      "from": "tl",
+      "hands": "free",
+      "color": "#ff3333",
+      "ms": 900,
+      "hold": 8090,
+      "at": 98.67
+    },
+    {
+      "do": "click",
+      "target": "letter:r",
+      "anchor": "below",
+      "at": 98.67
+    },
+    {
+      "do": "ray",
+      "ch": "r",
+      "ms": 900,
+      "hold": 8090,
+      "width": 44,
+      "radius": "pill",
+      "at": 98.67
+    },
+    {
+      "do": "circle",
+      "target": "hue-at:0",
+      "color": "#ff3333",
+      "ms": 900,
+      "hold": 8040,
+      "at": 98.72
+    },
+    {
+      "do": "rect",
+      "target": "row:g",
+      "from": "tl",
+      "hands": "free",
+      "color": "#2ecc40",
+      "ms": 900,
+      "hold": 6990,
+      "at": 99.77
+    },
+    {
+      "do": "click",
+      "target": "letter:g",
+      "anchor": "below",
+      "at": 99.77
+    },
+    {
+      "do": "ray",
+      "ch": "g",
+      "ms": 900,
+      "hold": 6990,
+      "width": 44,
+      "radius": "pill",
+      "at": 99.77
+    },
+    {
+      "do": "circle",
+      "target": "hue-at:120",
+      "color": "#2ecc40",
+      "ms": 900,
+      "hold": 6940,
+      "at": 99.82
+    },
+    {
+      "do": "rect",
+      "target": "row:b",
+      "from": "tl",
+      "hands": "free",
+      "color": "#3b82f6",
+      "ms": 900,
+      "hold": 3850,
+      "at": 102.91
+    },
+    {
+      "do": "click",
+      "target": "letter:b",
+      "anchor": "below",
+      "at": 102.91
+    },
+    {
+      "do": "ray",
+      "ch": "b",
+      "ms": 900,
+      "hold": 3850,
+      "width": 44,
+      "radius": "pill",
+      "at": 102.91
+    },
+    {
+      "do": "circle",
+      "target": "hue-at:240",
+      "color": "#3b82f6",
+      "ms": 900,
+      "hold": 3800,
+      "at": 102.96
+    },
+    {
+      "do": "tip",
+      "via": "hue-label",
+      "to": 270,
+      "ms": 900,
+      "at": 107.98
+    },
+    {
+      "do": "hover",
+      "target": "letter:y",
+      "ms": 400,
+      "anchor": "below",
+      "at": 117.77
+    },
+    {
+      "do": "circle",
+      "target": "letter:y",
+      "ms": 900,
+      "hold": 2560,
+      "color": "#ffff00",
+      "at": 118.37
+    },
+    {
+      "do": "circle",
+      "target": "hue-at:60",
+      "color": "#ffff00",
+      "ms": 900,
+      "hold": 2560,
+      "at": 118.37
+    },
+    {
+      "do": "arrow",
+      "targets": [
+        "letter:r",
+        "letter:y"
+      ],
+      "color": "#ff3333",
+      "ms": 700,
+      "hold": 1200,
+      "at": 119.93
+    },
+    {
+      "do": "arrow",
+      "targets": [
+        "letter:g",
+        "letter:y"
+      ],
+      "color": "#2ecc40",
+      "ms": 700,
+      "hold": 1200,
+      "at": 119.93
+    },
+    {
+      "do": "hover",
+      "target": "letter:c",
+      "ms": 400,
+      "anchor": "below",
+      "at": 122.29
+    },
+    {
+      "do": "circle",
+      "target": "letter:c",
+      "ms": 900,
+      "hold": 1620,
+      "color": "#00ffff",
+      "at": 122.89
+    },
+    {
+      "do": "circle",
+      "target": "hue-at:180",
+      "color": "#00ffff",
+      "ms": 900,
+      "hold": 1620,
+      "at": 122.89
+    },
+    {
+      "do": "arrow",
+      "targets": [
+        "letter:g",
+        "letter:c"
+      ],
+      "color": "#2ecc40",
+      "ms": 700,
+      "hold": 900,
+      "at": 123.81
+    },
+    {
+      "do": "arrow",
+      "targets": [
+        "letter:b",
+        "letter:c"
+      ],
+      "color": "#3b82f6",
+      "ms": 700,
+      "hold": 900,
+      "at": 123.81
+    },
+    {
+      "do": "hover",
+      "target": "letter:m",
+      "ms": 400,
+      "anchor": "below",
+      "at": 124.91
+    },
+    {
+      "do": "circle",
+      "target": "letter:m",
+      "ms": 900,
+      "hold": 2020,
+      "color": "#ff00ff",
+      "at": 125.51
+    },
+    {
+      "do": "circle",
+      "target": "hue-at:300",
+      "color": "#ff00ff",
+      "ms": 900,
+      "hold": 2020,
+      "at": 125.51
+    },
+    {
+      "do": "arrow",
+      "targets": [
+        "letter:b",
+        "letter:m"
+      ],
+      "color": "#3b82f6",
+      "ms": 700,
+      "hold": 1200,
+      "at": 126.53
+    },
+    {
+      "do": "arrow",
+      "targets": [
+        "letter:r",
+        "letter:m"
+      ],
+      "color": "#ff3333",
+      "ms": 700,
+      "hold": 1200,
+      "at": 126.53
+    },
+    {
+      "do": "tip",
+      "via": "hue-label",
+      "to": 30,
+      "ms": 1200,
+      "at": 129.31
+    },
+    {
+      "do": "circle",
+      "target": "hex-hue-handle-label",
+      "ms": 800,
+      "hold": 1800,
+      "live": true,
+      "at": 131.61
+    },
+    {
+      "do": "slider",
+      "target": "hex-sat",
+      "to": 100,
+      "ms": 900,
+      "at": 131.71
+    },
+    {
+      "do": "circle",
+      "target": "hex-hue-handle-label",
+      "ms": 1200,
+      "hold": 2500,
+      "at": 132.97
+    },
+    {
+      "do": "circle",
+      "target": "handle:hsb-h",
+      "ms": 1200,
+      "hold": 2500,
+      "at": 132.97
+    },
+    {
+      "do": "slider",
+      "target": "hex-bri",
+      "to": 100,
+      "ms": 700,
+      "at": 133.11
+    },
+    {
+      "do": "rest",
+      "target": "handle:r",
+      "at": 142.85
+    },
+    {
+      "do": "circle",
+      "target": "handle:r",
+      "ms": 800,
+      "hold": 3160,
+      "color": "#f33",
+      "at": 143.29
+    },
+    {
+      "do": "rest",
+      "target": "handle:g",
+      "at": 144.08
+    },
+    {
+      "do": "circle",
+      "target": "handle:g",
+      "ms": 800,
+      "hold": 1910,
+      "color": "#3f3",
+      "at": 144.53
+    },
+    {
+      "do": "rest",
+      "target": "handle:b",
+      "at": 145.48
+    },
+    {
+      "do": "circle",
+      "target": "handle:b",
+      "ms": 800,
+      "hold": 500,
+      "color": "#33f",
+      "at": 145.95
+    },
+    {
+      "do": "slider",
+      "target": "hex-sat",
+      "from": 100,
+      "to": 55,
+      "ms": 1000,
+      "at": 146.44
+    },
+    {
+      "do": "slider",
+      "target": "hex-sat",
+      "from": 55,
+      "to": 100,
+      "ms": 2400,
+      "at": 148.04
+    },
+    {
+      "do": "rect",
+      "target": "range:rgb",
+      "from": "tl",
+      "live": true,
+      "ms": 1200,
+      "hold": 9000,
+      "at": 148.04
+    },
+    {
+      "do": "slider",
+      "target": "hex-sat",
+      "from": 100,
+      "to": 40,
+      "ms": 1600,
+      "at": 153.06
+    },
+    {
+      "do": "slider",
+      "target": "hex-sat",
+      "from": 40,
+      "to": 0,
+      "ms": 2400,
+      "at": 155.26
+    },
+    {
+      "do": "circle",
+      "target": "handle:r",
+      "hands": "free",
+      "live": true,
+      "ms": 1200,
+      "hold": 13700,
+      "at": 158.51
+    },
+    {
+      "do": "slider",
+      "target": "hex-sat",
+      "from": 0,
+      "to": 32,
+      "ms": 1200,
+      "at": 163.67
+    },
+    {
+      "do": "slider",
+      "target": "hex-sat",
+      "from": 32,
+      "to": 0,
+      "ms": 1200,
+      "at": 164.97
+    },
+    {
+      "do": "slider",
+      "target": "hex-bri",
+      "from": 100,
+      "to": 55,
+      "ms": 1600,
+      "at": 170.18
+    },
+    {
+      "do": "slider",
+      "target": "hex-bri",
+      "from": 55,
+      "to": 100,
+      "ms": 1500,
+      "at": 172.68
+    },
+    {
+      "do": "circle",
+      "target": "hex-hue-handle-label",
+      "ms": 1200,
+      "hold": 2000,
+      "at": 173.4
+    },
+    {
+      "do": "slider",
+      "target": "hex-sat",
+      "from": 0,
+      "to": 100,
+      "ms": 2600,
+      "at": 174.78
+    },
+    {
+      "do": "circle",
+      "target": "handle:r",
+      "ms": 1200,
+      "hold": 1600,
+      "ring": 20,
+      "at": 184.04
+    },
+    {
+      "do": "circle",
+      "target": "handle:hsb-b",
+      "ms": 1200,
+      "hold": 1600,
+      "ring": 20,
+      "at": 184.04
+    },
+    {
+      "do": "slider",
+      "target": "hex-bri",
+      "from": 100,
+      "to": 40,
+      "ms": 5000,
+      "at": 188.6
+    },
+    {
+      "do": "rect",
+      "target": "range:rgb",
+      "from": "tl",
+      "hands": "free",
+      "live": true,
+      "ms": 1200,
+      "hold": 5600,
+      "at": 188.6
+    },
+    {
+      "do": "line",
+      "targets": [
+        "zero:rgb-top",
+        "zero:rgb-bottom"
+      ],
+      "ms": 900,
+      "hold": 6000,
+      "at": 196.91
+    },
+    {
+      "do": "slider",
+      "target": "hex-bri",
+      "from": 40,
+      "to": 60,
+      "ms": 900,
+      "at": 197.11
+    },
+    {
+      "do": "slider",
+      "target": "hex-bri",
+      "from": 60,
+      "to": 40,
+      "ms": 900,
+      "at": 198.61
+    },
+    {
+      "do": "slider",
+      "target": "hex-bri",
+      "from": 40,
+      "to": 100,
+      "ms": 2000,
+      "at": 203.23
+    },
+    {
+      "do": "slider",
+      "target": "hex-bri",
+      "from": 100,
+      "to": 5,
+      "ms": 1600,
+      "at": 206.19
+    },
+    {
+      "do": "slider",
+      "target": "hex-bri",
+      "from": 5,
+      "to": 100,
+      "ms": 1400,
+      "at": 208.39
+    },
+    {
+      "do": "rest",
+      "target": "swatches",
+      "at": 214.38
+    },
+    {
+      "do": "click",
+      "target": "swatches",
+      "at": 215.18
+    },
+    {
+      "do": "scroll",
+      "target": "swatches",
+      "at": 215.38
+    },
+    {
+      "do": "click",
+      "target": "swatches:recent",
+      "at": 216.78
+    },
+    {
+      "do": "click",
+      "target": "swatches:recent-clear",
+      "at": 217.78
+    },
+    {
+      "do": "scroll",
+      "target": "swatches:recent-row",
+      "at": 218.78
+    },
+    {
+      "do": "rest",
+      "target": "editor-sb",
+      "at": 219.98
+    },
+    {
+      "do": "box",
+      "target": "editor-sb",
+      "to": [
+        25,
+        100
+      ],
+      "ms": 800,
+      "at": 221.63
+    },
+    {
+      "do": "rect",
+      "target": "swatches:recent-span:6",
+      "from": "tl",
+      "hands": "free",
+      "live": true,
+      "ms": 900,
+      "hold": 8830,
+      "at": 221.63
+    },
+    {
+      "do": "box",
+      "target": "editor-sb",
+      "to": [
+        40,
+        95
+      ],
+      "ms": 400,
+      "at": 223.53
+    },
+    {
+      "do": "box",
+      "target": "editor-sb",
+      "to": [
+        55,
+        85
+      ],
+      "ms": 400,
+      "at": 225.03
+    },
+    {
+      "do": "box",
+      "target": "editor-sb",
+      "to": [
+        70,
+        72
+      ],
+      "ms": 400,
+      "at": 226.53
+    },
+    {
+      "do": "box",
+      "target": "editor-sb",
+      "to": [
+        85,
+        58
+      ],
+      "ms": 400,
+      "at": 228.03
+    },
+    {
+      "do": "box",
+      "target": "editor-sb",
+      "to": [
+        100,
+        42
+      ],
+      "ms": 400,
+      "at": 229.53
+    },
+    {
+      "do": "click",
+      "target": "swatches",
+      "at": 233.47
+    },
+    {
+      "do": "scroll",
+      "target": "top",
+      "at": 234.47
+    },
+    {
+      "do": "rest",
+      "target": "equations",
+      "at": 236.91
+    },
+    {
+      "do": "click",
+      "target": "equations",
+      "at": 237.61
+    },
+    {
+      "do": "scroll",
+      "target": "equations:hue",
+      "at": 237.91
+    },
+    {
+      "do": "hover",
+      "target": "row:hsb-h",
+      "ms": 600,
+      "at": 244.35
+    },
+    {
+      "do": "rect",
+      "target": "equations:hue",
+      "from": "tl",
+      "hands": "free",
+      "ms": 700,
+      "hold": 2000,
+      "at": 245.05
+    },
+    {
+      "do": "hover",
+      "target": "row:hsb-s",
+      "ms": 600,
+      "at": 245.18
+    },
+    {
+      "do": "rect",
+      "target": "equations:saturation",
+      "from": "tl",
+      "hands": "free",
+      "ms": 700,
+      "hold": 2000,
+      "at": 245.88
+    },
+    {
+      "do": "hover",
+      "target": "row:hsb-b",
+      "ms": 600,
+      "at": 246.01
+    },
+    {
+      "do": "rect",
+      "target": "equations:brightness",
+      "from": "tl",
+      "hands": "free",
+      "ms": 700,
+      "hold": 2000,
+      "at": 246.71
+    },
+    {
+      "do": "hover",
+      "target": "editor-hex",
+      "ms": 2200,
+      "at": 249.19
+    },
+    {
+      "do": "rect",
+      "target": "equations:hex",
+      "from": "tl",
+      "hands": "free",
+      "ms": 700,
+      "hold": 2000,
+      "at": 249.79
+    },
+    {
+      "do": "click",
+      "target": "equations",
+      "at": 251.99
+    },
+    {
+      "do": "scroll",
+      "target": "top",
+      "at": 252.39
+    },
+    {
+      "do": "rest",
+      "target": "help-button",
+      "at": 257
+    },
+    {
+      "do": "rest",
+      "target": "help-button",
+      "at": 260.62
+    },
+    {
+      "do": "click",
+      "target": "help-button",
+      "at": 261.3
+    },
+    {
+      "do": "hover",
+      "target": "about-watch-demo",
+      "dx": 55,
+      "dy": 14,
+      "ms": 700,
+      "at": 261.9
+    },
+    {
+      "do": "click",
+      "target": "about-watch-demo",
+      "dx": 55,
+      "dy": 14,
+      "at": 263.03
+    },
+    {
+      "do": "demo",
+      "at": 264.53
+    },
+    {
+      "do": "drift",
+      "ms": 100,
+      "over": "demo",
+      "at": 302.21
+    },
+    {
+      "do": "sway",
+      "target": "demo-caption",
+      "anchor": "below",
+      "ms": 1400,
+      "waves": 1,
+      "over": "demo",
+      "at": 302.51
+    },
+    {
+      "do": "drift",
+      "ms": 2200,
+      "at": 303.91
+    },
+    {
+      "do": "scroll",
+      "target": "top",
+      "at": 306.33
+    },
+    {
+      "do": "sway",
+      "target": "figma-button",
+      "anchor": "below",
+      "ms": 4000,
+      "waves": 3,
+      "at": 306.33
+    },
+    {
+      "do": "pip",
+      "to": "on",
+      "ms": 1100,
+      "at": 310.93
+    },
+    {
+      "do": "box",
+      "target": "editor-sb",
+      "to": [
+        62,
+        80
+      ],
+      "ms": 1200,
+      "at": 313.56
+    },
+    {
+      "do": "box",
+      "target": "editor-sb",
+      "to": [
+        44,
+        74
+      ],
+      "ms": 1000,
+      "at": 315.06
+    },
+    {
+      "do": "slider",
+      "target": "hex-sat",
+      "to": 60,
+      "ms": 1400,
+      "at": 317.02
+    },
+    {
+      "do": "slider",
+      "target": "hex-sat",
+      "to": 68,
+      "ms": 700,
+      "at": 319.02
+    },
+    {
+      "do": "rest",
+      "target": "help-button",
+      "at": 320.12
+    },
+    {
+      "do": "click",
+      "target": "help-button",
+      "at": 322.72
+    },
+    {
+      "do": "sway",
+      "target": "about-author",
+      "anchor": "below",
+      "ms": 4000,
+      "waves": 3,
+      "at": 323.72
+    },
+    {
+      "do": "pip",
+      "to": "off",
+      "ms": 500,
+      "at": 327.71
+    }
+  ]
+}

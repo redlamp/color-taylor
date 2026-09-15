@@ -1,0 +1,239 @@
+{
+  "note": "Camera footage for the picture-in-picture panel, cut by tools/takes/cut-pip-clips.mjs from masters/the take. video.currentTime = t - cutStart + clipOffset, with t the second of the cut. Files are under public/scripts/. Re-run the tool after every join.",
+  "source": "masters/cut-02.m4a",
+  "panel": {
+    "width": 400,
+    "height": 400,
+    "crop": {
+      "w": 1080,
+      "h": 1080,
+      "x": 504,
+      "y": 0
+    },
+    "encoded": {
+      "width": 480,
+      "height": 480,
+      "fps": 30,
+      "gop": 15,
+      "crf": 24
+    }
+  },
+  "handle": 0.3,
+  "grade": {
+    "mode": "auto",
+    "gains": [
+      0.8612,
+      1,
+      0.8892
+    ],
+    "patch": {
+      "x": 8,
+      "y": 80,
+      "w": 104,
+      "h": 256
+    },
+    "at": [
+      9,
+      60,
+      180,
+      300,
+      380
+    ],
+    "samples": [
+      {
+        "t": 9,
+        "mean": [
+          220.03,
+          188.92,
+          212.7
+        ],
+        "sd": [
+          1.71,
+          1.65,
+          2.15
+        ],
+        "gain": [
+          0.8586,
+          1,
+          0.8882
+        ]
+      },
+      {
+        "t": 60,
+        "mean": [
+          219.75,
+          188.87,
+          212.8
+        ],
+        "sd": [
+          1.78,
+          1.74,
+          2.04
+        ],
+        "gain": [
+          0.8595,
+          1,
+          0.8876
+        ]
+      },
+      {
+        "t": 180,
+        "mean": [
+          221.26,
+          190.41,
+          214.19
+        ],
+        "sd": [
+          1.67,
+          1.46,
+          2.12
+        ],
+        "gain": [
+          0.8606,
+          1,
+          0.889
+        ]
+      },
+      {
+        "t": 300,
+        "mean": [
+          223.75,
+          193.46,
+          216.99
+        ],
+        "sd": [
+          1.37,
+          1.21,
+          2.02
+        ],
+        "gain": [
+          0.8646,
+          1,
+          0.8916
+        ]
+      },
+      {
+        "t": 380,
+        "mean": [
+          221.87,
+          191.44,
+          215.23
+        ],
+        "sd": [
+          1.66,
+          1.3,
+          1.83
+        ],
+        "gain": [
+          0.8628,
+          1,
+          0.8895
+        ]
+      }
+    ],
+    "measuredOn": "2026-09-11 12-03-33.mp4",
+    "black": {
+      "p1": [
+        7,
+        7,
+        7,
+        7,
+        7
+      ],
+      "median": 7,
+      "lifted": false
+    },
+    "filter": "colorchannelmixer=rr=0.8612:gg=1:bb=0.8892"
+  },
+  "xfade": 0,
+  "spans": [
+    {
+      "id": "full",
+      "file": "pip/cut-02/full.mp4",
+      "cutStart": 0,
+      "cutEnd": 199.52,
+      "clipOffset": 0,
+      "duration": 199.533333,
+      "parts": [
+        {
+          "id": "intro",
+          "cutStart": 0,
+          "cutEnd": 12.155
+        },
+        {
+          "id": "outro",
+          "cutStart": 177.33,
+          "cutEnd": 199.52
+        }
+      ],
+      "lines": [
+        {
+          "id": "1.1",
+          "cutStart": 0.99,
+          "cutEnd": 3.66,
+          "text": "Hey, I'm Taylor, and I'm a real person."
+        },
+        {
+          "id": "1.2",
+          "cutStart": 3.66,
+          "cutEnd": 6.325,
+          "text": "I'm also a user experience and product designer."
+        },
+        {
+          "id": "1.3",
+          "cutStart": 6.325,
+          "cutEnd": 8.125,
+          "text": "I'm going to show you something I've been working on."
+        },
+        {
+          "id": "1.4",
+          "cutStart": 8.135,
+          "cutEnd": 9.535,
+          "text": "It's called Color Taylor."
+        },
+        {
+          "id": "1.5",
+          "cutStart": 9.565,
+          "cutEnd": 11.855,
+          "text": "I'll just move myself out of the way."
+        },
+        {
+          "id": "10.1",
+          "cutStart": 177.63,
+          "cutEnd": 181.07,
+          "text": "HSL is in the app as well, but that's a video of its own."
+        },
+        {
+          "id": "10.2",
+          "cutStart": 181.07,
+          "cutEnd": 184.13,
+          "text": "In the future I'd like to add OKLCH support."
+        },
+        {
+          "id": "10.3",
+          "cutStart": 184.21,
+          "cutEnd": 185.26,
+          "text": "That's Color Taylor!"
+        },
+        {
+          "id": "10.4",
+          "cutStart": 185.36,
+          "cutEnd": 191.07,
+          "text": "Go play with it, and I hope it helps you see the relationship between RGB and HSB in a different light."
+        },
+        {
+          "id": "10.5",
+          "cutStart": 191.13,
+          "cutEnd": 195.9,
+          "text": "If it's useful, I'd like to hear from you. Questions and feedback are welcome."
+        },
+        {
+          "id": "10.6",
+          "cutStart": 196.08,
+          "cutEnd": 197.12,
+          "text": "Thanks, see ya."
+        }
+      ]
+    }
+  ]
+}

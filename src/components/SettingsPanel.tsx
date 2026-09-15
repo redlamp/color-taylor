@@ -258,6 +258,7 @@ export function SettingsPanel({
                 is, so it belongs where someone opening the menu looks first -
                 the reset at the foot is the way out. */}
             <Button
+              id="settings-about"
               variant="secondary"
               onClick={onAbout}
               className="mt-2 mb-3 w-full text-base"

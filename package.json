@@ -16,7 +16,7 @@
     "test:ui": "playwright test --ui",
     "test:headed": "playwright test --headed",
     "deploy": "GITHUB_PAGES=1 vite build && gh-pages -d dist",
-    "deploy:dev": "GH_PAGES_DEV=1 VITE_INTRO_ENABLED=true vite build && gh-pages -d dist -e dev",
+    "deploy:dev": "GH_PAGES_DEV=1 vite build && gh-pages -d dist -e dev",
     "test:unit": "bun test src"
   },
   "dependencies": {

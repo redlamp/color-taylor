@@ -27,6 +27,8 @@ import { HEX_PANEL_WIDTH } from './hex/hexConstants';
 import { AboutPanel } from './AboutPanel';
 import type { DemoHost } from '@/demo/steps';
 import { openDemoSections, restoreDemoSections } from '@/utils/demoSections';
+import { handoverPoint, scriptRunnerPresent } from '@/demo/handover';
+import { CURRENT_CUT } from '@/demo/currentCut';
 
 /*
  * The self-running demo, lazy like the deck: it is a few hundred lines that
@@ -34,6 +36,62 @@ import { openDemoSections, restoreDemoSections } from '@/utils/demoSections';
  * not carry them. wiki/notes/plan-picker-demo.md.
  */
 const DemoRunner = lazy(() => import('@/demo/DemoRunner'));
+const ScriptRunner = lazy(() => import('@/demo/ScriptRunner'));
+const PresentationMode = lazy(() => import('@/demo/PresentationMode'));
+/*
+ * The presenter's camera panel, the same box OBS composites the webcam into.
+ * Only under `?script=` or `?present=`: the script drags it off screen and
+ * back, and nothing about it belongs to the app.
+ */
+const WebcamPip = lazy(() => import('@/demo/WebcamPip'));
+
+/**
+ * `?script=<name>` (dev builds only) puts the picker under a recorded video
+ * script: the runner mounts and the app opens exactly as on a first visit
+ * (welcome panel and all) and sits idle at its default color until the script
+ * starts. The script closes the panel itself. Recording runs against the dev
+ * server, so the production bundle never mounts the runner. See
+ * docs/demo-script.md.
+ */
+function scriptName(): string | null {
+  if (!import.meta.env.DEV) return null;
+  try {
+    const raw = new URLSearchParams(window.location.search).get('script');
+    return raw && /^[\w-]+$/.test(raw) ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * `?present=<name>` plays the same script against its voice track, with a
+ * transport for scrubbing. Unlike `?script=` it ships: a link opens the app
+ * with the walkthrough up and *paused*, because nothing about following a
+ * link is the user gesture playback needs - the transport's play button is.
+ * The dev-only half (notes, the clip editor, every `/__` fetch) is gated by
+ * PresentationMode's `mode`, not by this. See docs/demo-script.md.
+ */
+/**
+ * `?intro` (or `?intro=1`) shows the Intro button in the header. The button
+ * is hidden by default: the deck's route is always live (useHashRoute), so
+ * /intro can be shared, but the picker does not advertise it.
+ */
+function introRequested(): boolean {
+  try {
+    return new URLSearchParams(window.location.search).has('intro');
+  } catch {
+    return false;
+  }
+}
+
+function presentName(): string | null {
+  try {
+    const raw = new URLSearchParams(window.location.search).get('present');
+    return raw && /^[\w-]+$/.test(raw) ? raw : null;
+  } catch {
+    return null;
+  }
+}
 
 // Top-row layout constants — root max-width and shrink behavior derive from these
 const SLIDERS_PANEL_WIDTH = 420;          // px, target width of the right column in two-column layout
@@ -61,6 +119,19 @@ const ROOT_PADDING_X = 48;                // 24px a side, both sides
  * sit flush against the edge of the screen.
  */
 const MIN_ROOT_PADDING_X = 4;             // 2px a side, both sides
+
+/*
+ * The two files the walkthrough entry has to start inside its click handler.
+ *
+ * Spelled out here rather than imported from ScriptRunner's `scriptAudioUrl`
+ * and the pip manifest: both live in modules that are lazy on purpose, and a
+ * static import of either would pull the whole recorded-script runner into the
+ * picker's first paint. PresentationMode and WebcamPip both leave an adopted
+ * element's `src` alone when it already points at the cut's file, so these two
+ * have to agree with theirs to the character.
+ */
+const walkthroughVoiceUrl = () => `${import.meta.env.BASE_URL}scripts/${CURRENT_CUT}.m4a`;
+const walkthroughCameraUrl = () => `${import.meta.env.BASE_URL}scripts/pip/${CURRENT_CUT}/full.mp4`;
 
 /*
  * Resting height of the SB box.
@@ -342,6 +413,12 @@ export default function ColorPicker() {
    */
   const [demoFrom, setDemoFrom] = useState<{ x: number; y: number } | null>(null);
   /*
+   * Where the demo's ghost starts, when the video script handed the cursor
+   * over rather than the welcome card handing the panel over. See
+   * DemoRunner's `cursorFrom`.
+   */
+  const [demoCursorFrom, setDemoCursorFrom] = useState<{ x: number; y: number } | null>(null);
+  /*
    * The about panel, shown once on a first visit and from Settings after that.
    * Eleventh localStorage key, and it holds "seen" rather than "show me",
    * so a browser that cannot store anything simply shows it every time - the
@@ -350,6 +427,18 @@ export default function ColorPicker() {
   const [aboutOpen, setAboutOpen] = useState<boolean>(() => {
     try { return localStorage.getItem('color-taylor-about-seen') !== '1'; } catch { return false; }
   });
+  /*
+   * The narrated walkthrough, mounted by the About panel's Presentation entry
+   * the way `demoOpen` mounts the built-in demo. App state and not a route, so
+   * nothing collides with `#/presentation` (the colour-history deck).
+   *
+   * The two elements are the host's because playback needs the click that
+   * opened the walkthrough: only a `play()` called synchronously inside that
+   * handler counts, and neither lazy component exists yet at that moment.
+   */
+  const [presentOpen, setPresentOpen] = useState(false);
+  const [presentVoice, setPresentVoice] = useState<HTMLAudioElement | undefined>(undefined);
+  const [presentCamera, setPresentCamera] = useState<HTMLVideoElement | undefined>(undefined);
   const markAboutSeen = useCallback(() => {
     setAboutOpen(false);
     try { localStorage.setItem('color-taylor-about-seen', '1'); } catch { /* localStorage unavailable */ }
@@ -560,8 +649,20 @@ export default function ColorPicker() {
     hsb: HSB; rgb: RGB; groups: SliderGroup[]; blend: boolean; showHtmlOnHex: boolean;
   } | null>(null);
   const demoExactRgb = useRef<RGB | null>(null);
-  const startDemo = useCallback((from: { x: number; y: number } | null = null) => {
+  const startDemo = useCallback((
+    from: { x: number; y: number } | null = null,
+    cursorFrom: { x: number; y: number } | null = null,
+  ) => {
     setDemoFrom(from);
+    /*
+     * The cut opens the demo by pressing the ? button for real, so this runs
+     * from the button's own onClick with nothing handed in - and the demo's
+     * ghost then walked in from off screen while the script's was still
+     * standing on the button it had just pressed. With a script on screen the
+     * hand it was using is the hand the demo starts with, whichever mode is
+     * driving. See handover.ts.
+     */
+    setDemoCursorFrom(cursorFrom ?? (scriptRunnerPresent() ? handoverPoint('demo') : null));
     takeOverFromAnimation();
     demoSnapshot.current = { hsb: { ...hsbRef.current }, rgb: { ...rgb }, groups, blend, showHtmlOnHex };
     // Ask any section the script works in to open, before the overlay mounts,
@@ -570,6 +671,39 @@ export default function ColorPicker() {
     openDemoSections();
     setDemoOpen(true);
   }, [takeOverFromAnimation, hsbRef, rgb, groups, blend, showHtmlOnHex]);
+  /**
+   * The About panel's Presentation entry.
+   *
+   * Everything here runs synchronously inside the click: the browser only
+   * grants playback to a `play()` called in the gesture's own task, and both
+   * `PresentationMode` and `WebcamPip` are lazy, so by the time either module
+   * has loaded the gesture is long gone. The components adopt whatever they
+   * are handed, playing or not, and leave a `src` that already points at the
+   * cut's file alone - so starting the pair here and mounting them a tick
+   * later is one continuous playback rather than a restart.
+   *
+   * A rejected `play()` is logged and swallowed: the walkthrough still runs on
+   * a paused clock with its transport up, which is a far better failure than a
+   * thrown handler that leaves the panel open and nothing mounted.
+   */
+  const startPresentation = useCallback(() => {
+    const voice = new Audio(walkthroughVoiceUrl());
+    voice.preload = 'auto';
+    voice.play().catch((err: unknown) => console.warn('[walkthrough] voice track did not start', err));
+    const camera = document.createElement('video');
+    camera.muted = true;
+    camera.playsInline = true;
+    camera.preload = 'auto';
+    camera.src = walkthroughCameraUrl();
+    camera.play().catch((err: unknown) => console.warn('[walkthrough] camera panel did not start', err));
+    setPresentVoice(voice);
+    setPresentCamera(camera);
+    setPresentOpen(true);
+    // The panel stays open: the cut's first beat underlines the title inside
+    // it and the runner closes it itself at the top of beat two. Only the
+    // seen flag is set, so the panel does not come back as the welcome.
+    try { localStorage.setItem('color-taylor-about-seen', '1'); } catch { /* localStorage unavailable */ }
+  }, []);
   const restoreDemo = useCallback(() => {
     const snap = demoSnapshot.current;
     // Null after the first call: the script restores when it reaches the last
@@ -875,7 +1009,7 @@ export default function ColorPicker() {
         the title measures 200px against a 331px container and the three icon
         buttons need 112px, so it lands with room to spare. Wrapping keeps the
         narrow cases honest without a second breakpoint to tune - a 320px
-        device, or a dev build where VITE_INTRO_ENABLED adds a fourth control,
+        device, or a `?intro` URL where the Intro button is a fourth control,
         simply falls back to two rows on its own.
       */}
       <div id="picker-header" className="flex flex-wrap items-center justify-between gap-2 mb-2">
@@ -890,11 +1024,12 @@ export default function ColorPicker() {
             the title when the header has one, and drops below the header when
             it wraps. src/demo/DemoRunner.tsx. */}
         <div id="picker-tools" className="flex items-center justify-end gap-2">
-          {/* The button only. The route itself is always live - see
-              useHashRoute - so /intro can be shared while the deck is still
-              too rough to advertise on the picker. */}
-          {import.meta.env.VITE_INTRO_ENABLED === 'true' && (
+          {/* The button only, and only under `?intro`. The route itself is
+              always live - see useHashRoute - so /intro can be shared while
+              the deck is still too rough to advertise on the picker. */}
+          {introRequested() && (
             <button
+              id="intro-button"
               className="ctl-quiet"
               onClick={() => { window.location.hash = '#/intro'; }}
             >
@@ -942,14 +1077,18 @@ export default function ColorPicker() {
                 <button
                   id="demo-button"
                   className="ctl-quiet-icon"
-                  onClick={() => startDemo()}
-                  aria-label="Show the demo"
+                  /* The About panel is the one door to the demo and to the
+                     walkthrough, so the ? opens that rather than starting the
+                     tour straight away. Settings' "About Color Taylor" opens
+                     the same panel. */
+                  onClick={() => setAboutOpen(true)}
+                  aria-label="About"
                 >
                   <CircleHelp className="size-5" />
                 </button>
               }
             />
-            <TooltipContent>Demo</TooltipContent>
+            <TooltipContent>About</TooltipContent>
           </Tooltip>
           {/* Play, Demo, Theme, Menu. The two that do something to the
               colour lead, then the two that are about the app itself - and
@@ -960,6 +1099,7 @@ export default function ColorPicker() {
             <TooltipTrigger
               render={
                 <button
+                  id="settings-button"
                   className="ctl-quiet-icon"
                   onClick={() => setSettingsOpen(o => !o)}
                   aria-label="Open menu"
@@ -1181,7 +1321,7 @@ export default function ColorPicker() {
             >
               {SLIDER_GROUPS.map((g) => (
                 <Tooltip key={g}>
-                  <TooltipTrigger render={<ToggleGroupItem value={g} className="w-12">{g}</ToggleGroupItem>} />
+                  <TooltipTrigger render={<ToggleGroupItem value={g} id={`slider-group-${g.toLowerCase()}`} className="w-12">{g}</ToggleGroupItem>} />
                   <TooltipContent className={TOOLBAR_TIP_CLASS}>{GROUP_TIP[g]}</TooltipContent>
                 </Tooltip>
               ))}
@@ -1382,9 +1522,58 @@ export default function ColorPicker() {
         <Suspense fallback={null}>
           <DemoRunner
             from={demoFrom}
+            cursorFrom={demoCursorFrom}
             host={demoHost}
             onRestore={restoreDemo}
             onExit={() => setDemoOpen(false)}
+          />
+        </Suspense>
+      )}
+      {scriptName() && (
+        <Suspense fallback={null}>
+          <ScriptRunner
+            host={demoHost}
+            demoOpen={demoOpen}
+            onDemo={(cursorFrom) => startDemo(null, cursorFrom ?? null)}
+            onColor={(target) => { if (colorAnimActiveRef.current) colorAnimActiveRef.current = 'stop'; animateToHsb(target); }}
+          />
+        </Suspense>
+      )}
+      {(scriptName() || presentName() || presentOpen) && (
+        <Suspense fallback={null}>
+          <WebcamPip webcam={presentCamera} />
+        </Suspense>
+      )}
+      {/* Two ways in, and they mount the same component differently. The URL
+          parameter is a tool: full transport, nothing playing, because a link
+          cannot satisfy the gesture rule. The About panel's entry is the
+          shipped walkthrough: the reduced transport, already playing, on the
+          elements the click started. On the Vite dev server the URL is also the
+          authoring tool (notes, clip editor); a build never mounts that half. */}
+      {presentName() && (
+        <Suspense fallback={null}>
+          <PresentationMode
+            name={presentName() as string}
+            host={demoHost}
+            demoOpen={demoOpen}
+            mode={import.meta.env.DEV ? 'dev' : 'production'}
+            transport="full"
+            onDemo={(cursorFrom) => startDemo(null, cursorFrom ?? null)}
+            onColor={(target) => { if (colorAnimActiveRef.current) colorAnimActiveRef.current = 'stop'; animateToHsb(target); }}
+          />
+        </Suspense>
+      )}
+      {!presentName() && presentOpen && (
+        <Suspense fallback={null}>
+          <PresentationMode
+            name={CURRENT_CUT}
+            host={demoHost}
+            demoOpen={demoOpen}
+            voice={presentVoice}
+            mode="production"
+            transport="reduced"
+            onDemo={(cursorFrom) => startDemo(null, cursorFrom ?? null)}
+            onColor={(target) => { if (colorAnimActiveRef.current) colorAnimActiveRef.current = 'stop'; animateToHsb(target); }}
           />
         </Suspense>
       )}
@@ -1398,6 +1587,7 @@ export default function ColorPicker() {
           markAboutSeen();
           startDemo(card ? { x: card.left + card.width / 2, y: card.top + card.height / 2 } : null);
         }}
+        onPresentation={startPresentation}
       />
       <SettingsPanel
         open={settingsOpen}

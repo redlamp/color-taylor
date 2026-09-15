@@ -1,0 +1,645 @@
+{
+  "source": "masters/cut-02.m4a",
+  "notes": "Retimed from cues/cut-01-actions.json by line; see tools/script-table/retime-actions.mjs.",
+  "actions": [
+    {
+      "do": "pip",
+      "to": "off",
+      "ms": 1100,
+      "at": 10.26
+    },
+    {
+      "at": 12.23,
+      "do": "hover",
+      "target": "about-watch-demo",
+      "ms": 1800
+    },
+    {
+      "at": 14.33,
+      "do": "click",
+      "target": "about-close"
+    },
+    {
+      "do": "rest",
+      "target": "help-button",
+      "at": 15.56
+    },
+    {
+      "do": "click",
+      "target": "help-button",
+      "at": 17.25
+    },
+    {
+      "at": 17.85,
+      "do": "demo"
+    },
+    {
+      "do": "underline",
+      "target": "demo-caption",
+      "ms": 1400,
+      "over": "demo",
+      "at": 55.81
+    },
+    {
+      "do": "drift",
+      "ms": 2200,
+      "at": 57.21
+    },
+    {
+      "at": 59.35,
+      "do": "hover",
+      "target": "hex-tip",
+      "ms": 2800
+    },
+    {
+      "do": "rest",
+      "target": "corner:sliders:rgb:tl",
+      "at": 62.35
+    },
+    {
+      "do": "rect",
+      "target": "sliders:rgb",
+      "from": "tl",
+      "pre": true,
+      "ms": 700,
+      "hold": 1400,
+      "at": 62.95
+    },
+    {
+      "do": "rest",
+      "target": "corner:sliders:hsb:tr",
+      "at": 63.67
+    },
+    {
+      "do": "rect",
+      "target": "sliders:hsb",
+      "from": "tr",
+      "pre": true,
+      "ms": 700,
+      "hold": 1400,
+      "at": 64.25
+    },
+    {
+      "do": "slider",
+      "target": "editor-hue",
+      "to": 30,
+      "ms": 1400,
+      "at": 65.44
+    },
+    {
+      "do": "box",
+      "target": "editor-sb",
+      "to": [
+        20,
+        35
+      ],
+      "ms": 1900,
+      "at": 66.94
+    },
+    {
+      "do": "box",
+      "target": "editor-sb",
+      "to": [
+        90,
+        100
+      ],
+      "ms": 2100,
+      "at": 68.94
+    },
+    {
+      "do": "orbit",
+      "ms": 4200,
+      "turns": 1.2,
+      "wobble": 0.15,
+      "at": 70.66
+    },
+    {
+      "do": "wander",
+      "target": "letter:r",
+      "ms": 800,
+      "at": 74.17
+    },
+    {
+      "do": "click",
+      "target": "letter:r",
+      "at": 75.07
+    },
+    {
+      "do": "rect",
+      "target": "row:r",
+      "from": "tl",
+      "hands": "free",
+      "color": "#f33",
+      "ms": 900,
+      "hold": 8470,
+      "at": 75.22
+    },
+    {
+      "do": "ray",
+      "ch": "r",
+      "ms": 900,
+      "hold": 8470,
+      "at": 75.22
+    },
+    {
+      "do": "click",
+      "target": "letter:g",
+      "at": 76.67
+    },
+    {
+      "do": "rect",
+      "target": "row:g",
+      "from": "tl",
+      "hands": "free",
+      "color": "#3f3",
+      "ms": 900,
+      "hold": 6520,
+      "at": 77.17
+    },
+    {
+      "do": "ray",
+      "ch": "g",
+      "ms": 900,
+      "hold": 6520,
+      "at": 77.17
+    },
+    {
+      "do": "click",
+      "target": "letter:b",
+      "at": 78.62
+    },
+    {
+      "do": "rect",
+      "target": "row:b",
+      "from": "tl",
+      "hands": "free",
+      "color": "#33f",
+      "ms": 900,
+      "hold": 4620,
+      "at": 79.07
+    },
+    {
+      "do": "ray",
+      "ch": "b",
+      "ms": 900,
+      "hold": 4620,
+      "at": 79.07
+    },
+    {
+      "do": "loop",
+      "target": "hex-field",
+      "turns": 1,
+      "wobble": 0.3,
+      "ms": 1600,
+      "at": 85.43
+    },
+    {
+      "do": "hover",
+      "target": "hex-hue-label",
+      "ms": 500,
+      "at": 88.83
+    },
+    {
+      "do": "tip",
+      "via": "hue-label",
+      "to": 0,
+      "ms": 900,
+      "at": 89.36
+    },
+    {
+      "do": "hover",
+      "target": "hex-hue-label",
+      "ms": 700,
+      "at": 90.48
+    },
+    {
+      "do": "tip",
+      "via": "hue-label",
+      "degrees": 359.8,
+      "ms": 4200,
+      "at": 91.14
+    },
+    {
+      "do": "tip",
+      "via": "hue-label",
+      "to": 30,
+      "ms": 900,
+      "at": 95.83
+    },
+    {
+      "do": "slider",
+      "target": "hex-bri",
+      "from": 100,
+      "to": 90,
+      "ms": 900,
+      "at": 97.03
+    },
+    {
+      "do": "slider",
+      "target": "hex-sat",
+      "from": 100,
+      "to": 40,
+      "ms": 900,
+      "at": 98.63
+    },
+    {
+      "do": "tip",
+      "via": "hue-label",
+      "degrees": 40,
+      "ms": 1000,
+      "at": 100.21
+    },
+    {
+      "do": "tip",
+      "via": "hue-label",
+      "degrees": -40,
+      "ms": 1000,
+      "at": 101.65
+    },
+    {
+      "do": "slider",
+      "target": "hex-sat",
+      "from": 40,
+      "to": 100,
+      "ms": 3200,
+      "at": 103
+    },
+    {
+      "do": "rect",
+      "target": "range:rgb",
+      "from": "tl",
+      "live": true,
+      "ms": 1200,
+      "hold": 9620,
+      "at": 103
+    },
+    {
+      "do": "slider",
+      "target": "hex-sat",
+      "from": 100,
+      "to": 0,
+      "ms": 1500,
+      "at": 106.01
+    },
+    {
+      "do": "slider",
+      "target": "hex-sat",
+      "from": 0,
+      "to": 90,
+      "ms": 1500,
+      "at": 111.53
+    },
+    {
+      "do": "circle",
+      "target": "handle:r",
+      "ms": 1200,
+      "hold": 9680,
+      "at": 113.13
+    },
+    {
+      "do": "circle",
+      "target": "handle:b",
+      "ms": 1200,
+      "hold": 8280,
+      "at": 114.53
+    },
+    {
+      "do": "circle",
+      "target": "value:hsb-h",
+      "ms": 1500,
+      "hold": 4600,
+      "at": 118.55
+    },
+    {
+      "do": "slider",
+      "target": "hex-sat",
+      "from": 90,
+      "to": 40,
+      "ms": 2000,
+      "at": 120.89
+    },
+    {
+      "do": "slider",
+      "target": "hex-sat",
+      "from": 40,
+      "to": 90,
+      "ms": 2000,
+      "at": 122.99
+    },
+    {
+      "do": "circle",
+      "target": "handle:r",
+      "ms": 1200,
+      "hold": 4300,
+      "at": 125.03
+    },
+    {
+      "do": "circle",
+      "target": "value:hsb-b",
+      "ms": 1200,
+      "hold": 1800,
+      "at": 125.03
+    },
+    {
+      "do": "slider",
+      "target": "hex-bri",
+      "from": 90,
+      "to": 100,
+      "ms": 750,
+      "at": 126.28
+    },
+    {
+      "at": 127.76,
+      "do": "slider",
+      "target": "hex-bri",
+      "from": 100,
+      "to": 40,
+      "ms": 5000
+    },
+    {
+      "at": 133.27,
+      "do": "slider",
+      "target": "hex-sat",
+      "from": 90,
+      "to": 30,
+      "ms": 1500
+    },
+    {
+      "at": 134.87,
+      "do": "slider",
+      "target": "hex-sat",
+      "from": 30,
+      "to": 100,
+      "ms": 1500
+    },
+    {
+      "at": 136.93,
+      "do": "slider",
+      "target": "hex-bri",
+      "from": 40,
+      "to": 100,
+      "ms": 2500
+    },
+    {
+      "at": 139.79,
+      "do": "rest",
+      "target": "slider:hsb-s"
+    },
+    {
+      "at": 145.56,
+      "do": "slider",
+      "target": "slider:hsb-s",
+      "from": 60,
+      "to": 100,
+      "ms": 3000
+    },
+    {
+      "at": 148.76,
+      "do": "slider",
+      "target": "slider:hsb-s",
+      "from": 100,
+      "to": 20,
+      "ms": 3000
+    },
+    {
+      "do": "slider",
+      "target": "slider:hsb-b",
+      "from": 100,
+      "to": 40,
+      "ms": 1400,
+      "at": 152.08
+    },
+    {
+      "do": "slider",
+      "target": "slider:hsb-b",
+      "from": 40,
+      "to": 100,
+      "ms": 1100,
+      "at": 154.01
+    },
+    {
+      "do": "slider",
+      "target": "slider:hsb-s",
+      "from": 20,
+      "to": 90,
+      "ms": 900,
+      "at": 155.76
+    },
+    {
+      "do": "rest",
+      "target": "equations",
+      "at": 157.28
+    },
+    {
+      "do": "click",
+      "target": "equations",
+      "at": 158.28
+    },
+    {
+      "do": "scroll",
+      "target": "equations",
+      "at": 159.28
+    },
+    {
+      "do": "scroll",
+      "target": "equations:hue",
+      "at": 160.34
+    },
+    {
+      "do": "rect",
+      "target": "equations:hue",
+      "from": "tl",
+      "hands": "free",
+      "ms": 700,
+      "hold": 1400,
+      "at": 160.39
+    },
+    {
+      "do": "tip",
+      "via": "hue-label",
+      "degrees": 60,
+      "ms": 700,
+      "at": 160.39
+    },
+    {
+      "do": "tip",
+      "via": "hue-label",
+      "degrees": -60,
+      "ms": 700,
+      "at": 161.59
+    },
+    {
+      "do": "scroll",
+      "target": "equations:saturation",
+      "at": 162.44
+    },
+    {
+      "do": "rect",
+      "target": "equations:saturation",
+      "from": "tl",
+      "hands": "free",
+      "ms": 700,
+      "hold": 1600,
+      "at": 162.49
+    },
+    {
+      "do": "slider",
+      "target": "hex-sat",
+      "from": 90,
+      "to": 50,
+      "ms": 550,
+      "at": 162.49
+    },
+    {
+      "do": "slider",
+      "target": "hex-sat",
+      "from": 50,
+      "to": 90,
+      "ms": 550,
+      "at": 163.64
+    },
+    {
+      "do": "scroll",
+      "target": "equations:brightness",
+      "at": 164.81
+    },
+    {
+      "do": "rect",
+      "target": "equations:brightness",
+      "from": "tl",
+      "hands": "free",
+      "ms": 700,
+      "hold": 1600,
+      "at": 164.86
+    },
+    {
+      "do": "slider",
+      "target": "hex-bri",
+      "from": 100,
+      "to": 60,
+      "ms": 550,
+      "at": 164.86
+    },
+    {
+      "do": "slider",
+      "target": "hex-bri",
+      "from": 60,
+      "to": 100,
+      "ms": 550,
+      "at": 165.93
+    },
+    {
+      "do": "click",
+      "target": "equations",
+      "at": 167.22
+    },
+    {
+      "do": "scroll",
+      "target": "top",
+      "at": 167.91
+    },
+    {
+      "do": "underline",
+      "target": "figma-text",
+      "ms": 1000,
+      "at": 167.91
+    },
+    {
+      "do": "hover",
+      "target": "figma-button",
+      "ms": 2100,
+      "at": 169.66
+    },
+    {
+      "at": 172.32,
+      "do": "walk",
+      "targets": [
+        "figma-banner",
+        "figma-button"
+      ],
+      "ms": 2500
+    },
+    {
+      "at": 177.87,
+      "do": "hover",
+      "target": "editor-group:hsl",
+      "ms": 900
+    },
+    {
+      "at": 178.87,
+      "do": "click",
+      "target": "editor-group:hsl"
+    },
+    {
+      "do": "click",
+      "target": "editor-group:hsl",
+      "at": 182.49
+    },
+    {
+      "do": "pip",
+      "to": "on",
+      "ms": 1000,
+      "at": 182.89
+    },
+    {
+      "do": "zigzag",
+      "ms": 2200,
+      "legs": 5,
+      "degrees": 70,
+      "sat": [
+        35,
+        95
+      ],
+      "at": 185.56
+    },
+    {
+      "do": "wander",
+      "targets": [
+        "hex-field",
+        "between-panels",
+        "editor-top"
+      ],
+      "ms": 1100,
+      "at": 188.41
+    },
+    {
+      "do": "slider",
+      "target": "editor-hue",
+      "to": 216,
+      "ms": 900,
+      "at": 189.66
+    },
+    {
+      "do": "box",
+      "target": "editor-sb",
+      "to": [
+        69,
+        100
+      ],
+      "ms": 900,
+      "at": 190.66
+    },
+    {
+      "do": "click",
+      "target": "settings-button",
+      "at": 191.76
+    },
+    {
+      "do": "click",
+      "target": "settings-about",
+      "at": 192.73
+    },
+    {
+      "do": "underline",
+      "target": "about-author",
+      "ms": 1400,
+      "at": 193.43
+    },
+    {
+      "do": "pip",
+      "to": "off",
+      "ms": 500,
+      "at": 198.32
+    }
+  ]
+}

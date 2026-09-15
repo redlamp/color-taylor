@@ -1,0 +1,524 @@
+{
+  "source": "masters/cut-01.mp4",
+  "notes": "Times in seconds of the cut. Targets are logical names the runner maps to app selectors. Actions: rest, hover, walk, click, demo, slider (drag a track from `from` to `to`; `editor-hue` runs 0-360 and starts from the current hue when `from` is omitted), box (drag the color editor's saturation/brightness handle to `[s, b]`), tip (drag the hex tip by hue degrees; with `via: \"hue-label\"` the cursor holds the hue pill by its outer rim instead (the control keeps the pointer on the pill's radial line, so a corner grip is not possible) and takes it round the ring), orbit (drag the tip around the field with wobble), stem (drag one channel stem in or out), rect (drag a solid red marquee around a target from a corner; the travel to the first corner is inside `ms`; holds `hold` ms then fades; cut short, it snaps to full size; with `hands: \"free\"` it draws itself without the cursor, so it can run over a drag), circle (a ring that draws itself around a target over `ms` without the cursor, so it can share an `at` with a hover; same hold), loop (hover circuit), wander (curved playful move to a target), underline (move to just under a link's left end and sweep to its right end over `ms`, resting there), color (tween), scroll, leave. Revision 4 from Taylor's review of revision 3, 2026-09-10: 4.1 hue turned by the hue label, 5.2 marquee on the RGB values while the saturation drops, 10.3 color back to the default, 10.5 the author link underlined and the cursor left there.",
+  "color": {
+    "h": 30,
+    "s": 90,
+    "b": 100
+  },
+  "actions": [
+    {
+      "at": 6.9,
+      "do": "hover",
+      "target": "about-watch-demo",
+      "ms": 1800
+    },
+    {
+      "at": 9,
+      "do": "click",
+      "target": "about-close"
+    },
+    {
+      "at": 9.6,
+      "do": "rest",
+      "target": "help-button"
+    },
+    {
+      "at": 12.3,
+      "do": "click",
+      "target": "help-button"
+    },
+    {
+      "at": 12.5,
+      "do": "demo"
+    },
+    {
+      "at": 49.8,
+      "do": "rest",
+      "target": "between-panels"
+    },
+    {
+      "at": 52.9,
+      "do": "hover",
+      "target": "hex-tip",
+      "ms": 2800
+    },
+    {
+      "at": 56.2,
+      "do": "rect",
+      "target": "sliders:rgb",
+      "from": "tl",
+      "ms": 1200,
+      "hold": 600
+    },
+    {
+      "at": 57.6,
+      "do": "rect",
+      "target": "sliders:hsb",
+      "from": "tr",
+      "ms": 1200,
+      "hold": 700
+    },
+    {
+      "at": 59.2,
+      "do": "slider",
+      "target": "editor-hue",
+      "to": 30,
+      "ms": 1400
+    },
+    {
+      "at": 60.7,
+      "do": "box",
+      "target": "editor-sb",
+      "to": [
+        20,
+        35
+      ],
+      "ms": 1900
+    },
+    {
+      "at": 62.7,
+      "do": "box",
+      "target": "editor-sb",
+      "to": [
+        90,
+        100
+      ],
+      "ms": 2100
+    },
+    {
+      "at": 64.9,
+      "do": "color",
+      "h": 30,
+      "s": 90,
+      "b": 100,
+      "ms": 300
+    },
+    {
+      "at": 65.3,
+      "do": "orbit",
+      "ms": 4800,
+      "turns": 1.2,
+      "wobble": 0.15
+    },
+    {
+      "at": 70.6,
+      "do": "hover",
+      "target": "hex-tip",
+      "ms": 1800
+    },
+    {
+      "at": 72.6,
+      "do": "stem",
+      "ch": "r",
+      "amount": -0.25,
+      "ms": 1700
+    },
+    {
+      "at": 74.5,
+      "do": "stem",
+      "ch": "r",
+      "amount": 0.25,
+      "ms": 1500
+    },
+    {
+      "at": 76.6,
+      "do": "stem",
+      "ch": "g",
+      "amount": 0.3,
+      "ms": 1600
+    },
+    {
+      "at": 78.4,
+      "do": "stem",
+      "ch": "g",
+      "amount": -0.3,
+      "ms": 1400
+    },
+    {
+      "at": 80,
+      "do": "hover",
+      "target": "hex-tip",
+      "ms": 1200
+    },
+    {
+      "at": 81.5,
+      "do": "wander",
+      "target": "slider:hsb-s",
+      "ms": 1500
+    },
+    {
+      "at": 83.4,
+      "do": "hover",
+      "target": "slider:r",
+      "ms": 2000
+    },
+    {
+      "at": 83.4,
+      "do": "circle",
+      "target": "letter:r",
+      "ms": 1200,
+      "hold": 500
+    },
+    {
+      "at": 85.6,
+      "do": "hover",
+      "target": "slider:g",
+      "ms": 2000
+    },
+    {
+      "at": 85.6,
+      "do": "circle",
+      "target": "letter:g",
+      "ms": 1200,
+      "hold": 500
+    },
+    {
+      "at": 87.9,
+      "do": "hover",
+      "target": "slider:b",
+      "ms": 2000
+    },
+    {
+      "at": 87.9,
+      "do": "circle",
+      "target": "letter:b",
+      "ms": 1200,
+      "hold": 500
+    },
+    {
+      "at": 90.2,
+      "do": "wander",
+      "target": "hex-tip",
+      "ms": 3000
+    },
+    {
+      "at": 93.6,
+      "do": "hover",
+      "target": "hex-hue-label",
+      "ms": 3600
+    },
+    {
+      "at": 97.4,
+      "do": "tip",
+      "via": "hue-label",
+      "degrees": 360,
+      "ms": 4200
+    },
+    {
+      "at": 101.8,
+      "do": "walk",
+      "targets": [
+        "stem:r",
+        "stem:g",
+        "stem:b"
+      ],
+      "ms": 6600
+    },
+    {
+      "at": 109.6,
+      "do": "tip",
+      "via": "hue-label",
+      "degrees": 40,
+      "ms": 1400
+    },
+    {
+      "at": 111.1,
+      "do": "tip",
+      "via": "hue-label",
+      "degrees": -40,
+      "ms": 1400
+    },
+    {
+      "at": 112.6,
+      "do": "color",
+      "h": 30,
+      "s": 90,
+      "b": 100,
+      "ms": 800
+    },
+    {
+      "at": 113.6,
+      "do": "slider",
+      "target": "hex-sat",
+      "from": 90,
+      "to": 5,
+      "ms": 3000
+    },
+    {
+      "at": 114,
+      "do": "rect",
+      "target": "values:rgb",
+      "from": "tl",
+      "ms": 900,
+      "hold": 4200,
+      "hands": "free"
+    },
+    {
+      "at": 120,
+      "do": "slider",
+      "target": "hex-sat",
+      "from": 5,
+      "to": 90,
+      "ms": 3500
+    },
+    {
+      "at": 124.2,
+      "do": "hover",
+      "target": "slider:b",
+      "ms": 1500
+    },
+    {
+      "at": 125.9,
+      "do": "slider",
+      "target": "hex-sat",
+      "from": 90,
+      "to": 20,
+      "ms": 5000
+    },
+    {
+      "at": 131,
+      "do": "slider",
+      "target": "hex-sat",
+      "from": 20,
+      "to": 90,
+      "ms": 2000
+    },
+    {
+      "at": 134.2,
+      "do": "circle",
+      "target": "slider:r",
+      "ms": 2400,
+      "hold": 600
+    },
+    {
+      "at": 136.7,
+      "do": "hover",
+      "target": "hex-bri",
+      "ms": 1400
+    },
+    {
+      "at": 138.2,
+      "do": "slider",
+      "target": "hex-bri",
+      "from": 100,
+      "to": 40,
+      "ms": 5000
+    },
+    {
+      "at": 144.7,
+      "do": "slider",
+      "target": "hex-sat",
+      "from": 90,
+      "to": 30,
+      "ms": 1500
+    },
+    {
+      "at": 146.3,
+      "do": "slider",
+      "target": "hex-sat",
+      "from": 30,
+      "to": 100,
+      "ms": 1500
+    },
+    {
+      "at": 148,
+      "do": "slider",
+      "target": "hex-bri",
+      "from": 40,
+      "to": 100,
+      "ms": 2500
+    },
+    {
+      "at": 150.9,
+      "do": "rest",
+      "target": "slider:hsb-s"
+    },
+    {
+      "at": 154.3,
+      "do": "slider",
+      "target": "slider:hsb-s",
+      "from": 100,
+      "to": 30,
+      "ms": 1700
+    },
+    {
+      "at": 156.1,
+      "do": "slider",
+      "target": "slider:hsb-s",
+      "from": 30,
+      "to": 60,
+      "ms": 1600
+    },
+    {
+      "at": 157.9,
+      "do": "slider",
+      "target": "slider:hsb-b",
+      "from": 100,
+      "to": 50,
+      "ms": 2000
+    },
+    {
+      "at": 160,
+      "do": "slider",
+      "target": "slider:hsb-b",
+      "from": 50,
+      "to": 100,
+      "ms": 2000
+    },
+    {
+      "at": 162.7,
+      "do": "slider",
+      "target": "slider:hsb-s",
+      "from": 60,
+      "to": 100,
+      "ms": 3000
+    },
+    {
+      "at": 165.9,
+      "do": "slider",
+      "target": "slider:hsb-s",
+      "from": 100,
+      "to": 20,
+      "ms": 3000
+    },
+    {
+      "at": 170.1,
+      "do": "slider",
+      "target": "slider:hsb-b",
+      "from": 100,
+      "to": 40,
+      "ms": 1700
+    },
+    {
+      "at": 171.9,
+      "do": "slider",
+      "target": "slider:hsb-b",
+      "from": 40,
+      "to": 100,
+      "ms": 1700
+    },
+    {
+      "at": 173.8,
+      "do": "color",
+      "h": 30,
+      "s": 90,
+      "b": 100,
+      "ms": 600
+    },
+    {
+      "at": 174.4,
+      "do": "rest",
+      "target": "equations"
+    },
+    {
+      "at": 176,
+      "do": "click",
+      "target": "equations"
+    },
+    {
+      "at": 177,
+      "do": "scroll",
+      "target": "equations"
+    },
+    {
+      "at": 178.5,
+      "do": "tip",
+      "degrees": 30,
+      "ms": 1300
+    },
+    {
+      "at": 179.9,
+      "do": "tip",
+      "degrees": -30,
+      "ms": 1300
+    },
+    {
+      "at": 181.5,
+      "do": "slider",
+      "target": "slider:hsb-b",
+      "from": 100,
+      "to": 70,
+      "ms": 1500
+    },
+    {
+      "at": 183.1,
+      "do": "slider",
+      "target": "slider:hsb-b",
+      "from": 70,
+      "to": 100,
+      "ms": 1500
+    },
+    {
+      "at": 185.6,
+      "do": "click",
+      "target": "equations"
+    },
+    {
+      "at": 186.6,
+      "do": "scroll",
+      "target": "top"
+    },
+    {
+      "at": 187,
+      "do": "hover",
+      "target": "figma-button",
+      "ms": 3500
+    },
+    {
+      "at": 190.8,
+      "do": "walk",
+      "targets": [
+        "figma-banner",
+        "figma-button"
+      ],
+      "ms": 2500
+    },
+    {
+      "at": 196.9,
+      "do": "hover",
+      "target": "editor-group:hsl",
+      "ms": 900
+    },
+    {
+      "at": 197.9,
+      "do": "click",
+      "target": "editor-group:hsl"
+    },
+    {
+      "at": 202.6,
+      "do": "click",
+      "target": "editor-group:hsl"
+    },
+    {
+      "at": 204.1,
+      "do": "wander",
+      "target": "hex-field",
+      "ms": 2400
+    },
+    {
+      "at": 206,
+      "do": "color",
+      "h": 216,
+      "s": 69,
+      "b": 100,
+      "ms": 1500
+    },
+    {
+      "at": 208.2,
+      "do": "click",
+      "target": "settings-button"
+    },
+    {
+      "at": 209.6,
+      "do": "click",
+      "target": "settings-about"
+    },
+    {
+      "at": 210.8,
+      "do": "underline",
+      "target": "about-author",
+      "ms": 1400
+    }
+  ]
+}
