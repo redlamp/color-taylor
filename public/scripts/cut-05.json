@@ -88,20 +88,22 @@
       "at": 39.37
     },
     {
-      "do": "tip",
-      "sat": 71,
+      "do": "slider",
+      "target": "slider:hsb-s",
+      "to": 71,
       "ms": 700,
       "at": 41.83
     },
     {
-      "do": "tip",
-      "sat": 100,
+      "do": "slider",
+      "target": "slider:hsb-s",
+      "to": 100,
       "ms": 1800,
       "at": 43.33
     },
     {
       "do": "slider",
-      "target": "hex-bri",
+      "target": "slider:hsb-b",
       "from": 88,
       "to": 45,
       "ms": 1800,
@@ -109,7 +111,7 @@
     },
     {
       "do": "slider",
-      "target": "hex-bri",
+      "target": "slider:hsb-b",
       "from": 45,
       "to": 50,
       "ms": 700,
@@ -721,8 +723,8 @@
     },
     {
       "do": "hover",
-      "target": "value:rgb-r",
-      "anchor": "below",
+      "target": "handle:r",
+      "dy": 6,
       "ms": 2100,
       "at": 177.43
     },
