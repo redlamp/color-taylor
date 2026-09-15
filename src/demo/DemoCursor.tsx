@@ -36,6 +36,53 @@ export function hotspotOf(kind: CursorKind) {
 export const CURSOR_BOX = 24 * CURSOR_SCALE;
 
 /**
+ * The lean, and the law that derives it from how fast the hand is travelling.
+ *
+ * Taylor, round 1 of cut 05: "a little more rocking motion to the cursor as it
+ * moves around, not too loose, but a little sway left and right as we move
+ * up/down and left/right." So the arrow rotates toward the direction of
+ * travel, reaching CURSOR_TILT_MAX at a full-speed move and returning to
+ * upright at rest - and because a vertical run feeds the same lean through
+ * CURSOR_TILT_FROM_VERTICAL, an up/down move rocks too rather than sliding
+ * rigidly down the screen.
+ *
+ * The rotation is applied by whoever is drawing the cursor, about the hotspot
+ * (`transform-origin` at `hotspotOf(kind)`): the tip is the pivot, so the aim
+ * point a gesture travels to does not move as the arrow leans. The artwork
+ * itself is drawn upright - a rotated `<path>` would pivot on the SVG box
+ * rather than on the tip.
+ *
+ * Velocity is in client px per animation frame, which is what the runner's
+ * move interpolation produces, and the value is a pure function of it: the
+ * same run of positions gives the same run of angles, before and after a seek.
+ */
+/** The most the arrow leans from upright, in degrees. Named for the tuning; see `cursorTilt`. */
+export const CURSOR_TILT_MAX = 7;
+/**
+ * How much of the vertical run is folded into the lean. At 0 an up/down move
+ * would be perfectly rigid, which is the thing Taylor is asking to lose.
+ */
+export const CURSOR_TILT_FROM_VERTICAL = 0.5;
+/**
+ * The speed, in client px per frame, at which the lean reaches its maximum.
+ * The runner's own ceiling is 700 px/s, which at 60 fps is 11.7 px a frame, so
+ * a full-speed move sits just at the top of the range and everything slower
+ * leans proportionally less.
+ */
+export const CURSOR_TILT_FULL_SPEED = 12;
+
+/**
+ * The lean a hand travelling at `(vx, vy)` client px per frame wears, in
+ * degrees: zero at rest, ±CURSOR_TILT_MAX at full speed, linear between.
+ * Ease it in and out at the call site - the runner runs it through a spring -
+ * so the arrow does not snap to the angle the instant a move begins.
+ */
+export function cursorTilt(vx: number, vy: number): number {
+  const lean = ((vx - vy * CURSOR_TILT_FROM_VERTICAL) / CURSOR_TILT_FULL_SPEED) * CURSOR_TILT_MAX;
+  return lean < -CURSOR_TILT_MAX ? -CURSOR_TILT_MAX : lean > CURSOR_TILT_MAX ? CURSOR_TILT_MAX : lean;
+}
+
+/**
  * Which arrow to draw. `userAgentData.platform` where it exists, the user
  * agent string otherwise; a coarse pointer wins over both.
  */

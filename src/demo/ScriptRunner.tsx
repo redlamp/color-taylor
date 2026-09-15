@@ -27,7 +27,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { frameScale } from './frameState';
-import DemoCursor, { CURSOR_BOX, cursorKind, hotspotOf, type CursorKind } from './DemoCursor';
+import DemoCursor, {
+  CURSOR_BOX, CURSOR_TILT_MAX, cursorKind, cursorTilt, hotspotOf, type CursorKind,
+} from './DemoCursor';
 import { Driver, DemoAborted, centerOf, type Point, type Stage } from './drive';
 import { fieldPoint, hexClientPoint, smooth, type DemoHost } from './steps';
 import {
@@ -46,7 +48,8 @@ export interface ScriptAction {
   targets?: string[];
   ms?: number;
   /**
-   * `rest`/`hover`: where on the target to stand, instead of its middle.
+   * `rest`/`hover`: where on the target to stand, instead of the low point in
+   * its box the tip aims at by default (see `aimPoint`).
    * Named `anchor` rather than `at`, which is the cue's own time.
    *
    * A cursor parked on the middle of a small thing covers it, and beat 3.6
@@ -151,6 +154,20 @@ export interface ScriptAction {
   to?: number | [number, number] | 'off' | 'on' | 'start';
   /** `rect`/`circle`: how long the drawn shape stands after the gesture, before it fades (default 900). */
   hold?: number;
+  /**
+   * A name for the cluster this callout leaves with.
+   *
+   * Callouts whose holds run out within GROUP_FADE_WINDOW_MS of each other go
+   * out together already, which covers a group cued across one line. This is
+   * for the group the window does not catch: the marks on a line that are
+   * deliberately held for different lengths, where the last one out is meant
+   * to take the others with it. Every live callout carrying the same `group`
+   * stands until the latest expiry among them, however far apart those are.
+   *
+   * A callout with `"hold": 0` is out of both: it fades on its own expiry and
+   * nothing else waits for it.
+   */
+  group?: string;
   degrees?: number;
   /** `stem`: which channel's stem, and how far along it as a fraction of its length (-1..1). */
   ch?: 'r' | 'g' | 'b';
@@ -263,13 +280,32 @@ const MOVE_MS = 400;
 /** How long the ghost takes to reach its pose after a seek. */
 const SEEK_MOVE_MS = 200;
 
-// The lean, lifted from DemoRunner so the two ghosts move alike.
-const TILT_MAX = 20;
-const TILT_PER_PX = 1.5;
-const TILT_FROM_VERTICAL = 0.5;
+/*
+ * The lean.
+ *
+ * The angle itself is DemoCursor's: `cursorTilt` turns the hand's velocity
+ * into degrees and owns the maximum, so the artwork and the law that rocks it
+ * live in one file. What stays here is the easing - a light spring on the way
+ * to that angle and back, so the arrow rolls into a move and settles out of it
+ * rather than snapping to the goal on its first frame.
+ *
+ * Round 1 of cut 05 retuned it. The lean used to be DemoRunner's, which tops
+ * out at 20 degrees and saturates there for most of a move; Taylor asked for
+ * "a little sway left and right as we move up/down and left/right... not too
+ * loose", which is CURSOR_TILT_MAX at 7 degrees and proportional to the speed
+ * below that. DemoRunner keeps its own - the built-in demo is not this cut.
+ */
 const TILT_SPRING = 0.10;
 const TILT_DAMP = 0.65;
-const TILT_LIMIT = 30;
+/** How far past the goal the spring may carry the arrow before it is clamped. */
+const TILT_OVERSHOOT = 1.5;
+const TILT_LIMIT = CURSOR_TILT_MAX * TILT_OVERSHOOT;
+/**
+ * Below this the lean is taken to be none, so a hand standing still is drawn
+ * at exactly `rotate(0.00deg)` rather than at the spring's last thousandth of
+ * a degree - or, worse, at `-0.00`.
+ */
+const TILT_ZERO = 0.01;
 const RIPPLE_MS = 480;
 const RIPPLE_FROM = 12;
 const RIPPLE_TO = 58;
@@ -461,6 +497,26 @@ const MAX_MOVE_PX_PER_S = 700;
 /** How long a finished callout stands before it fades, and how long the fade takes. */
 const HOLD_MS = 900;
 const FADE_MS = 300;
+/**
+ * How close two callouts' expiries have to be for the pair to go out together.
+ *
+ * Callouts arrive in groups on one line - three circles and two arrows on the
+ * "cyan" line, a rect and a circle on a channel row - and each one used to fade
+ * when its own hold ran out, so the group came down one at a time over the
+ * second after the line. Taylor, round 1 of cut 05: a group that arrives
+ * together leaves together. Any live callout whose expiry falls within this of
+ * another's is in the same cluster, chained (A near B and B near C puts all
+ * three together), and the whole cluster stands until the latest expiry in it
+ * and then fades in one instant.
+ *
+ * 450 ms is about half a hold. Wide enough to catch a group cued across a
+ * phrase - the marks on one line are written within a few tenths of each other
+ * - and narrow enough that the next line's first callout does not drag the
+ * last line's off the screen with it. Two callouts that have to leave together
+ * whatever the gap between them says are given the same `group` name, which
+ * puts them in one cluster without consulting the window at all.
+ */
+const GROUP_FADE_WINDOW_MS = 450;
 const SVG_NS = 'http://www.w3.org/2000/svg';
 /** `orbit`: the saturation band the wobble is allowed to roam. */
 const ORBIT_SAT_MIN = 0.55;
@@ -495,6 +551,104 @@ const ARROW_SPREAD = 0.48;
  * ScriptAction.at.
  */
 const ANCHOR_CLEAR = 12;
+
+/*
+ * The idle hand.
+ *
+ * Between cues the ghost used to sit exactly where the last gesture left it,
+ * sometimes for the length of a whole line. Taylor, round 1 of cut 05: "keep
+ * the same cursor and have it be active between all sections; if it's not
+ * actively doing something it can lazily move around and draw attention to the
+ * subject we're talking about."
+ *
+ * So once the hands have been free for IDLE_AFTER_MS the cursor takes up a
+ * small slow figure near where it stands, leaning toward whatever it last
+ * touched: a flattened figure of eight, the long axis across the line to that
+ * target and the short one along it, so it reads as a hand gesturing beside
+ * the thing rather than reaching for it. It is a pure function of the cut's
+ * clock and that target, so a seek lands the hand where a play-through would
+ * have it, and the next gesture simply takes the hands back - the move starts
+ * from wherever the figure had got to, because the driver's own position is
+ * carried along with it.
+ *
+ * Off under the built-in demo: DemoRunner has its own ghost and its own
+ * choreography, and this is the presentation runner's alone.
+ */
+/** How long the hands have to have been free before the figure starts. */
+const IDLE_AFTER_MS = 1200;
+/** How far the figure reaches along its long axis, in client px. */
+const IDLE_AMP_PX = 16;
+/** The short axis, as a fraction of the long one. */
+const IDLE_ACROSS = 0.45;
+/** One full figure, in seconds. */
+const IDLE_PERIOD_S = 3.5;
+/** How long the figure takes to grow to its full reach, in seconds, so it opens out of rest. */
+const IDLE_EASE_S = 0.9;
+/** How far the whole figure leans toward the last target, in client px. */
+const IDLE_BIAS_PX = 6;
+/**
+ * The most of the runner's speed ceiling an idle hand may use. The figure's
+ * own peak is `2*PI*IDLE_AMP_PX/IDLE_PERIOD_S`, about 29 px/s against a
+ * ceiling of 700, so this only ever binds if the reach or the period is
+ * retuned a long way - which is what it is here to stop.
+ */
+const IDLE_SPEED_FRACTION = 0.1;
+/** The reach the figure actually gets: what is asked for, held under IDLE_SPEED_FRACTION. */
+const idleAmp = (): number => Math.min(
+  IDLE_AMP_PX,
+  (IDLE_SPEED_FRACTION * MAX_MOVE_PX_PER_S * IDLE_PERIOD_S) / (2 * PI),
+);
+
+/** `p` pushed out to the nearest edge of `r` if it is inside it, and left alone otherwise. */
+function pushClear(p: Point, r: DOMRect): Point {
+  if (p.x < r.left || p.x > r.right || p.y < r.top || p.y > r.bottom) return p;
+  const out = [
+    { d: p.x - r.left, q: { x: r.left, y: p.y } },
+    { d: r.right - p.x, q: { x: r.right, y: p.y } },
+    { d: p.y - r.top, q: { x: p.x, y: r.top } },
+    { d: r.bottom - p.y, q: { x: p.x, y: r.bottom } },
+  ].reduce((best, o) => (o.d < best.d ? o : best));
+  return out.q;
+}
+
+/**
+ * The idle figure `t` seconds in, around `anchor` and leaning toward `aim`.
+ *
+ * Every term is zero at t=0, so the hand opens into the figure from wherever
+ * it was left rather than stepping into it, and the envelope grows the reach
+ * over IDLE_EASE_S. The cross term runs at twice the rate, which is what makes
+ * it a figure of eight rather than a line being retraced.
+ */
+function idleFigure(anchor: Point, aim: DOMRect | null, t: number): Point {
+  const env = smoothstep(clamp(t / IDLE_EASE_S, 0, 1));
+  // Along: the line to what the hand last touched. Across: the long axis of
+  // the figure, so the hand waves beside the target rather than at it.
+  let ax = 0;
+  let ay = 1;
+  if (aim) {
+    const dx = rectCenter(aim).x - anchor.x;
+    const dy = rectCenter(aim).y - anchor.y;
+    const len = Math.hypot(dx, dy);
+    if (len > 1) { ax = dx / len; ay = dy / len; }
+  }
+  const amp = idleAmp() * env;
+  const u = (2 * PI * t) / IDLE_PERIOD_S;
+  const long = amp * Math.sin(u);
+  const short = amp * IDLE_ACROSS * Math.sin(2 * u) + IDLE_BIAS_PX * env;
+  const p = {
+    x: anchor.x - ay * long + ax * short,
+    y: anchor.y + ax * long + ay * short,
+  };
+  // Clear of the target's own box the way an anchor stands clear of it - but
+  // only where the hand was already outside it. A cue that deliberately rests
+  // *on* its control (a slider handle, a swatch) is not to be thrown off it.
+  if (!aim) return p;
+  const clear = new DOMRect(aim.left - ANCHOR_CLEAR, aim.top - ANCHOR_CLEAR,
+    aim.width + ANCHOR_CLEAR * 2, aim.height + ANCHOR_CLEAR * 2);
+  if (anchor.x >= clear.left && anchor.x <= clear.right
+    && anchor.y >= clear.top && anchor.y <= clear.bottom) return p;
+  return pushClear(p, clear);
+}
 /** How far outside the hue pill's rim the arrow's tip sits while holding it, in px. */
 const HUE_GRIP_CLEAR = 2;
 /**
@@ -642,6 +796,20 @@ interface Drawn {
 }
 
 /**
+ * A finished callout standing on the layer, and the instant its own hold runs
+ * out. What the cluster is computed from; see GROUP_FADE_WINDOW_MS.
+ */
+interface Held {
+  el: SVGElement;
+  /** When this one's hold expires, on the same clock `performance.now()` reads. */
+  expiry: number;
+  /** The cue's name for the cluster, where it named one. */
+  group?: string;
+  /** Set the moment the fade starts, so a live shape's own loop knows to stop. */
+  faded?: boolean;
+}
+
+/**
  * The drawn callouts behind the cursor: a marquee for `rect`, grown by the
  * gesture that draws it, and a ring for `circle`, which draws itself on the
  * layer's own frame loop without the cursor. Each is an element in the fixed
@@ -651,6 +819,8 @@ interface Drawn {
 class Callouts {
   private timers = new Set<number>();
   private frames = new Set<number>();
+  /** The callouts standing on the layer with their holds running. See `clusterExpiry`. */
+  private held = new Set<Held>();
   private color = shapeColor();
 
   constructor(private layer: SVGSVGElement | null) {}
@@ -690,20 +860,87 @@ class Callouts {
     this.frames.add(id);
   }
 
-  /** Hold the finished shape, fade it, take it out. */
-  private retire(el: SVGElement, hold: number) {
-    this.later(hold, () => {
-      el.style.transition = `opacity ${FADE_MS}ms ease-out`;
-      el.style.opacity = '0';
-      this.later(FADE_MS, () => el.remove());
+  /**
+   * Hold the finished shape, fade it, take it out - with the rest of its
+   * cluster, if it has one. `hold` is the shape's own, from now; `group` is the
+   * cue's name for the cluster, where it named one.
+   *
+   * A hold of zero or less is a callout that wants none of this: it fades on
+   * its own instant and no other callout waits for it.
+   */
+  private retire(el: SVGElement, hold: number, group?: string): Held | null {
+    if (hold <= 0) { this.fade(el); return null; }
+    const held: Held = { el, expiry: performance.now() + hold, group };
+    this.held.add(held);
+    this.arm(held);
+    return held;
+  }
+
+  /**
+   * Wait for this callout's cluster rather than for its own hold: at its own
+   * expiry, work out when the cluster goes, and either fade now or come back
+   * at that instant. Coming back rather than scheduling once is what lets a
+   * callout that arrives late still take the cluster with it.
+   */
+  private arm(held: Held, at = held.expiry) {
+    this.later(Math.max(0, at - performance.now()), () => {
+      if (!this.held.has(held)) return;
+      const goes = this.clusterExpiry(held);
+      // Woken early by its own hold, and the cluster is not done: come back
+      // then. The scheduled expiry is left alone - it is what says who is in
+      // the cluster, and a member that rewrote it as it waited would walk the
+      // whole cluster forward a window at a time.
+      if (goes > performance.now() + 1) { this.arm(held, goes); return; }
+      this.held.delete(held);
+      held.faded = true;
+      this.fade(held.el);
     });
+  }
+
+  /**
+   * When the cluster `held` belongs to goes out: the latest expiry among every
+   * live callout reachable from it, by a shared `group` name or by an expiry
+   * within GROUP_FADE_WINDOW_MS of one already in the cluster. Chained, so a
+   * run of marks laid down across a line is one cluster rather than pairs.
+   *
+   * Every member computes the same answer from the same scheduled expiries, so
+   * they arrive at one instant without talking to each other - and the
+   * expiries are the ones the cut implies (a cue's start plus its `ms` plus
+   * its `hold`), not a reading of the wall clock at the moment one runs out.
+   */
+  private clusterExpiry(held: Held): number {
+    const cluster = new Set<Held>([held]);
+    let latest = held.expiry;
+    for (let grew = true; grew;) {
+      grew = false;
+      for (const other of this.held) {
+        if (cluster.has(other)) continue;
+        let near = false;
+        for (const member of cluster) {
+          if ((member.group !== undefined && member.group === other.group)
+            || Math.abs(member.expiry - other.expiry) <= GROUP_FADE_WINDOW_MS) { near = true; break; }
+        }
+        if (!near) continue;
+        cluster.add(other);
+        if (other.expiry > latest) latest = other.expiry;
+        grew = true;
+      }
+    }
+    return latest;
+  }
+
+  /** The fade itself, once the cluster has decided the instant. */
+  private fade(el: SVGElement) {
+    el.style.transition = `opacity ${FADE_MS}ms ease-out`;
+    el.style.opacity = '0';
+    this.later(FADE_MS, () => el.remove());
   }
 
   /**
    * A selection marquee anchored at `a`, spanning to wherever the cursor is.
    * Nothing shows until the first update: a zero-size rect is not drawn.
    */
-  marquee(a: Point, hold: number, color?: string, radius?: number | 'pill'): Drawn {
+  marquee(a: Point, hold: number, color?: string, radius?: number | 'pill', group?: string): Drawn {
     const el = this.add('rect', color);
     el.setAttribute('x', String(a.x));
     el.setAttribute('y', String(a.y));
@@ -719,7 +956,7 @@ class Callouts {
         el.setAttribute('height', String(h));
         Callouts.round(el, radius, w, h);
       },
-      done: () => this.retire(el, hold),
+      done: () => this.retire(el, hold, group),
     };
   }
 
@@ -733,7 +970,7 @@ class Callouts {
    * the thing being named is a place rather than a control, so there is nothing
    * to put a box round.
    */
-  line(a: Point, b: Point, ms: number, hold: number, color?: string) {
+  line(a: Point, b: Point, ms: number, hold: number, color?: string, group?: string) {
     const el = this.add('polyline', color);
     const t0 = performance.now();
     const step = (now: number) => {
@@ -741,7 +978,7 @@ class Callouts {
       const p = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
       el.setAttribute('points', `${a.x.toFixed(1)},${a.y.toFixed(1)} ${p.x.toFixed(1)},${p.y.toFixed(1)}`);
       if (t < 1) this.nextFrame(step);
-      else this.retire(el, hold);
+      else this.retire(el, hold, group);
     };
     this.nextFrame(step);
   }
@@ -760,7 +997,7 @@ class Callouts {
    * one barb, back to the tip, out to the other - so the round joins that make
    * the rest of the callouts look drawn rather than plotted make this one too.
    */
-  arrow(a: Point, b: Point, ms: number, hold: number, color?: string) {
+  arrow(a: Point, b: Point, ms: number, hold: number, color?: string, group?: string) {
     const el = this.add('polyline', color);
     el.setAttribute('fill', 'none');
     const t0 = performance.now();
@@ -783,7 +1020,7 @@ class Callouts {
       const at = (q: Point) => `${q.x.toFixed(1)},${q.y.toFixed(1)}`;
       el.setAttribute('points', `${at(a)} ${at(p)} ${at(l)} ${at(p)} ${at(r)}`);
       if (t < 1) this.nextFrame(step);
-      else this.retire(el, hold);
+      else this.retire(el, hold, group);
     };
     this.nextFrame(step);
   }
@@ -793,8 +1030,9 @@ class Callouts {
    * over `ms`, eased, then held and faded. For a `rect` whose hands are
    * free - the cursor is busy with a drag while the box goes up.
    */
-  box(a: Point, b: Point, ms: number, hold: number, color?: string, radius?: number | 'pill') {
-    const shape = this.marquee(a, hold, color, radius);
+  box(a: Point, b: Point, ms: number, hold: number, color?: string, radius?: number | 'pill',
+    group?: string) {
+    const shape = this.marquee(a, hold, color, radius, group);
     const t0 = performance.now();
     const step = (now: number) => {
       const t = smoothstep(clamp((now - t0) / Math.max(1, ms), 0, 1));
@@ -811,7 +1049,8 @@ class Callouts {
    * `hold` the rectangle is the target's own, live. For a callout whose whole
    * point is that the thing it is around changes size while it stands.
    */
-  liveBox(box: () => DOMRect, from: RectCorner, ms: number, hold: number, color?: string, radius?: number | 'pill') {
+  liveBox(box: () => DOMRect, from: RectCorner, ms: number, hold: number, color?: string,
+    radius?: number | 'pill', group?: string) {
     const el = this.add('rect', color);
     const t0 = performance.now();
     const step = (now: number) => {
@@ -824,13 +1063,13 @@ class Callouts {
       el.setAttribute('width', String(Math.abs(p.x - a.x)));
       el.setAttribute('height', String(Math.abs(p.y - a.y)));
       Callouts.round(el, radius, Math.abs(p.x - a.x), Math.abs(p.y - a.y));
-      if (elapsed < ms + hold) this.nextFrame(step);
-      else {
-        el.style.transition = `opacity ${FADE_MS}ms ease-out`;
-        el.style.opacity = '0';
-        this.later(FADE_MS, () => el.remove());
-      }
+      if (held && !held.faded) this.nextFrame(step);
     };
+    // The expiry is known here rather than at the end of the draw - the whole
+    // gesture is `ms` and then `hold` - so this callout is in the cluster from
+    // the moment it goes up, and the re-measuring runs until the fade actually
+    // starts, which the cluster may put later than its own hold.
+    const held = this.retire(el, ms + hold, group);
     this.nextFrame(step);
   }
 
@@ -840,7 +1079,7 @@ class Callouts {
    * faded. No cursor is involved, so nothing that takes the hands can cut
    * it short; only `clear` does.
    */
-  ring(point: (u: number) => Point, ms: number, hold: number, color?: string) {
+  ring(point: (u: number) => Point, ms: number, hold: number, color?: string, group?: string) {
     const el = this.add('polyline', color);
     const pts: string[] = [];
     const t0 = performance.now();
@@ -850,7 +1089,7 @@ class Callouts {
       pts.push(`${p.x.toFixed(1)},${p.y.toFixed(1)}`);
       el.setAttribute('points', pts.join(' '));
       if (u < 1) this.nextFrame(step);
-      else this.retire(el, hold);
+      else this.retire(el, hold, group);
     };
     this.nextFrame(step);
   }
@@ -867,7 +1106,7 @@ class Callouts {
    * lap every frame instead of adding one point to it, which at this many
    * samples is nothing.
    */
-  liveRing(point: (u: number) => Point, ms: number, hold: number, color?: string) {
+  liveRing(point: (u: number) => Point, ms: number, hold: number, color?: string, group?: string) {
     const el = this.add('polyline', color);
     const t0 = performance.now();
     const step = (now: number) => {
@@ -880,13 +1119,12 @@ class Callouts {
         pts.push(`${p.x.toFixed(1)},${p.y.toFixed(1)}`);
       }
       el.setAttribute('points', pts.join(' '));
-      if (elapsed < ms + hold) this.nextFrame(step);
-      else {
-        el.style.transition = `opacity ${FADE_MS}ms ease-out`;
-        el.style.opacity = '0';
-        this.later(FADE_MS, () => el.remove());
-      }
+      // Re-sampled until the fade starts, not until its own hold runs out: a
+      // cluster can hold it on screen past that, and a ring that stopped
+      // following there would sit at the old value for as long as it waited.
+      if (held && !held.faded) this.nextFrame(step);
     };
+    const held = this.retire(el, ms + hold, group);
     this.nextFrame(step);
   }
 
@@ -898,7 +1136,7 @@ class Callouts {
    * move while the bar is up.
    */
   beam(c: Point, tip: Point, width: number, ms: number, hold: number, color?: string,
-    radius?: number | 'pill') {
+    radius?: number | 'pill', group?: string) {
     const el = this.add('rect', color);
     const len = Math.hypot(tip.x - c.x, tip.y - c.y);
     const deg = (Math.atan2(tip.y - c.y, tip.x - c.x) * 180) / PI;
@@ -913,13 +1151,15 @@ class Callouts {
       const u = smoothstep(clamp((now - t0) / Math.max(1, ms), 0, 1));
       el.setAttribute('width', String(len * u));
       if (u < 1) this.nextFrame(step);
-      else this.retire(el, hold);
+      else this.retire(el, hold, group);
     };
     this.nextFrame(step);
   }
 
-  /** Everything off at once, timers and frame loops included. */
+  /** Everything off at once: timers, frame loops and any cluster still waiting. */
   clear() {
+    this.held.forEach((h) => { h.faded = true; });
+    this.held.clear();
     this.timers.forEach((id) => clearTimeout(id));
     this.timers.clear();
     this.frames.forEach((id) => cancelAnimationFrame(id));
@@ -1552,12 +1792,65 @@ export const FRAME_TARGETS = [
 ];
 
 /**
- * Where a `rest`/`hover` actually stands on its target: its middle, unless the
- * cue asked for an edge (`at`) or a nudge (`dx`/`dy`). A thunk, like every
- * other target point, because the page scrolls under it.
+ * Where the tip lands on a target by default: low in its box rather than on
+ * its middle.
+ *
+ * Taylor, round 1 of cut 05: "we never want the cursor to obstruct the target,
+ * so in general we should target the lower part of the target with the tip of
+ * the cursor." The arrow is drawn down and to the right of its own hotspot, so
+ * a tip on the middle of a control puts the body of the hand over the bottom
+ * half of the thing being named. A quarter of the way up from the bottom edge
+ * leaves the label and the value above the tip clear, and stays inside the box,
+ * so a press still lands on the control.
+ *
+ * Only a point that *is* the box's own middle is moved. Every target whose
+ * point is deliberate rather than derived - a slider handle's grip, the
+ * hexagon's tip, the hue pill, a `corner:`, a `pip` grip - already returns
+ * something else, and a target that has gone to the trouble of naming a point
+ * means that point. See AIM_CENTER_EPS.
+ */
+const LOW_AIM_FRACTION = 0.25;
+const LOW_AIM_MIN = 4;
+/**
+ * How near the middle of its own box a target's point has to be to count as
+ * "the middle", in client px. A pixel of slack for the rounding in a box whose
+ * width is odd; anything further out is a point somebody chose.
+ */
+const AIM_CENTER_EPS = 1;
+/**
+ * Targets aimed at exactly, whatever their box says: the point is a grip on
+ * something small that the gesture has to land on, not a place to stand near.
+ *
+ * Belt and braces - all of these carry their own point already, so the
+ * middle-of-the-box test above exempts them on its own - but a target whose
+ * point is a grip should say so rather than depend on staying un-centred.
+ */
+const EXACT_AIM = (name: string | undefined): boolean => !!name && (
+  name.startsWith('handle:') || name.startsWith('corner:') || name.startsWith('stem:')
+  || name.startsWith('hue-at:') || name.startsWith('zero:')
+  || name === 'hex-tip' || name === 'hue-label');
+
+/** The default aim on `t`, low in its box unless the target is aimed exactly. */
+function aimPoint(t: Target, name: string | undefined): () => Point {
+  if (EXACT_AIM(name)) return t.at;
+  return () => {
+    const p = t.at();
+    const r = t.rect ? t.rect() : t.el.getBoundingClientRect();
+    if (r.width <= 0 || r.height <= 0) return p;
+    if (Math.abs(p.x - (r.left + r.width / 2)) > AIM_CENTER_EPS) return p;
+    if (Math.abs(p.y - (r.top + r.height / 2)) > AIM_CENTER_EPS) return p;
+    return { x: p.x, y: clamp(r.bottom - Math.max(LOW_AIM_MIN, LOW_AIM_FRACTION * r.height), r.top, r.bottom) };
+  };
+}
+
+/**
+ * Where a `rest`/`hover` actually stands on its target: low in its box (see
+ * `aimPoint`), unless the cue asked for an edge (`anchor`) or a nudge
+ * (`dx`/`dy`), which are the cue's own point and are left alone. A thunk, like
+ * every other target point, because the page scrolls under it.
  */
 function anchoredPoint(t: Target, a: ScriptAction): () => Point {
-  if (!a.anchor && a.dx === undefined && a.dy === undefined) return t.at;
+  if (!a.anchor && a.dx === undefined && a.dy === undefined) return aimPoint(t, a.target);
   return () => {
     const p = t.at();
     const r = t.rect ? t.rect() : t.el.getBoundingClientRect();
@@ -1813,6 +2106,23 @@ export default function ScriptRunner({
      */
     let holding: ScriptAction | null = null;
     /*
+     * The idle hand: where it was left, what it was last pointing at, and the
+     * cut time it fell idle at. See IDLE_AFTER_MS - all three are read by
+     * `idlePoint` on the frame loop and by nothing else.
+     */
+    let idleAnchor: Point | null = null;
+    let idleAim: (() => DOMRect) | null = null;
+    let idleFrom: number | null = null;
+    /*
+     * The cut's own clock, for anything that runs before `clk` is built - the
+     * frame loop is up from the first frame and the clock is the last thing
+     * the schedule makes. Null while the clock is not advancing, which is
+     * every frame before Space in recording mode and every paused frame in
+     * presentation mode: a hand idling against a stopped clock would be the
+     * one thing on a paused picture that was still moving.
+     */
+    let cutNow: () => number | null = () => null;
+    /*
      * How many times the clock has been jumped. A cue that finds this changed
      * under it is looking at a screen that is no longer the one it was cued
      * against, and anything it was about to put right belongs to the seek
@@ -1935,15 +2245,85 @@ export default function ScriptRunner({
     };
     placeGhostRef.current = placeGhost;
 
+    /**
+     * Where the idle figure has the hand this frame, or null if the hand is
+     * not idle. See IDLE_AFTER_MS: a pure function of the cut's clock, the
+     * point the last gesture left, and the box of the last thing touched.
+     */
+    const idlePoint = (): Point | null => {
+      if (running > 0 || !idleAnchor) return null;
+      // Not while the built-in demo owns the screen: this cursor is hidden
+      // there, and the hand the audience can see is the demo's own.
+      if (demoOpenRef.current && !overDemoRef.current) return null;
+      const now = cutNow();
+      if (now === null) return null;
+      // Armed while the clock was stopped - a seek made with the cut paused,
+      // which is most of them. The wait starts on the first frame the clock is
+      // running again rather than never starting at all.
+      if (idleFrom === null) idleFrom = now;
+      const t = now - idleFrom - IDLE_AFTER_MS / 1000;
+      if (t <= 0) return null;
+      // Parked off screen - by a `pip` gesture, or in the corner the cut has
+      // not called the hand out of yet. Nothing to draw attention with.
+      if (idleAnchor.x < 0 || idleAnchor.y < 0
+        || idleAnchor.x > window.innerWidth || idleAnchor.y > window.innerHeight) return null;
+      return idleFigure(idleAnchor, idleAim ? idleAim() : null, t);
+    };
+
+    /** The box of a target, for the figure to lean toward. Resolved once, when the cue fires. */
+    const aimOf = (name: string | undefined): (() => DOMRect) | null => {
+      const t = name ? resolve(name, hostRef.current) : null;
+      if (!t) return null;
+      const box = t.rect;
+      return box ? () => box() : () => t.el.getBoundingClientRect();
+    };
+
+    /** The hands are free: start the wait, then the figure, from where they were left. */
+    const startIdle = () => {
+      idleAnchor = { x: d.pos.x, y: d.pos.y };
+      // Null with the clock stopped: armed, and `idlePoint` starts the wait on
+      // the first frame it is running. An anchor with no start is the hand
+      // waiting for the clock; no anchor at all is a gesture holding it.
+      idleFrom = cutNow();
+    };
+
+    /**
+     * A new subject while the hand is already idling - a self-drawn callout
+     * going up on the thing the line is about. The figure re-anchors on the
+     * point it has actually reached and carries straight on from there, so the
+     * attention moves without the hand jumping to do it.
+     */
+    const aimIdle = (aim: (() => DOMRect) | null) => {
+      if (!aim) return;
+      idleAim = aim;
+      if (running > 0 || idleFrom === null) return;
+      const now = cutNow();
+      if (now === null) return;
+      idleAnchor = { x: shown.x, y: shown.y };
+      idleFrom = now - IDLE_AFTER_MS / 1000;
+    };
+
     const frame = () => {
+      // The idle figure owns the hand whenever no gesture does. The driver's
+      // own position is carried with it, so the next gesture's move starts
+      // from where the figure actually is rather than snapping back.
+      const drift = idlePoint();
+      if (drift) {
+        target = drift;
+        d.pos = { x: drift.x, y: drift.y };
+      }
       const dx = target.x - shown.x;
       const dy = target.y - shown.y;
       shown = target;
       vx = vx * 0.75 + dx * 0.25;
       vy = vy * 0.75 + dy * 0.25;
-      const goal = clamp((vx - vy * TILT_FROM_VERTICAL) * TILT_PER_PX, -TILT_MAX, TILT_MAX);
+      // The angle is DemoCursor's law; the spring here is only the easing of
+      // it, and the arrow pivots on the hotspot below, so the lean never moves
+      // the point a gesture is aiming at.
+      const goal = cursorTilt(vx, vy);
       tiltV = (tiltV + (goal - tilt) * TILT_SPRING) * TILT_DAMP;
       tilt = clamp(tilt + tiltV, -TILT_LIMIT, TILT_LIMIT);
+      if (Math.abs(tilt) < TILT_ZERO && Math.abs(goal) < TILT_ZERO) tilt = 0;
       const cursor = cursorRef.current;
       if (cursor) {
         cursor.style.left = `${shown.x}px`;
@@ -2064,7 +2444,7 @@ export default function ScriptRunner({
             const t = need(name);
             if (!t) continue;
             await d.bring(t.el);
-            await d.moveTo(t.at, MOVE_MS);
+            await d.moveTo(aimPoint(t, name), MOVE_MS);
             await d.wait(dwell);
           }
           return;
@@ -2211,10 +2591,10 @@ export default function ScriptRunner({
           const hold = a.hold ?? HOLD_MS;
           // On a handle, the ring goes with it; see `followsTarget`.
           if (a.live ?? followsTarget(a.target ?? '')) {
-            callouts.liveRing(point, ms, hold, a.color);
+            callouts.liveRing(point, ms, hold, a.color, a.group);
             return;
           }
-          callouts.ring(point, ms, hold, a.color);
+          callouts.ring(point, ms, hold, a.color, a.group);
           return;
         }
         case 'ray': {
@@ -2236,7 +2616,7 @@ export default function ScriptRunner({
           const root = { x: c.x - ux * RAY_CENTER_OVER, y: c.y - uy * RAY_CENTER_OVER };
           const end = { x: tip.x + ux * RAY_LETTER_OVER, y: tip.y + uy * RAY_LETTER_OVER };
           callouts.beam(root, end, a.width ?? RAY_WIDTH, a.ms ?? CIRCLE_MS, a.hold ?? HOLD_MS,
-            a.color ?? CHANNEL_COLOR[a.ch ?? ''], a.radius);
+            a.color ?? CHANNEL_COLOR[a.ch ?? ''], a.radius, a.group);
           return;
         }
         case 'rect': {
@@ -2260,7 +2640,8 @@ export default function ScriptRunner({
             // Hands free by definition: nothing can hold a box that is still
             // being re-measured, and the point of it is the drag going on
             // underneath.
-            callouts.liveBox(() => boxOf(), from, a.ms ?? CIRCLE_MS, a.hold ?? HOLD_MS, a.color, a.radius);
+            callouts.liveBox(() => boxOf(), from, a.ms ?? CIRCLE_MS, a.hold ?? HOLD_MS, a.color,
+              a.radius, a.group);
             return;
           }
           if (a.hands === 'free') {
@@ -2268,7 +2649,7 @@ export default function ScriptRunner({
             // something else; the whole `ms` is the diagonal. No scrolling:
             // the hands are not free to, so the target has to be in shot.
             const { start: p0, end: p1 } = rectCorners(boxOf(), from);
-            callouts.box(p0, p1, a.ms ?? CIRCLE_MS, a.hold ?? HOLD_MS, a.color, a.radius);
+            callouts.box(p0, p1, a.ms ?? CIRCLE_MS, a.hold ?? HOLD_MS, a.color, a.radius, a.group);
             return;
           }
           await d.bring(t.el);
@@ -2285,7 +2666,7 @@ export default function ScriptRunner({
           // wherever the cursor is, and stands once the diagonal is done. Cut
           // short at any point, it snaps to its full size and stands anyway:
           // a partial box reads as a mistake, a whole one as the callout.
-          const shape = callouts.marquee(p0, a.hold ?? HOLD_MS, a.color, a.radius);
+          const shape = callouts.marquee(p0, a.hold ?? HOLD_MS, a.color, a.radius, a.group);
           let complete = false;
           try {
             await d.moveTo(() => p0, travel);
@@ -2310,7 +2691,7 @@ export default function ScriptRunner({
           // Measured once. What a `line` marks is a place on a control - the
           // zero end of a track - and the control does not move while it
           // stands; a live one would cost a re-measure a frame for nothing.
-          callouts.line(from.at(), to.at(), a.ms ?? CIRCLE_MS, a.hold ?? HOLD_MS, a.color);
+          callouts.line(from.at(), to.at(), a.ms ?? CIRCLE_MS, a.hold ?? HOLD_MS, a.color, a.group);
           return;
         }
         case 'arrow': {
@@ -2331,7 +2712,7 @@ export default function ScriptRunner({
           const clear = Math.min(len / 3, (to.radius?.() ?? ANCHOR_CLEAR) + ANCHOR_CLEAR);
           const tip = { x: b0.x - ((b0.x - a0.x) / len) * clear, y: b0.y - ((b0.y - a0.y) / len) * clear };
           const root = { x: a0.x + ((b0.x - a0.x) / len) * clear, y: a0.y + ((b0.y - a0.y) / len) * clear };
-          callouts.arrow(root, tip, a.ms ?? CIRCLE_MS, a.hold ?? HOLD_MS, a.color);
+          callouts.arrow(root, tip, a.ms ?? CIRCLE_MS, a.hold ?? HOLD_MS, a.color, a.group);
           return;
         }
         case 'wander': {
@@ -2768,10 +3149,20 @@ export default function ScriptRunner({
       // hands free) takes nothing, so it can share an `at` with a hover
       // without cutting it short, and nothing later cuts it short either.
       if (handsFree(a)) {
+        // It does take the hand's attention, though: an idle figure leans
+        // toward whatever was last named, and a callout going up on a control
+        // names it as surely as a hover does.
+        aimIdle(aimOf(a.target));
         run(a).catch((err: unknown) => console.error(`[script] t=${a.at}s ${a.do} failed`, err));
         return;
       }
       if (running > 0) d.interrupt();
+      // The hands are spoken for: the figure stops here, and because the
+      // driver has been carrying the idle position all along, the move this
+      // cue makes starts from where the hand actually is.
+      idleFrom = null;
+      idleAnchor = null;
+      idleAim = aimOf(a.target) ?? idleAim;
       running += 1;
       holding = a;
       // An over-demo gesture brings the ghost out for as long as it lasts;
@@ -2790,6 +3181,9 @@ export default function ScriptRunner({
         })
         .finally(() => {
           running -= 1;
+          // Nothing else has the hands: start the wait that ends in the idle
+          // figure. See IDLE_AFTER_MS.
+          if (running === 0) startIdle();
           // The flag is not this action's to clear: the hand keeps the screen
           // until the demo is gone. See `overDemoRef`.
         });
@@ -2803,6 +3197,7 @@ export default function ScriptRunner({
     // external one. Declared before the clock is built, which is what sets it.
     let teardown: () => void = () => {};
     const clk: ScriptClock = external ?? recordingClock();
+    cutNow = () => (clk.running() ? clk.now() : null);
     // Fire every action whose cue has passed. Safe to call from more than
     // one clock: an action dispatches once, when `next` moves past it.
     const step = () => {
@@ -2844,6 +3239,11 @@ export default function ScriptRunner({
     const seek = (t: number) => {
       scrubs += 1;
       if (running > 0) d.interrupt();
+      // A scrub is not a performance: the figure is rebuilt from the state at
+      // `t`, not carried across the jump.
+      idleFrom = null;
+      idleAnchor = null;
+      idleAim = null;
       callouts.clear();
       // Whoever had the screen, this is a jump: the gesture that took it off
       // the demo is not running any more. A scrub is not a performance.
@@ -2879,14 +3279,17 @@ export default function ScriptRunner({
       // home. A scrub to the top used to put it back in the corner.
       parkPip(pip ? pip.to === 'off' : opensOff);
       const target = pose?.target ? resolve(pose.target, hostRef.current) : null;
-      if (!target) return;
+      if (!target) { startIdle(); return; }
+      idleAim = aimOf(pose?.target);
       running += 1;
       d.bring(target.el)
-        .then(() => d.moveTo(target.at, SEEK_MOVE_MS))
+        // The same point a play-through would have left it on, low in the
+        // box: a seek has to land where the cut would have put the hand.
+        .then(() => d.moveTo(aimPoint(target, pose?.target), SEEK_MOVE_MS))
         .catch((err: unknown) => {
           if (!(err instanceof DemoAborted)) console.error('[script] seek failed', err);
         })
-        .finally(() => { running -= 1; });
+        .finally(() => { running -= 1; if (running === 0) startIdle(); });
     };
 
     /*
