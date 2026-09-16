@@ -771,7 +771,10 @@ channel tooltips the same way a pointer would.
 
 The same script played against its voice track, for reviewing the cut and
 leaving notes: `src/demo/PresentationMode.tsx`. `?present=` is dev only — the
-app mounts it from that query parameter in dev builds alone — but the component
+app reads that query parameter on the dev server alone, and a build ignores it,
+so a shared link never lands a visitor in a walkthrough without its lock or its
+End button (both `ColorPicker.tsx` and `WebcamPip.tsx` return null from
+`presentName()` outside dev) — but the component
 itself has no dev guard: the same one is the shipped walkthrough, mounted by
 the app's own entry with `mode="production"` (see "Shipping it" below).
 

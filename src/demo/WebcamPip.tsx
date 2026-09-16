@@ -118,8 +118,10 @@ const SETTLE = 0.02;
  */
 const JUMP = 0.5;
 
-/** Read the URL once, the way presentation mode does. */
+/** Read the URL once, the way the app does: dev server only, so on a build a
+ *  stray `?present=` can never point the panel at another cut's footage. */
 function presentName(): string | null {
+  if (!import.meta.env.DEV) return null;
   try {
     const raw = new URLSearchParams(window.location.search).get('present');
     return raw && /^[\w-]+$/.test(raw) ? raw : null;

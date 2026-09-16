@@ -210,11 +210,25 @@ test.describe('Welcome panel', () => {
       .toHaveAttribute('src', new RegExp(`(scripts/pip/${CURRENT_CUT}/full\\.mp4$|^blob:)`));
   });
 
-  test('?present= mounts paused, with the full transport and no dev endpoints', async ({ page }) => {
+  test('?present= is the dev server authoring tool, and a build ignores it', async ({ page }) => {
     const dev: string[] = [];
     page.on('request', (r) => { if (r.url().includes('/__')) dev.push(r.url()); });
     await page.setViewportSize({ width: 1376, height: 868 });
+    // Which server this suite is pointed at decides what to expect: probe the
+    // notes endpoint rather than guess from the port. A production preview
+    // answers every unknown path with index.html, so the tell is JSON, not a
+    // 200.
+    const devServer = ((await page.request.get(`/__notes/${CURRENT_CUT}`)).headers()['content-type'] ?? '').includes('json');
     await page.goto(`/?present=${CURRENT_CUT}`);
+    if (!devServer) {
+      // A build ignores the parameter: a shared link lands on the app, and the
+      // walkthrough is only ever entered from the About panel, with its lock
+      // and its End button.
+      await page.locator('#rgb-dot-green').waitFor();
+      await expect(page.getByTestId('present-transport')).toHaveCount(0);
+      expect(dev).toEqual([]);
+      return;
+    }
     await expect(page.getByTestId('present-transport')).toBeVisible();
     // A link is not the gesture playback needs, so it opens stopped.
     await expect.poll(() => page.locator('audio[data-testid="present-audio"]').evaluate(
@@ -223,21 +237,8 @@ test.describe('Welcome panel', () => {
     // Full transport under the URL parameter - it is a tool worth showing.
     await expect(page.getByTestId('present-line')).toBeVisible();
     await expect(page.getByTestId('present-timeline')).toBeVisible();
-    // ...but the authoring half only where the dev server can serve it. The
-    // URL mounts dev mode on the Vite dev server (notes, clip editor) and
-    // production mode in a build, so which half to expect is a fact about the
-    // server, not the spec: probe the notes endpoint rather than guess from
-    // the port.
-    // A production preview answers every unknown path with index.html, so
-    // the tell is JSON, not a 200.
-    const devServer = ((await page.request.get(`/__notes/${CURRENT_CUT}`)).headers()['content-type'] ?? '').includes('json');
-    if (devServer) {
-      await expect(page.getByTestId('present-note').first()).toBeVisible();
-    } else {
-      await expect(page.getByTestId('present-note')).toHaveCount(0);
-      await expect(page.getByTestId('present-collapse')).toHaveCount(0);
-      expect(dev).toEqual([]);
-    }
+    // ...and the authoring half with it.
+    await expect(page.getByTestId('present-note').first()).toBeVisible();
   });
 
   test('?script= mounts nothing outside a recording session', async ({ page }) => {
