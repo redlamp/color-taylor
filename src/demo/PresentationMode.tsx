@@ -982,11 +982,19 @@ export default function PresentationMode({
    * label row alone can change it). Hidden for a capture (`hiddenForCapture`)
    * the bar is `display: none`, so its own box is 0 already - but that is
    * asserted outright here rather than left to a resize-observer round trip,
-   * so the panel's home corner moves on the same frame the bar disappears. */
+   * so the panel's home corner moves on the same frame the bar disappears.
+   *
+   * Under a frame layer or a capture the bar is never part of the picture:
+   * T brings it back only to edit over the capture, and it goes again before
+   * the picture is judged. So its height is 0 there even while it shows.
+   * Otherwise the panel's home corner lifted by the bar's 132 px on T, the
+   * opening pip cue measured its grip on the lifted panel, and the second T
+   * dropped the panel out from under the hand (the recorder's T/Space/T
+   * start on 2026-09-15, and Taylor's own testing on the 16th). */
   useEffect(() => {
     const el = transportRef.current;
     if (!el) return;
-    if (hiddenForCapture) {
+    if (hiddenForCapture || frames.active || capturing) {
       setTransportHeight(0);
       return;
     }
@@ -999,7 +1007,7 @@ export default function PresentationMode({
       ro.disconnect();
       setTransportHeight(0);
     };
-  }, [hiddenForCapture]);
+  }, [hiddenForCapture, frames.active, capturing]);
   const labelLayout = useMemo(
     () => layoutSectionLabels(sectionMarks, duration, timelineWidth),
     [sectionMarks, duration, timelineWidth],
