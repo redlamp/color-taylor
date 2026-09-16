@@ -3,26 +3,20 @@
     "t": 0,
     "regions": {
       "16:9": {
-        "x": 396,
-        "y": 125,
-        "w": 1477,
-        "h": 831
+        "zoom": 1.3
       }
     },
-    "note": "130% with the app on the left and the camera panel clear of it on the right: at 1920x1080 the picker block is 411..1509 by 153..928, so a 1477x831 window at x 396 puts its left edge 20 px in and leaves 1920-1673 for the 400 px panel."
+    "note": "130%, centred on the app; the camera panel sits over the app's right edge (Taylor, 09-16: keep the app centred, the panel may cover it)."
   },
   {
     "t": 235.39,
     "ms": 800,
     "regions": {
       "16:9": {
-        "x": 393,
-        "y": 49,
-        "w": 1745,
-        "h": 982
+        "zoom": 1.1
       }
     },
-    "note": "110% for the swatches, left-aligned the same way; the picker is 84..996 tall with the panel open."
+    "note": "110% for the swatches, centred the same way."
   },
   {
     "t": 255.99,
@@ -37,13 +31,10 @@
     "ms": 800,
     "regions": {
       "16:9": {
-        "x": 396,
-        "y": 125,
-        "w": 1477,
-        "h": 831
+        "zoom": 1.3
       }
     },
-    "note": "130% for the demo, as at the top."
+    "note": "130%, centred on the app; the camera panel sits over the app's right edge (Taylor, 09-16: keep the app centred, the panel may cover it)."
   },
   {
     "t": 319.8,
