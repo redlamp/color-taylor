@@ -48,7 +48,7 @@
  * press on a slider fights the cut for the same colour - so every real press,
  * every wheel and every key that is not the transport's is swallowed, and the
  * one decision left to the viewer is whether to stay: a press anywhere but
- * the bar offers "Leave the presentation?" rather than doing anything. The
+ * the bar offers "End the presentation?" rather than doing anything. The
  * line is `isTrusted` rather than a layer that eats the events, so the cut's
  * own hands - which work the app through events the runner dispatches - are
  * untouched; see the comment on `shielded` below for why a layer could not
@@ -2084,24 +2084,26 @@ export default function PresentationMode({
                 {labelsRow}
                 {timelineBar}
               </div>
-              {/* The way out, where the host gave us one: the same square as
-                  the three on the left, in the app's destructive colour, at
-                  the far right of the bar and on the buttons row's own
-                  baseline (the row is `flex-end`, and this is a bare button
-                  rather than a column, so it lands there by itself). */}
+              {/* The way out, where the host gave us one: the X and the word
+                  End, the same 32px height as the three on the left, in the
+                  app's destructive colour, at the far right of the bar and on
+                  the buttons row's own baseline (the row is `flex-end`, and
+                  this is a bare button rather than a column, so it lands there
+                  by itself). A word rather than the glyph alone because the
+                  offer's button says End too (Taylor, 2026-09-16), and the two
+                  are the one way out. */}
               {onLeave && (
                 <Button
                   type="button"
                   data-testid="present-leave"
                   onClick={beginLeave}
                   disabled={leaving}
-                  title="Leave presentation"
-                  aria-label="Leave presentation"
+                  title="End presentation"
+                  aria-label="End presentation"
                   variant="destructive"
-                  size="icon"
-                  className="size-8"
                 >
                   <LeaveIcon />
+                  End
                 </Button>
               )}
             </div>
@@ -2307,11 +2309,11 @@ export default function PresentationMode({
                 userSelect: 'none',
               }}
             >
-              <p id="present-offer-title" className="text-2xl font-semibold">Leave the presentation?</p>
-              {/* About's buttons: size 2xl, full width, two to a row. Leave
-                  wears the bar's X - the destructive variant and the same
-                  glyph - so the way out reads as one control wherever it is
-                  offered; Keep watching takes the secondary style the way Demo
+              <p id="present-offer-title" className="text-2xl font-semibold">End the presentation?</p>
+              {/* About's buttons: size 2xl, full width, two to a row. End
+                  wears the bar's End - the destructive variant, the same
+                  glyph and the same word - so the way out reads as one control
+                  wherever it is offered; Keep watching takes the secondary style the way Demo
                   and Presentation do. */}
               <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {/* The same `beginLeave` the bar's X calls, so the slide out
@@ -2326,7 +2328,7 @@ export default function PresentationMode({
                   className="w-full"
                 >
                   <LeaveIcon />
-                  Leave
+                  End
                 </Button>
                 {/* Nothing is paused to ask the question, so nothing is
                     resumed by answering it: the cut has kept playing behind

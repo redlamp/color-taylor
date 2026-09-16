@@ -927,8 +927,9 @@ the app's own entry with `mode="production"` (see "Shipping it" below).
     stands down while the shield is up (`DemoRunner.tsx`) - during the hand-off
     the demo is a chapter of the cut, not something the viewer started.
   - **The offer.** A press that stays put - anywhere but the bar - opens a small
-    centred dialog in the bar's own `--bar-*` colours: "Leave the presentation?",
-    **Leave** (the same `beginLeave` the X calls) and **Keep watching**. Taylor
+    centred dialog wearing the About panel's card and buttons: "End the
+    presentation?", **End** (the bar's destructive style and X glyph, and the
+    same `beginLeave` the bar's End calls) and **Keep watching**. Taylor
     again, on what a click over the app should do: "nothing, if the user clicks
     the shield, offer a panel to leave the presentation." Nothing pauses to ask,
     so nothing resumes on the answer; focus moves to Keep watching and returns
