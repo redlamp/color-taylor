@@ -16,14 +16,12 @@
  * in either theme (#111 under the dark page's #181818), so it reads as a
  * surface laid over the app rather than as more of the app.
  *
- * `.present-offer` - the shield's "leave the presentation?" dialog - takes the
- * same tokens from the same two rules rather than a set of its own: it is the
- * bar asking a question, and a dialog that answered the theme switch a
- * different way would be a second surface.
+ * `.present-offer` - the shield's "leave the presentation?" dialog - does not
+ * take these: it wears the About panel's card and buttons (Taylor, 2026-09-16),
+ * which follow the theme through the app's own tokens.
  */
 
-.present-bar,
-.present-offer {
+.present-bar {
   /* Light: a step below the page's oklch(0.965) the way #111 sits below #181818. */
   --bar-bg: #e2e2e2;
   --bar-fg: #252525;
@@ -45,8 +43,7 @@
   --bar-playhead-glow: 0 0 3px rgba(255, 128, 0, 0.55), 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
-.dark .present-bar,
-.dark .present-offer {
+.dark .present-bar {
   --bar-bg: #111111;
   --bar-fg: #e6e6e6;
   --bar-fg-strong: #ff8000;
@@ -123,11 +120,15 @@
  */
 .present-offer {
   opacity: 0;
-  transition: opacity 150ms ease;
+  scale: 0.95;
+  transition: opacity 150ms ease, scale 150ms ease;
 }
 
+/* About's zoom-in-95 as well as its fade, on `scale` so the centring
+   transform on the element is left alone. */
 .present-offer.present-offer-in {
   opacity: 1;
+  scale: 1;
 }
 
 @media (prefers-reduced-motion: reduce) {

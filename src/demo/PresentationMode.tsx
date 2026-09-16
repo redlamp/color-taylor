@@ -2280,25 +2280,30 @@ export default function PresentationMode({
               role="dialog"
               aria-modal="true"
               aria-labelledby="present-offer-title"
-              className={`present-offer${offerIn ? ' present-offer-in' : ''}`}
+              // The About panel's card, so the two questions the app ever asks
+              // a visitor look like the same app asking them: bg-card, the
+              // 2xl radius and shadow, the `speaks` hairline, the app's sans.
+              // Narrower than About's 560px - one line of question, not a
+              // title and an invitation.
+              className={
+                `present-offer${offerIn ? ' present-offer-in' : ''} speaks ` +
+                'w-[min(92vw,480px)] rounded-2xl bg-card px-8 pt-9 pb-8 text-center text-card-foreground shadow-2xl outline-none'
+              }
               style={{
                 position: 'absolute',
                 top: '50%',
                 left: '50%',
                 transform: 'translate(-50%, -50%)',
                 pointerEvents: 'auto',
-                background: 'var(--bar-bg)',
-                color: 'var(--bar-fg)',
-                borderRadius: 10,
-                padding: '18px 20px 16px',
-                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.35)',
-                font: '13px/1.4 ui-monospace, Consolas, monospace',
-                textAlign: 'center',
                 userSelect: 'none',
               }}
             >
-              <p id="present-offer-title" style={{ margin: '0 0 14px' }}>Leave the presentation?</p>
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+              <p id="present-offer-title" className="text-2xl font-semibold">Leave the presentation?</p>
+              {/* About's buttons: size 2xl, full width, two to a row. Leave
+                  takes the primary style the way Get Started does - both hand
+                  the visitor the app - and Keep watching the secondary one the
+                  way Demo and Presentation do. */}
+              <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {/* The same `beginLeave` the bar's X calls, so the slide out
                     and the hand-back to the host are one path, not two. */}
                 <Button
@@ -2306,8 +2311,8 @@ export default function PresentationMode({
                   data-testid="present-offer-leave"
                   onClick={beginLeave}
                   disabled={leaving}
-                  variant="destructive"
-                  size="sm"
+                  size="2xl"
+                  className="w-full"
                 >
                   Leave
                 </Button>
@@ -2319,7 +2324,8 @@ export default function PresentationMode({
                   data-testid="present-offer-stay"
                   onClick={closeOffer}
                   variant="secondary"
-                  size="sm"
+                  size="2xl"
+                  className="w-full"
                 >
                   Keep watching
                 </Button>
