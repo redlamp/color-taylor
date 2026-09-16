@@ -525,6 +525,23 @@ export default function WebcamPip({ webcam }: WebcamPipProps = {}) {
      */
     const fetched = new Map<string, string>();
     let begun = false;
+    /*
+     * The clock's reading on the previous frame, and whether it has jumped
+     * since the picture last caught up with it. A jump is a seek of the voice:
+     * the shipped path's handover rewind, or a scrub. Either way the clip is
+     * behind or ahead by the size of the jump, and the right answer is one
+     * exact seek, not a nudge that takes a second per 20 ms of gap.
+     *
+     * This is what makes the handover rewind safe regardless of ordering. The
+     * hidden-panel rule below assumed the rewind always lands while the panel
+     * is still `hidden`, but `hidden` ends when the runner *states* how the cut
+     * opens, which can be the same instant as the rewind; on about one load in
+     * five the loop saw the rewind a frame later, with `hidden` already false
+     * and the panel still parked off screen, and nudged a 0.3 s gap out over
+     * the whole on-camera intro (measured on the live site, 2026-09-16).
+     */
+    let lastClock = -1;
+    let clockJumped = false;
     let alive = true;
     for (const file of new Set(clips.map((c) => c.file))) {
       fetch(base + file + bust)
@@ -581,6 +598,10 @@ export default function WebcamPip({ webcam }: WebcamPipProps = {}) {
       const audio = document.querySelector<HTMLAudioElement>('audio[data-testid="present-audio"]');
       if (!slots[0].el || !slots[1].el || !audio) return;
       const t = audio.currentTime;
+      // A frame is at most a few tens of ms of playback; anything backwards,
+      // or more than half a second forwards, is the clock being moved.
+      if (lastClock >= 0 && (t < lastClock - 0.05 || t > lastClock + 0.5)) clockJumped = true;
+      lastClock = t;
       // The first play press, whichever transport made it. An element handed in
       // by the host is already playing, so it counts as begun from the start.
       if (!begun && (!audio.paused || !!slots[0].el?.src)) begun = true;
@@ -637,10 +658,13 @@ export default function WebcamPip({ webcam }: WebcamPipProps = {}) {
         const off = v.currentTime - at;
         const firstAdoptedFrame = playing && adoptedPendingRef.current;
         if (firstAdoptedFrame) adoptedPendingRef.current = false;
-        const forceSeek = hiddenRef.current || firstAdoptedFrame;
+        const forceSeek = hiddenRef.current || firstAdoptedFrame || clockJumped;
+        // Spent once the picture is back within DRIFT, by the seek below or
+        // because the jump was small enough to land inside it anyway.
+        if (clockJumped && Math.abs(off) <= DRIFT) clockJumped = false;
         if (playing) {
           if (Math.abs(off) > JUMP || (forceSeek && Math.abs(off) > DRIFT)) {
-            v.currentTime = at; v.playbackRate = 1;
+            v.currentTime = at; v.playbackRate = 1; clockJumped = false;
           } else if (Math.abs(off) > DRIFT) v.playbackRate = off > 0 ? 1 - NUDGE : 1 + NUDGE;
           else if (Math.abs(off) <= SETTLE && v.playbackRate !== 1) v.playbackRate = 1;
         } else {
