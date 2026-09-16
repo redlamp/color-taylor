@@ -29,9 +29,19 @@
  * Playback needs that user gesture, and the host is the only place a `play()`
  * can be synchronous with it. `onLeave` is the fourth, and the way out: with
  * one, the reduced transport shows a red X at the right of the bar and
- * **Escape** calls the same thing. What leaving means belongs to the host,
- * which created the media and mounts this. Which builds mount the component
- * at all is the host's business: there is no dev guard in here.
+ * **Escape** calls the same thing - and so does the end of the voice track,
+ * a second and a half after the last sound. What leaving means belongs to the
+ * host, which created the media and mounts this. Which builds mount the
+ * component at all is the host's business: there is no dev guard in here.
+ *
+ * The shipped bar arrives and goes on a slide: it mounts below the viewport
+ * and is let up over 300 ms, and every way out plays the same move in reverse
+ * before `onLeave` is called, so the host unmounts into an empty screen. Its
+ * colours, that slide, and the fade at its top are `--bar-*` tokens on the
+ * `.present-bar` class in presentation-bar.css, keyed off the app's own
+ * light/dark class. The dev transport has none of this: it mounts and
+ * unmounts on a frame, in the tool's own fixed colours, and it stays put at
+ * the end of the track.
  *
  * This is a tool, not a surface of the app: the styling is deliberately not
  * the app's, except on the shipped transport's clock, which an audience
@@ -69,7 +79,7 @@ import ScriptRunner, {
 import type { DemoHost } from './steps';
 import ClipEditor from './ClipEditor';
 import { captureFlag, FrameControls, RATIO_COLOR, RATIOS, useFrames } from './Frames';
-import { setTransportHeight } from './frameState';
+import { setBarLeaving, setTransportHeight } from './frameState';
 import {
   LABEL_ANGLE_DEG, labelRowHeight, layoutSectionLabels, loadSections, resolveSectionMarks,
   type Section,
@@ -172,6 +182,13 @@ const KEYFRAME_EPSILON = 0.1;
 /** The caption crossfade's duration, each way. Short: a caption is a
  *  subtitle, not a title card. */
 const CAPTION_FADE_MS = 200;
+/** How long the shipped bar takes to arrive, and to go. Matches the
+ *  `.present-bar` transition in presentation-bar.css, which is what actually
+ *  moves it; this is only how long to wait before handing over. */
+const SLIDE_MS = 300;
+/** The gap between the last sound of the cut and the bar starting down: long
+ *  enough for the final frame and the camera panel's drag-out to settle. */
+const END_HOLD_MS = 1500;
 
 /** How long a gap between two lines still carries the first one's caption.
  *  Past this the caption blanks rather than sit there through a long pause. */
@@ -661,6 +678,84 @@ export default function PresentationMode({
   const capturing = useMemo(() => captureFlag(), []);
   const hiddenForCapture = (frames.active || capturing) && !framesBarVisible;
 
+  /**
+   * On and off the bottom of the screen, on the shipped bar only.
+   *
+   * `barIn` is false for exactly one frame - the class that lets the bar up
+   * has to arrive after the browser has painted it below the viewport, or
+   * there is no transition to run - and `leaving` takes it off again. The
+   * transition itself is in presentation-bar.css; all this owns is when the
+   * class is on.
+   *
+   * Leaving is deferred rather than immediate because `onLeave` unmounts
+   * everything: the bar, the voice, the camera panel. Called on the press,
+   * the slide would be a component that no longer exists. So the press starts
+   * the slide, and the host is told when it has finished.
+   */
+  const [barIn, setBarIn] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  const leavingRef = useRef(false);
+  const leaveTimer = useRef(0);
+  /** No slide for a viewer who asked not to be moved; the wait goes too. */
+  const reduceMotion = useMemo(
+    () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches,
+    [],
+  );
+  useEffect(() => {
+    if (fullTransport) return;
+    const raf = requestAnimationFrame(() => setBarIn(true));
+    return () => cancelAnimationFrame(raf);
+  }, [fullTransport]);
+  const beginLeave = useCallback(() => {
+    if (!onLeave || leavingRef.current) return;
+    leavingRef.current = true;
+    setLeaving(true);
+    if (fullTransport || reduceMotion) {
+      onLeave();
+      return;
+    }
+    // The camera panel is a sibling under ColorPicker, so it hears about this
+    // through the same module the bar's height goes out on.
+    setBarLeaving(true);
+    leaveTimer.current = window.setTimeout(onLeave, SLIDE_MS);
+  }, [onLeave, fullTransport, reduceMotion]);
+  useEffect(() => () => {
+    window.clearTimeout(leaveTimer.current);
+    setBarLeaving(false);
+  }, []);
+
+  /**
+   * The end of the cut leaves by itself.
+   *
+   * A walkthrough that has said everything it has to say should not park a
+   * transport bar over the app and wait to be dismissed. The wait after the
+   * last sound is for the last frame and for the panel's drag-out to settle -
+   * the cut ends on the sound, not on the motion - and it is cancelled if the
+   * viewer starts the track again or scrubs back inside it, which is a viewer
+   * who is not finished.
+   *
+   * Shipped transport only, and only where the host gave us an `onLeave`: the
+   * `?present=` tool stays at the end of the track, which is where somebody
+   * reviewing a cut wants to be left.
+   */
+  useEffect(() => {
+    if (!onLeave || fullTransport || planMode) return;
+    const a = audioRef.current;
+    if (!a) return;
+    let hold = 0;
+    const onEnded = () => { hold = window.setTimeout(beginLeave, END_HOLD_MS); };
+    const cancel = () => { window.clearTimeout(hold); hold = 0; };
+    a.addEventListener('ended', onEnded);
+    a.addEventListener('play', cancel);
+    a.addEventListener('seeking', cancel);
+    return () => {
+      window.clearTimeout(hold);
+      a.removeEventListener('ended', onEnded);
+      a.removeEventListener('play', cancel);
+      a.removeEventListener('seeking', cancel);
+    };
+  }, [onLeave, fullTransport, planMode, beginLeave, voice, name, rebuilt]);
+
   const seek = useCallback((t: number) => {
     // A seek lands on the frame the cut says is in force there, rather than
     // easing into it: the same rule the actions follow.
@@ -837,12 +932,12 @@ export default function PresentationMode({
         e.stopPropagation();
         setCollapsed((v) => !v);
       } else if (onLeave && e.key === 'Escape') {
-        // The keyboard twin of the bar's X. Only where the host gave us
-        // somewhere to go, so a dev entry's Escape still belongs to whatever
-        // else wants it.
+        // The keyboard twin of the bar's X, and inert once the bar is already
+        // on its way down. Only where the host gave us somewhere to go, so a
+        // dev entry's Escape still belongs to whatever else wants it.
         e.preventDefault();
         e.stopPropagation();
-        onLeave();
+        beginLeave();
       } else if ((frames.active || capturing) && (e.key === 't' || e.key === 'T')) {
         // Brings the transport bar back over a capture for editing; see
         // `hiddenForCapture` above. Only reachable at all with `frames=` or
@@ -854,7 +949,7 @@ export default function PresentationMode({
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
-  }, [toggle, editing, authoring, fullTransport, seekBy, jumpKeyframe, frames.active, capturing, onLeave]);
+  }, [toggle, editing, authoring, fullTransport, seekBy, jumpKeyframe, frames.active, capturing, onLeave, beginLeave]);
 
   useEffect(() => {
     if (noting) noteInputRef.current?.focus();
@@ -1152,7 +1247,7 @@ export default function PresentationMode({
       {createPortal(
         <div
           ref={transportRef}
-          className={fullTransport ? undefined : 'present-bar'}
+          className={fullTransport ? undefined : `present-bar${barIn && !leaving ? ' present-bar-in' : ''}`}
           data-testid="present-transport"
           data-frames-hidden={hiddenForCapture ? 'true' : undefined}
           style={{
@@ -1766,7 +1861,8 @@ export default function PresentationMode({
                 <Button
                   type="button"
                   data-testid="present-leave"
-                  onClick={onLeave}
+                  onClick={beginLeave}
+                  disabled={leaving}
                   title="Leave presentation"
                   aria-label="Leave presentation"
                   variant="destructive"

@@ -45,7 +45,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { createPortal } from 'react-dom';
 import { Video } from 'lucide-react';
 import { CURRENT_CUT } from './currentCut';
-import { captureBox, onFrameChange, transportHeight } from './frameState';
+import { barLeaving, captureBox, onFrameChange, transportHeight } from './frameState';
 import {
   onPipOpening, parkPip, pipOpening, PIP_OPENING_GRACE_MS, type PipOpening,
 } from './handover';
@@ -284,8 +284,12 @@ export default function WebcamPip({ webcam }: WebcamPipProps = {}) {
    */
   const adoptedPendingRef = useRef(false);
 
+  /** The walkthrough is on its way out; see `barLeaving` in frameState. */
+  const [leaving, setLeaving] = useState(false);
+
   useEffect(() => {
     const compute = () => {
+      setLeaving(barLeaving());
       /*
        * With a frame layer up the panel belongs to the capture, not to the
        * window: the frame is what the viewer will see, so its own
@@ -696,6 +700,14 @@ export default function WebcamPip({ webcam }: WebcamPipProps = {}) {
         transform: 'translateX(0px)',
         willChange: 'transform',
         visibility: hidden ? 'hidden' : undefined,
+        // Out with the bar, on the bar's own curve. Mid-cut the cut has
+        // usually already dragged the panel off the right edge, so this only
+        // shows on an early exit - but on that exit the panel would otherwise
+        // blink out of a corner the viewer is still looking at. Opacity only:
+        // what hides the panel before it is due is `visibility`, so the two
+        // never fight.
+        opacity: leaving ? 0 : undefined,
+        transition: 'opacity 300ms cubic-bezier(0.2, 0, 0, 1)',
       }}
     >
       {/* The host's element stands in for this one when there is one: it is

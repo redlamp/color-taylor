@@ -910,6 +910,24 @@ the app's own entry with `mode="production"` (see "Shipping it" below).
   in both themes; hue 30 is the point of it. The dev transport carries no class
   and keeps its fixed tool colours.
 
+- **The bar slides in and out, and the cut's end leaves.** On the shipped
+  transport the bar mounts fully below the viewport and is let up over 300ms
+  (`.present-bar` / `.present-bar-in` in `presentation-bar.css`, on the
+  standard decelerating curve - the app has no one shared easing to borrow).
+  `translateY` does not change the border box, so the height published to
+  `frameState` is the resting height from the first frame and the camera
+  panel's home corner does not chase the animation. Every way out plays the
+  same move in reverse and only then calls `onLeave`, which is what unmounts
+  the bar, the voice and the panel: the X and **Escape** are inert once it has
+  started, and the panel fades over the same 300ms through `setBarLeaving` in
+  `frameState.ts` (mid-cut the cut has usually already dragged it off the
+  right edge, so this only shows on an early exit). The third way out is the
+  voice track's own `ended`, 1.5s later - long enough for the last frame and
+  the panel's drag-out to settle, and cancelled if the viewer plays or scrubs
+  inside that gap. `prefers-reduced-motion: reduce` drops the slide and the
+  wait both. None of it applies to the dev transport, which mounts and
+  unmounts on a frame and stays put at the end of the track.
+
 - **The opening starts together.** Three things on the shipped path used to
   drift apart, and all three are the same gap: the host starts the voice inside
   the click, and `PresentationMode`, `WebcamPip` and the cut's own JSON are a
