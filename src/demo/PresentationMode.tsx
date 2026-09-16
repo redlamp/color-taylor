@@ -14,7 +14,7 @@
  * points, and the gap before it. Applying there rebuilds the cut on disk and
  * this component re-fetches it in place.
  *
- * Three props turn the same component into the shipped walkthrough. `mode`
+ * Four props turn the same component into the shipped walkthrough. `mode`
  * `'production'` mounts none of the authoring pieces - no notes, no clip
  * editor, no `/__notes` (or any other `/__`) request, no collapse chrome -
  * regardless of `transport`. `transport` is the separate, orthogonal knob for
@@ -27,8 +27,11 @@
  * the host created and started inside its own click handler, which this
  * component adopts as its clock rather than rendering one of its own.
  * Playback needs that user gesture, and the host is the only place a `play()`
- * can be synchronous with it. Which builds mount the component at all is the
- * host's business: there is no dev guard in here.
+ * can be synchronous with it. `onLeave` is the fourth, and the way out: with
+ * one, the reduced transport shows a red X at the right of the bar and
+ * **Escape** calls the same thing. What leaving means belongs to the host,
+ * which created the media and mounts this. Which builds mount the component
+ * at all is the host's business: there is no dev guard in here.
  *
  * This is a tool, not a surface of the app: the styling is deliberately not
  * the app's, except on the shipped transport's clock, which an audience
@@ -129,6 +132,15 @@ export interface PresentationModeProps {
    * `mode` is `'production'`.
    */
   transport?: 'full' | 'reduced';
+  /**
+   * The way out of the walkthrough, for a viewer who has seen enough. Given
+   * one, the shipped (reduced) transport grows a red X at the right of the
+   * bar and **Escape** calls the same thing; without one there is no way out
+   * but a reload, which is what every entry had until now. The host owns what
+   * leaving means - stopping the media it started, unmounting this - because
+   * the host is what created them.
+   */
+  onLeave?: () => void;
 }
 
 /** How far an arrow key moves the playhead when the full transport is up. */
@@ -189,6 +201,19 @@ const NextBeatIcon = () => (
   <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
     <rect x="12" y="1.5" width="2" height="13" fill="currentColor" />
     <path d="M2 1.5 L2 14.5 L11 8 Z" fill="currentColor" />
+  </svg>
+);
+/** The way out. A stroked X rather than a filled glyph: it is the one button
+ *  on the bar that ends something, and it reads as a close, not as transport. */
+const LeaveIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+    <path
+      d="M3.5 3.5 L12.5 12.5 M12.5 3.5 L3.5 12.5"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      fill="none"
+    />
   </svg>
 );
 
@@ -319,7 +344,7 @@ function pointedAt(el: HTMLMediaElement, url: string): boolean {
 }
 
 export default function PresentationMode({
-  name, host, onDemo, onColor, demoOpen, voice, mode = 'dev', transport,
+  name, host, onDemo, onColor, demoOpen, voice, mode = 'dev', transport, onLeave,
 }: PresentationModeProps) {
   /** The authoring tool's half: notes, the clip editor, and the keys for them. */
   const authoring = mode === 'dev';
@@ -810,6 +835,13 @@ export default function PresentationMode({
         e.preventDefault();
         e.stopPropagation();
         setCollapsed((v) => !v);
+      } else if (onLeave && e.key === 'Escape') {
+        // The keyboard twin of the bar's X. Only where the host gave us
+        // somewhere to go, so a dev entry's Escape still belongs to whatever
+        // else wants it.
+        e.preventDefault();
+        e.stopPropagation();
+        onLeave();
       } else if ((frames.active || capturing) && (e.key === 't' || e.key === 'T')) {
         // Brings the transport bar back over a capture for editing; see
         // `hiddenForCapture` above. Only reachable at all with `frames=` or
@@ -821,7 +853,7 @@ export default function PresentationMode({
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
-  }, [toggle, editing, authoring, fullTransport, seekBy, jumpKeyframe, frames.active, capturing]);
+  }, [toggle, editing, authoring, fullTransport, seekBy, jumpKeyframe, frames.active, capturing, onLeave]);
 
   useEffect(() => {
     if (noting) noteInputRef.current?.focus();
@@ -1718,6 +1750,25 @@ export default function PresentationMode({
                 {labelsRow}
                 {timelineBar}
               </div>
+              {/* The way out, where the host gave us one: the same square as
+                  the three on the left, in the app's destructive colour, at
+                  the far right of the bar and on the buttons row's own
+                  baseline (the row is `flex-end`, and this is a bare button
+                  rather than a column, so it lands there by itself). */}
+              {onLeave && (
+                <Button
+                  type="button"
+                  data-testid="present-leave"
+                  onClick={onLeave}
+                  title="Leave presentation"
+                  aria-label="Leave presentation"
+                  variant="destructive"
+                  size="icon"
+                  className="size-8"
+                >
+                  <LeaveIcon />
+                </Button>
+              )}
             </div>
           </div>
           );

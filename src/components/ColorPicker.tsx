@@ -704,6 +704,30 @@ export default function ColorPicker() {
     // seen flag is set, so the panel does not come back as the welcome.
     try { localStorage.setItem('color-taylor-about-seen', '1'); } catch { /* localStorage unavailable */ }
   }, []);
+  /**
+   * And the way back out of it, from the transport's X or Escape.
+   *
+   * The two media elements were made here, so they are stopped here: paused,
+   * and their `src` dropped, because a detached `<audio>` with a `src` on it
+   * goes on downloading and decoding with nobody listening. Unmounting the
+   * components is the rest of it - the ghost cursor and the camera panel go
+   * with them. The colour stays where the cut left it: the viewer watched it
+   * arrive there, and putting it back would read as the app undoing itself.
+   */
+  const leavePresentation = useCallback(() => {
+    for (const el of [presentVoice, presentCamera]) {
+      if (!el) continue;
+      el.pause();
+      el.removeAttribute('src');
+      el.load();
+    }
+    setPresentVoice(undefined);
+    setPresentCamera(undefined);
+    setPresentOpen(false);
+    // The cut hands off to the built-in demo partway through, so leaving
+    // mid-hand-off has to close that too - the same way its own exit does.
+    setDemoOpen(false);
+  }, [presentVoice, presentCamera]);
   const restoreDemo = useCallback(() => {
     const snap = demoSnapshot.current;
     // Null after the first call: the script restores when it reaches the last
@@ -1572,6 +1596,7 @@ export default function ColorPicker() {
             voice={presentVoice}
             mode="production"
             transport="reduced"
+            onLeave={leavePresentation}
             onDemo={(cursorFrom) => startDemo(null, cursorFrom ?? null)}
             onColor={(target) => { if (colorAnimActiveRef.current) colorAnimActiveRef.current = 'stop'; animateToHsb(target); }}
           />
