@@ -23,6 +23,8 @@ shows when its URL is pasted into WhatsApp, Discord, Slack, X or Bluesky. Same
 artwork on the Community listing and in a chat window, on purpose - see
 [[decision-link-preview-card]]. Re-run it too after re-exporting the thumbnail.
 
+`thumbnail-1200x675.jpg` is the repository README's header image: the "thumbnail / 1200x675 / 16:9" frame, node 181:3, exported at 1x and saved as JPEG at quality 92. It is 16:9 so GitHub shows it whole, and it is kept apart from `public/og-image.jpg` so the link card's size can change without touching the README.
+
 Both images are exports of designed frames in the Color Taylor Figma file -
 the file is the source of truth, so re-export rather than editing the PNGs:
 
