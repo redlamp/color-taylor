@@ -133,6 +133,28 @@ export interface PresentationModeProps {
 /** How far an arrow key moves the playhead when the full transport is up. */
 const SEEK_STEP = 5;
 
+/**
+ * How far past a keyframe's arrival time a keyframe jump lands, in seconds.
+ *
+ * A keyframe's `t` is when its move *arrives*, and the move itself runs in the
+ * `ms` before it, so the clock at exactly `t` is the last instant of the move
+ * in. Landing a hair later puts the frame that arrives at `t` in force and
+ * still, which is the state the jump is there to let somebody look at.
+ */
+const KEYFRAME_LANDING = 0.05;
+
+/**
+ * The slack around the playhead when the arrows walk the frame layer's
+ * keyframes, in seconds.
+ *
+ * A jump lands a little past the keyframe it picked, so "the previous
+ * keyframe" has to mean something strictly earlier than the one the playhead
+ * is sitting just after rather than that same one over again. Anything wider
+ * than the landing offset does that, and a tenth of a second is far narrower
+ * than the gap between two marks of a real cut, so it never steps over one.
+ */
+const KEYFRAME_EPSILON = 0.1;
+
 /** The caption crossfade's duration, each way. Short: a caption is a
  *  subtitle, not a title card. */
 const CAPTION_FADE_MS = 200;
@@ -644,6 +666,31 @@ export default function PresentationMode({
   const seekBy = useCallback((delta: number) => seek(nowMaster() + delta), [nowMaster, seek]);
 
   /**
+   * Arrow-key keyframe walking, for checking the frame layer's zoom marks.
+   *
+   * With `frames=` in the URL the arrows stop being a five-second scrub and
+   * become a walk along the layer's keyframes instead: each press lands on the
+   * next mark in the given direction, so somebody verifying a cut can see each
+   * framing settle in turn without hunting for it on the scrub bar. There is
+   * no wrap - walking off either end of the list simply does nothing, which is
+   * the honest answer to "and then?" at the last mark, and it keeps a held key
+   * from cycling the cut forever.
+   *
+   * The comparison is against the live clock rather than this render's `time`,
+   * for the same reason `seekBy` reads it: the playhead moves every frame and
+   * this component does not re-render with it.
+   */
+  const jumpKeyframe = useCallback((dir: 1 | -1) => {
+    const now = nowMaster();
+    const list = frames.keyframes;
+    const kf = dir > 0
+      ? list.find((k) => k.t > now + KEYFRAME_EPSILON)
+      : [...list].reverse().find((k) => k.t < now - KEYFRAME_EPSILON);
+    if (!kf) return;
+    seek(kf.t + KEYFRAME_LANDING);
+  }, [frames.keyframes, nowMaster, seek]);
+
+  /**
    * After the clip editor's Apply: the audio, the lines and the cues have all
    * been rebuilt on disk. Re-fetch them rather than reloading the page, so the
    * app underneath keeps the state the edit was being judged against, and put
@@ -732,10 +779,25 @@ export default function PresentationMode({
         e.preventDefault();
         e.stopPropagation();
         toggle();
-      } else if (fullTransport && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        /*
+         * Under a frame layer the arrows belong to its keyframes, and the
+         * five-second scrub moves onto Shift. Without one - the shipped
+         * walkthrough, and every dev entry that did not ask for `frames=` -
+         * nothing about them changes.
+         *
+         * The third claim on these keys, the region nudge in Frames.tsx, never
+         * reaches this line: that handler is registered first on the same
+         * capture phase and stops the event while there is an editable outline
+         * on screen, so a nudge is a nudge and anything else falls through to
+         * here.
+         */
+        const jump = frames.active && !e.shiftKey;
+        if (!jump && !fullTransport) return;
         e.preventDefault();
         e.stopPropagation();
-        seekBy(e.key === 'ArrowRight' ? SEEK_STEP : -SEEK_STEP);
+        if (jump) jumpKeyframe(e.key === 'ArrowRight' ? 1 : -1);
+        else seekBy(e.key === 'ArrowRight' ? SEEK_STEP : -SEEK_STEP);
       } else if (authoring && (e.key === 'n' || e.key === 'N')) {
         e.preventDefault();
         e.stopPropagation();
@@ -755,7 +817,7 @@ export default function PresentationMode({
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
-  }, [toggle, editing, authoring, fullTransport, seekBy, frames.active, capturing]);
+  }, [toggle, editing, authoring, fullTransport, seekBy, jumpKeyframe, frames.active, capturing]);
 
   useEffect(() => {
     if (noting) noteInputRef.current?.focus();

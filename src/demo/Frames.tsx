@@ -652,7 +652,14 @@ export function useFrames({ name, host, time, enabled, authoring }: UseFramesOpt
      the arrows nudge the region while there is an editable one on screen.
      Authoring only. R is free in the transport, which keeps Space, the arrows,
      N, C, T and F - and gets the arrows back the moment the region outline is
-     gone, which F alone is enough to do. */
+     gone, which F alone is enough to do.
+
+     This listener is registered before the transport's, both on the capture
+     phase, because `useFrames` is called before that effect is declared. So
+     the nudge has first claim on an arrow and stops the event when it takes
+     one; when it does not, the press falls through to the transport, where
+     under a frame layer a plain arrow walks the keyframes and Shift+arrow
+     scrubs. See the arrow branch of PresentationMode's key handler. */
   useEffect(() => {
     if (!active || !authoring) return;
     const onKey = (e: KeyboardEvent) => {
@@ -1175,8 +1182,11 @@ export function FrameControls({ frames, button }: { frames: FramesApi; button: C
           button={controlStyle}
         />
       </div>
+      {/* The group's one line of key help: the view toggle, and the arrows that
+          walk the keyframes so each zoom mark can be looked at in turn. */}
       <span style={{ color: '#888', whiteSpace: 'nowrap' }}>
         {frames.full ? 'full page (F)' : 'framed (F)'}
+        {' · ←/→ previous/next keyframe'}
         {frames.error ? ` · ${frames.error}` : ''}
       </span>
     </>
