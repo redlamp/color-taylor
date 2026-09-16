@@ -1,7 +1,7 @@
 /**
  * Section labels for presentation mode's transport.
  *
- * `public/scripts/<cut>-sections.json` (written by redlamp-videos'
+ * `public/scripts/<cut>-sections.json` (written by the video pipeline's
  * cue tooling) names twelve or so sections of a cut, each anchored to a line
  * id ("3.1", or mid-beat like "11.2") rather than a time — the file has no
  * clock of its own, so a section's start is resolved against the cut's own

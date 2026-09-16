@@ -11,8 +11,8 @@
  * camera glyph otherwise - the placeholder is not a fallback, it is what the
  * take is recorded against when the real camera is on the OBS side.
  *
- * Under `?present=<cut>` the panel plays the take instead: redlamp-videos
- * `tools/takes/cut-pip-clips.mjs` cuts **one continuous video for the whole
+ * Under `?present=<cut>` the panel plays the take instead: the video
+ * pipeline cuts **one continuous video for the whole
  * cut** - the footage where the panel is on screen, and black frames for the
  * middle, where the panel has been dragged off the right edge anyway - and
  * `scripts/<cut>-pip.json` says where it belongs. One file covering the whole

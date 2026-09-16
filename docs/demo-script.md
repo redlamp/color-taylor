@@ -496,7 +496,7 @@ ghost cursor, so every gesture goes through the real controls. Dev builds only
   here.
 - Under `?present=<cut>` it plays the cut's own footage instead: **one
   continuous file for the whole cut** (`scripts/pip/<cut>/full.mp4`, cut by
-  redlamp-videos `tools/takes/cut-pip-clips.mjs`), the take where the panel is
+  the video pipeline), the take where the panel is
   on screen and black frames for the middle, where it has been dragged off the
   edge. One file means the `<video>`'s `src` is written once and never again,
   which is what the pop at a span change used to be. `scripts/<cut>-pip.json`
@@ -808,7 +808,7 @@ the app's own entry with `mode="production"` (see "Shipping it" below).
   `captionsOn` state.
   - **Word chunks (default when available).** `public/scripts/<name>
     -words.json` - copied from the master's `<cut>.words.json`
-    (`redlamp-videos/tools/transcript-align/from-whisper.mjs`), an array of
+    (written by the video pipeline's transcript-alignment tooling), an array of
     `{ text, start, end }` word timings in the cut's own seconds - is grouped
     into small HyperFrames-style read-along chunks (`buildCaptionChunks` in
     `src/demo/captions.ts`): at most 6 words and 2.4s per chunk, never
@@ -870,8 +870,8 @@ the app's own entry with `mode="production"` (see "Shipping it" below).
 - **The plan clock** (`?present=<cut>&clock=plan`) runs the same cut on its
   planned times instead of on a voice track, so the choreography can be built
   and watched before a word of it is recorded. It loads
-  `public/scripts/<cut>-plan.json` — the pacing plan written by redlamp-videos'
-  `tools/prompter/plan.mjs`, which is also what the prompter's Paced mode
+  `public/scripts/<cut>-plan.json` — the pacing plan the video pipeline writes,
+  which is also what its prompter's Paced mode
   scrolls on — and takes the lines, the beats and the duration from it. There is
   no `<audio>` element at all, so the cut plays with no `<cut>.m4a` present.
   - the clock is `performance.now()` from the moment **Space** (or Play) starts
@@ -967,9 +967,10 @@ the app's own entry with `mode="production"` (see "Shipping it" below).
 - Notes persist through a dev-server middleware in `vite.config.js`:
   `GET`/`POST /__notes/<name>` reads and writes
   `<PRESENTATION_NOTES_DIR>/<name>-notes.json` as
-  `{ "source": "<name>", "notes": [...] }`. The default directory is the
-  cut's cue folder in the videos repo,
-  `C:\workspace\redlamp-videos\videos\color-taylor-demo-test\cues`.
+  `{ "source": "<name>", "notes": [...] }`. The route is off by default -
+  it 404s with `{ error: 'PRESENTATION_NOTES_DIR is not set' }` - until
+  `PRESENTATION_NOTES_DIR` is pointed at the cut's cue folder in the video
+  pipeline's working tree.
 - **`public/scripts/` is not watched.** `server.watch.ignored` in
   `vite.config.js` keeps chokidar off it: the pipeline replaces those files
   while the dev server runs, and the unlink path took the server down with

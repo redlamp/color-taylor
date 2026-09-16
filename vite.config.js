@@ -52,11 +52,13 @@ const siteUrlHtml = {
 /**
  * Where presentation-mode notes are kept (`?present=<name>`, see
  * docs/demo-script.md). One JSON file per cut, `<name>-notes.json`, beside the
- * cut's other cue files in the videos repo; `PRESENTATION_NOTES_DIR` moves it.
+ * cut's other cue files in the video pipeline's own working tree.
+ *
+ * Unset by default. The notes, frames and clip-editor routes below all 404
+ * with `{ error: 'PRESENTATION_NOTES_DIR is not set' }` until this points at
+ * that directory - set it in `.env.development.local`.
  */
-const NOTES_DIR =
-  process.env.PRESENTATION_NOTES_DIR ||
-  'C:\\workspace\\redlamp-videos\\videos\\color-taylor-demo-test\\cues'
+const NOTES_DIR = process.env.PRESENTATION_NOTES_DIR || ''
 
 /**
  * Dev-server only: `GET/POST /__notes/<name>` reads and writes that file as
@@ -77,6 +79,7 @@ const presentationNotes = {
         res.setHeader('content-type', 'application/json')
         res.end(JSON.stringify(body))
       }
+      if (!NOTES_DIR) return send(404, { error: 'PRESENTATION_NOTES_DIR is not set' })
       if (req.method === 'GET') {
         try {
           if (!fs.existsSync(file)) return send(200, { source: name, notes: [] })
@@ -155,6 +158,7 @@ const presentationFrames = {
         const data = JSON.parse(fs.readFileSync(f, 'utf8'))
         return Array.isArray(data) ? data : Array.isArray(data.frames) ? data.frames : []
       }
+      if (!NOTES_DIR) return send(404, { error: 'PRESENTATION_NOTES_DIR is not set' })
       if (req.method === 'GET') {
         try {
           const from = fs.existsSync(file) ? file : fs.existsSync(appCopy) ? appCopy : null
@@ -434,6 +438,7 @@ const clipEditor = {
         res.setHeader('content-type', 'application/json')
         res.end(JSON.stringify(body))
       }
+      if (!NOTES_DIR) return send(404, { error: 'PRESENTATION_NOTES_DIR is not set' })
       const placementPath = path.join(VIDEO_DIR, 'cues', `${name}-placement.json`)
 
       /** The split's record, the placement, and the last join's effective trims. */

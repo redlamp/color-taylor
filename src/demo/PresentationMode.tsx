@@ -247,7 +247,7 @@ export function presentName(): string | null {
 
 /**
  * `&clock=plan` runs the cut on its planned times instead of on a voice track:
- * `public/scripts/<name>-plan.json` (redlamp-videos `tools/prompter/plan.mjs`)
+ * `public/scripts/<name>-plan.json` (the video pipeline's prompter tooling)
  * carries every line's planned start and end and the beats they sit in, and the
  * transport runs a `performance.now()` clock over them. There is no audio, so a
  * cut can be watched, choreographed and captured before a word of it is
