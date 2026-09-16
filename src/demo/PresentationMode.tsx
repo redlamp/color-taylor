@@ -76,6 +76,7 @@ import {
 } from './sections';
 import { buildCaptionChunks, chunkAt, type CaptionChunk, type CaptionWord } from './captions';
 import { Button } from '@/components/ui/button';
+import './presentation-bar.css';
 
 /** One spoken line of the cut, with where it sits in the voice track. */
 interface ScriptLine {
@@ -1151,6 +1152,7 @@ export default function PresentationMode({
       {createPortal(
         <div
           ref={transportRef}
+          className={fullTransport ? undefined : 'present-bar'}
           data-testid="present-transport"
           data-frames-hidden={hiddenForCapture ? 'true' : undefined}
           style={{
@@ -1173,22 +1175,23 @@ export default function PresentationMode({
             // over whatever the app happens to be showing, and the line spans
             // and cue ticks need their contrast.
             // The shipped bar (Taylor's Figma node 172:1479) has no rule and
-            // no hard top edge: it fades up from near-black into the page,
-            // so the app shows through its top and the bar reads as a
-            // surface of the app rather than a tool parked on it. The dev
-            // transport keeps the orange rule and the flat tint.
+            // no hard top edge: it fades up out of the page, so the app shows
+            // through its top and the bar reads as a surface of the app
+            // rather than a tool parked on it. That fade, and every other
+            // colour on the shipped bar, is a `--bar-*` token from
+            // presentation-bar.css keyed off the app's own light/dark class;
+            // nothing here is a fixed near-black any more. The dev transport
+            // keeps the orange rule and the flat tint, and no class.
             ...(fullTransport
               ? {
                   background: 'rgba(27,27,31,0.72)',
                   borderTop: '2px solid #f5a623',
                   boxShadow: '0 -4px 16px rgba(0,0,0,0.4)',
                 }
-              : {
-                  background: 'linear-gradient(to bottom, rgba(23,23,23,0) 0%, rgba(23,23,23,0.6) 35%, rgba(23,23,23,0.94) 60%, rgba(23,23,23,0.94) 100%)',
-                }),
+              : {}),
             backdropFilter: 'blur(6px)',
             WebkitBackdropFilter: 'blur(6px)',
-            color: '#e6e6e6',
+            color: fullTransport ? '#e6e6e6' : 'var(--bar-fg)',
             font: '12px/1.4 ui-monospace, Consolas, monospace',
             padding: shrunk ? '4px 12px' : '6px 12px 8px',
             userSelect: 'none',
@@ -1347,10 +1350,12 @@ export default function PresentationMode({
                     lineHeight: '16px',
                     whiteSpace: 'nowrap',
                     fontFamily: 'ui-monospace, Consolas, monospace',
-                    color: mark.id === currentSectionId ? '#ffffff' : '#cfcfcf',
+                    color: mark.id === currentSectionId
+                      ? (fullTransport ? '#ffffff' : 'var(--bar-fg-strong)')
+                      : (fullTransport ? '#cfcfcf' : 'var(--bar-fg-muted)'),
                     textShadow: mark.id === currentSectionId
-                      ? '0 0 6px rgba(127,212,255,0.85), 0 1px 2px rgba(0,0,0,0.9)'
-                      : '0 1px 2px rgba(0,0,0,0.9)',
+                      ? (fullTransport ? '0 0 6px rgba(127,212,255,0.85), 0 1px 2px rgba(0,0,0,0.9)' : 'var(--bar-glow)')
+                      : (fullTransport ? '0 1px 2px rgba(0,0,0,0.9)' : 'var(--bar-shadow)'),
                     transformOrigin: 'bottom left',
                     transform: `rotate(-${LABEL_ANGLE_DEG}deg)`,
                   }}
@@ -1378,7 +1383,7 @@ export default function PresentationMode({
               display: 'block',
               position: 'relative',
               height: 28,
-              background: '#2a2a30',
+              background: fullTransport ? '#2a2a30' : 'var(--bar-track)',
               borderRadius: 3,
               cursor: 'pointer',
               touchAction: 'none',
@@ -1487,7 +1492,9 @@ export default function PresentationMode({
                   bottom: 0,
                   left: pct(m.t),
                   width: 1,
-                  background: m.id === currentSectionId ? 'rgba(127,212,255,0.95)' : 'rgba(90,209,201,0.85)',
+                  background: m.id === currentSectionId
+                    ? (fullTransport ? 'rgba(127,212,255,0.95)' : 'var(--bar-tick-current)')
+                    : (fullTransport ? 'rgba(90,209,201,0.85)' : 'var(--bar-tick)'),
                 }}
               />
             ))}
@@ -1589,8 +1596,8 @@ export default function PresentationMode({
                 // Hue 30 on the shipped bar - the cut's own orange, the colour
                 // the script keeps coming back to - and the tool's blue on the
                 // dev transport.
-                background: fullTransport ? '#7fd4ff' : '#ff8000',
-                boxShadow: fullTransport ? '0 0 4px rgba(127,212,255,0.9)' : '0 0 4px rgba(255,128,0,0.9)',
+                background: fullTransport ? '#7fd4ff' : 'var(--bar-playhead)',
+                boxShadow: fullTransport ? '0 0 4px rgba(127,212,255,0.9)' : 'var(--bar-playhead-glow)',
                 // Decoration, not a control: pressing it should scrub the
                 // track underneath, not swallow the click. Without this, the
                 // first click of a double-click seeks the playhead to sit
@@ -1699,7 +1706,7 @@ export default function PresentationMode({
                     whiteSpace: 'nowrap',
                     fontFamily: 'var(--mono)',
                     fontVariantNumeric: 'tabular-nums',
-                    color: '#e6e6e6',
+                    color: 'var(--bar-fg)',
                   }}
                 >
                   {mmss(time)} / {mmss(duration)}

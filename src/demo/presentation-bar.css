@@ -1,0 +1,68 @@
+/*
+ * The shipped presentation bar's palette, as tokens that follow the app's
+ * theme.
+ *
+ * The bar was a fixed near-black surface with fixed light text on it, which
+ * is right over the dark app and unreadable over the light one. The theme
+ * here is a `.dark` class the app puts on <html> (src/hooks/useTheme.tsx) and
+ * not the OS preference, so `light-dark()` would answer the wrong question -
+ * a viewer on a light OS with the app in dark would get the light bar. A
+ * class pair is the only thing that reads the same switch the app reads.
+ *
+ * These are only for the reduced (shipped) transport, which is the one an
+ * audience sees; the dev transport keeps its own fixed tool colours and never
+ * carries `.present-bar`. Deliberately not the app's own `--background` and
+ * `--foreground`: Taylor wants the bar a step darker than the page it sits on
+ * in either theme (#111 under the dark page's #181818), so it reads as a
+ * surface laid over the app rather than as more of the app.
+ */
+
+.present-bar {
+  /* Light: a step below the page's oklch(0.965) the way #111 sits below #181818. */
+  --bar-bg: #e2e2e2;
+  --bar-fg: #252525;
+  --bar-fg-strong: #111111;
+  --bar-fg-muted: #555555;
+  --bar-track: #cfcfcf;
+  /* The section ticks, darkened until they hold against the light track. */
+  --bar-tick: rgba(13, 110, 104, 0.9);
+  --bar-tick-current: rgba(18, 86, 150, 0.95);
+  /* A glow reads as a smudge on a light surface, so the current label gets a
+     plain drop shadow here and keeps its blue halo in the dark set below. */
+  --bar-glow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  --bar-shadow: 0 1px 1px rgba(255, 255, 255, 0.55);
+  /* Hue 30 in both themes: the playhead is the cut's own orange, which is the
+     point of it. Only the halo under it changes. */
+  --bar-playhead: #ff8000;
+  --bar-playhead-glow: 0 0 3px rgba(255, 128, 0, 0.55), 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.dark .present-bar {
+  --bar-bg: #111111;
+  --bar-fg: #e6e6e6;
+  --bar-fg-strong: #ffffff;
+  --bar-fg-muted: #cfcfcf;
+  --bar-track: #2a2a30;
+  --bar-tick: rgba(90, 209, 201, 0.85);
+  --bar-tick-current: rgba(127, 212, 255, 0.95);
+  --bar-glow: 0 0 6px rgba(127, 212, 255, 0.85), 0 1px 2px rgba(0, 0, 0, 0.9);
+  --bar-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+  --bar-playhead: #ff8000;
+  --bar-playhead-glow: 0 0 4px rgba(255, 128, 0, 0.9);
+}
+
+/*
+ * No rule and no hard top edge (Taylor's Figma node 172:1479): the bar fades
+ * up out of the page so the app shows through its top. The stops live here
+ * rather than inline because `color-mix()` has to resolve against the token
+ * this same rule declares.
+ */
+.present-bar {
+  background-image: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--bar-bg) 0%, transparent) 0%,
+    color-mix(in srgb, var(--bar-bg) 60%, transparent) 35%,
+    color-mix(in srgb, var(--bar-bg) 94%, transparent) 60%,
+    color-mix(in srgb, var(--bar-bg) 94%, transparent) 100%
+  );
+}

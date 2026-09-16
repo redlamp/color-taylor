@@ -896,6 +896,20 @@ the app's own entry with `mode="production"` (see "Shipping it" below).
   | `voice` | An `<audio>` the host created and played inside the click that started the walkthrough — playback needs that gesture, and only the host can call `play()` synchronously with it. The component adopts it as its clock instead of rendering its own: it is appended into the transport wearing the `present-audio` test id (which is what the camera panel reads the clock off), and its `src` is written only when it does not already point at the cut's voice, so an element that is already playing is taken over mid-flight rather than restarted. |
   | `onLeave` | The way out. With it the reduced transport grows a red X (`present-leave`) at the right of the bar, and **Escape** calls the same thing when focus is not in a text field; without it there is no way out of the walkthrough but a reload. What leaving means is the host's: `ColorPicker`'s `leavePresentation` pauses the voice and the camera element and drops their `src` so nothing goes on downloading, unmounts the pair, and closes the built-in demo if the cut had handed off to it. The picker keeps whatever colour the cut left it on. |
 
+- **The shipped bar follows the app's theme.** Every colour on the reduced
+  transport is a `--bar-*` custom property from `src/demo/presentation-bar.css`,
+  declared on the `.present-bar` class the bar's root carries and redeclared
+  under `.dark .present-bar`: background, text, the muted section labels, the
+  track, the section ticks, the current label's glow and the playhead's halo.
+  The theme is the app's own `.dark` class on `<html>` (`useTheme.tsx`) rather
+  than the OS preference, so `light-dark()` would answer the wrong question.
+  The bar sits a step darker than the page in either theme - `#111` under the
+  dark page's `#181818`, `#e2e2e2` under the light page's `#f4f4f4` - and the
+  top fade is those same tokens through `color-mix()`, which is why the
+  gradient lives in the stylesheet and not inline. The playhead stays `#ff8000`
+  in both themes; hue 30 is the point of it. The dev transport carries no class
+  and keeps its fixed tool colours.
+
 - **The opening starts together.** Three things on the shipped path used to
   drift apart, and all three are the same gap: the host starts the voice inside
   the click, and `PresentationMode`, `WebcamPip` and the cut's own JSON are a
