@@ -2264,14 +2264,23 @@ export default function PresentationMode({
          * the app puts up (the plugin banner at 40, the About and Settings
          * panels at 50) and sits under everything the walkthrough puts up -
          * the camera panel at 55, the ghost cursor at 60, the runner's own
-         * overlay at 70 and the transport bar at 80 - so the offer never
-         * lands on top of the picture the audience is being shown.
+         * overlay at 70 and the transport bar at 80.
+         *
+         * The offer is not inside it. A child cannot paint above the stacking
+         * context its parent makes, so inside a z-52 layer the ghost cursor
+         * drew across the question it was asking. The offer is its own layer
+         * at z-85 instead: over the cursor, the runner's overlay and the bar,
+         * because while it is up it is the one thing being asked. The only
+         * layer above it is the clip editor at 90, which is dev only and
+         * never mounted beside a shield.
          */
+        <>
         <div
           data-testid="present-shield"
           aria-hidden="true"
           style={{ position: 'fixed', inset: 0, zIndex: 52, pointerEvents: 'none' }}
-        >
+        />
+        <div style={{ position: 'fixed', inset: 0, zIndex: 85, pointerEvents: 'none' }}>
           {offerOpen && (
             <div
               ref={offerRef}
@@ -2335,7 +2344,8 @@ export default function PresentationMode({
               </div>
             </div>
           )}
-        </div>,
+        </div>
+        </>,
         document.body,
       )}
       {authoring && editing !== null && createPortal(
