@@ -71,6 +71,15 @@ interface PipClip {
  * enough that a `currentTime` write - which restarts decoding, and shows as a
  * stutter - is rare. It is a threshold and not a correction on every frame for
  * that reason: a decoder a frame behind catches itself up, a scrub does not.
+ *
+ * While the panel is still `hidden` (see `hiddenRef` below) this threshold is
+ * still what decides *whether* to correct, but not *how*: a `currentTime`
+ * write is invisible on a panel nobody can see, so the frame loop always
+ * seeks past it there rather than spending the ~15s a NUDGE would take to
+ * close a handover-sized gap. That gap - the shipped path's audio and camera
+ * starting together but the audio alone getting rewound to 0 at handover -
+ * is exactly `JUMP`-sized in the worst case and would otherwise sit just
+ * under it, in NUDGE territory, for the whole on-camera intro.
  */
 const DRIFT = 0.04;
 
@@ -240,6 +249,27 @@ export default function WebcamPip({ webcam }: WebcamPipProps = {}) {
    */
   useLayoutEffect(() => { if (opening) parkPip(opening === 'off'); }, [opening]);
   const hidden = !opening && !waited;
+  /**
+   * Mirrored into a ref because the frame loop below (the effect on `[clips]`)
+   * closes over `clips` only and does not re-run when visibility changes - it
+   * reads this every frame instead. See the DRIFT comment for why the loop
+   * cares: while `hiddenRef.current` is true a drift past DRIFT is always a
+   * seek, because the correction is happening on a panel nobody can see.
+   */
+  const hiddenRef = useRef(hidden);
+  useEffect(() => { hiddenRef.current = hidden; }, [hidden]);
+  /**
+   * Set when the adoption effect below hands the loop an element that may
+   * already be mid-handover, and cleared the first time the loop evaluates it
+   * on a playing frame. The voice rewind at handover happens before the
+   * runner's reveal cue flips `hidden` to false (the reveal *is* that cue, via
+   * `setPipOpening`), so `hiddenRef` alone covers the ordinary case; this is
+   * the fallback for the case that guarantee doesn't cover - the adopted
+   * element's first frame with a decoded position (`readyState >= 1`) landing
+   * after `hidden` has already gone false - so that frame is still forced to
+   * a seek instead of the slow nudge.
+   */
+  const adoptedPendingRef = useRef(false);
 
   useEffect(() => {
     const compute = () => {
@@ -391,6 +421,10 @@ export default function WebcamPip({ webcam }: WebcamPipProps = {}) {
     });
     if (el.parentElement !== box) box.appendChild(el);
     videoRef.current = el;
+    // This element may already be mid-handover (see `adoptedPendingRef`
+    // above): force its first playing frame in the loop below to a seek
+    // regardless of `hidden`.
+    adoptedPendingRef.current = true;
     return () => {
       if (el.parentElement === box) box.removeChild(el);
       if (videoRef.current === el) videoRef.current = null;
@@ -574,11 +608,24 @@ export default function WebcamPip({ webcam }: WebcamPipProps = {}) {
       // is the stutter this is here to avoid - and only a gap too wide to nudge
       // out is still a seek. Paused or scrubbed, exactly, and at speed 1: the
       // frame on screen is the whole picture and nothing after it is moving.
+      //
+      // Before the panel is shown - `hiddenRef.current`, or an adopted element
+      // on its first playing frame, `adoptedPendingRef` - a stutter cannot be
+      // seen, so any drift past DRIFT is spent as a seek too rather than the
+      // ~15s a NUDGE would take. This must run only once the voice's own
+      // handover rewind has already happened: it has, by construction, because
+      // that rewind is what the runner does *before* it reveals the panel (the
+      // reveal is the `setPipOpening` cue that flips `hidden` to false), so
+      // every frame this branch sees while still hidden is already past it.
       if (v.readyState >= 1) {
         const off = v.currentTime - at;
+        const firstAdoptedFrame = playing && adoptedPendingRef.current;
+        if (firstAdoptedFrame) adoptedPendingRef.current = false;
+        const forceSeek = hiddenRef.current || firstAdoptedFrame;
         if (playing) {
-          if (Math.abs(off) > JUMP) { v.currentTime = at; v.playbackRate = 1; }
-          else if (Math.abs(off) > DRIFT) v.playbackRate = off > 0 ? 1 - NUDGE : 1 + NUDGE;
+          if (Math.abs(off) > JUMP || (forceSeek && Math.abs(off) > DRIFT)) {
+            v.currentTime = at; v.playbackRate = 1;
+          } else if (Math.abs(off) > DRIFT) v.playbackRate = off > 0 ? 1 - NUDGE : 1 + NUDGE;
           else if (Math.abs(off) <= SETTLE && v.playbackRate !== 1) v.playbackRate = 1;
         } else {
           if (v.playbackRate !== 1) v.playbackRate = 1;
