@@ -2300,9 +2300,10 @@ export default function PresentationMode({
             >
               <p id="present-offer-title" className="text-2xl font-semibold">Leave the presentation?</p>
               {/* About's buttons: size 2xl, full width, two to a row. Leave
-                  takes the primary style the way Get Started does - both hand
-                  the visitor the app - and Keep watching the secondary one the
-                  way Demo and Presentation do. */}
+                  wears the bar's X - the destructive variant and the same
+                  glyph - so the way out reads as one control wherever it is
+                  offered; Keep watching takes the secondary style the way Demo
+                  and Presentation do. */}
               <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {/* The same `beginLeave` the bar's X calls, so the slide out
                     and the hand-back to the host are one path, not two. */}
@@ -2311,9 +2312,11 @@ export default function PresentationMode({
                   data-testid="present-offer-leave"
                   onClick={beginLeave}
                   disabled={leaving}
+                  variant="destructive"
                   size="2xl"
                   className="w-full"
                 >
+                  <LeaveIcon />
                   Leave
                 </Button>
                 {/* Nothing is paused to ask the question, so nothing is
