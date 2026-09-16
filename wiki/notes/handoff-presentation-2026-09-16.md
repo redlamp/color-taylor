@@ -19,13 +19,19 @@ tags:
 - **`src/demo/sections.ts`** now carries cut 05's twelve sections (Demo intro merged into Demo).
 - One touch outside `src/demo`: `src/components/ColorPicker.tsx` gained `leavePresentation` and the wiring for `onLeave`, and `src/components/hex/HexCanvas.tsx` re-measures its field canvas when the frame scale changes.
 
-## Still open on the visitor side
+## Done since this note was first written
 
-- **The input shield.** Locking the app while the presentation is mounted is designed but not built - pending Taylor's call on whether a click should also pause the cut.
-- **Captions on the shipped bar.** The checkbox came off the reduced transport when the timeline was rebuilt (`f4c888d`); the state and caption layers are untouched, waiting on a place for the control that isn't the transport row. Deferred.
-- **The 800px gate**, PR #135 on `dev` - not part of this branch, merges separately.
-- **Older cuts' cue JSON under `public/scripts`** should come out before a deploy; Taylor is still deciding which to keep.
-- **Production checks** at 1024px and 1280px, and first-play latency once served from Pages.
+- **The input shield** (`36ff882`, then `7f982b9`, `bde8d0b`, `7b11235`, `7baeaaf`). Real pointer, wheel and key events are swallowed while the shipped presentation is mounted; the runner's own untrusted events pass. A click on the app opens "End the presentation?" with **End** and **Keep watching**, wearing the About panel's card and 2xl buttons, on its own layer at z-85 above the ghost cursor and the bar. The bar's leave button is the X and the word End. Space, Escape and the arrows stay live. Playback never pauses for the question.
+- **Older cuts' cue JSON** is out of `public/scripts` (`ee3432a`); `tests/about-panel.spec.ts` follows `CURRENT_CUT`.
+- **The words file** is fetched from the base path (`50eb915`); it was the one cut file fetched from the site root and 404ed under `/color-taylor/`.
+- **Checked on `/dev/`**, headless and muted: the bar is up about 0.65 s after the click and the voice is playing by about 0.9 s, unthrottled and on a 9 Mbps profile alike; the camera panel holds within a frame of the voice; no failed requests.
+
+## Still open
+
+- **Captions on the shipped bar.** The checkbox came off the reduced transport when the timeline was rebuilt (`f4c888d`); the state and caption layers are untouched. Deferred by Taylor.
+- **The 800px gate**, PR #135 on `dev`. It merges cleanly on top of this branch (trial merge, 2026-09-16).
+- **`?present=` on a production build** mounts the full transport in production mode with no shield and no End button, and no width gate. A shared link lands a visitor in it with no way out but a reload. Decide whether production ignores the parameter or treats it like the About entry.
+- **The main deploy removes `/dev/`.** `peaceiris/actions-gh-pages` runs without `keep_files`, so publishing `main` replaces the whole `gh-pages` branch and the staging folder goes with it until the next `deploy:dev`.
 
 ## Ownership going forward
 
