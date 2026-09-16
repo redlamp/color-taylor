@@ -170,7 +170,7 @@ export function AboutPanel({ open, onClose, onWatchDemo, onPresentation }: About
               it is a confusing way to leave. https rather than http - the site
               redirects, so this is the same destination without the hop. */}
           <div className="mt-10 flex items-baseline justify-between gap-4 text-base text-muted-foreground">
-            <p id="about-version">Version 1.0</p>
+            <p id="about-version">Version {__APP_VERSION__}</p>
             <p>
               Made by{' '}
               <a
