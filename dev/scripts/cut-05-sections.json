@@ -1,0 +1,66 @@
+{
+  "source": "cut-05",
+  "note": "Section labels for the shipped transport. Each starts at a line id; a section may start mid-beat (Hue at 3.3, Outro at 11.2). Rename here; the transport reads this file. Demo runs from the hand-off line 9.1 through the demo itself (Demo intro merged 2026-09-16).",
+  "sections": [
+    {
+      "id": 1,
+      "label": "Intro",
+      "line": "1.1"
+    },
+    {
+      "id": 2,
+      "label": "Why",
+      "line": "2.1"
+    },
+    {
+      "id": 3,
+      "label": "Hexagon",
+      "line": "3.1"
+    },
+    {
+      "id": 4,
+      "label": "Hue",
+      "line": "3.3"
+    },
+    {
+      "id": 5,
+      "label": "Example",
+      "line": "4.1"
+    },
+    {
+      "id": 6,
+      "label": "Saturation",
+      "line": "5.1"
+    },
+    {
+      "id": 7,
+      "label": "Brightness",
+      "line": "6.1"
+    },
+    {
+      "id": 8,
+      "label": "Swatches",
+      "line": "7.1"
+    },
+    {
+      "id": 9,
+      "label": "Equations",
+      "line": "8.1"
+    },
+    {
+      "id": 10,
+      "label": "Demo",
+      "line": "9.1"
+    },
+    {
+      "id": 11,
+      "label": "Figma",
+      "line": "11.1"
+    },
+    {
+      "id": 12,
+      "label": "Outro",
+      "line": "11.2"
+    }
+  ]
+}
