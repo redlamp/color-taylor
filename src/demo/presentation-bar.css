@@ -21,7 +21,9 @@
   /* Light: a step below the page's oklch(0.965) the way #111 sits below #181818. */
   --bar-bg: #e2e2e2;
   --bar-fg: #252525;
-  --bar-fg-strong: #111111;
+  /* The current section's label: the playhead's orange, so the head and the
+     name of where it is read as one thing. The glow stays as it was. */
+  --bar-fg-strong: #ff8000;
   --bar-fg-muted: #555555;
   --bar-track: #cfcfcf;
   /* The section ticks, darkened until they hold against the light track. */
@@ -40,7 +42,7 @@
 .dark .present-bar {
   --bar-bg: #111111;
   --bar-fg: #e6e6e6;
-  --bar-fg-strong: #ffffff;
+  --bar-fg-strong: #ff8000;
   --bar-fg-muted: #cfcfcf;
   --bar-track: #2a2a30;
   --bar-tick: rgba(90, 209, 201, 0.85);
