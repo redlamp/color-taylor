@@ -29,6 +29,7 @@ export interface CaptureBox {
 let scale = 1;
 let box: CaptureBox | null = null;
 let transportH = 0;
+let barLeavingNow = false;
 const listeners = new Set<() => void>();
 
 /**
@@ -67,5 +68,21 @@ export const transportHeight = () => transportH;
 export function setTransportHeight(next: number) {
   if (next === transportH) return;
   transportH = next;
+  listeners.forEach((fn) => fn());
+}
+
+/**
+ * True while the shipped walkthrough is sliding its bar out and has not yet
+ * told the host to unmount. The camera panel fades on the same 300ms so the
+ * two leave together rather than the panel vanishing under a bar still on
+ * screen - the same reason the bar's height lives here: the panel and the bar
+ * are siblings under ColorPicker and neither should import the other.
+ */
+export const barLeaving = () => barLeavingNow;
+
+/** PresentationMode.tsx only: the bar has started its way out (or is back). */
+export function setBarLeaving(next: boolean) {
+  if (next === barLeavingNow) return;
+  barLeavingNow = next;
   listeners.forEach((fn) => fn());
 }

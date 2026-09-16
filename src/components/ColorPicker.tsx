@@ -65,11 +65,12 @@ function scriptName(): string | null {
 
 /**
  * `?present=<name>` plays the same script against its voice track, with a
- * transport for scrubbing. Unlike `?script=` it ships: a link opens the app
- * with the walkthrough up and *paused*, because nothing about following a
- * link is the user gesture playback needs - the transport's play button is.
- * The dev-only half (notes, the clip editor, every `/__` fetch) is gated by
- * PresentationMode's `mode`, not by this. See docs/demo-script.md.
+ * transport for scrubbing: the authoring tool. Dev server only, like
+ * `?script=`. On a build it mounted the full transport with no shield, no End
+ * and no width gate, so a shared link left a visitor in a walkthrough they
+ * could only reload their way out of (Taylor, 2026-09-16). The one way into
+ * the walkthrough on the live site is the About panel's Presentation button.
+ * See docs/demo-script.md.
  */
 /**
  * `?intro` (or `?intro=1`) shows the Intro button in the header. The button
@@ -85,6 +86,7 @@ function introRequested(): boolean {
 }
 
 function presentName(): string | null {
+  if (!import.meta.env.DEV) return null;
   try {
     const raw = new URLSearchParams(window.location.search).get('present');
     return raw && /^[\w-]+$/.test(raw) ? raw : null;
@@ -704,6 +706,30 @@ export default function ColorPicker() {
     // seen flag is set, so the panel does not come back as the welcome.
     try { localStorage.setItem('color-taylor-about-seen', '1'); } catch { /* localStorage unavailable */ }
   }, []);
+  /**
+   * And the way back out of it, from the transport's X or Escape.
+   *
+   * The two media elements were made here, so they are stopped here: paused,
+   * and their `src` dropped, because a detached `<audio>` with a `src` on it
+   * goes on downloading and decoding with nobody listening. Unmounting the
+   * components is the rest of it - the ghost cursor and the camera panel go
+   * with them. The colour stays where the cut left it: the viewer watched it
+   * arrive there, and putting it back would read as the app undoing itself.
+   */
+  const leavePresentation = useCallback(() => {
+    for (const el of [presentVoice, presentCamera]) {
+      if (!el) continue;
+      el.pause();
+      el.removeAttribute('src');
+      el.load();
+    }
+    setPresentVoice(undefined);
+    setPresentCamera(undefined);
+    setPresentOpen(false);
+    // The cut hands off to the built-in demo partway through, so leaving
+    // mid-hand-off has to close that too - the same way its own exit does.
+    setDemoOpen(false);
+  }, [presentVoice, presentCamera]);
   const restoreDemo = useCallback(() => {
     const snap = demoSnapshot.current;
     // Null after the first call: the script restores when it reaches the last
@@ -1545,8 +1571,8 @@ export default function ColorPicker() {
         </Suspense>
       )}
       {/* Two ways in, and they mount the same component differently. The URL
-          parameter is a tool: full transport, nothing playing, because a link
-          cannot satisfy the gesture rule. The About panel's entry is the
+          parameter is a tool, on the dev server only: full transport, nothing
+          playing, because a link cannot satisfy the gesture rule. The About panel's entry is the
           shipped walkthrough: the reduced transport, already playing, on the
           elements the click started. On the Vite dev server the URL is also the
           authoring tool (notes, clip editor); a build never mounts that half. */}
@@ -1572,6 +1598,7 @@ export default function ColorPicker() {
             voice={presentVoice}
             mode="production"
             transport="reduced"
+            onLeave={leavePresentation}
             onDemo={(cursorFrom) => startDemo(null, cursorFrom ?? null)}
             onColor={(target) => { if (colorAnimActiveRef.current) colorAnimActiveRef.current = 'stop'; animateToHsb(target); }}
           />

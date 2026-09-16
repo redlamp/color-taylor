@@ -1,0 +1,158 @@
+/*
+ * The shipped presentation bar's palette, as tokens that follow the app's
+ * theme.
+ *
+ * The bar was a fixed near-black surface with fixed light text on it, which
+ * is right over the dark app and unreadable over the light one. The theme
+ * here is a `.dark` class the app puts on <html> (src/hooks/useTheme.tsx) and
+ * not the OS preference, so `light-dark()` would answer the wrong question -
+ * a viewer on a light OS with the app in dark would get the light bar. A
+ * class pair is the only thing that reads the same switch the app reads.
+ *
+ * These are only for the reduced (shipped) transport, which is the one an
+ * audience sees; the dev transport keeps its own fixed tool colours and never
+ * carries `.present-bar`. Deliberately not the app's own `--background` and
+ * `--foreground`: Taylor wants the bar a step darker than the page it sits on
+ * in either theme (#111 under the dark page's #181818), so it reads as a
+ * surface laid over the app rather than as more of the app.
+ *
+ * `.present-offer` - the shield's "leave the presentation?" dialog - does not
+ * take these: it wears the About panel's card and buttons (Taylor, 2026-09-16),
+ * which follow the theme through the app's own tokens.
+ */
+
+.present-bar {
+  /* Light: a step below the page's oklch(0.965) the way #111 sits below #181818. */
+  --bar-bg: #e2e2e2;
+  --bar-fg: #252525;
+  /* The current section's label: the playhead's orange, so the head and the
+     name of where it is read as one thing. The glow stays as it was. */
+  --bar-fg-strong: #ff8000;
+  --bar-fg-muted: #555555;
+  --bar-track: #cfcfcf;
+  /* The section ticks, darkened until they hold against the light track. */
+  --bar-tick: rgba(13, 110, 104, 0.9);
+  --bar-tick-current: rgba(18, 86, 150, 0.95);
+  /* A glow reads as a smudge on a light surface, so the current label gets a
+     plain drop shadow here and keeps its blue halo in the dark set below. */
+  --bar-glow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  --bar-shadow: 0 1px 1px rgba(255, 255, 255, 0.55);
+  /* Hue 30 in both themes: the playhead is the cut's own orange, which is the
+     point of it. Only the halo under it changes. */
+  --bar-playhead: #ff8000;
+  --bar-playhead-glow: 0 0 3px rgba(255, 128, 0, 0.55), 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.dark .present-bar {
+  --bar-bg: #111111;
+  --bar-fg: #e6e6e6;
+  --bar-fg-strong: #ff8000;
+  --bar-fg-muted: #cfcfcf;
+  --bar-track: #2a2a30;
+  --bar-tick: rgba(90, 209, 201, 0.85);
+  --bar-tick-current: rgba(127, 212, 255, 0.95);
+  /* The halo is the label's own orange, so the glow and the text are one. */
+  --bar-glow: 0 0 6px rgba(255, 128, 0, 0.85), 0 1px 2px rgba(0, 0, 0, 0.9);
+  --bar-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+  --bar-playhead: #ff8000;
+  --bar-playhead-glow: 0 0 4px rgba(255, 128, 0, 0.9);
+}
+
+/*
+ * On and off the bottom of the screen.
+ *
+ * The bar used to appear and disappear on a frame, which on the shipped path
+ * is the first and last thing an audience sees of the walkthrough. It starts
+ * fully below the viewport and is let up by the class the component adds on
+ * the frame after mount; leaving takes the class off again and the host is
+ * told to unmount once the slide is done (PresentationMode.tsx).
+ *
+ * The app has no one shared easing to borrow - four components, four curves -
+ * so this is the standard decelerating curve, fast off the mark and settling
+ * into its resting place.
+ *
+ * `translateY` does not change the element's border box, so the height
+ * published to `frameState` - which is where the camera panel's home corner
+ * comes from - is the resting height from the first frame and does not chase
+ * the slide.
+ */
+.present-bar {
+  transform: translateY(100%);
+  transition: transform 300ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.present-bar.present-bar-in {
+  transform: translateY(0);
+}
+
+/* Asked not to be moved: the bar is simply there, and then simply gone. The
+   component drops the same 300ms wait before it hands over, so leaving is
+   still one step rather than a slide nobody sees. */
+@media (prefers-reduced-motion: reduce) {
+  .present-bar {
+    transition: none;
+  }
+}
+
+/*
+ * No rule and no hard top edge (Taylor's Figma node 172:1479): the bar fades
+ * up out of the page so the app shows through its top. The stops live here
+ * rather than inline because `color-mix()` has to resolve against the token
+ * this same rule declares.
+ */
+.present-bar {
+  background-image: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--bar-bg) 0%, transparent) 0%,
+    color-mix(in srgb, var(--bar-bg) 60%, transparent) 35%,
+    color-mix(in srgb, var(--bar-bg) 94%, transparent) 60%,
+    color-mix(in srgb, var(--bar-bg) 94%, transparent) 100%
+  );
+}
+
+/*
+ * The shield's offer.
+ *
+ * A fade rather than the bar's slide: the dialog is an answer to a press that
+ * has just happened, and a thing that travels reads as something arriving on
+ * its own. Short, for the same reason - 150ms is long enough not to blink in
+ * and short enough not to be a transition anybody waits through.
+ */
+.present-offer {
+  opacity: 0;
+  scale: 0.95;
+  transition: opacity 150ms ease, scale 150ms ease;
+}
+
+/* About's zoom-in-95 as well as its fade, on `scale` so the centring
+   transform on the element is left alone. */
+.present-offer.present-offer-in {
+  opacity: 1;
+  scale: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .present-offer {
+    transition: none;
+  }
+}
+
+/*
+ * What the lock looks like.
+ *
+ * The shield swallows a real press in a capture-phase listener rather than by
+ * being the thing under the pointer (see PresentationMode.tsx), so the app's
+ * own cursors would otherwise still promise the slider, the handle and the
+ * swatch that a press is going to do something. One rule takes the promise
+ * back everywhere but the walkthrough's own chrome, where the presses do
+ * still land. `touch-action` is the same statement for a finger: nothing here
+ * pans, pinches or scrolls while the cut is playing.
+ */
+html[data-present-locked] *:not([data-present-chrome]):not([data-present-chrome] *) {
+  cursor: default !important;
+}
+
+html[data-present-locked] {
+  touch-action: none;
+  overscroll-behavior: none;
+}

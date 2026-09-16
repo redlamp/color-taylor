@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
@@ -52,11 +52,19 @@ const siteUrlHtml = {
 /**
  * Where presentation-mode notes are kept (`?present=<name>`, see
  * docs/demo-script.md). One JSON file per cut, `<name>-notes.json`, beside the
- * cut's other cue files in the videos repo; `PRESENTATION_NOTES_DIR` moves it.
+ * cut's other cue files in the video pipeline's own working tree.
+ *
+ * Unset by default. The notes, frames and clip-editor routes below all 404
+ * with `{ error: 'PRESENTATION_NOTES_DIR is not set' }` until this points at
+ * that directory - set it in `.env.development.local`. Read through Vite's
+ * own env loader rather than `process.env` alone: a `.env` file is not in the
+ * process environment when this config is evaluated, and the routes are dev
+ * server only, so the development file is the one that counts.
  */
 const NOTES_DIR =
   process.env.PRESENTATION_NOTES_DIR ||
-  'C:\\workspace\\redlamp-videos\\videos\\color-taylor-demo-test\\cues'
+  loadEnv('development', process.cwd(), '').PRESENTATION_NOTES_DIR ||
+  ''
 
 /**
  * Dev-server only: `GET/POST /__notes/<name>` reads and writes that file as
@@ -77,6 +85,7 @@ const presentationNotes = {
         res.setHeader('content-type', 'application/json')
         res.end(JSON.stringify(body))
       }
+      if (!NOTES_DIR) return send(404, { error: 'PRESENTATION_NOTES_DIR is not set' })
       if (req.method === 'GET') {
         try {
           if (!fs.existsSync(file)) return send(200, { source: name, notes: [] })
@@ -155,6 +164,7 @@ const presentationFrames = {
         const data = JSON.parse(fs.readFileSync(f, 'utf8'))
         return Array.isArray(data) ? data : Array.isArray(data.frames) ? data.frames : []
       }
+      if (!NOTES_DIR) return send(404, { error: 'PRESENTATION_NOTES_DIR is not set' })
       if (req.method === 'GET') {
         try {
           const from = fs.existsSync(file) ? file : fs.existsSync(appCopy) ? appCopy : null
@@ -327,6 +337,64 @@ function rebuildPip(name) {
   })
 }
 
+/** Where a cut's lines file lives, source of the beat/line -> start lookup
+ *  both halves of `recordClipApply` need. */
+const linesPath = (name) => path.join(VIDEO_DIR, 'cues', `${name}-lines.json`)
+
+/**
+ * Turn one clip apply into a notes-file update. Pure, so it can be unit-tested
+ * without the dev server; the `/__clip` POST handler does the file I/O around
+ * it and must never let a problem here fail the apply that already succeeded.
+ *
+ * `notes` is the file's current list. `oldLines`/`newLines` are the `lines`
+ * arrays from `<name>-lines.json` before and after this apply's `rebuild` -
+ * every line after the edited one may have moved. `id` is the edited line's
+ * "beat.line" id, `entry` is that id's placement entry as it now stands
+ * (`trim`, `gap`, `cuts`), and `now` is the ISO timestamp to stamp the new
+ * note with.
+ *
+ * Two things happen:
+ *  - every existing note with a beat/line that resolves in both lines files
+ *    is shifted by how far that line's start moved (notes with no beat/line,
+ *    or whose line vanished, are left alone);
+ *  - the edit itself is recorded as a `clip <id>: ...` note at the edited
+ *    line's new start, replacing any earlier note for the same id rather than
+ *    piling up one per apply.
+ */
+function recordClipApply(notes, oldLines, newLines, id, entry, now) {
+  const [beatStr, lineStr] = id.split('.')
+  const beat = Number(beatStr)
+  const line = Number(lineStr)
+  const findLine = (lines, b, l) => lines.find((x) => x.beat === b && x.line === l) ?? null
+  const newLine = findLine(newLines, beat, line)
+  if (!newLine) throw new Error(`recordClipApply: line ${id} not found in the rebuilt lines`)
+  const prefix = `clip ${id}:`
+
+  const shifted = notes
+    .filter((n) => !(typeof n.text === 'string' && n.text.startsWith(prefix))) // replaced below
+    .map((n) => {
+      if (n.beat === null || n.line === null) return n
+      const oldLine = findLine(oldLines, n.beat, n.line)
+      const matchedNew = findLine(newLines, n.beat, n.line)
+      if (!oldLine || !matchedNew) return n
+      return { ...n, t: +(n.t + (matchedNew.start - oldLine.start)).toFixed(3) }
+    })
+
+  // Only the fields the placement entry actually carries, in the order a
+  // reader would want to check them: where it now starts and ends, the gap
+  // before it, and any internal cuts.
+  const parts = [prefix]
+  if (entry.trim?.start !== undefined) parts.push(`in ${entry.trim.start.toFixed(3)}`)
+  if (entry.trim?.end !== undefined) parts.push(`out ${entry.trim.end.toFixed(3)}`)
+  if (entry.gap !== undefined) parts.push(`gap ${entry.gap.toFixed(3)}`)
+  if (entry.cuts?.length) {
+    parts.push(`cuts [${entry.cuts.map(([a, b]) => `[${a.toFixed(2)},${b.toFixed(2)}]`).join(',')}]`)
+  }
+
+  const note = { t: newLine.start, beat, line, text: parts.join(' '), created: now }
+  return [...shifted, note].sort((a, b) => a.t - b.t)
+}
+
 /** One rebuild at a time: two joins over the same outputs would interleave. */
 let rebuilding = false
 
@@ -376,6 +444,7 @@ const clipEditor = {
         res.setHeader('content-type', 'application/json')
         res.end(JSON.stringify(body))
       }
+      if (!NOTES_DIR) return send(404, { error: 'PRESENTATION_NOTES_DIR is not set' })
       const placementPath = path.join(VIDEO_DIR, 'cues', `${name}-placement.json`)
 
       /** The split's record, the placement, and the last join's effective trims. */
@@ -469,6 +538,9 @@ const clipEditor = {
                 else delete entry.cuts
               }
               fs.writeFileSync(placementPath, JSON.stringify(placement, null, 2) + '\n')
+              // Before the rebuild moves everything after this line, so the note
+              // re-anchoring below has something to measure the shift against.
+              const oldLines = fs.existsSync(linesPath(name)) ? (readJson(linesPath(name)).lines ?? []) : []
               rebuilding = true
               let result
               try {
@@ -478,6 +550,21 @@ const clipEditor = {
                 if (result.ok) rebuildPip(name)
               } finally {
                 rebuilding = false
+              }
+              if (result.ok) {
+                // Record the edit as a note and re-anchor the rest, but never let a
+                // problem here fail an apply that already succeeded on disk.
+                try {
+                  const newLines = readJson(linesPath(name)).lines ?? []
+                  const notesFile = path.join(NOTES_DIR, `${name}-notes.json`)
+                  const notesDoc = fs.existsSync(notesFile) ? readJson(notesFile) : { source: name, notes: [] }
+                  const notes = Array.isArray(notesDoc.notes) ? notesDoc.notes : []
+                  const updated = recordClipApply(notes, oldLines, newLines, id, entry, new Date().toISOString())
+                  fs.mkdirSync(NOTES_DIR, { recursive: true })
+                  fs.writeFileSync(notesFile, JSON.stringify({ source: name, notes: updated }, null, 2) + '\n')
+                } catch (err) {
+                  console.error(`[clip editor] could not record the note for ${id}:`, err)
+                }
               }
               return send(result.ok ? 200 : 500, { ...result, entry })
             } catch (err) {

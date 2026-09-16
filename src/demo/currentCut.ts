@@ -6,4 +6,4 @@
  * cut is removed before a deploy - see HANDOFF, "Shipping the walkthrough in
  * the app".
  */
-export const CURRENT_CUT = 'cut-04';
+export const CURRENT_CUT = 'cut-05';

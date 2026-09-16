@@ -8,7 +8,7 @@ tags:
 
 # Plan: Shipping The Walkthrough In The App
 
-**2026-09-13.** The narrated walkthrough (`src/demo/PresentationMode.tsx`, `ScriptRunner.tsx`, `WebcamPip.tsx`, then on `prez/cut-03`, draft PR #104) mounted in dev builds only. The spec from the presentation side is `redlamp-videos/HANDOFF-cut-02-presentation.md`, "Shipping the walkthrough in the app". This note is the app side's plan against it, drafted for Taylor to answer before anything was briefed. **Built; see the end.** #104 merged into `dev` on 2026-09-15; [[presentation-system]] describes the whole.
+**2026-09-13.** Adopted from the video project, 2026-09. The narrated walkthrough (`src/demo/PresentationMode.tsx`, `ScriptRunner.tsx`, `WebcamPip.tsx`, then on `prez/cut-03`, draft PR #104) mounted in dev builds only. The presentation side wrote a spec proposing how the walkthrough would ship in the app, "Shipping the walkthrough in the app". This note is the app side's plan against it, drafted for Taylor to answer before anything was briefed. **Built; see the end.** #104 merged into `dev` on 2026-09-15; [[presentation-system]] describes the whole.
 
 Ownership: `src/components` and `App.tsx` are the app session's; `src/demo`, `public/scripts` naming and the cue files are the presentation session's.
 

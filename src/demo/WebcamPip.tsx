@@ -1,16 +1,18 @@
 /**
  * The presenter's camera, as the picture-in-picture panel the recording has.
  *
- * A fixed box in the bottom-right corner, the same 400x400 at a 20px margin
- * with a 12px radius that the OBS scene uses, so what the script drags around
- * lines up with what the camera is composited into afterwards. It shows the
+ * A fixed box in the bottom-right corner - above the transport bar where
+ * there is one, and never further right than a centred 1920-wide box, so a
+ * very wide display does not walk it off to the side - the same 400x400 at a
+ * 20px margin with a 12px radius that the OBS scene uses, so what the script
+ * drags around lines up with what the camera is composited into afterwards. It shows the
  * camera footage of the cut where there is any (see below), the live webcam
  * when one is asked for and the browser gives it, and a dark plate with a
  * camera glyph otherwise - the placeholder is not a fallback, it is what the
  * take is recorded against when the real camera is on the OBS side.
  *
- * Under `?present=<cut>` the panel plays the take instead: redlamp-videos
- * `tools/takes/cut-pip-clips.mjs` cuts **one continuous video for the whole
+ * Under `?present=<cut>` the panel plays the take instead: the video
+ * pipeline cuts **one continuous video for the whole
  * cut** - the footage where the panel is on screen, and black frames for the
  * middle, where the panel has been dragged off the right edge anyway - and
  * `scripts/<cut>-pip.json` says where it belongs. One file covering the whole
@@ -39,11 +41,11 @@
  * replaying the gesture.
  */
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Video } from 'lucide-react';
 import { CURRENT_CUT } from './currentCut';
-import { captureBox, onFrameChange, transportHeight } from './frameState';
+import { barLeaving, captureBox, onFrameChange, transportHeight } from './frameState';
 import {
   onPipOpening, parkPip, pipOpening, PIP_OPENING_GRACE_MS, type PipOpening,
 } from './handover';
@@ -53,6 +55,17 @@ export const PIP_WIDTH = 400;
 export const PIP_HEIGHT = 400;
 export const PIP_MARGIN = 20;
 export const PIP_RADIUS = 12;
+
+/**
+ * The widest the panel's home corner travels out to.
+ *
+ * The panel belongs to the bottom right of the *picture*, and the picture is
+ * 1920 wide. On a wider display the corner would otherwise keep walking out
+ * with the window, away from the app and off the edge of anything an audience
+ * is looking at, so past this width the corner stops where a 1920 box centred
+ * in the viewport would put it.
+ */
+export const PIP_BOUND = 1920;
 
 /** One span of footage: `video.currentTime = t - cutStart + clipOffset`. */
 interface PipClip {
@@ -71,6 +84,15 @@ interface PipClip {
  * enough that a `currentTime` write - which restarts decoding, and shows as a
  * stutter - is rare. It is a threshold and not a correction on every frame for
  * that reason: a decoder a frame behind catches itself up, a scrub does not.
+ *
+ * While the panel is still `hidden` (see `hiddenRef` below) this threshold is
+ * still what decides *whether* to correct, but not *how*: a `currentTime`
+ * write is invisible on a panel nobody can see, so the frame loop always
+ * seeks past it there rather than spending the ~15s a NUDGE would take to
+ * close a handover-sized gap. That gap - the shipped path's audio and camera
+ * starting together but the audio alone getting rewound to 0 at handover -
+ * is exactly `JUMP`-sized in the worst case and would otherwise sit just
+ * under it, in NUDGE territory, for the whole on-camera intro.
  */
 const DRIFT = 0.04;
 
@@ -96,8 +118,10 @@ const SETTLE = 0.02;
  */
 const JUMP = 0.5;
 
-/** Read the URL once, the way presentation mode does. */
+/** Read the URL once, the way the app does: dev server only, so on a build a
+ *  stray `?present=` can never point the panel at another cut's footage. */
 function presentName(): string | null {
+  if (!import.meta.env.DEV) return null;
   try {
     const raw = new URLSearchParams(window.location.search).get('present');
     return raw && /^[\w-]+$/.test(raw) ? raw : null;
@@ -121,6 +145,25 @@ function wantsLiveWebcam(): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * Told by `PresentationMode` once a clip-editor Apply's audio and lines have
+ * landed on disk, so this panel knows a re-cut of the camera footage may be
+ * on the way. The two are siblings under `ColorPicker.tsx`, not parent and
+ * child, so `rebuilt` cannot arrive as a prop the way the manifest header
+ * describes it; this small pub/sub - the same shape `handover.ts` already
+ * uses between these two - is the bridge instead. `name` is checked against
+ * `presentName()` by the listener, since a page can only ever be presenting
+ * one cut and a stray notification for another should be ignored.
+ */
+const rebuiltListeners = new Set<(name: string, rebuilt: number) => void>();
+export function notifyRebuilt(name: string, rebuilt: number) {
+  rebuiltListeners.forEach((fn) => fn(name, rebuilt));
+}
+function onRebuilt(fn: (name: string, rebuilt: number) => void): () => void {
+  rebuiltListeners.add(fn);
+  return () => { rebuiltListeners.delete(fn); };
 }
 
 /** The entry covering `t`, or the one to hold a frame of when none does. */
@@ -166,24 +209,24 @@ export default function WebcamPip({ webcam }: WebcamPipProps = {}) {
   /** Whether the footage has a frame to show. Until it has, the plate does. */
   const [decoded, setDecoded] = useState(false);
   /**
-   * The panel's home `left`, so the gap between the app's right edge and the
-   * panel equals the gap between the panel and the display's right edge -
-   * rather than the panel sitting flush 20px off the display edge regardless
-   * of how much room the viewport leaves past the app. `null` while there
-   * isn't a sane app edge to measure from, or the viewport is too narrow to
-   * leave more than a sliver either side; the fixed 20px margin stands in.
+   * The panel's home `left`: 20px in from the right edge of a box that is the
+   * viewport capped at `PIP_BOUND` and centred in it. Up to 1920 that is
+   * simply 20px off the display's right edge; past it the corner holds still
+   * at the edge of the centred 1920 box. `null` only until the effect below
+   * has measured for the first time, when the fixed 20px margin stands in.
    */
   const [homeLeft, setHomeLeft] = useState<number | null>(null);
 
   /**
-   * How far the panel sits above the foot of the screen. The fixed 20px
-   * margin, unless a frame layer is up: then it is 20px above the foot of the
-   * capture box, so the panel keeps its corner of the picture rather than
-   * sitting in a letterbox band that is not being captured. Either way, the
-   * transport bar's own height is added on top: the bar is a fixed, portalled
-   * element outside the frame layer's transform, so it always sits at the
-   * real foot of the screen and would otherwise sit under (or the panel,
-   * over) the bar and hide the last section labels.
+   * How far the panel sits above the foot of the screen: 20px above the
+   * transport bar where there is one, and 20px above the foot of the window
+   * where there is not (the `?script=` recording path has no bar). Under a
+   * frame layer it is 20px above the foot of the *capture box* instead, so
+   * the panel keeps its corner of the picture rather than sitting in a
+   * letterbox band nothing is capturing; that rule wins, and the bar's height
+   * is still added on top of it, because the bar is a fixed, portalled
+   * element outside the frame layer's transform and always sits at the real
+   * foot of the screen.
    */
   const [homeBottom, setHomeBottom] = useState<number>(PIP_MARGIN);
 
@@ -221,15 +264,40 @@ export default function WebcamPip({ webcam }: WebcamPipProps = {}) {
    */
   useLayoutEffect(() => { if (opening) parkPip(opening === 'off'); }, [opening]);
   const hidden = !opening && !waited;
+  /**
+   * Mirrored into a ref because the frame loop below (the effect on `[clips]`)
+   * closes over `clips` only and does not re-run when visibility changes - it
+   * reads this every frame instead. See the DRIFT comment for why the loop
+   * cares: while `hiddenRef.current` is true a drift past DRIFT is always a
+   * seek, because the correction is happening on a panel nobody can see.
+   */
+  const hiddenRef = useRef(hidden);
+  useEffect(() => { hiddenRef.current = hidden; }, [hidden]);
+  /**
+   * Set when the adoption effect below hands the loop an element that may
+   * already be mid-handover, and cleared the first time the loop evaluates it
+   * on a playing frame. The voice rewind at handover happens before the
+   * runner's reveal cue flips `hidden` to false (the reveal *is* that cue, via
+   * `setPipOpening`), so `hiddenRef` alone covers the ordinary case; this is
+   * the fallback for the case that guarantee doesn't cover - the adopted
+   * element's first frame with a decoded position (`readyState >= 1`) landing
+   * after `hidden` has already gone false - so that frame is still forced to
+   * a seek instead of the slow nudge.
+   */
+  const adoptedPendingRef = useRef(false);
+
+  /** The walkthrough is on its way out; see `barLeaving` in frameState. */
+  const [leaving, setLeaving] = useState(false);
 
   useEffect(() => {
     const compute = () => {
+      setLeaving(barLeaving());
       /*
        * With a frame layer up the panel belongs to the capture, not to the
-       * page: the page is being scaled and panned underneath it, so measuring
-       * the app's right edge would walk the panel around with the frame. The
-       * capture box's own bottom-right corner is the one fixed thing in the
-       * picture, which is where the OBS layout puts it too.
+       * window: the frame is what the viewer will see, so its own
+       * bottom-right corner is the one the panel takes - which is where the
+       * OBS layout puts it too. The 1920 bound below is the same idea for a
+       * window with no frame layer over it.
        */
       const bar = transportHeight();
       const box = captureBox();
@@ -239,11 +307,8 @@ export default function WebcamPip({ webcam }: WebcamPipProps = {}) {
         return;
       }
       setHomeBottom(bar + PIP_MARGIN);
-      const app = document.querySelector('#color-editor-group');
-      const appRight = app?.getBoundingClientRect().right;
-      if (appRight == null) { setHomeLeft(null); return; }
-      const gap = (window.innerWidth - appRight - PIP_WIDTH) / 2;
-      setHomeLeft(gap >= 8 ? appRight + gap : null);
+      const inset = Math.max(0, (window.innerWidth - PIP_BOUND) / 2) + PIP_MARGIN;
+      setHomeLeft(window.innerWidth - inset - PIP_WIDTH);
     };
     compute();
     window.addEventListener('resize', compute);
@@ -254,6 +319,37 @@ export default function WebcamPip({ webcam }: WebcamPipProps = {}) {
     };
   }, []);
 
+  /**
+   * The cache-buster on the manifest and on the video file it names: empty at
+   * mount, `?v=<rebuilt>` once a rebuild has landed (see the effect below),
+   * so neither is ever served from an earlier apply's HTTP cache. Read by the
+   * clip-playback effect further down at the moment it (re)fetches - it is
+   * not itself a dependency of anything, because `fetchManifest` below always
+   * hands back a fresh `clips` array, and a fresh array is what actually
+   * drives that effect to run again.
+   */
+  const bustRef = useRef('');
+
+  /**
+   * Fetch and parse `<name>-pip.json`, the one path both the mount effect and
+   * a post-rebuild reload use - see the two effects below - so the manifest's
+   * shape (`spans` now, `lines` for the tool's older --per-line mode) is
+   * handled in exactly one place.
+   */
+  const fetchManifest = useCallback((name: string, bust: string): Promise<PipClip[] | null> => {
+    bustRef.current = bust;
+    return fetch(`${import.meta.env.BASE_URL}scripts/${name}-pip.json${bust}`)
+      .then((res) => (res.ok ? (res.json() as Promise<{ spans?: PipClip[]; lines?: PipClip[] }>) : null))
+      .then((data) => {
+        const entries = data?.spans ?? data?.lines;
+        return Array.isArray(entries) && entries.length
+          ? [...entries].sort((a, b) => a.cutStart - b.cutStart)
+          : null;
+      })
+      // No manifest: the cut has no camera clips yet, and the webcam stands in.
+      .catch(() => null);
+  }, []);
+
   /* The cut's camera footage, when this presentation has any. */
   useEffect(() => {
     // The app's own walkthrough has no `?present=` in the URL to read; the host
@@ -261,19 +357,58 @@ export default function WebcamPip({ webcam }: WebcamPipProps = {}) {
     const name = presentName() ?? (webcam ? CURRENT_CUT : null);
     if (!name) return;
     let alive = true;
-    fetch(`${import.meta.env.BASE_URL}scripts/${name}-pip.json`)
-      .then((res) => (res.ok ? (res.json() as Promise<{ spans?: PipClip[]; lines?: PipClip[] }>) : null))
-      .then((data) => {
-        // `spans` is what the tool writes now; `lines` is its --per-line mode,
-        // which plays by the same rule, one entry to a line.
-        const entries = data?.spans ?? data?.lines;
-        if (!alive || !Array.isArray(entries) || !entries.length) return;
-        setClips([...entries].sort((a, b) => a.cutStart - b.cutStart));
-      })
-      // No manifest: the cut has no camera clips yet, and the webcam stands in.
-      .catch(() => { /* nothing to play */ });
+    fetchManifest(name, '').then((sorted) => { if (alive && sorted) setClips(sorted); });
     return () => { alive = false; };
-  }, [webcam]);
+  }, [webcam, fetchManifest]);
+
+  /**
+   * After a clip-editor Apply lands (dev only - `presentName()` is null on
+   * the shipped path, so this never fires there): the re-cut runs on the
+   * server in the background, so poll `GET /__clip/<name>/status` about once
+   * a second until it says `synced` or `error`, 90s pass, another rebuild
+   * notification arrives, or the panel unmounts. `idle` means there is no
+   * re-cut coming at all (no `<name>-pip-options.json` measured for this
+   * cut) - nothing to wait for, so the reload happens right away. `error`
+   * still reloads: the file on disk did not change, but re-fetching costs
+   * nothing and it is the best there is, and the log is worth a look.
+   */
+  useEffect(() => {
+    const name = presentName();
+    if (!name) return;
+    let cancelCurrent: (() => void) | null = null;
+    const off = onRebuilt((n, rebuilt) => {
+      if (n !== name) return;
+      cancelCurrent?.();
+      let alive = true;
+      let timer = 0;
+      const deadline = Date.now() + 90_000;
+      const reload = () => {
+        fetchManifest(name, `?v=${rebuilt}`).then((sorted) => { if (alive && sorted) setClips(sorted); });
+      };
+      const poll = () => {
+        fetch(`/__clip/${name}/status`)
+          .then((res) => (res.ok ? (res.json() as Promise<{ state?: string; log?: string }>) : null))
+          .then((data) => {
+            if (!alive) return;
+            const state = data?.state ?? 'idle';
+            if (state === 'error') console.warn('[camera pip] re-cut failed; showing the current file', data?.log);
+            if (state === 'synced' || state === 'error' || state === 'idle' || Date.now() >= deadline) {
+              reload();
+              return;
+            }
+            timer = window.setTimeout(poll, 1000);
+          })
+          .catch(() => {
+            if (!alive) return;
+            if (Date.now() >= deadline) { reload(); return; }
+            timer = window.setTimeout(poll, 1000);
+          });
+      };
+      poll();
+      cancelCurrent = () => { alive = false; window.clearTimeout(timer); };
+    });
+    return () => { off(); cancelCurrent?.(); };
+  }, [fetchManifest]);
 
   /**
    * Adopting the host's `<video>`: it is appended into the panel box and used
@@ -302,6 +437,10 @@ export default function WebcamPip({ webcam }: WebcamPipProps = {}) {
     });
     if (el.parentElement !== box) box.appendChild(el);
     videoRef.current = el;
+    // This element may already be mid-handover (see `adoptedPendingRef`
+    // above): force its first playing frame in the loop below to a seek
+    // regardless of `hidden`.
+    adoptedPendingRef.current = true;
     return () => {
       if (el.parentElement === box) box.removeChild(el);
       if (videoRef.current === el) videoRef.current = null;
@@ -361,6 +500,12 @@ export default function WebcamPip({ webcam }: WebcamPipProps = {}) {
     if (!clips.length) return;
     let raf = 0;
     const base = `${import.meta.env.BASE_URL}scripts/`;
+    // Carries the manifest's own cache-buster (see `bustRef` above) onto the
+    // video files it names, so a reload after a rebuild pulls the re-cut
+    // bytes rather than the HTTP cache's copy of the old `full.mp4`. Read
+    // once, here: this effect reruns in full whenever `clips` gets a new
+    // array, which a reload always hands it, so a later change is a later run.
+    const bust = bustRef.current;
     /*
      * The file is fetched at mount and attached at play.
      *
@@ -382,7 +527,7 @@ export default function WebcamPip({ webcam }: WebcamPipProps = {}) {
     let begun = false;
     let alive = true;
     for (const file of new Set(clips.map((c) => c.file))) {
-      fetch(base + file)
+      fetch(base + file + bust)
         .then((res) => (res.ok ? res.blob() : null))
         .then((blob) => { if (alive && blob) fetched.set(file, URL.createObjectURL(blob)); })
         .catch(() => { /* the element will fetch it itself when it is attached */ });
@@ -411,7 +556,7 @@ export default function WebcamPip({ webcam }: WebcamPipProps = {}) {
       if (!begun && !s.el.src) return;
       s.entry = entry;
       s.parked = false;
-      const url = fetched.get(entry.file) ?? base + entry.file;
+      const url = fetched.get(entry.file) ?? base + entry.file + bust;
       // An adopted element arrives already pointed at the file, and often
       // already playing: writing the same `src` again would blank it and start
       // the download over.
@@ -479,11 +624,24 @@ export default function WebcamPip({ webcam }: WebcamPipProps = {}) {
       // is the stutter this is here to avoid - and only a gap too wide to nudge
       // out is still a seek. Paused or scrubbed, exactly, and at speed 1: the
       // frame on screen is the whole picture and nothing after it is moving.
+      //
+      // Before the panel is shown - `hiddenRef.current`, or an adopted element
+      // on its first playing frame, `adoptedPendingRef` - a stutter cannot be
+      // seen, so any drift past DRIFT is spent as a seek too rather than the
+      // ~15s a NUDGE would take. This must run only once the voice's own
+      // handover rewind has already happened: it has, by construction, because
+      // that rewind is what the runner does *before* it reveals the panel (the
+      // reveal is the `setPipOpening` cue that flips `hidden` to false), so
+      // every frame this branch sees while still hidden is already past it.
       if (v.readyState >= 1) {
         const off = v.currentTime - at;
+        const firstAdoptedFrame = playing && adoptedPendingRef.current;
+        if (firstAdoptedFrame) adoptedPendingRef.current = false;
+        const forceSeek = hiddenRef.current || firstAdoptedFrame;
         if (playing) {
-          if (Math.abs(off) > JUMP) { v.currentTime = at; v.playbackRate = 1; }
-          else if (Math.abs(off) > DRIFT) v.playbackRate = off > 0 ? 1 - NUDGE : 1 + NUDGE;
+          if (Math.abs(off) > JUMP || (forceSeek && Math.abs(off) > DRIFT)) {
+            v.currentTime = at; v.playbackRate = 1;
+          } else if (Math.abs(off) > DRIFT) v.playbackRate = off > 0 ? 1 - NUDGE : 1 + NUDGE;
           else if (Math.abs(off) <= SETTLE && v.playbackRate !== 1) v.playbackRate = 1;
         } else {
           if (v.playbackRate !== 1) v.playbackRate = 1;
@@ -544,6 +702,14 @@ export default function WebcamPip({ webcam }: WebcamPipProps = {}) {
         transform: 'translateX(0px)',
         willChange: 'transform',
         visibility: hidden ? 'hidden' : undefined,
+        // Out with the bar, on the bar's own curve. Mid-cut the cut has
+        // usually already dragged the panel off the right edge, so this only
+        // shows on an early exit - but on that exit the panel would otherwise
+        // blink out of a corner the viewer is still looking at. Opacity only:
+        // what hides the panel before it is due is `visibility`, so the two
+        // never fight.
+        opacity: leaving ? 0 : undefined,
+        transition: 'opacity 300ms cubic-bezier(0.2, 0, 0, 1)',
       }}
     >
       {/* The host's element stands in for this one when there is one: it is

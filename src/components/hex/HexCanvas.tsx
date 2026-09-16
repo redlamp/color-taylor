@@ -3,6 +3,7 @@ import { hsbToRgb, hslToRgb, linearToSrgb } from '../../utils/colorConversions';
 import type { ColorSpace } from '../../utils/sliderGradients';
 import { HEX_SIZE, CENTER_X, CENTER_Y, RADIUS, PI, shapeEdgeDist, shapeLimitScale, type BLMode } from './hexConstants';
 import { createHexGL, type HexGL } from './hexShader';
+import { onFrameChange, frameScale } from '../../demo/frameState';
 
 /**
  * The field, drawn the way the geometry actually works.
@@ -107,6 +108,21 @@ export default function HexCanvas({ brightness, lightness = 50, blMode = 'bright
   // Render at the size actually shown. The 2D path used to paint a fixed
   // 540x540 bitmap and let CSS stretch it, which is why a wide panel looked
   // soft.
+  //
+  // A ResizeObserver alone is not enough under the presentation. The frame
+  // layer (src/demo/Frames.tsx) magnifies the whole app with a CSS transform
+  // on #root, which changes how big this canvas is on screen without changing
+  // its layout size at all - so the observer never fires, the backing store
+  // stays at the layout 540, and at 130% the field is being stretched by the
+  // GPU and looks soft and jaggy. Subscribing to the frame layer's scale and
+  // measuring again is the whole fix: getBoundingClientRect already reports
+  // the transformed size, and setFrameState notifies after the frames layer
+  // has written the transform, so a plain call reads the new one.
+  //
+  // This is the first place the app's own code imports from src/demo. It is a
+  // module of plain state with a subscription and nothing else (no React, no
+  // DOM), and outside the presentation the scale is 1 and nothing ever
+  // notifies, so the canvas behaves exactly as it did before.
   useEffect(() => {
     const el = canvasRef.current;
     if (!el) return;
@@ -120,7 +136,18 @@ export default function HexCanvas({ brightness, lightness = 50, blMode = 'bright
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
-    return () => ro.disconnect();
+    // The same module tells its listeners about the transport bar's height as
+    // well as the frame scale, and that one moves for reasons that have
+    // nothing to do with this canvas - so remember the scale and only measure
+    // when it is the thing that changed.
+    let seen = frameScale();
+    const off = onFrameChange(() => {
+      const now = frameScale();
+      if (now === seen) return;
+      seen = now;
+      measure();
+    });
+    return () => { ro.disconnect(); off(); };
   }, []);
 
   useEffect(() => {

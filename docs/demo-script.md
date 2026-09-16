@@ -496,7 +496,7 @@ ghost cursor, so every gesture goes through the real controls. Dev builds only
   here.
 - Under `?present=<cut>` it plays the cut's own footage instead: **one
   continuous file for the whole cut** (`scripts/pip/<cut>/full.mp4`, cut by
-  redlamp-videos `tools/takes/cut-pip-clips.mjs`), the take where the panel is
+  the video pipeline), the take where the panel is
   on screen and black frames for the middle, where it has been dragged off the
   edge. One file means the `<video>`'s `src` is written once and never again,
   which is what the pop at a span change used to be. `scripts/<cut>-pip.json`
@@ -522,24 +522,24 @@ The JSON is `{ "actions": [ { "at": 9.1, "do": "rest", "target": "help-button" }
 
 | `do` | Fields | What it does |
 |---|---|---|
-| `rest` | `target`, `anchor`, `dx`, `dy` | Move to the target and stay. |
-| `hover` | `target`, `ms`, `anchor`, `dx`, `dy` | Move, then wait `ms`. `anchor` stands the hand clear of the target's own box instead of on its middle — `below`, `above`, `left` or `right`, 12 px out — and `dx`/`dy` nudge from wherever the anchor put it. A cursor parked on the middle of a small thing covers it: beat 3.6 hovers the Y, C and M letters while a ring is drawn round each, and without `"anchor": "below"` the hand sat on the letter being named. (It is `anchor` rather than `at` because `at` is the cue's own time.) |
-| `walk` | `targets[]`, `ms` | Visit each target in turn; `ms` is split evenly (400 ms travel, the rest dwell). |
+| `rest` | `target`, `anchor`, `dx`, `dy` | Move to the target and stay. The tip lands on the *lower* part of the target's box — x at its middle, y a quarter of the way up from the bottom edge (at least 4 px in), clamped inside the box so a press still lands on the control. The arrow is drawn down and to the right of its own tip, so a tip on the middle of a thing puts the hand over the bottom half of it; Taylor, round 1 of cut 05: "we never want the cursor to obstruct the target." Only a target whose point *is* the middle of its box is moved — every target that names a point of its own (`handle:<c>`, `hex-tip`, `hue-label`, `corner:*`, `stem:*`, `hue-at:*`, `zero:*`, and the `pip` grips, which have their own arc) is aimed at exactly, because that point is a grip rather than a place to stand. `anchor` or `dx`/`dy` is the cue's own point and is left alone. |
+| `hover` | `target`, `ms`, `anchor`, `dx`, `dy` | Move, then wait `ms`. Aimed low in the box like a `rest`. `anchor` stands the hand clear of the target's own box altogether — `below`, `above`, `left` or `right`, 12 px out — and `dx`/`dy` nudge from wherever the anchor put it. A cursor parked on the middle of a small thing covers it: beat 3.6 hovers the Y, C and M letters while a ring is drawn round each, and without `"anchor": "below"` the hand sat on the letter being named. (It is `anchor` rather than `at` because `at` is the cue's own time.) |
+| `walk` | `targets[]`, `ms` | Visit each target in turn, aimed low in each box like a `rest`; `ms` is split evenly (400 ms travel, the rest dwell). |
 | `click` | `target`, `anchor`, `dx`, `dy` | Move and click. Anchored like a `rest`, so the press can land somewhere other than the middle of its control — beat 9.3 presses the Watch Demo card 55 px right and 14 px down, because a cursor on the middle of the card sits on the word "Demo" as it is being spoken. `dx`/`dy` with no `anchor` stay inside the control, which is what a press needs; the click is dispatched on the element either way. Two targets carry the control's own protocol rather than making the cut spell it out: on `swatches:recent-clear` the click is the pair the button asks for — press, 400 ms with "Sure?" standing, press again, and the second press is owed even when a later cue takes the hands in between (a Clear left armed is worse than one never started: beat 7 played with Recent full and the button standing on "Sure?" until its own three seconds ran out) — and on `swatches:recent` the hand travels to the header but presses only when the group reads as closed, so a scrub back into beat 7 (or a replay in the same session, since a section remembers what has been opened) does not shut the thing the next cues are about. |
 | `loop` | `target`, `ms`, `turns`, `wobble` | A hand-drawn circuit around the target: `turns` full turns (default 1.3) over `ms`, hovering only. The radius is about 0.55 of the target's half-width (for `hex-field`, the hexagon's radius), modulated by a slow irregular wobble of `wobble` x radius (default 0.18) and squashed slightly on y, so it is never a perfect circle. Around a target with a box (`editor-top`) it is a flat ellipse the width of the box. Starts and ends at rest. |
-| `circle` | `target`, `ms`, `turns`, `wobble`, `hold`, `color`, `live` | A ring that draws itself around the target over `ms` (default 1200): the same circuit at the target's own radius (`letter:*` rings the letter at 1.6x its half-size; an element without one uses half its width), a little over one lap (default 1.1 turns); around a target with a box (`slider:<c>`, `editor-top`, `editor-sb`, `editor-hue`) it is a flat ellipse the shape of the box. The cursor is not involved, so a `circle` can share its `at` with a `hover` and neither cuts the other short; no later action cuts it short either (only a seek clears it). The ring stands for `hold` ms (default 900) and fades out over 300 ms. `color` is any CSS color; the default is the layer's own red. **On a marker that moves the ring goes with it:** on `handle:<c>` and `hex-tip` the whole ring is re-measured and redrawn every frame, through the draw and for the whole of `hold`, so a ring round the R handle follows it as saturation or brightness is dragged — which is the claim those lines are making. Everything else is drawn once and stands, since a readout (`value:<bank>-<ch>`) and a vertex letter do not move. `"live": false` turns the following off on a moving target, `"live": true` turns it on for any other. `ring` is a radius in client px and wins over whatever the target carries, for a mark that has to read as naming one small thing rather than the control it sits on - beat 6.1's ring on the R handle is `"ring": 20`. |
-| `rect` | `target`, `from`, `ms`, `hold`, `hands`, `pre`, `color`, `radius`, `live`, `pad` | A selection marquee around a target that has a box (`sliders:rgb`, `sliders:hsb`, `values:rgb`, `value:<bank>-<ch>`, `slider:<c>`, `row:<c>`, `editor-top`, `editor-sb`, `editor-hue`, `swatches:recent-row`, `swatches:saved-row`), hovering only: the cursor travels to the corner `from` (`tl`, `tr`, `br`, `bl`) and drags to the opposite one, on a diagonal bowed a few pixels off straight, and a rectangle grows with it. The travel (up to 400 ms) is inside `ms` (default 1100); the diagonal gets the rest, never under 400 ms. If the next action takes the cursor before the diagonal is done, the box snaps to its full size rather than standing half drawn. The finished box stands for `hold` ms (default 900) and fades over 300 ms; the cursor stays where it landed unless the next action moves it. Total on screen is about `ms` + `hold` + 300. With `"hands": "free"` the box draws itself on the layer, like a `circle`: it grows from the corner `from` to the opposite one over the whole `ms`, the cursor is not involved, and it neither interrupts nor is interrupted, so it can run over a drag (the RGB values while the saturation bar is being lowered). No scrolling in that case: the target has to be on screen already. `color` is any CSS color; the default is the layer's own red. With `"live": true` the box measures its target every frame — while it is drawn and for the whole of `hold` — so it tracks a group whose size is the point (`range:rgb`, the span of the three RGB handles, which opens as saturation rises and closes to a sliver at gray). `live` is hands-free by definition; the cursor is busy elsewhere. `radius` rounds the drawn corners: a number in client px, or `"pill"` for ends fully rounded to the box's shorter side, read from the box as it is now so a growing marquee is pill-ended at every size rather than only when it is finished. A highlight is not a marquee — beat 3.4 lights the R, G and B rows as each letter is pressed, and hard corners there read as something being selected rather than as the row being named. With `"pre": true` the travel is skipped and the whole `ms` is the diagonal: cue a `rest` at `corner:<target>:<from>` half a second earlier and the box starts growing on its cue rather than a trip's worth of time after it, which is what a marquee that has to begin on a spoken word needs. Ignored when the hands are `free`, which never travel. `pad` grows the target's own box before the box is drawn: one number for both axes, or `[x, y]`. A callout's 8 px stroke is centred on the edge, so a target padded for what it usually wears can end up with half that stroke standing on the thing inside — beat 3.5's row highlight came down on the channel letter at the left of the row and on the stepper at the right, which are the two halves that say which channel it is and what it reads. `"pad": [22, 6]` puts the mark round them instead. Per cue, not per target: everywhere else `row:<c>` is exactly what "the R slider" means. |
-| `ray` | `ch`, `ms`, `hold`, `color` | A bar along one channel's axis, from 24 px behind the middle of the hexagon out to 20 px past that channel's vertex letter, so it holds both of the things it is joining; 36 px thick, growing outward over `ms` (default 1200), then held for `hold` (default 900) and faded. The angle is read off where the letter actually sits, so the three rays are 120 degrees apart because the hexagon is. Self-drawn like a `circle`, so it neither takes the hands nor gives them up. `color` defaults to the channel's own: red `#ff3333`, green `#2ecc40`, blue `#3b82f6`. |
-| `line` | `targets[]`, `ms`, `hold`, `color` | A straight bar between two targets, drawn out from the first over `ms` (default 1200), then held for `hold` (default 900) and faded. The same 8 px stroke every other callout wears. Self-drawn like a `circle`, so a drag can run underneath it, and nothing later cuts it short. Measured once: what a `line` marks is a place on a control rather than a control, and the control does not move while it stands. Beat 6.3 is what it is for — "Brightness scales off of zero" wants the zero end of the three RGB tracks marked (`"targets": ["zero:rgb-top", "zero:rgb-bottom"]`) while the handles scale away from it. It used to run between the R and B track centres; Taylor asked for the full height of the block, which is what those two names are for. |
-| `arrow` | `targets[]`, `ms`, `hold`, `color` | A `line` with a head on it: from the first target to the second, the head landing on the second and stopping clear of it so it points at the thing rather than sitting on it. It grows over `ms` (default 1200) with the head riding the tip, so a partial arrow is an arrow and not a line that sprouts a point at the end; then held for `hold` (default 900) and faded. Same 8 px stroke; `color` is any CSS color, default the layer's red. Hands-free, so the cursor is free to be hovering whatever the arrows are aimed at. Beat 3.6 is what it is for: yellow is named as red and green combined, and a red arrow off the R letter and a green one off the G letter, both landing on the Y, say that in the picture. |
+| `circle` | `target`, `ms`, `turns`, `wobble`, `hold`, `color`, `live`, `group` | A ring that draws itself around the target over `ms` (default 1200): the same circuit at the target's own radius (`letter:*` rings the letter at 1.6x its half-size; an element without one uses half its width), a little over one lap (default 1.1 turns); around a target with a box (`slider:<c>`, `editor-top`, `editor-sb`, `editor-hue`) it is a flat ellipse the shape of the box. The cursor is not involved, so a `circle` can share its `at` with a `hover` and neither cuts the other short; no later action cuts it short either (only a seek clears it). The ring stands for `hold` ms (default 900) and fades out over 300 ms. `color` is any CSS color; the default is the layer's own red. **On a marker that moves the ring goes with it:** on `handle:<c>` and `hex-tip` the whole ring is re-measured and redrawn every frame, through the draw and for the whole of `hold`, so a ring round the R handle follows it as saturation or brightness is dragged — which is the claim those lines are making. Everything else is drawn once and stands, since a readout (`value:<bank>-<ch>`) and a vertex letter do not move. `"live": false` turns the following off on a moving target, `"live": true` turns it on for any other. `ring` is a radius in client px and wins over whatever the target carries, for a mark that has to read as naming one small thing rather than the control it sits on - beat 6.1's ring on the R handle is `"ring": 20`. |
+| `rect` | `target`, `from`, `ms`, `hold`, `hands`, `pre`, `color`, `radius`, `live`, `pad`, `group` | A selection marquee around a target that has a box (`sliders:rgb`, `sliders:hsb`, `values:rgb`, `value:<bank>-<ch>`, `slider:<c>`, `row:<c>`, `editor-top`, `editor-sb`, `editor-hue`, `swatches:recent-row`, `swatches:saved-row`), hovering only: the cursor travels to the corner `from` (`tl`, `tr`, `br`, `bl`) and drags to the opposite one, on a diagonal bowed a few pixels off straight, and a rectangle grows with it. The travel (up to 400 ms) is inside `ms` (default 1100); the diagonal gets the rest, never under 400 ms. If the next action takes the cursor before the diagonal is done, the box snaps to its full size rather than standing half drawn. The finished box stands for `hold` ms (default 900) and fades over 300 ms; the cursor stays where it landed unless the next action moves it. Total on screen is about `ms` + `hold` + 300. With `"hands": "free"` the box draws itself on the layer, like a `circle`: it grows from the corner `from` to the opposite one over the whole `ms`, the cursor is not involved, and it neither interrupts nor is interrupted, so it can run over a drag (the RGB values while the saturation bar is being lowered). No scrolling in that case: the target has to be on screen already. `color` is any CSS color; the default is the layer's own red. With `"live": true` the box measures its target every frame — while it is drawn and for the whole of `hold` — so it tracks a group whose size is the point (`range:rgb`, the span of the three RGB handles, which opens as saturation rises and closes to a sliver at gray). `live` is hands-free by definition; the cursor is busy elsewhere. Until round 2 of cut 05 that was only true of the drawing: the dispatcher still counted a `live` box without `"hands": "free"` as a gesture and took the hands from whatever had them, so beat 5.6's marquee killed the saturation drag it was drawn to measure. It is now hands-free in the dispatcher too, `"hands"` or no. `radius` rounds the drawn corners: a number in client px, or `"pill"` for ends fully rounded to the box's shorter side, read from the box as it is now so a growing marquee is pill-ended at every size rather than only when it is finished. A highlight is not a marquee — beat 3.4 lights the R, G and B rows as each letter is pressed, and hard corners there read as something being selected rather than as the row being named. With `"pre": true` the travel is skipped and the whole `ms` is the diagonal: cue a `rest` at `corner:<target>:<from>` half a second earlier and the box starts growing on its cue rather than a trip's worth of time after it, which is what a marquee that has to begin on a spoken word needs. Ignored when the hands are `free`, which never travel. `pad` grows the target's own box before the box is drawn: one number for both axes, or `[x, y]`. A callout's 8 px stroke is centred on the edge, so a target padded for what it usually wears can end up with half that stroke standing on the thing inside — beat 3.5's row highlight came down on the channel letter at the left of the row and on the stepper at the right, which are the two halves that say which channel it is and what it reads. `"pad": [22, 6]` puts the mark round them instead. Per cue, not per target: everywhere else `row:<c>` is exactly what "the R slider" means. |
+| `ray` | `ch`, `ms`, `hold`, `color`, `group` | A bar along one channel's axis, from 24 px behind the middle of the hexagon out to 20 px past that channel's vertex letter, so it holds both of the things it is joining; 36 px thick, growing outward over `ms` (default 1200), then held for `hold` (default 900) and faded. The angle is read off where the letter actually sits, so the three rays are 120 degrees apart because the hexagon is. Self-drawn like a `circle`, so it neither takes the hands nor gives them up. `color` defaults to the channel's own: red `#ff3333`, green `#2ecc40`, blue `#3b82f6`. |
+| `line` | `targets[]`, `ms`, `hold`, `color`, `group` | A straight bar between two targets, drawn out from the first over `ms` (default 1200), then held for `hold` (default 900) and faded. The same 8 px stroke every other callout wears. Self-drawn like a `circle`, so a drag can run underneath it, and nothing later cuts it short. Measured once: what a `line` marks is a place on a control rather than a control, and the control does not move while it stands. Beat 6.3 is what it is for — "Brightness scales off of zero" wants the zero end of the three RGB tracks marked (`"targets": ["zero:rgb-top", "zero:rgb-bottom"]`) while the handles scale away from it. It used to run between the R and B track centres; Taylor asked for the full height of the block, which is what those two names are for. |
+| `arrow` | `targets[]`, `ms`, `hold`, `color`, `group` | A `line` with a head on it: from the first target to the second, the head landing on the second and stopping clear of it so it points at the thing rather than sitting on it. It grows over `ms` (default 1200) with the head riding the tip, so a partial arrow is an arrow and not a line that sprouts a point at the end; then held for `hold` (default 900) and faded. Same 8 px stroke; `color` is any CSS color, default the layer's red. Hands-free, so the cursor is free to be hovering whatever the arrows are aimed at. Beat 3.6 is what it is for: yellow is named as red and green combined, and a red arrow off the R letter and a green one off the G letter, both landing on the Y, say that in the picture. |
 | `orbit` | `ms`, `turns`, `wobble` | Drag the hex tip round the field, so the stems follow: the hue sweeps `turns` laps (default 1) and lands back on the starting hue (whole laps go round; the fraction is an out-and-back bulge), while saturation wanders by about 3 x `wobble` (default 0.15) around where it started, held to 0.55-1.0, and returns to it. |
 | `stem` | `ch`, `amount`, `to`, `ms` | Grab the `r`, `g` or `b` stem at its midpoint and drag it along its own axis by `amount` x its length (+ outward, - inward), then let go. The channel changes by that fraction of its value. With `to` instead of `amount` the drag lands on a channel *value*, 0-255: the stem's length is its channel's value, so a pixel is worth the same everywhere along it, and the app's own reading is checked and the grip nudged still-pressed until it agrees, the way the hue pill's absolute `to` is. `"to": "start"` is the color the app was showing when the cut began — read at t=0, because a visitor may have been playing with the color before pressing Presentation, so the cut cannot write the number down. Beat 11.3 hands the tool back the way it was found with three of these, one per channel; leave about 1.8 s between them, since a `stem` pays for its trip to the stem outside its own `ms`. With `waves` the pull becomes a snake: the handle runs `amount` out along its stem and back that many times while the hand also bows across the axis, every term zero at both ends, and there is no settle because there is no value to arrive at. The app projects the pointer onto the stem's **live** direction, which rotates with the colour it is changing, so the path is not quite reversible - keep `amount` small (beat 2.8 uses 0.2) or the hue drifts further than "back where it started". |
-| `wander` | `target`, `targets[]`, `ms` | A playful curved move to the target: a cubic bezier whose two control points sit 25% of the trip off the line, one to each side, eased. With `targets` instead of `target` it is one Catmull-Rom spline from where the cursor is through every named place in turn (default `ms` 2400), eased over the whole run — a single S across the region rather than a chain of moves that stops dead at each waypoint. **A single `target` that has a box is a region rather than a place**: the hand meanders inside it on one spline through five fixed stops, 12 px in from the edges (default `ms` 2400), which is how beat 3.1 drifts over the whole `editor-card` instead of arriving at its middle. The stops are fixed rather than random, so every take is the same shot. Hover only. |
+| `wander` | `target`, `targets[]`, `ms` | A playful curved move to the target: a cubic bezier whose two control points sit 25% of the trip off the line, one to each side, eased. With `targets` instead of `target` it is one Catmull-Rom spline from where the cursor is through every named place in turn (default `ms` 2400), eased over the whole run — a single S across the region rather than a chain of moves that stops dead at each waypoint. **A single `target` that has a box is a region rather than a place**: the hand meanders inside it on one spline through five fixed stops, 12 px in from the edges (default `ms` 2400), which is how beat 3.1 drifts over the whole `editor-card` instead of arriving at its middle. The stops are fixed rather than random, so every take is the same shot. Hover only. With `points` — a list of two or three `[dx, dy]` offsets — it is a short path *beside* a single target instead: the offsets are taken from the target's anchored point (`"anchor": "below"` and the rest work as they do on a `sway`), splined through in order, and the hand is left on the last of them, so `[0, y]` ends it centred under the control. Beat 11.1 is what it is for — Taylor, round 3 of cut 05: "the cursor moving under the button with a little up/down motion as if about to click", where a `sway` retracing a figure of eight on the spot read as jerky. |
 | `demo` | | Start the built-in demo, its ghost picking up from where this one stands. |
 | `pip` | `to`, `ms` | Drag the camera panel off the right edge of the viewport (`"to": "off"`) or back to its home corner (`"to": "on"`) over `ms` (default 1200). The ghost travels to the panel's top-left corner, presses, and the panel moves with it; nothing listens, so the gesture is the whole effect. **The trip is an arc, and the panel flies it with the hand**: one cubic bezier from home to off screen, bowing 9% of the travel at the home end and 13% at the off-screen end — so the apex is past the middle — with the off-screen end sitting 80 px below home (its resting position there) plus a twentieth of the travel further, which reads as a modest rise, a sweep out to the right and a descent through the edge. `"on"` is the same curve read backwards, so it starts from that lower off-screen point too. The panel is not on a track of its own: its transform is the cursor's position less the grip, x and y, written every frame, so the two cannot come apart. `ms` is the whole drag either way — the arc is a few per cent longer than the straight line was, which is inside the pace either gesture was written at. After an `"off"` the hand curves away to the off-screen bottom-right corner it came in through, rather than being left at the lip of the edge it just crossed. A seek puts the panel wherever the last `pip` before that moment left it, square and without the gesture — 80 px below home when it is off. **A cut whose first `pip` is `"on"` opens with the panel off screen**: the schedule parks it there before a frame is drawn, and a seek back past that first cue puts it back there rather than at home. Without that the panel sat in the corner through the 400 ms the hand spends reaching off the right edge for it, which is a walkthrough opening on the thing it is about to drag in. |
 | `drift` | `ms` | Stay where the hand already is for `ms` (default 1200), wandering about ten pixels back along the line it is on and home again, with a smaller ripple across it. For a span the cut has nothing for the hand to do but has to keep it on screen — the countdown under the demo's "Have fun!" — where a parked cursor reads as a frozen frame. Every term is zero at both ends, so it neither jumps in nor out. No target: it drifts around wherever the last action left the hand. |
 | `sway` | `target`, `anchor`, `dx`, `dy`, `ms`, `waves`, `amp` | Go to the target (anchored like a `rest`, so `"anchor": "below"` stands the hand clear of it) and then sway left and right there for `ms` (default 2000): `waves` cycles (default 2) of `amp` px (default a third of the target's width, floored at 26), with a half-amplitude ripple at twice the rate so the path is a flattened figure of eight rather than a line being retraced. Both terms are zero at each end. `drift` is the same idea with no target and no travel; this one arrives first and stands under the thing the line is naming - beat 11.1 under the plugin banner's button for the whole line, 11.4 under "made by Taylor Wright". A seek restores it as a resting pose, the way `rest` and `hover` are. |
-| `slider` | `target`, `from`, `to`, `ms` | Press the track at `from` and drag to `to` (0-100 along the track) with smoothstep. Targets: `hex-sat`, `hex-bri`, `slider:<c>`, `editor-hue` (the Color Editor's hue strip, 0-360 down it; `from` defaults to the current hue, so the press lands on the marker). The travel to the track comes before `ms`, except on `editor-hue`, where it is inside `ms` (up to 400 ms; the drag gets the rest, never under 400 ms) so the drag lands before the next action takes the cursor. |
+| `slider` | `target`, `from`, `to`, `ms` | Press the track at `from` and drag to `to` (0-100 along the track) with smoothstep. Targets: `hex-sat`, `hex-bri`, `slider:<c>`, `editor-hue` (the Color Editor's hue strip, 0-360 down it; `from` defaults to the current hue, so the press lands on the marker). The travel to the track comes before `ms`, except on `editor-hue`, where it is inside `ms` (up to 400 ms; the drag gets the rest, never under 400 ms) so the drag lands before the next action takes the cursor. **A `from` the cue leaves out is read off the app** for every control that carries a whole channel of the colour: the two hexagon bars and the hue strip always did, and since round 3 of cut 05 so do the HSB bank's three rows — `slider:hsb-h` starts at the current hue over 3.6, `slider:hsb-s` and `slider:hsb-b` at the current saturation and brightness. Without that a cue with no `from` pressed at 0 and slammed the channel to nought before the drag began, and no cue could write the number down when what is on screen is whatever the RGB drags before it left (beat 2.9's hue reset is exactly that case). The RGB bank still starts from 0 unless the cue says otherwise: those cues name both ends. **A drag on an H row lands on the number, not near it**, the way the hue pill's absolute `to` does: 360 degrees on a 300 px track is more than a degree of hue per pixel, so when the drag ends the readout is checked and the grip nudged a third of a degree at a time, still pressed, until it agrees — four tries, then a warning in the console. Beat 2.15 plays the hue out and back and has to come home to the teal it started on, which is what that is for. |
 | `box` | `target`, `from`, `to`, `ms` | Drag the Color Editor's saturation/brightness handle: press at `from` and drag to `to`, each an `[s, b]` pair (0-100), with smoothstep. `target` is `editor-sb`; `from` defaults to the current color. The travel is inside `ms`, as for `editor-hue`. |
 | `tip` | `degrees`, `to`, `sat`, `ms`, `via` | Drag the hex tip so the hue turns by `degrees` at the current saturation; ends where the turn ends. Without a `via` it also takes an absolute `to` — a hue, the short way round, the way the pill's is — and a `sat`, 0-100, so one drag on the hexagon's own face lands both channels the face carries. That is what "on the hex" means in cut 04's notes: the handle the stems hang off, not the stems and not the hexagon card's saturation bar. Beats 2.5, 2.9 and 3.2 are dialed this way (round 5). Brightness is not on the face, so it stays on the card's brightness bar. With `"via": "hue-label"` the cursor takes the hexagon's hue pill (`hex-hue-label`) round the ring instead, and may be given `to` — an absolute hue, taken the short way round — in place of `degrees`, so a cue can say where the pill ends up without knowing where the last gesture left it (`degrees` wins if both are there). The grip is the pill's outer rim, on the ray from the hexagon's center, 2 px clear of it, and stays there as the pill moves with the hue. It cannot be a corner of the pill: the control reads hue as the pointer's angle from the center and draws the pill on that angle, so the pointer is always on the pill's own radial line and a pill held off to one side would swing under the cursor. With the tip on the rim the arrow's body trails away outside the pill, off the number for most of the ring (it crosses the pill for hues in the upper left, where outward is up-left and the body goes down-right). The pointer's angle is exactly the hue wanted at each frame, so pressing does not nudge the hue and a 360° turn lands back on the hue it started from. The travel to the pill scales with the distance and is nothing when the cursor is already there, so a turn cued 1.5 s before the next has its whole `ms`. **An absolute `to` lands on the number, not near it**: the app reads hue as the whole degree nearest the pointer's angle and the grip comes back about a tenth of a degree short of the ray it was computed for, which at 0 rounds the wrong way and shows 360. So when the drag ends the readout is checked, and while it disagrees the grip is nudged a third of a degree at a time — still pressed, about a pixel of movement — until it agrees; four tries, then a warning in the console. `degrees` is not settled: a relative turn is a distance travelled, and 4.1's own 359.8 means to stop a fifth of a degree short. |
 | `zigzag` | `ms`, `legs`, `degrees`, `sat`, | A zig-zag across the hexagon's field, worked on the tip handle: press where the handle already is, then cut across the field in `legs` legs (default 5) over `ms` (default 2400). The corners are values rather than places on screen — the hue steps evenly from `degrees` below the starting hue to `degrees` above it (default 70) while the saturation alternates between the two ends of `sat` (default `[35, 95]`) — so the path is a W laid over the hexagon whatever colour it starts from, and the brightness never moves. Eased leg by leg, because the corners are the one place a hand slows down. It ends on the last corner rather than back where it began: what follows reads the current hue and saturation as its own starting point. Where the tip is not on the page — the joints collapse into the middle at low saturation — the hue pill carries it instead, and the gesture is the hue half alone. |
@@ -553,6 +553,10 @@ Demo" and "Get Started" buttons; clicking `about-close` dismisses the panel
 through its normal handler), `help-button`, `editor`, `editor-top` (the
 Color Editor panel's header band, the top 60 px), `hex-field` /
 `hex-center`, `between-panels`,
+`editor-swatch` (the Color Editor's big colour swatch, `#preview-swatch` —
+new in round 3 of cut 05: beat 2.3's "let's say I have this turquoise" used to
+point at the hex readout, and what a person looks at when a colour is named is
+the colour rather than its six digits),
 `hex-tip`, `hex-hue-label` (the hexagon's hue pill, `#hue-handle`; the point
 is its outer rim, see `tip`), `hex-hue-handle-label` (new in round 4 of cut
 04, for a `circle` that has to enclose both the pill and its "Hue" caption
@@ -562,7 +566,15 @@ it, see `HueHandle.tsx`. Its point is the middle of that union and its box is th
 union grown by sqrt(2) about that middle — a `circle` draws the ellipse
 *inscribed* in the box it is given, centred on the target's own point, so before
 round 5 the ring came out pill-sized and hung off the edge of the badge, which is
-what Taylor kept seeing), `stem:r|g|b`, `corner:r|y|g|c|b|m` (a vertex of
+what Taylor kept seeing), `stem:r|g|b`, `hex-handle:r|g|b` (new in round 3 of
+cut 05: the movable point at the end of one channel's stem — the joint the
+hexagon draws as `#rgb-dot-<name>` — as against `stem:<c>`, which is the leg.
+Aimed at exactly, since the point is a grip rather than a place to stand, and a
+hover there raises the channel tooltip the way a pointer would, the `<g>` it
+sits in carrying the handlers. A ring on one follows it, the way a ring on
+`handle:<c>` does: a joint is where its channel ends and it moves with every
+one of them. Beat 3.12 closes on the blue handle and 3.13 wanders the three),
+`corner:r|y|g|c|b|m` (a vertex of
 the hexagon), `corner:<target>:<tl|tr|bl|br>` (a corner of any target that has
 a box — `corner:sliders:rgb:tl` — so a `rest` can put the hand where a `pre`
 marquee is about to start),
@@ -582,6 +594,14 @@ occupy: left and right edges on the outermost markers' own boxes, top and
 bottom on the R and B tracks or the markers, whichever reach further, padded
 14 px across and 10 px down — for a `live` `rect`),
 `hex-sat`, `hex-bri`,
+`hex-sat-handle` and `hex-bri-handle` (new in round 2 of cut 05: the *marker*
+on one of those bars rather than the bar, as the union of the arrow on the
+track (`#sat-bar-arrow`/`#bl-bar-arrow`) and, where the layout gives the bar a
+pill, the pill carrying the number (`#sat-handle`/`#bl-handle`) — so a ring
+takes the handle and its readout together. Beat 5.2 rings the saturation
+handle and the editor's `handle:hsb-s` as one group; a ring round `hex-sat`
+was a ring round the whole 420 px track. Both follow their marker the way
+`handle:<c>` does, so the ring stays on the value while the bar is dragged),
 `editor-sb` (the Color Editor's saturation/brightness box, `#sb-area`) and
 `editor-hue` (its hue strip, `#hue-bar`),
 `editor-card` (the editor's whole working area as one padded box — `#sb-wrapper`
@@ -658,6 +678,70 @@ does not take a shape down early. A `circle`, a `ray`, and a `rect` with
 `"hands": "free"`, is drawn on the layer's own frame loop rather than by the
 cursor. A seek clears them all.
 
+**A group of callouts fades in one instant.** Marks arrive in groups on one
+line — three circles and two arrows on the "cyan" line, a rect and a circle on
+a channel row — and each one used to fade when its own `hold` ran out, so the
+group came down one at a time over the second after the line. Now, when a
+callout's hold expires, every live callout whose own expiry falls within 450 ms
+of it is in the same cluster, and the whole cluster stands until the **latest**
+expiry in it and then fades together. The chain is transitive: if A is within
+the window of B and B of C, all three go at once. The cluster is worked out
+from the expiries the cut implies — a callout's start plus its `ms` plus its
+`hold`, known the moment it goes up — not from a reading of the wall clock, so
+a seek and a play-through group the same marks.
+
+`group` overrides the window. Callouts sharing a `group` name are one cluster
+however far apart their expiries are, which is for the marks on a line that are
+deliberately held for different lengths and where the last one out is meant to
+take the others with it: `"group": "cyan"` on each of them. A callout with
+`"hold": 0` is in neither — it fades on its own instant, and nothing waits for
+it. A live callout (`"live": true`, and a ring on `handle:<c>` or `hex-tip`)
+keeps re-measuring for as long as the cluster holds it up, so a box waiting for
+its group is still around the thing it is naming.
+
+The idle hand. Between cues the ghost used to sit exactly where the last
+gesture left it, sometimes for the length of a whole line. Taylor, round 1 of
+cut 05: "keep the same cursor and have it be active between all sections; if
+it's not actively doing something it can lazily move around and draw attention
+to the subject we're talking about." So once the hands have been free for
+1200 ms (`IDLE_AFTER_MS`) the cursor takes up a small slow figure where it
+stands: a flattened figure of eight, 16 px along its long axis and 45% of that
+across, one turn every 3.5 s, eased open over the first 0.9 s so it grows out
+of rest rather than starting mid-stride. Its peak speed is about 29 px/s, under
+a tenth of the runner's own 700 px/s ceiling.
+
+The figure leans toward whatever the hand last touched — the target of the last
+`rest`, `hover`, `click`, `slider` or callout — with its long axis *across* the
+line to that target and a 6 px bias along it, so it reads as a hand gesturing
+beside the thing rather than reaching for it, and it stays 12 px clear of that
+target's box the way an `anchor` does (unless the cue deliberately put the hand
+*on* the control, in which case it is left there). A hands-free callout going up
+while the hand is idle re-points the figure at its target, re-anchored on the
+point the hand has actually reached, so the attention moves without the cursor
+jumping to do it.
+
+It is a pure function of the cut's clock, the point the last gesture left, and
+that target's box, so a seek lands the hand where a play-through would have it.
+The next scheduled gesture simply takes the hands back: the driver's own
+position is carried along with the figure every frame, so the move starts from
+wherever the drift had got to, with no snap. It is off while the clock is
+paused, while the hand is parked off screen (by a `pip`, or in the corner before
+the cut has called it out), and while the built-in demo owns the screen —
+`DemoRunner` has its own ghost and its own choreography, and this is the
+presentation runner's alone.
+
+The lean. The arrow rotates toward its direction of travel as it moves, up to
+±7° at full speed (`CURSOR_TILT_MAX` in `DemoCursor.tsx`, reached at 12 px a
+frame, which is about the 700 px/s ceiling at 60 fps) and proportionally less
+below that, returning to exactly 0° at rest. Half the vertical run is folded
+into the same lean (`CURSOR_TILT_FROM_VERTICAL`), so an up/down move rocks
+rather than sliding down the screen rigidly. The angle is a pure function of the
+velocity the move interpolation produces; the runner eases it in and out through
+a light spring, and the rotation pivots on the cursor's hotspot — its tip — so
+leaning never moves the point a gesture is aiming at. Taylor, round 1 of cut 05:
+"a little sway left and right as we move up/down and left/right", "not too
+loose".
+
 Over the built-in demo. While the demo is on screen the runner's cursor is
 hidden and every due action waits in line for it to exit. One action at a time
 can opt out with `"over": "demo"`: it fires on its cue, with the ghost on
@@ -687,7 +771,10 @@ channel tooltips the same way a pointer would.
 
 The same script played against its voice track, for reviewing the cut and
 leaving notes: `src/demo/PresentationMode.tsx`. `?present=` is dev only — the
-app mounts it from that query parameter in dev builds alone — but the component
+app reads that query parameter on the dev server alone, and a build ignores it,
+so a shared link never lands a visitor in a walkthrough without its lock or its
+End button (both `ColorPicker.tsx` and `WebcamPip.tsx` return null from
+`presentName()` outside dev) — but the component
 itself has no dev guard: the same one is the shipped walkthrough, mounted by
 the app's own entry with `mode="production"` (see "Shipping it" below).
 
@@ -724,7 +811,7 @@ the app's own entry with `mode="production"` (see "Shipping it" below).
   `captionsOn` state.
   - **Word chunks (default when available).** `public/scripts/<name>
     -words.json` - copied from the master's `<cut>.words.json`
-    (`redlamp-videos/tools/transcript-align/from-whisper.mjs`), an array of
+    (written by the video pipeline's transcript-alignment tooling), an array of
     `{ text, start, end }` word timings in the cut's own seconds - is grouped
     into small HyperFrames-style read-along chunks (`buildCaptionChunks` in
     `src/demo/captions.ts`): at most 6 words and 2.4s per chunk, never
@@ -786,8 +873,8 @@ the app's own entry with `mode="production"` (see "Shipping it" below).
 - **The plan clock** (`?present=<cut>&clock=plan`) runs the same cut on its
   planned times instead of on a voice track, so the choreography can be built
   and watched before a word of it is recorded. It loads
-  `public/scripts/<cut>-plan.json` — the pacing plan written by redlamp-videos'
-  `tools/prompter/plan.mjs`, which is also what the prompter's Paced mode
+  `public/scripts/<cut>-plan.json` — the pacing plan the video pipeline writes,
+  which is also what its prompter's Paced mode
   scrolls on — and takes the lines, the beats and the duration from it. There is
   no `<audio>` element at all, so the cut plays with no `<cut>.m4a` present.
   - the clock is `performance.now()` from the moment **Space** (or Play) starts
@@ -802,7 +889,7 @@ the app's own entry with `mode="production"` (see "Shipping it" below).
     rows in the cut's lines doc;
   - the clip editor does not open: there is no clip behind a planned line.
     Notes still work, and land in the same file.
-- **Shipping it.** The component takes three more props, all optional, and all
+- **Shipping it.** The component takes four more props, all optional, and all
   only for the app's own walkthrough entry:
 
   | prop | |
@@ -810,6 +897,80 @@ the app's own entry with `mode="production"` (see "Shipping it" below).
   | `mode` | `'dev'` (the default) is the authoring tool as described above: notes, Note/Copy/Clear, the **N** and **C** keys, the clip editor and its double-click, the `/__notes` fetch (and any other `/__` request), and the collapse chrome. `'production'` mounts none of it, **regardless of `transport`**. |
   | `transport` | The separate, orthogonal knob for how much of the transport itself shows. `'full'` is the timeline with line spans and cue ticks, scrub, the time readout, the beat band on the plan clock, the line/action readout, and the keyboard transport (**Space** play/pause, arrow-left/right seek `±5s`). `'reduced'` is play/pause, a bare scrub bar and the time readout — nothing else — with **Space** still working. Defaults to `'full'` when `mode` is `'dev'` and `'reduced'` when `mode` is `'production'`, so the shipped walkthrough is reduced unless told otherwise; production with `transport="full"` still makes zero `/__` requests, since that gate is `mode` alone. |
   | `voice` | An `<audio>` the host created and played inside the click that started the walkthrough — playback needs that gesture, and only the host can call `play()` synchronously with it. The component adopts it as its clock instead of rendering its own: it is appended into the transport wearing the `present-audio` test id (which is what the camera panel reads the clock off), and its `src` is written only when it does not already point at the cut's voice, so an element that is already playing is taken over mid-flight rather than restarted. |
+  | `onLeave` | The way out. With it the reduced transport grows a red X (`present-leave`) at the right of the bar, and **Escape** calls the same thing when focus is not in a text field; without it there is no way out of the walkthrough but a reload. What leaving means is the host's: `ColorPicker`'s `leavePresentation` pauses the voice and the camera element and drops their `src` so nothing goes on downloading, unmounts the pair, and closes the built-in demo if the cut had handed off to it. The picker keeps whatever colour the cut left it on. |
+
+- **The shield: the viewer decides whether to stay, and nothing else.** The
+  shipped walkthrough (`mode="production"` with an `onLeave`) locks the app's
+  own input for as long as it is mounted - playing, paused, through the beat 10
+  hand-off to the built-in demo, and on the way out. Taylor, 2026-09-16: "during
+  the presentation we should lock out the user from hijacking interactions, they
+  can decide to leave the demo/presentation, but not override the actions in the
+  presentation." A real press, a real wheel, a real touch and every key that is
+  not the transport's are swallowed in a capture-phase listener on `window`; a
+  full-viewport transparent layer (`present-shield`, z-52 - over the plugin
+  banner at 40 and the app's panels at 50, under the camera panel at 55, the
+  ghost at 60 and the bar at 80) carries the offer, and
+  `html[data-present-locked]` in `presentation-bar.css` takes the app's cursors
+  and its touch-action back, since a lock that still promises a slider is a
+  lock that reads as a bug.
+  - **Not locked:** the transport bar. Play/pause (**Space** or the button),
+    the scrub track, the arrows (`±5s`, enabled on the reduced transport by
+    this), the X and **Escape**. Tab cycles the bar's own buttons and goes
+    nowhere else; `inert` on the app would have been the tidier lock, but there
+    is no one element to put it on - `#root` holds the background layer and the
+    app column as siblings, `#app-stage` leaves the plugin banner out, and the
+    About and Settings panels are portals of their own in `<body>`.
+  - **Not locked either: the cut.** The line is `isTrusted`, not a layer: the
+    runner works the app through events it dispatches itself, so its clicks,
+    its drags and its scrolls are untouched, and so are the app's own hit tests
+    (`drive.ts`'s hover sync, the hexagon's stem pick, the swatch drop target)
+    which a layer with `pointer-events: auto` would have answered with the
+    shield instead of with the control under it. It is the line the built-in
+    demo already draws, and the demo's own "any real press ends the demo" now
+    stands down while the shield is up (`DemoRunner.tsx`) - during the hand-off
+    the demo is a chapter of the cut, not something the viewer started.
+  - **The offer.** A press that stays put - anywhere but the bar - opens a small
+    centred dialog wearing the About panel's card and buttons: "End the
+    presentation?", **End** (the bar's destructive style and X glyph, and the
+    same `beginLeave` the bar's End calls) and **Keep watching**. Taylor
+    again, on what a click over the app should do: "nothing, if the user clicks
+    the shield, offer a panel to leave the presentation." Nothing pauses to ask,
+    so nothing resumes on the answer; focus moves to Keep watching and returns
+    to the bar; **Escape** closes the question rather than answering it, so
+    leaving by keyboard is Escape twice; another press on the shield closes it
+    too. It fades over 150ms, or not at all under `prefers-reduced-motion`.
+
+- **The shipped bar follows the app's theme.** Every colour on the reduced
+  transport is a `--bar-*` custom property from `src/demo/presentation-bar.css`,
+  declared on the `.present-bar` class the bar's root carries and redeclared
+  under `.dark .present-bar`: background, text, the muted section labels, the
+  track, the section ticks, the current label's glow and the playhead's halo.
+  The theme is the app's own `.dark` class on `<html>` (`useTheme.tsx`) rather
+  than the OS preference, so `light-dark()` would answer the wrong question.
+  The bar sits a step darker than the page in either theme - `#111` under the
+  dark page's `#181818`, `#e2e2e2` under the light page's `#f4f4f4` - and the
+  top fade is those same tokens through `color-mix()`, which is why the
+  gradient lives in the stylesheet and not inline. The playhead stays `#ff8000`
+  in both themes; hue 30 is the point of it. The dev transport carries no class
+  and keeps its fixed tool colours.
+
+- **The bar slides in and out, and the cut's end leaves.** On the shipped
+  transport the bar mounts fully below the viewport and is let up over 300ms
+  (`.present-bar` / `.present-bar-in` in `presentation-bar.css`, on the
+  standard decelerating curve - the app has no one shared easing to borrow).
+  `translateY` does not change the border box, so the height published to
+  `frameState` is the resting height from the first frame and the camera
+  panel's home corner does not chase the animation. Every way out plays the
+  same move in reverse and only then calls `onLeave`, which is what unmounts
+  the bar, the voice and the panel: the X and **Escape** are inert once it has
+  started, and the panel fades over the same 300ms through `setBarLeaving` in
+  `frameState.ts` (mid-cut the cut has usually already dragged it off the
+  right edge, so this only shows on an early exit). The third way out is the
+  voice track's own `ended`, 1.5s later - long enough for the last frame and
+  the panel's drag-out to settle, and cancelled if the viewer plays or scrubs
+  inside that gap. `prefers-reduced-motion: reduce` drops the slide and the
+  wait both. None of it applies to the dev transport, which mounts and
+  unmounts on a frame and stays put at the end of the track.
 
 - **The opening starts together.** Three things on the shipped path used to
   drift apart, and all three are the same gap: the host starts the voice inside
@@ -850,9 +1011,10 @@ the app's own entry with `mode="production"` (see "Shipping it" below).
 - Notes persist through a dev-server middleware in `vite.config.js`:
   `GET`/`POST /__notes/<name>` reads and writes
   `<PRESENTATION_NOTES_DIR>/<name>-notes.json` as
-  `{ "source": "<name>", "notes": [...] }`. The default directory is the
-  cut's cue folder in the videos repo,
-  `C:\workspace\redlamp-videos\videos\color-taylor-demo-test\cues`.
+  `{ "source": "<name>", "notes": [...] }`. The route is off by default -
+  it 404s with `{ error: 'PRESENTATION_NOTES_DIR is not set' }` - until
+  `PRESENTATION_NOTES_DIR` is pointed at the cut's cue folder in the video
+  pipeline's working tree.
 - **`public/scripts/` is not watched.** `server.watch.ignored` in
   `vite.config.js` keeps chokidar off it: the pipeline replaces those files
   while the dev server runs, and the unlink path took the server down with
@@ -946,12 +1108,26 @@ picture is without knowing the layer exists.
 
 ### The camera panel
 
-`WebcamPip` stays in screen space. With a frame layer up its home corner is the
-**capture box's** bottom-right corner, at the usual 20 px margin, rather than
-being measured off the app's right edge — the page is being scaled and panned
+`WebcamPip` stays in screen space. Its home is the bottom-right corner of the
+screen: `bottom` is 20 px above the transport bar where there is one (the bar
+publishes its measured height through `frameState.ts`, which is also how the
+panel hears about a frame layer) and 20 px above the foot of the window where
+there is not — the `?script=` recording path has no bar. `left` puts it 20 px
+in from the right edge of a box that is **the viewport width capped at 1920 and
+centred in it**: up to 1920 that is simply 20 px off the display's right edge,
+and past it the corner stops walking outwards, because the picture is 1920 wide
+and a panel that keeps travelling with a very wide window ends up nowhere near
+anything the audience is looking at. At 2560 wide the panel's right edge is
+therefore 340 px in from the window's. This replaced an older rule that centred
+the panel in the gap between the app's right edge and the window's.
+
+With a frame layer up its home corner is the **capture box's** bottom-right
+corner instead, at the usual 20 px margin — the page is being scaled and panned
 underneath it, and a panel measured off the page would walk around with the
-frame. Its size is unchanged, and the `pip` drag on and off still runs in
-viewport coordinates, so both gestures are untouched.
+frame. That rule wins over the 1920 bound, and the bar's height is still added
+on top of it. Its size is unchanged, and the `pip` drag on and off still runs in
+viewport coordinates against whatever home is current (`parkPip` measures home
+off the element itself), so both gestures are untouched.
 
 Deferred: the drag's off-screen position is still the *window's* right edge
 rather than the capture box's. They are the same thing at 16:9 in a 16:9

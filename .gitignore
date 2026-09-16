@@ -46,6 +46,18 @@ dist-lab
 public/scripts/*.m4a
 
 # Camera picture-in-picture clips for presentation mode, cut from the take by
-# redlamp-videos tools/takes/cut-pip-clips.mjs. Footage is not source; the
-# manifest beside them (scripts/<cut>-pip.json) is.
+# the video pipeline; the manifest beside them (scripts/<cut>-pip.json) is
+# the source of truth.
 public/scripts/pip/
+
+# The shipping cut's media, and only that cut's: the walkthrough on the live
+# site plays these two files. Other cuts stay ignored above.
+!public/scripts/cut-05.m4a
+# A directory rule cannot be negated file by file, so the pip tree is walked:
+# reopen the folder, ignore its contents, reopen the cut, ignore its contents,
+# then admit the one clip.
+!public/scripts/pip/
+public/scripts/pip/*
+!public/scripts/pip/cut-05/
+public/scripts/pip/cut-05/*
+!public/scripts/pip/cut-05/full.mp4
