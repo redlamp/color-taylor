@@ -64,10 +64,14 @@ export function resolveSectionMarks(
 }
 
 /** One laid-out label: pixel position (its rotation anchor) and the full,
- *  untruncated text. */
+ *  untruncated text. `leftPx` is the anchor after collision resolution has
+ *  possibly moved it off its section's start; `anchorPx` keeps the original
+ *  section-start position, unused today but there for a future leader line
+ *  back to the tick it was pushed off of. */
 export interface SectionLabelLayout {
   mark: SectionMark;
   leftPx: number;
+  anchorPx: number;
   text: string;
 }
 
@@ -88,18 +92,43 @@ const LABEL_ROW_PADDING = 2;
 let measureCtx: CanvasRenderingContext2D | null | undefined;
 function measure(text: string): number {
   if (measureCtx === undefined) {
-    measureCtx = document.createElement('canvas').getContext('2d');
+    // `bun test` runs sections.ts with no DOM at all (no jsdom shim), not
+    // just a canvas-less one, so guard the global itself rather than only
+    // the context it would return.
+    measureCtx = typeof document === 'undefined' ? null : document.createElement('canvas').getContext('2d');
   }
-  if (!measureCtx) return text.length * 7.2; // no canvas (jsdom etc.): a rough monospace estimate
+  if (!measureCtx) return text.length * 7.2; // no canvas (bun test, jsdom, etc.): a rough monospace estimate
   measureCtx.font = LABEL_FONT;
   return measureCtx.measureText(text).width;
 }
 
+/** Minimum horizontal gap (px) kept between two labels' extents, so
+ *  adjacent text never reads as touching even at the tightest width. */
+const LABEL_MIN_GAP = 6;
+/** Passes the overlap-resolution loop below will make before giving up.
+ *  A push can open a new overlap with the next neighbour, so one pass isn't
+ *  enough in general, but Taylor's row of ~12 sections settles in far fewer
+ *  than this. */
+const LABEL_RESOLVE_PASSES = 12;
+
+/** How far right of its anchor a label of unrotated width `w` reaches once
+ *  tilted `LABEL_ANGLE_DEG` about its bottom-left corner: the text run's own
+ *  horizontal reach plus the sliver the line height contributes at that
+ *  angle. */
+function labelExtent(w: number): number {
+  return w * Math.cos(LABEL_ANGLE_RAD) + LABEL_LINE_HEIGHT * Math.sin(LABEL_ANGLE_RAD);
+}
+
 /**
  * Lay out resolved section marks along a `containerWidth`-px timeline
- * (`duration` seconds wide): one label per mark, left end anchored at the
- * mark's own position, full text, no packing and no truncation — the
- * -15deg tilt applied by the caller is what keeps them from overlapping.
+ * (`duration` seconds wide): one label per mark, anchored at the mark's own
+ * position, full text, no truncation. The tilt keeps most neighbours clear
+ * of each other, but a run of short sections (or a long label butting a
+ * short one) can still overlap, so afterward each pair is pushed apart —
+ * left label left, right label right, split evenly — the way Taylor called
+ * it out on the Figma pass: "Figma moves left a little, Outro moves right a
+ * little, until they're no longer overlapped." Ticks are untouched; only
+ * the label text moves off its anchor.
  */
 export function layoutSectionLabels(
   marks: SectionMark[],
@@ -107,9 +136,65 @@ export function layoutSectionLabels(
   containerWidth: number,
 ): SectionLabelLayout[] {
   if (!duration || !containerWidth || !marks.length) return [];
-  return [...marks]
-    .sort((a, b) => a.t - b.t)
-    .map((mark) => ({ mark, leftPx: (mark.t / duration) * containerWidth, text: mark.label }));
+  const sorted = [...marks].sort((a, b) => a.t - b.t);
+  const layouts = sorted.map((mark) => {
+    const anchorPx = (mark.t / duration) * containerWidth;
+    return { mark, leftPx: anchorPx, anchorPx, text: mark.label, extent: labelExtent(measure(mark.label)) };
+  });
+
+  // Repeated left-to-right sweep: a push to resolve one pair can reopen (or
+  // create) an overlap with the next, so keep sweeping until a full pass
+  // makes no change or the pass cap is hit.
+  for (let pass = 0; pass < LABEL_RESOLVE_PASSES; pass++) {
+    let moved = false;
+    for (let i = 0; i < layouts.length - 1; i++) {
+      const left = layouts[i];
+      const right = layouts[i + 1];
+      const overlap = left.leftPx + left.extent + LABEL_MIN_GAP - right.leftPx;
+      if (overlap > 0) {
+        left.leftPx -= overlap / 2;
+        right.leftPx += overlap / 2;
+        moved = true;
+      }
+    }
+    if (!moved) break;
+  }
+
+  // Clamp to the track: the first label can't start left of it and the last
+  // can't reach past its right edge. Each clamp only ever moves its own
+  // label inward, which can reopen an overlap with its neighbour, so each
+  // is followed by a one-directional repair sweep away from the edge that
+  // moved — right-to-left off the right clamp, left-to-right off the left
+  // clamp — rather than the two-directional overlap loop above, which would
+  // just push a clamped label back out past the edge it was pinned to. Two
+  // rounds: a repair sweep can itself push the far end past its edge again
+  // (a short track with several wide labels), so the second round catches
+  // that before the pass cap gives up.
+  for (let round = 0; round < 2 && layouts.length; round++) {
+    const last = layouts[layouts.length - 1];
+    const rightEdge = last.leftPx + last.extent;
+    if (rightEdge > containerWidth) {
+      last.leftPx -= rightEdge - containerWidth;
+      for (let i = layouts.length - 1; i > 0; i--) {
+        const left = layouts[i - 1];
+        const right = layouts[i];
+        const overlap = left.leftPx + left.extent + LABEL_MIN_GAP - right.leftPx;
+        if (overlap > 0) left.leftPx -= overlap;
+      }
+    }
+    const first = layouts[0];
+    if (first.leftPx < 0) {
+      first.leftPx = 0;
+      for (let i = 0; i < layouts.length - 1; i++) {
+        const left = layouts[i];
+        const right = layouts[i + 1];
+        const overlap = left.leftPx + left.extent + LABEL_MIN_GAP - right.leftPx;
+        if (overlap > 0) right.leftPx += overlap;
+      }
+    }
+  }
+
+  return layouts.map(({ mark, leftPx, anchorPx, text }) => ({ mark, leftPx, anchorPx, text }));
 }
 
 /**
