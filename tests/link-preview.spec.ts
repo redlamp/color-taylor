@@ -50,7 +50,7 @@ test.describe('Link preview metadata', () => {
     // The declared dimensions are used to lay the card out before the image
     // arrives, so a stale value shows as a reflow in the preview.
     await expect(meta(page, 'og:image:width')).toHaveAttribute('content', '1200');
-    await expect(meta(page, 'og:image:height')).toHaveAttribute('content', '675');
+    await expect(meta(page, 'og:image:height')).toHaveAttribute('content', '630');
   });
 
   test('the card copy matches the manifest', async ({ page, request }) => {

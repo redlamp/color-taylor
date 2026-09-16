@@ -7,17 +7,16 @@
  * (node, not bun - chromium.launch() hangs under bun on Windows. Same reason as
  * scripts/make-favicons.mjs, which this deliberately mirrors.)
  *
- * Source: figma/brand/cover-1920x1080.png - the export of "thumbnail / 1920x1080
- * / 16:9", node 49:3 in the Color Taylor Figma file. Sharing the one artwork is
+ * Source: figma/brand/og-1200x630.png - the export of "thumbnail / 1200x630 /
+ * 40:21", node 181:54 in the Color Taylor Figma file, a sibling of the Community
+ * thumbnail (49:3) laid out for Open Graph's own size. Sharing the one artwork is
  * the point: the Community listing and a link pasted into WhatsApp or Discord
  * should look like the same product.
  *
- * Two transforms, both deliberate:
- *
- * 1920x1080 scales to 1200x675, the full 16:9 frame with nothing trimmed
- * (Taylor, 2026-09-16, with the thumbnail's second tagline line near the foot).
- * It was centre-cropped to Open Graph's 1.905:1 until then; platforms that want
- * 1.91:1 now crop the 22px each way themselves, and Discord shows it whole.
+ * No crop and no scale. Until 2026-09-16 this cropped the 1920x1080 thumbnail
+ * to 1.905:1 in code; the card now has its own designed frame at that size, so
+ * nothing is trimmed and the script only compresses. Platforms crop toward
+ * 1.91:1, so a card already that shape is shown as designed everywhere.
  *
  * JPEG, not PNG. The same frame encodes to 884 KB as PNG and 79 KB at quality
  * 0.92 - it is a continuous colour field, which is what JPEG is for. Size is not
@@ -31,14 +30,14 @@ import { dirname, join } from 'node:path';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = join(HERE, '..');
-const SRC = join(REPO, 'figma', 'brand', 'cover-1920x1080.png');
+const SRC = join(REPO, 'figma', 'brand', 'og-1200x630.png');
 const OUT = join(REPO, 'public', 'og-image.jpg');
 
 // Keep these in step with the og:image:width / og:image:height tags in
 // index.html - the meta values are read by scrapers that lay out the card
 // before the image finishes downloading, so a mismatch shows as a reflow.
 const WIDTH = 1200;
-const HEIGHT = 675;
+const HEIGHT = 630;
 const QUALITY = 0.92;
 
 const { chromium } = await import(
@@ -57,7 +56,9 @@ const dataUrl = await page.evaluate(
     img.src = src;
     await img.decode();
 
-    // Centre crop the source to the output aspect, then scale in one drawImage.
+    // The source is already 1200x630, so this draws it 1:1. The centre crop
+    // stays as a guard: a re-export at another size still comes out at the
+    // declared size rather than stretched.
     const sh = Math.round((img.width * height) / width);
     const sy = Math.round((img.height - sh) / 2);
 

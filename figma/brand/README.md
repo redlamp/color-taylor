@@ -17,11 +17,13 @@ connecting lines dissolve below about 32px. `scripts/make-favicons.mjs` turns
 these three PNGs into everything in `public/` - run it after re-exporting any
 of them.
 
-`cover-1920x1080.png` has a second consumer: `scripts/make-og-image.mjs` scales
-it to 1200x675 and compresses it into `public/og-image.jpg`, the link-preview card the web app
-shows when its URL is pasted into WhatsApp, Discord, Slack, X or Bluesky. Same
-artwork on the Community listing and in a chat window, on purpose - see
-[[decision-link-preview-card]]. Re-run it too after re-exporting the thumbnail.
+`og-1200x630.png` is the link-preview card's source: the "thumbnail / 1200x630 /
+40:21" frame, node 181:54, a sibling of the Community thumbnail laid out at Open
+Graph's size. `scripts/make-og-image.mjs` compresses it into `public/og-image.jpg`,
+the card the web app shows when its URL is pasted into WhatsApp, Discord, Slack,
+X or Bluesky. Same artwork on the Community listing and in a chat window, on
+purpose - see [[decision-link-preview-card]]. Re-export both frames and re-run it
+after changing the thumbnail.
 
 `thumbnail-1200x675.jpg` is the repository README's header image: the "thumbnail / 1200x675 / 16:9" frame, node 181:3, exported at 1x and saved as JPEG at quality 92. It is 16:9 so GitHub shows it whole, and it is kept apart from `public/og-image.jpg` so the link card's size can change without touching the README.
 

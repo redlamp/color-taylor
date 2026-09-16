@@ -24,13 +24,13 @@ A scraper never loads the document. It fetches the HTML, reads `og:image`, and r
 
 So `og:image` and `og:url` are fully qualified, filled from a new `%SITE_URL%` token by a `transformIndexHtml` plugin in `vite.config.js` that mirrors how Vite fills `%BASE_URL%`. It derives the origin from the same `base` expression, so the dev deploy advertises `/color-taylor/dev/` and production advertises `/color-taylor/`. The default `./` build falls back to the production URL — a `file://` preview is never scraped, and pointing at the live site beats emitting something broken.
 
-## JPEG, and 1200x675 (was 1200x630)
+## JPEG, and 1200x630
 
 Both were measured, not assumed.
 
 **Format.** The same frame is 884 KB as PNG and 79 KB as JPEG at quality 0.92. It is a continuous colour field, which is what JPEG is for. Size is not cosmetic: WhatsApp is the strictest consumer here and drops previews for large images without saying so. WebP came out smaller still (40 KB) and was rejected — not every scraper decodes it, and 79 KB is already far inside every limit.
 
-**Aspect, 2026-09-16.** Taylor refreshed the thumbnail (node 49:3) and asked for no trimming: the card is now the whole 16:9 frame at 1200x675. It is the trade recorded below taken the other way: platforms that want 1.91:1 crop about 22 px top and bottom themselves, and Discord shows it whole. The frame's text sits between roughly y=140 and y=530 of 675, clear of any such crop.
+**Aspect, 2026-09-16.** Taylor refreshed the thumbnail and designed it at three sizes (Figma section 181:106): 1920x1080 for the Community listing (49:3), 1200x675 for the README (181:3), and 1200x630 for this card (181:54). The card is now its own frame at Open Graph's size, exported as `figma/brand/og-1200x630.png`, so the crop described below is no longer done in code: nothing is trimmed, and the shape platforms crop toward is the shape it already has.
 
 **Aspect, as first decided.** The thumbnail is 16:9; Open Graph's de facto size is 1200x630, or 1.905:1. The script centre-crops 36 source pixels off the top and bottom, which at that scale takes only empty backdrop — the title block sits between y=210 and y=740 and the hexagon bleeds off three edges. Shipping 16:9 instead would not avoid the crop, only move it to each platform, where it happens centred but unpredictably and outside our control. Discord is the one that would have shown the full 16:9; giving up that one is worth the guarantee everywhere else.
 
