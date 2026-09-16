@@ -19,11 +19,14 @@ import { Film, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 /**
- * The narrated walkthrough drives the full desktop layout - it drags a camera
+ * The narrated walkthrough drives the two-column layout - it drags a camera
  * panel around the margin and points at controls that are not on screen at all
- * on a phone - so below this the entry is not offered.
+ * on a phone - so the entry is offered exactly where the picker has two
+ * columns. That is ColorPicker's `min-[800px]` grid breakpoint; Tailwind needs
+ * the class spelled out, so the number lives twice and this one follows that
+ * one.
  */
-const PRESENTATION_MIN_WIDTH = 900;
+const PRESENTATION_MIN_WIDTH = 800;
 
 /**
  * Live, not read once: someone who widens a window should be offered the

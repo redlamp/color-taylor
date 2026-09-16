@@ -4,7 +4,7 @@ import { CURRENT_CUT } from '../src/demo/currentCut';
 /**
  * The welcome panel: shown once on a first visit, from the header's ? and from
  * Settings after that. It is the one door to the demo and to the narrated
- * walkthrough, so the entries and the 900px gate on the walkthrough are here.
+ * walkthrough, so the entries and the 800px gate on the walkthrough are here.
  *
  * The suite's default storage state has already seen it (it is modal, and on a
  * first visit it would eat the first click of every other test), so everything
@@ -130,7 +130,7 @@ test.describe('Welcome panel', () => {
     expect(Math.abs(demo.y - presentation.y)).toBeLessThan(1.5);
   });
 
-  // A "phone" width is always below the 900px gate (sm itself is 640), so
+  // A "phone" width is always below the 800px gate (sm itself is 640), so
   // Presentation is never offered here - the stacking this checks is the
   // Get Started / Demo arrangement, which is all a phone ever sees.
   test('Get Started and Demo stack full width on a phone, Get Started first', async ({ page }) => {
@@ -151,8 +151,8 @@ test.describe('Welcome panel', () => {
     expect(demo.y).toBeGreaterThan(getStarted.y);
   });
 
-  test('gated at 880px, Demo alone fills row two at Get Started\'s width', async ({ page }) => {
-    await page.setViewportSize({ width: 880, height: 860 });
+  test('gated at 780px, Demo alone fills row two at Get Started\'s width', async ({ page }) => {
+    await page.setViewportSize({ width: 780, height: 860 });
     await page.goto('/');
     await page.locator('#demo-button').click();
     await expect(panel(page)).toBeVisible();
@@ -165,8 +165,8 @@ test.describe('Welcome panel', () => {
     expect(Math.abs(getStarted.width - demo.width)).toBeLessThan(1.5);
   });
 
-  test('the presentation entry is gated at 900px, live', async ({ page }) => {
-    await page.setViewportSize({ width: 1000, height: 860 });
+  test('the presentation entry is gated at 800px, the two-column breakpoint, live', async ({ page }) => {
+    await page.setViewportSize({ width: 900, height: 860 });
     await page.goto('/');
     await page.locator('#demo-button').click();
     await expect(panel(page)).toBeVisible();
@@ -174,13 +174,13 @@ test.describe('Welcome panel', () => {
 
     // Not disabled, not rendered - and without a reload, because the query is
     // subscribed rather than read once.
-    await page.setViewportSize({ width: 880, height: 860 });
+    await page.setViewportSize({ width: 780, height: 860 });
     await expect(panel(page).locator('#about-presentation')).toHaveCount(0);
     await expect(panel(page).locator('button')).toHaveCount(2);
     // The demo has no gate of its own.
     await expect(panel(page).locator('#about-watch-demo')).toBeVisible();
 
-    await page.setViewportSize({ width: 1000, height: 860 });
+    await page.setViewportSize({ width: 900, height: 860 });
     await expect(panel(page).locator('#about-presentation')).toBeVisible();
   });
 
