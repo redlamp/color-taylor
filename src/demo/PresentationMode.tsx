@@ -1140,13 +1140,24 @@ export default function PresentationMode({
             // against 0.45) because everything on this bar is 12px monospace
             // over whatever the app happens to be showing, and the line spans
             // and cue ticks need their contrast.
-            background: 'rgba(27,27,31,0.72)',
+            // The shipped bar (Taylor's Figma node 172:1479) has no rule and
+            // no hard top edge: it fades up from near-black into the page,
+            // so the app shows through its top and the bar reads as a
+            // surface of the app rather than a tool parked on it. The dev
+            // transport keeps the orange rule and the flat tint.
+            ...(fullTransport
+              ? {
+                  background: 'rgba(27,27,31,0.72)',
+                  borderTop: '2px solid #f5a623',
+                  boxShadow: '0 -4px 16px rgba(0,0,0,0.4)',
+                }
+              : {
+                  background: 'linear-gradient(to bottom, rgba(23,23,23,0) 0%, rgba(23,23,23,0.6) 35%, rgba(23,23,23,0.94) 60%, rgba(23,23,23,0.94) 100%)',
+                }),
             backdropFilter: 'blur(6px)',
             WebkitBackdropFilter: 'blur(6px)',
             color: '#e6e6e6',
             font: '12px/1.4 ui-monospace, Consolas, monospace',
-            borderTop: '2px solid #f5a623',
-            boxShadow: '0 -4px 16px rgba(0,0,0,0.4)',
             padding: shrunk ? '4px 12px' : '6px 12px 8px',
             userSelect: 'none',
           }}
@@ -1543,8 +1554,11 @@ export default function PresentationMode({
                 width: 3,
                 marginLeft: -1.5,
                 borderRadius: 2,
-                background: '#7fd4ff',
-                boxShadow: '0 0 4px rgba(127,212,255,0.9)',
+                // Hue 30 on the shipped bar - the cut's own orange, the colour
+                // the script keeps coming back to - and the tool's blue on the
+                // dev transport.
+                background: fullTransport ? '#7fd4ff' : '#ff8000',
+                boxShadow: fullTransport ? '0 0 4px rgba(127,212,255,0.9)' : '0 0 4px rgba(255,128,0,0.9)',
                 // Decoration, not a control: pressing it should scrub the
                 // track underneath, not swallow the click. Without this, the
                 // first click of a double-click seeks the playhead to sit
@@ -1636,15 +1650,16 @@ export default function PresentationMode({
                   flex: '0 0 auto',
                   display: 'flex',
                   flexDirection: 'column',
-                  alignItems: 'flex-start',
+                  alignItems: 'center',
                   gap: 8,
                   width: 3 * 32 + 2 * 8,
                 }}
               >
                 {/* The app's own monospace at the slider values' size, not the
                     bar's default face: this clock is the one thing on the
-                    shipped bar an audience reads, and tabular figures keep it
-                    from twitching as the tenths turn over. */}
+                    shipped bar an audience reads. Whole seconds - tenths are
+                    for placing cues, not for watching - centred over the
+                    buttons, and tabular figures so the digits hold still. */}
                 <span
                   data-testid="present-time"
                   className="text-sm"
@@ -1655,7 +1670,7 @@ export default function PresentationMode({
                     color: '#e6e6e6',
                   }}
                 >
-                  {mmssTenths(time)} / {mmss(duration)}
+                  {mmss(time)} / {mmss(duration)}
                 </span>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <Button
