@@ -676,11 +676,18 @@ export function useFrames({ name, host, time, enabled, authoring }: UseFramesOpt
       e.preventDefault();
       e.stopPropagation();
       if (key === 'f') setFull((v) => !v);
-      else resetRegionRef.current();
+      // R writes to disk at once, like every edit here, and it rewrites the
+      // keyframe in force - at the top of the cut, keyframe 0. Three times
+      // on 2026-09-16 a stray R in a tab that was only watching the framed
+      // picture turned the opening 130% into `reset` in both repos and a
+      // take went out at 100%. So R works only in the full-page view (F),
+      // where the outlines are up and the editor is plainly in use; the
+      // Reset button in the cyan group is unchanged.
+      else if (full) resetRegionRef.current();
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
-  }, [active, authoring]);
+  }, [active, authoring, full]);
 
   const persist = useCallback((next: Keyframe[], clear = false) => {
     setKeyframes(next);

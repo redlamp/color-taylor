@@ -426,7 +426,7 @@
     },
     {
       "do": "rest",
-      "target": "hue-at:60",
+      "target": "letter:y",
       "at": 119.73
     },
     {
@@ -449,8 +449,15 @@
     },
     {
       "do": "click",
-      "target": "hue-at:60",
+      "target": "letter:y",
       "at": 120.63
+    },
+    {
+      "do": "hover",
+      "target": "letter:y",
+      "anchor": "below",
+      "ms": 1400,
+      "at": 121.23
     },
     {
       "do": "arrow",
@@ -478,7 +485,7 @@
     },
     {
       "do": "rest",
-      "target": "hue-at:180",
+      "target": "letter:c",
       "at": 123.17
     },
     {
@@ -501,8 +508,15 @@
     },
     {
       "do": "click",
-      "target": "hue-at:180",
+      "target": "letter:c",
       "at": 124.07
+    },
+    {
+      "do": "hover",
+      "target": "letter:c",
+      "anchor": "below",
+      "ms": 1400,
+      "at": 124.67
     },
     {
       "do": "arrow",
@@ -530,7 +544,7 @@
     },
     {
       "do": "rest",
-      "target": "hue-at:300",
+      "target": "letter:m",
       "at": 126.46
     },
     {
@@ -553,8 +567,15 @@
     },
     {
       "do": "click",
-      "target": "hue-at:300",
+      "target": "letter:m",
       "at": 127.26
+    },
+    {
+      "do": "hover",
+      "target": "letter:m",
+      "anchor": "below",
+      "ms": 1400,
+      "at": 127.86
     },
     {
       "do": "arrow",
@@ -608,14 +629,6 @@
       "ms": 1200,
       "hold": 2500,
       "at": 134.9
-    },
-    {
-      "do": "slider",
-      "target": "hex-bri",
-      "to": 100,
-      "ms": 700,
-      "from": 60,
-      "at": 135.96
     },
     {
       "do": "rest",
