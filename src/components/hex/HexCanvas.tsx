@@ -1,8 +1,9 @@
 import { useRef, useEffect, useState } from 'react';
 import { hsbToRgb, hslToRgb, linearToSrgb } from '../../utils/colorConversions';
 import type { ColorSpace } from '../../utils/sliderGradients';
-import { HEX_SIZE, SIZE, CENTER_X, CENTER_Y, RADIUS, PI, shapeEdgeDist, shapeLimitScale, type BLMode } from './hexConstants';
+import { HEX_SIZE, CENTER_X, CENTER_Y, RADIUS, PI, shapeEdgeDist, shapeLimitScale, type BLMode } from './hexConstants';
 import { createHexGL, type HexGL } from './hexShader';
+import { onFrameChange, frameScale } from '../../demo/frameState';
 
 /**
  * The field, drawn the way the geometry actually works.
@@ -99,7 +100,7 @@ function buildField(isLinear: boolean, brightness: number, lightness: number, mo
   return data;
 }
 
-export default function HexCanvas({ brightness, lightness = 50, blMode = 'brightness', colorSpace, extent = SIZE, svgHeight = HEX_SIZE, shapeMix = 1 }: { brightness: number; lightness?: number; blMode?: BLMode; colorSpace: ColorSpace; extent?: number; svgHeight?: number; shapeMix?: number }) {
+export default function HexCanvas({ brightness, lightness = 50, blMode = 'brightness', colorSpace, shapeMix = 1 }: { brightness: number; lightness?: number; blMode?: BLMode; colorSpace: ColorSpace; shapeMix?: number }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const glRef = useRef<HexGL | null | undefined>(undefined);
   const [box, setBox] = useState({ w: HEX_SIZE, h: HEX_SIZE });
@@ -107,6 +108,21 @@ export default function HexCanvas({ brightness, lightness = 50, blMode = 'bright
   // Render at the size actually shown. The 2D path used to paint a fixed
   // 540x540 bitmap and let CSS stretch it, which is why a wide panel looked
   // soft.
+  //
+  // A ResizeObserver alone is not enough under the presentation. The frame
+  // layer (src/demo/Frames.tsx) magnifies the whole app with a CSS transform
+  // on #root, which changes how big this canvas is on screen without changing
+  // its layout size at all - so the observer never fires, the backing store
+  // stays at the layout 540, and at 130% the field is being stretched by the
+  // GPU and looks soft and jaggy. Subscribing to the frame layer's scale and
+  // measuring again is the whole fix: getBoundingClientRect already reports
+  // the transformed size, and setFrameState notifies after the frames layer
+  // has written the transform, so a plain call reads the new one.
+  //
+  // This is the first place the app's own code imports from src/demo. It is a
+  // module of plain state with a subscription and nothing else (no React, no
+  // DOM), and outside the presentation the scale is 1 and nothing ever
+  // notifies, so the canvas behaves exactly as it did before.
   useEffect(() => {
     const el = canvasRef.current;
     if (!el) return;
@@ -120,7 +136,18 @@ export default function HexCanvas({ brightness, lightness = 50, blMode = 'bright
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
-    return () => ro.disconnect();
+    // The same module tells its listeners about the transport bar's height as
+    // well as the frame scale, and that one moves for reasons that have
+    // nothing to do with this canvas - so remember the scale and only measure
+    // when it is the thing that changed.
+    let seen = frameScale();
+    const off = onFrameChange(() => {
+      const now = frameScale();
+      if (now === seen) return;
+      seen = now;
+      measure();
+    });
+    return () => { ro.disconnect(); off(); };
   }, []);
 
   useEffect(() => {
@@ -160,12 +187,12 @@ export default function HexCanvas({ brightness, lightness = 50, blMode = 'bright
     <canvas
       id="hex-canvas"
       ref={canvasRef}
-      className="absolute top-0 left-0 rounded-sm"
-      // The field is HEX_SIZE user units square. Both axes are percentages of
-      // the wrapper for that reason - `height: 100%` was only ever right while
-      // the wrapper was exactly HEX_SIZE tall, and it stretches the hexagon
-      // past its own outline once the saturation bar makes the box taller.
-      style={{ width: `${(HEX_SIZE / extent) * 100}%`, height: `${(HEX_SIZE / svgHeight) * 100}%` }}
+      // The field is HEX_SIZE units square and so is the box it is given now,
+      // so it simply fills it. It used to take a percentage of a wrapper that
+      // was sized for the bars as well, and every host had its own pair.
+      // w-full/h-full, not inset-0: a canvas is a replaced element, so `width:
+      // auto` resolves to its intrinsic 300x150 and the insets are ignored.
+      className="absolute top-0 left-0 w-full h-full rounded-sm"
     />
   );
 }

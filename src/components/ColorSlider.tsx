@@ -203,14 +203,24 @@ function ColorSlider({ label, group, value, max, gradient, suffix, wrap, onChang
   const sliderId = `slider-${channel}`;
   const channelName = CHANNEL_NAMES[channel] ?? label;
 
+  // Beside a stepper the row is the stepper's h-8, and the track and letter
+  // centre on it. The arrow marker needs no padding for its room then: it
+  // hangs 16px under a track that starts 8px down, so it ends on the row's
+  // bottom edge, inside the row. The rows used to be items-start with pb-3 on
+  // the body, which put the track 8px above the stepper's centre.
+  //
+  // Without a stepper nothing sets that height, so the arrow keeps its pb-3
+  // and the row stays top-aligned - that is the presentation's bare sliders.
+  const topAligned = handle !== 'ring' && stepperMode === 'none';
+
   return (
-    <div id={sliderId} className={`flex gap-2 ${handle === 'ring' ? 'items-center' : 'items-start'}`}>
-      <span id={`${sliderId}-label`} className={`w-3 shrink-0 text-right text-xs font-semibold text-muted-foreground ${handle === 'ring' ? '' : 'pt-0.5'}`}>
+    <div id={sliderId} className={`flex gap-2 ${topAligned ? 'items-start' : 'items-center'}`}>
+      <span id={`${sliderId}-label`} className={`w-3 shrink-0 text-right text-xs font-semibold text-muted-foreground ${topAligned ? 'pt-0.5' : ''}`}>
         {label}
       </span>
 
       {/* Track + arrow */}
-      <div id={`${sliderId}-body`} className={`flex-1 min-w-0 ${handle === 'ring' ? '' : 'pb-3'}`}>
+      <div id={`${sliderId}-body`} className={`flex-1 min-w-0 ${topAligned ? 'pb-3' : ''}`}>
         {/* The positioning context is this inner box, not the padded body.
             An absolutely positioned child resolves against the padding box,
             so with padding on the body the handle's 0-100% ran 10px wider
@@ -293,7 +303,17 @@ function ColorSlider({ label, group, value, max, gradient, suffix, wrap, onChang
           it to keep the plus/minus targets from going narrow and tall. */}
       {/* Tagged like the track: a drag on the number field is still this
           slider being held, and a control never lights itself. */}
-      {stepperMode !== 'none' && <div id={`${sliderId}-stepper`} data-hold={`sl:${channel}`} className="flex items-center h-8 shrink-0">
+      {/* Below a 230px editor card - the same width at which the swatch moves
+          above the SB box - the stepper leaves the row and the track takes the
+          whole width. Hidden rather than unmounted: the ids and the `data-hold`
+          stay in the DOM, so useImpact's keyline bookkeeping and anything else
+          that queries a stepper by id behaves the same at every width, and the
+          control is whole again the moment the card grows back.
+
+          The variant resolves only against the container *named* `editor`, so
+          the presentation, which renders ColorSlider outside any such
+          container, is untouched. */}
+      {stepperMode !== 'none' && <div id={`${sliderId}-stepper`} data-hold={`sl:${channel}`} className="flex items-center h-8 shrink-0 @max-[230px]/editor:hidden">
         <div className={`flex items-center border border-input rounded-md overflow-hidden h-8 ${stepperMode === 'value' ? 'w-[52px]' : 'w-[92px]'}`}>
           {stepperMode === 'full' && (
             <Button

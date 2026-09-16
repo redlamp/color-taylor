@@ -6,7 +6,7 @@ Code conventions for the section live in `src/presentation/CLAUDE.md`.
 ## Where it lives
 
 Reachable in production at `/color-taylor/intro`, deliberately unadvertised -
-`VITE_INTRO_ENABLED` gates only the Intro button on the picker, not the route.
+the Intro button on the picker shows only under `?intro`, and the route is not gated at all.
 `public/intro/index.html` is the static front door, because GitHub Pages has no
 rewrite rules. The hash route is `#/intro`; `#/presentation` still resolves as a
 silent alias.
@@ -37,6 +37,14 @@ silent alias.
 - [[plan-narrated-intro]] - recording Taylor giving it, and playing that back
   alongside the deck. Issues #77 (playback) and #78 (recording).
   Recorded first and transcribed, not scripted first and read.
+
+## The walkthrough
+
+Not this deck: the narrated walkthrough that runs inside the picker. `src/demo` and the cut's cue files under `public/scripts/` are on `dev` since 2026-09-15 (#104); the script, the recordings and the cut pipeline live in the video project. The presentation side keeps working on `prez/cut-03` and PRs to `dev`.
+
+- [[presentation-system]] - what it is made of: entry points and URL parameters, the files under `src/demo`, the dev middlewares, the presentation side's decisions, and the media hosting plan. `docs/demo-script.md` is the vocabulary reference.
+- [[plan-walkthrough-entry]] - how it ships: entry from the About panel, `?present=` paused, the 900px gate, the play() gesture, and what was built.
+- [[handoff-presentation-2026-09-16]] - `prez/cut-05` handed back to the app session: what the branch carries, what's still open, and the merge order into `dev` and `main`.
 
 ## Open
 

@@ -42,6 +42,36 @@ export interface DriverOptions {
   reduced: boolean;
   /** Wall-clock divisor. 1 is the demo as designed; the Playwright spec runs it hot. */
   speed: number;
+  /**
+   * A ceiling on how fast a `moveTo` may travel, in client px per second of
+   * its own average. A move asked to cover more ground than that in its `ms`
+   * is given the time it needs instead: long trips take longer rather than
+   * going faster.
+   *
+   * The recorded cut sets it (see MAX_MOVE_PX_PER_S in ScriptRunner) because a
+   * hand on video that crosses the tool in a fifth of a second reads as a
+   * thing being teleported - Taylor, round 5, on the ghost "jetting" after the
+   * demo's exit. The built-in demo leaves it unset: its steps declare their own
+   * durations as the sum of their dwells, so a move allowed to overrun its `ms`
+   * would slide that step's caption off the moment beat 2's audio is lined up
+   * against.
+   *
+   * A thunk rather than a number when the ceiling moves: the frame layer
+   * magnifies the page, and a cap in page px is a faster hand on screen by
+   * exactly that factor, so the runner hands in a function that divides by the
+   * live scale. Read per move, which is as often as it can matter.
+   */
+  maxSpeed?: number | (() => number);
+  /**
+   * Told about every move the ceiling had to stretch: what the cue asked for,
+   * what it was given, and how far it had to travel.
+   *
+   * A stretched move is a cue whose `ms` is too short for the ground it covers,
+   * and the runner has to overrun it rather than teleport - so the next cue can
+   * arrive while this one is still going. That is a fact about the plan being
+   * too tight, not about the hand, and it is only visible from in here.
+   */
+  onStretch?: (info: { asked: number; given: number; distance: number }) => void;
 }
 
 /** How long a press is held before it becomes a click. Steps total themselves with it. */
@@ -82,6 +112,19 @@ export function offscreenEdge(x: number, reach = 160): Point {
 const ease = (t: number) => t * t * t * (t * (t * 6 - 15) + 10);
 const clamp01 = (t: number) => (t < 0 ? 0 : t > 1 ? 1 : t);
 
+/**
+ * How far a move bows off the straight line, as a fraction of its own length:
+ * the ordinary case, the case with an end off screen, and the ceiling that
+ * keeps a full-width trip from swinging out of the window. See `moveTo`.
+ */
+const BOW_NEAR = 0.10;
+const BOW_LONG = 0.22;
+const BOW_MAX = 140;
+
+/** Whether a point is outside the window, which is what makes a move an entrance or an exit. */
+const offScreen = (p: Point) =>
+  p.x < 0 || p.y < 0 || p.x > window.innerWidth || p.y > window.innerHeight;
+
 /** The centre of an element in client coordinates. Zero-height SVG lines included. */
 export function centerOf(el: Element): Point {
   const r = el.getBoundingClientRect();
@@ -104,6 +147,35 @@ function pointerEvent(type: string, x: number, y: number, init: PointerEventInit
     buttons: 1,
     ...init,
   });
+}
+
+function mouseEvent(type: string, x: number, y: number, relatedTarget: Element | null): MouseEvent {
+  return new MouseEvent(type, {
+    bubbles: true, cancelable: true, composed: true, clientX: x, clientY: y, relatedTarget,
+  });
+}
+
+/**
+ * The attribute the ghost sets on whatever it is over, and every ancestor of
+ * it, for the life of the hover. `:hover` needs a hardware pointer; the
+ * stylesheet mirrors its hover rules onto `[data-ghost-hover]` for the
+ * controls the recorded script points at (see index.css).
+ */
+export const GHOST_HOVER = 'data-ghost-hover';
+
+/**
+ * The elements an `enter`/`leave` pair is owed when the pointer goes from
+ * `other` to `el`: `el` and its ancestors, minus those that also contain
+ * `other`, which the pointer never left. Root to leaf, the order browsers
+ * fire enter in.
+ */
+function leftBehind(el: Element, other: Element | null): Element[] {
+  const out: Element[] = [];
+  for (let n: Element | null = el; n && n !== document.documentElement; n = n.parentElement) {
+    if (other && n.contains(other)) break;
+    out.push(n);
+  }
+  return out.reverse();
 }
 
 export class Driver {
@@ -225,6 +297,20 @@ export class Driver {
   /**
    * Move the ghost to a target on a quadratic bezier bowing alternately to
    * each side. `at` is a thunk because targets move while the demo runs.
+   *
+   * Every move curves - there is no straight-line case. A hand travelling
+   * between two controls does not draw the shortest path between them, and a
+   * ghost that does reads as a thing being positioned rather than a person
+   * reaching for something. The bow is a fraction of the travel, so a hop
+   * between two neighbouring buttons is almost straight and a trip across the
+   * tool is a visible curve, and it alternates sides so a run of moves does
+   * not read as a repeated flourish.
+   *
+   * A leg with an end off screen - the entrance at the top of the cut, the
+   * exit at the end of it, the reach out past the right edge for the camera
+   * panel - gets a wider arc: most of its length is off screen, so at the
+   * on-screen fraction a 10% bow is very nearly the straight line it is
+   * trying not to be.
    */
   async moveTo(at: () => Point, ms = 520): Promise<void> {
     const p2 = at();
@@ -237,10 +323,16 @@ export class Driver {
     const d = Math.hypot(p2.x - p0.x, p2.y - p0.y);
     const nx = -(p2.y - p0.y) / (d || 1);
     const ny = (p2.x - p0.x) / (d || 1);
-    const bow = Math.min(90, d * 0.3) * this.bow;
+    const long = offScreen(p0) || offScreen(p2);
+    const bow = Math.min(BOW_MAX, d * (long ? BOW_LONG : BOW_NEAR)) * this.bow;
     this.bow = -this.bow;
     const c = { x: (p0.x + p2.x) / 2 + nx * bow, y: (p0.y + p2.y) / 2 + ny * bow };
-    await this.animate(ms, (t) => {
+    // The speed ceiling, where there is one: the distance decides the time
+    // rather than the time deciding the speed. See DriverOptions.maxSpeed.
+    const cap = typeof this.opts.maxSpeed === 'function' ? this.opts.maxSpeed() : this.opts.maxSpeed;
+    const span = cap ? Math.max(ms, (d / cap) * 1000) : ms;
+    if (span > ms + 1) this.opts.onStretch?.({ asked: ms, given: span, distance: d });
+    await this.animate(span, (t) => {
       const u = 1 - t;
       this.place({
         x: u * u * p0.x + 2 * u * t * c.x + t * t * p2.x,
@@ -257,6 +349,16 @@ export class Driver {
    */
   async follow(at: () => Point, ms: number): Promise<void> {
     await this.animate(ms, () => this.place(at()), true);
+  }
+
+  /**
+   * Trace a path of the ghost's own for `ms`: `at(t)` is read every frame on a
+   * linear clock, t from 0 to 1, so the path carries its own easing (see
+   * `animate`). Hover only - nothing is pressed - but the element under the
+   * ghost is kept honest the whole way, as it is for every other move.
+   */
+  async path(at: (t: number) => Point, ms: number): Promise<void> {
+    await this.animate(ms, (t) => this.place(at(t)), true);
   }
 
   private place(p: Point) {
@@ -285,9 +387,24 @@ export class Driver {
     if (el === this.under) return;
     const prev = this.under;
     this.under = el;
-    if (prev) prev.dispatchEvent(pointerEvent('pointerout', x, y, { buttons: 0, relatedTarget: el }));
+    if (prev) {
+      prev.dispatchEvent(pointerEvent('pointerout', x, y, { buttons: 0, relatedTarget: el }));
+      prev.dispatchEvent(mouseEvent('mouseout', x, y, el));
+      // The non-bubbling pair too, for anything listening natively rather
+      // than through React. Only sent to the elements actually left/entered,
+      // as a browser would.
+      for (const node of leftBehind(prev, el)) {
+        node.dispatchEvent(pointerEvent('pointerleave', x, y, { bubbles: false, buttons: 0, relatedTarget: el }));
+        node.removeAttribute(GHOST_HOVER);
+      }
+    }
     if (el) {
+      for (const node of leftBehind(el, prev)) {
+        node.dispatchEvent(pointerEvent('pointerenter', x, y, { bubbles: false, buttons: 0, relatedTarget: prev }));
+        node.setAttribute(GHOST_HOVER, '');
+      }
       el.dispatchEvent(pointerEvent('pointerover', x, y, { buttons: 0, relatedTarget: prev }));
+      el.dispatchEvent(mouseEvent('mouseover', x, y, prev));
       el.dispatchEvent(pointerEvent('pointermove', x, y, { buttons: 0 }));
     }
   }
@@ -302,15 +419,33 @@ export class Driver {
     const prev = this.under;
     if (!prev) return;
     this.under = null;
-    prev.dispatchEvent(pointerEvent('pointerout', this.pos.x, this.pos.y, { buttons: 0, relatedTarget: null }));
+    const { x, y } = this.pos;
+    prev.dispatchEvent(pointerEvent('pointerout', x, y, { buttons: 0, relatedTarget: null }));
+    prev.dispatchEvent(mouseEvent('mouseout', x, y, null));
+    for (const node of leftBehind(prev, null)) {
+      node.dispatchEvent(pointerEvent('pointerleave', x, y, { bubbles: false, buttons: 0, relatedTarget: null }));
+      node.removeAttribute(GHOST_HOVER);
+    }
   }
 
   /**
    * Press an element, walk `path` for `ms`, release. The press lands on `el`
    * so `holdKeyOf` reads the right tag; the moves go to `window` because that
    * is where the app's drag listeners are.
+   *
+   * `settle` runs after the path and before the release, with the press still
+   * down, for a gesture that has to land on a particular *reading* rather than
+   * at a particular place: it can look at what the app now says and put in a
+   * few more moves with `dragTo` until it says the right thing. See the hue
+   * pill's landing in ScriptRunner.
    */
-  async drag(el: Element, path: (t: number) => Point, ms: number, linear = false): Promise<void> {
+  async drag(
+    el: Element,
+    path: (t: number) => Point,
+    ms: number,
+    linear = false,
+    settle?: () => Promise<void>,
+  ): Promise<void> {
     this.guard();
     const p0 = path(0);
     this.place(p0);
@@ -324,9 +459,20 @@ export class Driver {
         this.place(p);
         window.dispatchEvent(pointerEvent('pointermove', p.x, p.y));
       }, linear);
+      if (settle) await settle();
     } finally {
       this.releaseNow();
     }
+  }
+
+  /**
+   * One more move inside a drag that is already pressed. A no-op when nothing
+   * is held, so a settle that outlives its own drag cannot press anything.
+   */
+  dragTo(p: Point): void {
+    if (!this.pressedEl) return;
+    this.place(p);
+    window.dispatchEvent(pointerEvent('pointermove', p.x, p.y));
   }
 
   /** Press and release in place - for buttons, which want a click. */
@@ -340,6 +486,23 @@ export class Driver {
     await this.wait(CLICK_MS);
     this.releaseNow();
     this.guard();
+    el.dispatchEvent(new MouseEvent('click', {
+      bubbles: true, cancelable: true, composed: true, clientX: x, clientY: y,
+    }));
+  }
+
+  /**
+   * The press on its own: no travel, no press-and-release, and no abort check.
+   *
+   * For a click cue whose travel was cut short by the cue behind it. A click
+   * is the one cue that is not only a gesture - the hand crossing to the
+   * button is the performance, but the state at the far side of the press is
+   * what every later beat is played against, and a hand that ran out of road
+   * must not take that with it. So the arrival is droppable and the press is
+   * not. See ScriptRunner's `click` case, which is the only caller.
+   */
+  pressNow(el: Element, at?: Point): void {
+    const { x, y } = at ?? centerOf(el);
     el.dispatchEvent(new MouseEvent('click', {
       bubbles: true, cancelable: true, composed: true, clientX: x, clientY: y,
     }));

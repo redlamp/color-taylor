@@ -1,28 +1,65 @@
 /**
  * The first thing a new visitor sees, and the About panel afterwards.
  *
- * One sentence and two ways out. It is not a tour and it is not a settings
- * screen: the tour is behind "Watch the demo", and everything else is the
- * picker, which is already on screen behind the scrim.
+ * One sentence and three ways out. It is not a tour and it is not a settings
+ * screen: the tour is behind "Demo", the narrated walkthrough behind
+ * "Presentation", and everything else is the picker, which is already on
+ * screen behind the scrim. Since the header's ? opens this panel rather than
+ * starting the demo, this card is the one door to both.
  *
- * Dismissing is deliberately loose - the panel, the scrim, Escape, and both
- * buttons all close it. Nothing here is a decision, so nothing here should
- * need aiming at. The one thing that is not just a dismissal is the demo,
- * which closes this and starts the tour.
+ * Dismissing is deliberately loose - the panel, the scrim, Escape, and every
+ * button close it. Nothing here is a decision, so nothing here should need
+ * aiming at. The two that are not just a dismissal are the demo and the
+ * presentation, which close this and start something.
  */
 
+import { useEffect, useState, type ReactNode } from 'react';
 import { Dialog as DialogPrimitive } from '@base-ui/react/dialog';
-import { Play } from 'lucide-react';
+import { Film, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+
+/**
+ * The narrated walkthrough drives the two-column layout - it drags a camera
+ * panel around the margin and points at controls that are not on screen at all
+ * on a phone - so the entry is offered exactly where the picker has two
+ * columns. That is ColorPicker's `min-[800px]` grid breakpoint; Tailwind needs
+ * the class spelled out, so the number lives twice and this one follows that
+ * one.
+ */
+const PRESENTATION_MIN_WIDTH = 800;
+
+/**
+ * Live, not read once: someone who widens a window should be offered the
+ * presentation without reloading, and someone who narrows one should stop
+ * being offered it. A walkthrough already running is unaffected - the host
+ * owns that state, not this panel.
+ */
+function useMinWidth(px: number): boolean {
+  const [matches, setMatches] = useState(() => {
+    try { return window.matchMedia(`(min-width: ${px}px)`).matches; } catch { return true; }
+  });
+  useEffect(() => {
+    let mq: MediaQueryList;
+    try { mq = window.matchMedia(`(min-width: ${px}px)`); } catch { return; }
+    const onChange = () => setMatches(mq.matches);
+    onChange();
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, [px]);
+  return matches;
+}
 
 export interface AboutPanelProps {
   open: boolean;
   onClose: () => void;
   /** Close and hand over to the self-running demo. */
   onWatchDemo: () => void;
+  /** Close and hand over to the narrated walkthrough. Desktop widths only. */
+  onPresentation: () => void;
 }
 
-export function AboutPanel({ open, onClose, onWatchDemo }: AboutPanelProps) {
+export function AboutPanel({ open, onClose, onWatchDemo, onPresentation }: AboutPanelProps) {
+  const roomForPresentation = useMinWidth(PRESENTATION_MIN_WIDTH);
   return (
     <DialogPrimitive.Root open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
       <DialogPrimitive.Portal>
@@ -57,7 +94,7 @@ export function AboutPanel({ open, onClose, onWatchDemo }: AboutPanelProps) {
               it loses its own colour. Same reason as the header's title. */}
           {/* Wide enough to hold this on one line: the wordmark breaking off
               its emoji reads as a layout fault rather than as a title. */}
-          <DialogPrimitive.Title className="text-3xl font-semibold whitespace-nowrap sm:text-5xl">
+          <DialogPrimitive.Title id="about-title" className="text-3xl font-semibold whitespace-nowrap sm:text-5xl">
             <span className="wordmark">Color Taylor</span>{' '}
             <span className="whitespace-nowrap">🎨🧵</span>
           </DialogPrimitive.Title>
@@ -65,9 +102,9 @@ export function AboutPanel({ open, onClose, onWatchDemo }: AboutPanelProps) {
           {/* Two lines, and the break is the point: the first is the
               invitation, the second is what to look for while you take it. */}
           <DialogPrimitive.Description className="mx-auto mt-6 text-2xl leading-snug text-muted-foreground">
-            {/* Non-breaking, so "modes," never lands alone on its own line
+            {/* Non-breaking, so "models," never lands alone on its own line
                 when the card narrows. */}
-            Play with different color{' '}modes,
+            Play with different color{' '}models,
             <br />
             {/* The whole clause leans; only the verb is lit. */}
             <em>
@@ -75,43 +112,94 @@ export function AboutPanel({ open, onClose, onWatchDemo }: AboutPanelProps) {
             </em>
           </DialogPrimitive.Description>
 
-          {/* A grid, so the two are the same width whatever their labels are:
-              one column on a phone, where they stack, and two equal ones from
-              `sm` up. Capped and centred so they do not stretch the width of
-              the card on a desktop. */}
-          <div className="mx-auto mt-9 grid max-w-[26rem] gap-3 sm:grid-cols-2">
-            <Button
-              variant="secondary"
-              size="2xl"
-              className="w-full"
-              onClick={(e) => { e.stopPropagation(); onWatchDemo(); }}
-            >
-              <Play className="size-6" />
-              Watch Demo
-            </Button>
-            <Button size="2xl" className="w-full" onClick={(e) => { e.stopPropagation(); onClose(); }}>
-              Get Started
-            </Button>
+          {/* Get Started is the way out, so it gets the row to itself; Demo
+              and Presentation are the two things to watch, so they share the
+              second row instead of competing with a decision for space. Both
+              rows sit in one capped, centred column so row two - one button
+              wide when gated, two when not - always measures out to exactly
+              what row one has.
+
+              `2xl` again, now that row two never holds more than two: it is
+              only "Presentation" set against three columns that overflowed,
+              and that arrangement is gone. */}
+          <div className="mx-auto mt-9 max-w-[26rem] space-y-3">
+            <div>
+              <Button id="about-close" size="2xl" className="w-full" onClick={(e) => { e.stopPropagation(); onClose(); }}>
+                Get Started
+              </Button>
+            </div>
+            {/* The ids are for the video script runner, which points at these
+                by name (about-watch-demo, about-presentation). One column
+                below `sm`, where everything stacks; two from `sm` up, unless
+                the walkthrough is gated out, in which case Demo alone still
+                fills the row rather than sitting half-width. */}
+            <div className={'grid gap-3 ' + (roomForPresentation ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1')}>
+              <div>
+                <Button
+                  id="about-watch-demo"
+                  variant="secondary"
+                  size="2xl"
+                  className="w-full"
+                  onClick={(e) => { e.stopPropagation(); onWatchDemo(); }}
+                >
+                  <Play />
+                  Demo
+                </Button>
+                <Caption>40 seconds</Caption>
+              </div>
+              {/* Not disabled below 900: an entry that cannot be taken is a
+                  question the visitor has to answer, and there is nothing they
+                  could do about this one. */}
+              {roomForPresentation && (
+                <div>
+                  <Button
+                    id="about-presentation"
+                    variant="secondary"
+                    size="2xl"
+                    className="w-full"
+                    onClick={(e) => { e.stopPropagation(); onPresentation(); }}
+                  >
+                    <Film />
+                    Presentation
+                  </Button>
+                  <Caption>~5.5 min</Caption>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* The link keeps the click to itself: everything else on this card
               dismisses it, and a panel that vanishes as a new tab opens behind
               it is a confusing way to leave. https rather than http - the site
               redirects, so this is the same destination without the hop. */}
-          <p className="mt-10 text-base text-muted-foreground">
-            Made by{' '}
-            <a
-              href="https://redlamp.org"
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="cursor-pointer text-foreground underline underline-offset-4 hover:no-underline"
-            >
-              Taylor Wright
-            </a>
-          </p>
+          <div className="mt-10 flex items-baseline justify-between gap-4 text-base text-muted-foreground">
+            <p id="about-version">Version {__APP_VERSION__}</p>
+            <p>
+              Made by{' '}
+              <a
+                id="about-author"
+                href="https://redlamp.org"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="cursor-pointer text-foreground underline underline-offset-4 hover:no-underline"
+              >
+                Taylor Wright
+              </a>
+            </p>
+          </div>
         </DialogPrimitive.Popup>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>
   );
+}
+
+/**
+ * The running time under an entry. `text-base` like the rest of the app's
+ * text: it fits under the button at every width the card takes, so there is
+ * no reason to step it down. Muted and centred is what makes it read as a
+ * caption rather than as a second label.
+ */
+function Caption({ children }: { children: ReactNode }) {
+  return <p className="mt-1.5 text-center text-base text-muted-foreground">{children}</p>;
 }

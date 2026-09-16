@@ -33,11 +33,13 @@ Package manager: **bun**. `bun.lock` is the source of truth; no `package-lock.js
 
   With `BASE_URL` set, the config starts no server of its own. Symptom to recognise: a spec for something you just added fails with "element(s) not found" while the same page is plainly correct in a browser.
 
+  **Only ports 5173, 4173 and 4174 work.** `tests/storage-state.json` pre-dismisses the welcome panel per origin, and those are the origins in it. On any other port the panel is modal in every test and eats the first click, which reads as dozens of `beforeEach` timeouts across unrelated specs (`settings-panel`, `plugin-banner`, `saved-colors`…). A worktree serving on 5174 or 5177 shows exactly that; move it to 4174 or add the origin to the file.
+
 The `GITHUB_PAGES` env var flips `vite.config.js`'s `base` between `./` (default, works for local file:// preview) and `/color-taylor/` (gh-pages subpath). Don't hardcode either.
 
-`VITE_INTRO_ENABLED` gates **only the Intro button** on the picker. `.env` ships `false`; `.env.development` turns it on for `bun dev`. To flip it for yourself without touching a tracked file, use `.env.development.local` — gitignored via `*.local`, and it wins on Vite's precedence.
+The **Intro button** on the picker is hidden unless the URL carries `?intro` (or `?intro=1`), read at render from `location.search` in `ColorPicker.tsx`. It used to be the `VITE_INTRO_ENABLED` build flag; that flag is gone.
 
-The presentation *route* is always live, whatever the flag says. Those are two different questions and only the button is a question of readiness: gating both meant the deck could not be linked to at all while it was unadvertised. `public/intro/index.html` is the shareable front door — a real file, because GitHub Pages has no rewrite rules, redirecting relatively to `../#/presentation` so it works under all three `base` values.
+The presentation *route* is always live, whatever the URL says. Those are two different questions and only the button is a question of readiness: gating both meant the deck could not be linked to at all while it was unadvertised. `public/intro/index.html` is the shareable front door — a real file, because GitHub Pages has no rewrite rules, redirecting relatively to `../#/presentation` so it works under all three `base` values.
 
 ## Stack
 

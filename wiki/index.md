@@ -6,7 +6,7 @@ Top-level Map of Content. See `CLAUDE.md` in this folder for conventions.
 
 ## MOCs
 
-- [[architecture]] — how the three surfaces share one picker
+- [[architecture]] — how the four surfaces share one picker
 - [[decisions]] — every decision note, and what hasn't been written up
 - [[figma-plugin]] — the plugin: status, decisions, platform knowledge
 - [[color-models]] — the colour maths: the geometry, where each model gives out, and the perceptual spaces
@@ -21,6 +21,7 @@ Top-level Map of Content. See `CLAUDE.md` in this folder for conventions.
 - [[plan-intro-two-paths]] — forking the intro, and dressing the history path in period hardware; #79, #80
 - [[decision-intro-renders-the-real-picker]] — the deck stems from the app; #81
 - [[plan-perceptual-color-in-color-taylor]] — should the picker learn OkHSL, and what it would cost; no issue yet
+- [[handoff-presentation-2026-09-16]] — `prez/cut-05` handed back to the app session; merge order into `dev` and `main`
 
 ## Concepts
 

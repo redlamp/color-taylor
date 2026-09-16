@@ -125,8 +125,8 @@ are all there; the deck was not.
 
 Updated 2026-08-25: the deck *is* reachable in production now, at
 `/color-taylor/intro`, but it is still deliberately unadvertised -
-`VITE_INTRO_ENABLED` is false in the CI deploy, so there is no Intro button on
-the picker. Treat it as a link you can hand someone, not as a feature to list,
+The Intro button on the picker shows only under `?intro`, so the live site
+does not advertise it. Treat it as a link you can hand someone, not as a feature to list,
 until #52 says otherwise.
 
 ## Data security questionnaire

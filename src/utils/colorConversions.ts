@@ -168,6 +168,27 @@ export function rgbToHex(r: number, g: number, b: number): string {
   return '#' + [r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('');
 }
 
+/**
+ * The two base-16 digits of one 0..255 channel, as the numbers the arithmetic
+ * uses. `rgbToHex` hands back the finished string; the equations panel shows
+ * the division that produces it (79 = 4·16 + 15), so it needs the operands
+ * too, and `hex` here is the same pair of characters that string carries.
+ */
+export function hexDigits(v: number): { high: number; low: number; hex: string } {
+  const high = (v >> 4) & 15;
+  const low = v & 15;
+  return { high, low, hex: high.toString(16) + low.toString(16) };
+}
+
+/**
+ * A channel as its 0..1 fraction, to three decimals. Two would fold 79 and 80
+ * onto the same 0.31 and hide a real difference, so the extra digit is load
+ * bearing rather than decoration.
+ */
+export function normalizedChannel(v: number): string {
+  return (v / 255).toFixed(3);
+}
+
 export function hexToRgb(hex: string): RGB | null {
   let cleaned = hex.replace('#', '');
   if (cleaned.length === 3) {

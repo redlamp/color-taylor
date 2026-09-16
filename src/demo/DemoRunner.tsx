@@ -34,6 +34,9 @@ import { ChevronLeft, ChevronRight, Volume2, VolumeX } from 'lucide-react';
 import DemoCursor, { CURSOR_BOX, cursorKind, hotspotOf, type CursorKind } from './DemoCursor';
 import { Driver, DemoAborted, offscreenEdge, type Point, type Stage } from './drive';
 import {
+  holdColour, markCursor, onScriptOverDemo, reportCursor, scriptRunnerPresent, OVER_DEMO_GRACE_MS,
+} from './handover';
+import {
   STEPS, SIGN_OFF, SIGN_OFF_MS, SIGN_OFF_FADE_MS, EXIT_MS,
   NARRATION_READY, carryHome, closingPose, exitPose, openingPose, type DemoHost,
 } from './steps';
@@ -119,6 +122,13 @@ export interface DemoRunnerProps {
    * than appearing somewhere else entirely while the card fades.
    */
   from?: Point | null;
+  /**
+   * Where this ghost starts, when something handed the cursor over as well as
+   * the panel. The video script passes its own ghost's position and then hides
+   * it, so the two read as one cursor changing hands rather than one vanishing
+   * while another arrives from off screen.
+   */
+  cursorFrom?: Point | null;
   /** Put the colour, the slider groups, blend and the HTML colours on the hex back the way the demo found them. */
   onRestore: () => void;
   /** Take the overlay down. */
@@ -130,7 +140,7 @@ export interface DemoRunnerProps {
 const CAPTION_MIN_WIDTH = 420;
 const CAPTION_MAX_WIDTH = 720;
 
-export default function DemoRunner({ from = null, onRestore, onExit, host }: DemoRunnerProps) {
+export default function DemoRunner({ from = null, cursorFrom = null, onRestore, onExit, host }: DemoRunnerProps) {
   const cursorRef = useRef<HTMLDivElement | null>(null);
   const captionRef = useRef<HTMLDivElement | null>(null);
   const rippleRef = useRef<HTMLDivElement | null>(null);
@@ -171,7 +181,19 @@ export default function DemoRunner({ from = null, onRestore, onExit, host }: Dem
    * travels, and a fade spent while the thing is still off screen is a fade
    * nobody sees.
    */
-  const [ghostEntering, setGhostEntering] = useState(true);
+  const [ghostEntering, setGhostEntering] = useState(() => !cursorFrom);
+  /*
+   * On while the video script is making a gesture over this demo. Both ghosts
+   * would otherwise be on screen at once, and the script's is the one the cut
+   * is about, so this one goes out of sight and the sign-off's choreography
+   * waits. See handover.ts.
+   */
+  const [scriptOver, setScriptOver] = useState(false);
+  const scriptOverRef = useRef(false);
+  useEffect(() => onScriptOverDemo((on) => {
+    scriptOverRef.current = on;
+    setScriptOver(on);
+  }), []);
   /*
    * The playhead's clock. Written when a step starts and read every frame, so
    * the fill in the current tick is driven straight to the DOM and no part of
@@ -222,7 +244,13 @@ export default function DemoRunner({ from = null, onRestore, onExit, host }: Dem
   /* The ghost: one rAF for the life of the overlay, driving position and lean. */
   useEffect(() => {
     const hot = hotspotOf(kind);
-    let target: Point = { x: window.innerWidth * 0.5, y: window.innerHeight + 80 };
+    // Parked below the fold unless something handed the cursor over, in which
+    // case it starts on top of the cursor it is taking over from - on the
+    // first frame, not on the frame after it, or the hand appears for a
+    // sixtieth of a second at the bottom of the screen before it is placed.
+    let target: Point = cursorFrom
+      ? { ...cursorFrom }
+      : { x: window.innerWidth * 0.5, y: window.innerHeight + 80 };
     let shown: Point = { ...target };
     let vx = 0;
     let vy = 0;
@@ -338,6 +366,10 @@ export default function DemoRunner({ from = null, onRestore, onExit, host }: Dem
         cursor.style.transformOrigin = `${hot.x}px ${hot.y}px`;
         cursor.style.transform = `rotate(${tilt.toFixed(2)}deg) scale(${pressed ? 0.86 : 1})`;
       }
+      // Where this hand is, for the script's ghost when it takes over - for
+      // the "Have fun!" underline, and again at this demo's exit, which
+      // happens after this component is gone. See handover.ts.
+      reportCursor('demo', shown);
       const dot = rippleRef.current;
       if (dot && ring) {
         const t = (performance.now() - ring.start) / RIPPLE_MS;
@@ -383,7 +415,9 @@ export default function DemoRunner({ from = null, onRestore, onExit, host }: Dem
        * where it is.
        */
       if (!moving) {
-        const start = offscreenEdge(window.innerWidth * 0.5, 80);
+        // Where the handover left the other cursor, when there was one: the
+        // demo's ghost picks up exactly where the script's ghost stopped.
+        const start = cursorFrom ?? offscreenEdge(window.innerWidth * 0.5, 80);
         target = start;
         shown = start;
         if (driverRef.current) driverRef.current.pos = start;
@@ -414,14 +448,16 @@ export default function DemoRunner({ from = null, onRestore, onExit, host }: Dem
     raf = requestAnimationFrame(frame);
 
     driverRef.current = new Driver(stage, { reduced, speed: demoSpeed() }, target);
+    markCursor('demo', true);
 
     return () => {
+      markCursor('demo', false);
       cancelAnimationFrame(raf);
       setTail('');
       driverRef.current?.stop();
     };
     // All three are read once at mount and never written after it.
-  }, [kind, reduced, from]);
+  }, [kind, reduced, from, cursorFrom]);
 
   /*
    * The player. Each index runs one step and, if it gets to the end without
@@ -432,6 +468,28 @@ export default function DemoRunner({ from = null, onRestore, onExit, host }: Dem
     const d = driverRef.current;
     if (!d || d.aborted) return;
     let live = true;
+
+    /**
+     * Wait for a script gesture over this demo, and then for it to finish.
+     * True once it has waited for one, which is the caller's cue to leave the
+     * choreography out. See handover.ts for why the grace is needed.
+     */
+    const yieldToScript = async (until: number): Promise<boolean> => {
+      if (!scriptRunnerPresent()) return false;
+      const grace = performance.now() + OVER_DEMO_GRACE_MS;
+      while (!scriptOverRef.current && performance.now() < grace) await d.linger(48);
+      if (!scriptOverRef.current) return false;
+      /*
+       * `until` is the end of the countdown this sign-off is already running,
+       * not a fresh span of its own. The script keeps the cursor for the rest
+       * of the demo now - it does not hand it back between the gesture and the
+       * goodbye - so waiting for it to let go would be waiting for this demo to
+       * close, which is the thing being waited on. The tick that is visibly
+       * running down is what says when that is.
+       */
+      while (scriptOverRef.current && performance.now() < until) await d.linger(48);
+      return true;
+    };
 
     const play = async () => {
       const ctx = { d, host: hostRef.current };
@@ -451,6 +509,7 @@ export default function DemoRunner({ from = null, onRestore, onExit, host }: Dem
          * takes the colour home inside it, and the tick counts the whole thing
          * down. Both are cancellable, so Back or Skip still takes it apart.
          */
+        const countdownEnds = performance.now() + SIGN_OFF_MS;
         playhead.current = { index: STEPS.length, start: performance.now(), ms: SIGN_OFF_MS };
         // Real seconds however fast the rest ran; `?demospeed` does not shorten
         // the time it takes to read a line.
@@ -467,15 +526,54 @@ export default function DemoRunner({ from = null, onRestore, onExit, host }: Dem
          * screen, and the walk is then a cursor crossing the tool to stand
          * over a hexagon and watch nothing happen.
          */
-        if (ctx.host.restoreMovesColour()) {
+        /*
+         * The goodbye gives way to the script.
+         *
+         * The recorded cut underlines "Have fun!" across exactly this moment,
+         * and the walk home with the colour tweening back underneath it is
+         * three things moving where the shot is about one. So: wait the
+         * script's gesture out, and once it has been waited for, hand the
+         * colour back without the walk - this ghost is hidden the whole time,
+         * and a cursor nobody can see has nothing to carry home.
+         *
+         * Capped at the hold, so the demo still comes down on time.
+         */
+        const yielded = await yieldToScript(countdownEnds);
+        /*
+         * The colour stays where the demo left it whenever a script is
+         * driving, whether or not it claimed this moment.
+         *
+         * Beat 10.6 of cut 04 is "having fun is the goal of the tool" over a
+         * colour the ghost put there, and the restore took it somewhere no
+         * cursor had been while the hand moved aside (Taylor, round 5). The
+         * walk home is the demo's own ending and reads right on its own; under
+         * a recording it is a second colour move nobody asked for, and whether
+         * it happened at all came down to which side of the 800 ms grace the
+         * script's gesture landed on, so the ending differed run to run.
+         *
+         * `scriptRunnerPresent()` rather than `yielded` for exactly that
+         * reason - it is the same gate the grace wait itself uses. Nothing
+         * else about the demo changes: the sections, the banks and the blend
+         * are still put back, and with no script mounted this is untouched.
+         */
+        const driven = scriptRunnerPresent();
+        if (!yielded && !driven && ctx.host.restoreMovesColour()) {
           await closingPose(ctx);
           restoreRef.current();
           // Riding the tip while the colour tweens back, so the ending reads
           // as the cursor putting the colour where it found it.
           await carryHome(ctx);
         } else {
-          // Still restores the sections, the banks and the blend.
+          // Still restores the sections, the banks and the blend - but not the
+          // colour, where a script is driving. The restore is the app's own
+          // and this side does not own it, so the colour is read before it and
+          // written straight back through the runner, which holds the app's
+          // colour setter; the second tween supersedes the restore's in the
+          // same tick, so nothing is ever painted anywhere else. See
+          // handover.holdColour.
+          const held = ctx.host.field();
           restoreRef.current();
+          if (driven) holdColour({ h: held.h, s: held.s, b: held.b });
         }
         /*
          * Let go of whatever is hovered before the page moves.
@@ -492,8 +590,39 @@ export default function DemoRunner({ from = null, onRestore, onExit, host }: Dem
         // home this is a no-op on a desktop and the difference between a
         // goodbye and a screenful of sliders on a phone.
         await d.toTop();
-        setGhostLeaving(true);
-        await exitPose(ctx);
+        /*
+         * The walk off, where there is a cursor to walk.
+         *
+         * Where the script took the screen this one has been hidden since its
+         * gesture began and stays hidden until the demo is gone, so the exit
+         * is a fade of nothing and a trip nobody watches - and it held the
+         * panel on screen for its own length while the script's hand was
+         * already waiting the countdown out. Taylor, round 7, on the handback:
+         * one cursor, and no second one leaving.
+         *
+         * `driven` rather than `yielded`, for the reason the colour branch
+         * above gives: the grace is 800 ms and the two clocks are not the same
+         * clock. Measured on cut 04 at 1376x868, the demo's "Have fun!" went up
+         * at 306.75 s and 10.6's own `over: "demo"` cue - which is pinned to
+         * the voice, not to the demo - fired at 307.85, a quarter of a second
+         * past the grace. So `yielded` came back false, this walk started, and
+         * for five frames the ghost was up at the caption while the demo's
+         * cursor was still on screen sliding down through the fold at opacity
+         * 0.5, 0.25, 0.13, 0.05: the two cursors Taylor kept seeing at the
+         * handback. Worse, the ghost seeds from where this one was last seen,
+         * and by then that was a point on the way out rather than the resting
+         * one, so the hand arrived 80px below where the demo had left it.
+         *
+         * A script that is mounted is going to take the cursor back whether or
+         * not it claimed this exact moment - that is what the demo unmounting
+         * means - so there is nothing for this cursor to walk to. It stands
+         * where it stopped and the ghost picks it up there. With no script
+         * mounted the goodbye is untouched.
+         */
+        if (!yielded && !driven) {
+          setGhostLeaving(true);
+          await exitPose(ctx);
+        }
 
         // The demo is over; it should not sit on the screen waiting to be
         // dismissed.
@@ -530,6 +659,16 @@ export default function DemoRunner({ from = null, onRestore, onExit, host }: Dem
   useEffect(() => {
     const onDown = (e: Event) => {
       if (!e.isTrusted) return;
+      /*
+       * Nor while the shipped walkthrough owns the input (PresentationMode's
+       * shield). The demo is a chapter of the cut there rather than something
+       * the viewer started, and the shield has already decided what a real
+       * press means: it offers the way out of the whole walkthrough, not out
+       * of this one beat. The shield swallows a real press before it ever
+       * reaches this listener; the keys it does let through - Space, Escape,
+       * the arrows - are the transport's, and none of them is a skip.
+       */
+      if (document.documentElement.hasAttribute('data-present-locked')) return;
       const t = e.target;
       if (t instanceof Element && t.closest('[data-demo-chrome]')) return;
       skip();
@@ -579,12 +718,16 @@ export default function DemoRunner({ from = null, onRestore, onExit, host }: Dem
                 // space, which is the whole point, and are still out of the
                 // accessibility tree, which is the other one.
                 style={{ visibility: i === captionIndex ? 'visible' : 'hidden' }}
+                // Which line is up, for a script that wants to point at it
+                // (the video cut underlines "Have fun!"); the span inside is
+                // the text's own box, which the paragraph's is not.
+                data-demo-caption={i === captionIndex ? 'on' : 'off'}
                 // Balanced, not pretty: two lines of even length rather than
                 // a long first line and a short tail, which is what a line
                 // with a glyph in it kept landing on.
                 className="col-start-1 row-start-1 self-center text-balance text-xl font-medium leading-snug sm:text-2xl"
               >
-                {text}
+                <span>{text}</span>
               </p>
             ))}
           </div>
@@ -699,6 +842,7 @@ export default function DemoRunner({ from = null, onRestore, onExit, host }: Dem
         ref={cursorRef}
         aria-hidden="true"
         data-testid="demo-cursor"
+        data-hidden={ghostLeaving || ghostEntering || scriptOver ? '' : undefined}
         className="pointer-events-none fixed transition-opacity"
         style={{
           width: CURSOR_BOX,
@@ -707,8 +851,10 @@ export default function DemoRunner({ from = null, onRestore, onExit, host }: Dem
           marginTop: -hot.y,
           transformOrigin: `${hot.x}px ${hot.y}px`,
           filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.45))',
-          opacity: ghostLeaving || ghostEntering ? 0 : 1,
-          transitionDuration: `${EXIT_MS}ms`,
+          opacity: ghostLeaving || ghostEntering || scriptOver ? 0 : 1,
+          // Out of the way at once when the script takes over: a second cursor
+          // fading for most of a second is the thing being fixed.
+          transitionDuration: `${scriptOver ? 0 : EXIT_MS}ms`,
         }}
       >
         <DemoCursor kind={kind} />

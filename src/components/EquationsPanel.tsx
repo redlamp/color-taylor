@@ -1,6 +1,7 @@
-import { memo, type CSSProperties, type ReactNode } from 'react';
-import { rgbToHex, type RGB, type HSL } from '../utils/colorConversions';
+import { memo, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { rgbToHex, hexDigits, normalizedChannel, type RGB, type HSL } from '../utils/colorConversions';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { CircleHelp } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
 
 interface EquationsPanelProps {
@@ -49,9 +50,63 @@ function T({ color, title, bold, children }: { color: string; title: string; bol
   );
 }
 
-function Row({ left, right }: { left: ReactNode; right: ReactNode }) {
+/**
+ * The Hex and Normalized cells' underlined result doubles as a copy button —
+ * everywhere else in this panel the result is inert, but the final value is
+ * the one thing worth grabbing straight from the equation. "Copied" swaps in
+ * for the text rather than appearing beside it, so the row never reflows.
+ */
+/**
+ * A result worn as a chip of the colour itself, the way the Variables cell's
+ * "Color" label is, so the two derived spellings read as the same thing as
+ * the swatch. The chip carries the affordance, so no underline.
+ */
+function CopyableResult({ text, color }: { text: string; color: string }) {
+  const [copied, setCopied] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+  }, []);
+
+  const handleClick = () => {
+    if (!navigator.clipboard) return;
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => setCopied(false), 1200);
+    }).catch(() => { /* clipboard blocked or unavailable: leave the text as is, no error UI */ });
+  };
+
   return (
-    <div className="flex justify-between items-baseline">
+    <>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            onClick={handleClick}
+            aria-label={`Copy ${text}`}
+            className="inline cursor-pointer border-0 m-0 rounded px-1.5 py-0.5 font-normal outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+            style={{ backgroundColor: color, color: textOnColor(color) }}
+          >
+            {copied ? 'Copied' : text}
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top" sideOffset={4} className="text-sm font-semibold">
+          Click to copy
+        </TooltipContent>
+      </Tooltip>
+      {copied && <span aria-live="polite" className="sr-only">Copied</span>}
+    </>
+  );
+}
+
+function Row({ left, right }: { left: ReactNode; right: ReactNode }) {
+  // flex-wrap so a title-row value too wide for a narrow card (the Hex and
+  // Normalized cells' copy buttons) drops under the title instead of
+  // overflowing; the short °/%  values the other cells pass never trigger it.
+  return (
+    <div className="flex flex-wrap justify-between items-baseline gap-x-2 gap-y-0.5">
       <span>{left}</span>
       <span className="text-foreground font-semibold">{right}</span>
     </div>
@@ -81,13 +136,16 @@ function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }: Equat
   const l = (maxVal + minVal) / 2;
   const rc = isDark ? '#ff4444' : '#dd0000';
   const gc = isDark ? '#44ee44' : '#009900';
-  const bc = 'rgb(96, 96, 255)';
+  const bc = '#8080ff';
   const mc = isDark ? '#ff44ff' : '#dd00dd';
   const cc = isDark ? '#44ffff' : '#009999';
   const oc = isDark ? '#eebb22' : '#bb8800';
   const chColor = (key: 'r' | 'g' | 'b') => key === 'r' ? rc : key === 'g' ? gc : bc;
 
   const pad = (v: number | string) => String(v).padStart(3, '\u2007');
+  // A hex digit is never wider than 15, so the hex rows get their own width and
+  // the arrows still line up under one another.
+  const pad2 = (v: number | string) => String(v).padStart(2, '\u2007');
   const R = <T color={rc} title="Red channel">R</T>;
   const G = <T color={gc} title="Green channel">G</T>;
   const B_ = <T color={bc} title="Blue channel">B</T>;
@@ -111,6 +169,13 @@ function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }: Equat
   // The underline takes the channel's own colour - white vanished on the light theme.
   const ulStyle = { textDecorationColor: 'currentColor', textUnderlineOffset: '2px', textDecorationThickness: '2px' };
 
+  // Through the shared conversion helpers so neither answer can drift from
+  // what the rest of the app shows. CSS Color 4 syntax for the normalized
+  // form - space-separated, no commas - so what is shown is also valid CSS
+  // once copied.
+  const hexValue = rgbToHex(rgb.r, rgb.g, rgb.b).toUpperCase();
+  const normalizedValue = `color(srgb ${normalizedChannel(rgb.r)} ${normalizedChannel(rgb.g)} ${normalizedChannel(rgb.b)})`;
+
   const maxMinList = (isMaxMode: boolean) => (['r', 'g', 'b'] as const).map((k, i) => {
     const raw = String(rgb[k]);
     const spaces = '\u2007'.repeat(3 - raw.length);
@@ -125,12 +190,22 @@ function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }: Equat
     );
   });
 
+  /*
+   * The cells stack wherever the picker is one column, and share a row only
+   * where it is two - so the row rule is the same `min-[800px]` the top row and
+   * the two col-span-2 panels below it use, not a breakpoint of its own.
+   *
+   * It used to be `sm:`, a 640px viewport. That put four cells across a panel
+   * that is 552px wide at a 640px window and every one of them wrapped, and it
+   * left a 160px stretch (640-799) where the picker had already gone to one
+   * column but the equations had not.
+   */
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-[1.1fr_1.2fr_1fr_0.75fr] gap-2 w-full text-sm font-mono text-muted-foreground">
-      <div className="flex flex-col gap-1 border border-border rounded-lg p-1.5 min-w-0">
+    <div className="grid grid-cols-1 min-[800px]:grid-cols-[1.1fr_1.2fr_1fr_0.75fr] gap-2 w-full text-sm leading-tight font-mono text-muted-foreground">
+      <div className="flex flex-col gap-0.5 border border-border rounded-lg p-1.5 min-w-0">
         <span className="text-sm font-semibold font-sans text-foreground">Variables</span>
         <hr className="border-border" />
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-0.5">
           <div className="flex flex-wrap items-baseline gap-x-2">
             <span><span
               className="rounded px-1.5 py-0.5"
@@ -155,7 +230,14 @@ function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }: Equat
           </div>
         </div>
       </div>
-      <div className="flex flex-col gap-1 border border-border rounded-lg p-1.5 min-w-0">
+      {/*
+        The three channel blocks carry ids of their own so the video script can
+        point at one of them - beat 8 works a channel on the hexagon and boxes
+        the block that answers for it. Only the blocks, not the Variables card:
+        nothing names that one, and an id that nothing reads is a claim that
+        something does.
+      */}
+      <div id="equations-hue" className="flex flex-col gap-0.5 border border-border rounded-lg p-1.5 min-w-0">
         <Row
           left={<span className="text-sm font-semibold font-sans text-foreground">Hue</span>}
           right={`${hue}°`}
@@ -166,7 +248,7 @@ function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }: Equat
         <span className={maxChKey === 'g' ? '' : 'opacity-30'}>{Hg}: 60(({bv}-{rv})/{chrT(pad(delta))}+2){maxChKey === 'g' && <> = <span className={RESULT_CLASS} style={RESULT_STYLE}>{hue}°</span></>}</span>
         <span className={maxChKey === 'b' ? '' : 'opacity-30'}>{Hb}: 60(({rv}-{gv})/{chrT(pad(delta))}+4){maxChKey === 'b' && <> = <span className={RESULT_CLASS} style={RESULT_STYLE}>{hue}°</span></>}</span>
       </div>
-      <div className="flex flex-col gap-1 border border-border rounded-lg p-1.5 min-w-0">
+      <div id="equations-saturation" className="flex flex-col gap-0.5 border border-border rounded-lg p-1.5 min-w-0">
         <Row
           left={<span className="text-sm font-semibold font-sans text-foreground">Saturation</span>}
           right={blMode === 'brightness' ? `${saturation}%` : `${hsl?.s ?? 0}%`}
@@ -182,7 +264,10 @@ function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }: Equat
           </>
         )}
       </div>
-      <div className="flex flex-col gap-1 border border-border rounded-lg p-1.5">
+      {/* The same block answers for brightness and, in HSL mode, for lightness;
+          it keeps the one id, because what a callout means by it is "the third
+          channel's block" either way. */}
+      <div id="equations-brightness" className="flex flex-col gap-0.5 border border-border rounded-lg p-1.5">
         {blMode === 'brightness' ? (
           <>
             <Row
@@ -202,6 +287,80 @@ function EquationsPanel({ rgb, hue, saturation, brightness, hsl, blMode }: Equat
             <span>{Lv}: <span className="text-foreground font-bold">{pad(Math.round(l))}</span>/255 = <span className={RESULT_CLASS} style={RESULT_STYLE}>{hsl?.l ?? 0}%</span></span>
           </>
         )}
+      </div>
+      {/*
+       * Two equal cells, not two of the four columns: the top row's track sizes
+       * are 1.1/1.2/1/0.75, so a pair of col-span-2 cells would come out 2.3fr
+       * against 1.75fr. A nested grid spanning the whole row splits it evenly
+       * and, because it carries the same gap-2, the gutter between these two is
+       * the one between the four above. Below 800 both grids are one column, so
+       * the six cells stack as one list with that same gap.
+       */}
+      <div className="col-span-full grid grid-cols-1 min-[800px]:grid-cols-2 gap-2">
+        {/* The id is a target for the walkthrough's cursor, which highlights
+            this block while it hovers the editor's hex field. */}
+        <div id="equations-hex" className="flex flex-col gap-0.5 border border-border rounded-lg p-1.5 min-w-0">
+          <Row
+            left={
+              <span className="inline-flex items-center gap-1.5">
+                <span className="text-sm font-semibold font-sans text-foreground">Hex</span>
+                {/* Taylor's caption, two lines. A ? rather than a title
+                    attribute so it shows on touch and reads in the app's
+                    own tooltip. */}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      aria-label="What is hex?"
+                      className="inline-flex size-4 cursor-help items-center justify-center rounded-full text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
+                    >
+                      <CircleHelp className="size-3.5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" sideOffset={4} className="max-w-80 text-base font-sans font-normal leading-snug">
+                    Hexadecimal is a base 16 number system:
+                    <br />
+                    Count 0-9, then A-F (stands for 10-15).
+                    <br />
+                    9 = 9,{'   '}A = 10,{'   '}F = 15,{'   '}10 = 16,{'   '}FF = 255.
+                    <br />
+                    Two hex digits pair into red, green, blue.
+                  </TooltipContent>
+                </Tooltip>
+              </span>
+            }
+            right={<CopyableResult text={hexValue} color={hexValue} />}
+          />
+          <hr className="border-border" />
+          {/*
+           * The hex digit leads, its decimal in parentheses right behind it -
+           * F (15·16), not 15·16 - so the line reads digit-first the way the
+           * result does, with the arithmetic that justifies it kept alongside
+           * rather than out front.
+           */}
+          {(['r', 'g', 'b'] as const).map((k) => {
+            const letter = k === 'r' ? R : k === 'g' ? G : B_;
+            const channelColor = k === 'r' ? rc : k === 'g' ? gc : bc;
+            const { high, low, hex } = hexDigits(rgb[k]);
+            const highHex = hex[0].toUpperCase();
+            const lowHex = hex[1].toUpperCase();
+            return (
+              <span key={k}>
+                {letter}: {pad(rgb[k])}/16 = {pad2(high)} (<b className="text-foreground">{highHex}</b>) rem {pad2(low)} (<b className="text-foreground">{lowHex}</b>) → <b style={{ color: channelColor }}>{highHex}{lowHex}</b>
+              </span>
+            );
+          })}
+        </div>
+        <div className="flex flex-col gap-0.5 border border-border rounded-lg p-1.5 min-w-0">
+          <Row
+            left={<span className="text-sm font-semibold font-sans text-foreground" title="Normalized RGB: each channel over 255, 0 to 1 - copied as CSS color(srgb …)">Normalized</span>}
+            right={<CopyableResult text={normalizedValue} color={hexValue} />}
+          />
+          <hr className="border-border" />
+          <span>{R}: {pad(rgb.r)}/255 = <span className="font-semibold" style={{ color: rc }}>{normalizedChannel(rgb.r)}</span></span>
+          <span>{G}: {pad(rgb.g)}/255 = <span className="font-semibold" style={{ color: gc }}>{normalizedChannel(rgb.g)}</span></span>
+          <span>{B_}: {pad(rgb.b)}/255 = <span className="font-semibold" style={{ color: bc }}>{normalizedChannel(rgb.b)}</span></span>
+        </div>
       </div>
     </div>
   );

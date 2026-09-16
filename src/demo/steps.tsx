@@ -200,7 +200,7 @@ const joints = () => Array.from(document.querySelectorAll('[data-joint]'));
  * warps the turn as well as the ends and makes the sweep lurch through its
  * middle. The shaping belongs in the path, where it knows what it is shaping.
  */
-const smooth = (t: number) => t * t * (3 - 2 * t);
+export const smooth = (t: number) => t * t * (3 - 2 * t);
 
 /**
  * A sweep along a track, out and back, from wherever the handle happens to be.
@@ -233,7 +233,7 @@ export const LANDING = { h: 216, s: 69, b: 100 } as const;
 const clamp = (v: number, lo: number, hi: number) => (v < lo ? lo : v > hi ? hi : v);
 
 /** A point in the hexagon's user space, in client coordinates. */
-function hexClientPoint(svgX: number, svgY: number): Point | null {
+export function hexClientPoint(svgX: number, svgY: number): Point | null {
   const svg = el('#hex-svg');
   const box = svg?.getAttribute('viewBox')?.split(/\s+/).map(Number);
   if (!svg || !box || box.length < 4) return null;
@@ -254,7 +254,7 @@ function hexClientPoint(svgX: number, svgY: number): Point | null {
  * freezes its drag origin - so the sweep stays on one cross-section instead of
  * chasing a bound that its own movement is changing.
  */
-function fieldPoint(hueDeg: number, satFraction: number, f: FieldState): Point | null {
+export function fieldPoint(hueDeg: number, satFraction: number, f: FieldState): Point | null {
   const rad = (hueDeg * PI) / 180;
   const dist = satFraction * blLimitScale(f.blMode, f.b, f.l) * hexEdgeDist(rad, RADIUS);
   return hexClientPoint(CENTER_X + dist * Math.cos(rad), CENTER_Y - dist * Math.sin(rad));

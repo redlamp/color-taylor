@@ -123,13 +123,8 @@ function NamedColorMatch({ rgb, onAnimateToHsb, onHoverMatch, hoveredHtmlColor, 
             </button>
           </TooltipTrigger>
           {isMatch && hovering && (
-            <TooltipContent
-              side="bottom"
-              sideOffset={8}
-              className="text-xs font-mono font-semibold border-0"
-              style={{ '--tooltip-bg': matchHex, backgroundColor: matchHex, color: textColor } as CSSProperties}
-            >
-              {matchHex.toUpperCase()}
+            <TooltipContent side="top" sideOffset={4} className="text-sm font-semibold">
+              Move to {matchHex.toUpperCase()}
             </TooltipContent>
           )}
         </Tooltip>
@@ -164,7 +159,7 @@ function NamedColorMatch({ rgb, onAnimateToHsb, onHoverMatch, hoveredHtmlColor, 
               }
             />
             <TooltipContent side="top" sideOffset={4} className="text-sm font-semibold">
-              {showOnHex ? 'HTML colors on the hexagon' : 'HTML colors hidden'}
+              {showOnHex ? 'Hide HTML Colors' : 'Show HTML Colors'}
             </TooltipContent>
           </Tooltip>
         </ToggleGroup>
