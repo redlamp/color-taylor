@@ -14,11 +14,10 @@
  *
  * Two transforms, both deliberate:
  *
- * 1920x1080 is 16:9; Open Graph's de facto size is 1200x630, which is 1.905:1.
- * A centre crop of 36px off the top and bottom gets there, and at that scale it
- * only takes empty backdrop - the title block sits between y=210 and y=740, and
- * the hexagon already bleeds off three edges. Feeding a 16:9 image instead just
- * moves the crop to each platform, where it is centred anyway but unpredictable.
+ * 1920x1080 scales to 1200x675, the full 16:9 frame with nothing trimmed
+ * (Taylor, 2026-09-16, with the thumbnail's second tagline line near the foot).
+ * It was centre-cropped to Open Graph's 1.905:1 until then; platforms that want
+ * 1.91:1 now crop the 22px each way themselves, and Discord shows it whole.
  *
  * JPEG, not PNG. The same frame encodes to 884 KB as PNG and 79 KB at quality
  * 0.92 - it is a continuous colour field, which is what JPEG is for. Size is not
@@ -39,7 +38,7 @@ const OUT = join(REPO, 'public', 'og-image.jpg');
 // index.html - the meta values are read by scrapers that lay out the card
 // before the image finishes downloading, so a mismatch shows as a reflow.
 const WIDTH = 1200;
-const HEIGHT = 630;
+const HEIGHT = 675;
 const QUALITY = 0.92;
 
 const { chromium } = await import(

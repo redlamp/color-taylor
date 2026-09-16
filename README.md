@@ -1,6 +1,6 @@
 # Color Taylor 🎨🧵
 
-![The Color Taylor hexagon, a six-cornered color field with red, green and blue vectors drawn across it, beside the words "Understand color by moving it."](public/og-image.jpg)
+![The Color Taylor app icon and name beside the hexagon, a six-cornered color field with red, green and blue vectors drawn across it, and the words "Play with different color models, see how they move together! Get hands-on with how RGB, HSB, and HSL colors relate."](public/og-image.jpg)
 
 Color Taylor is a color playground for seeing how RGB relates to HSB and HSL, and how every slider moves with the others. Drag the channel handles on the hexagon to see how individual R, G and B values map into the space. Pull saturation down and watch three RGB values converge.
 
