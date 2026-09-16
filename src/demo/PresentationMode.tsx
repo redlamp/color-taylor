@@ -31,13 +31,15 @@
  * host's business: there is no dev guard in here.
  *
  * This is a tool, not a surface of the app: the styling is deliberately not
- * the app's. See docs/demo-script.md, "Presentation mode".
+ * the app's, except on the shipped transport's clock, which an audience
+ * reads. See docs/demo-script.md, "Presentation mode".
  *
  * A caption above the bar is part of the same component on both transports,
  * off by default and remembered per viewer (`localStorage`, wrapped in
  * try/catch). The dev transport reaches it behind a toggle in the authoring
- * row; the shipped (reduced) transport behind a checkbox on the transport row
- * near the clock - both drive the same state. When `public/scripts/<name>
+ * row; the shipped (reduced) transport has no control for it at the moment -
+ * the state and the caption layers are there, the checkbox comes back in the
+ * captions pass. When `public/scripts/<name>
  * -words.json` word timings are present, the caption groups them into small
  * HyperFrames-style read-along chunks (`captions.ts`), each word filling in
  * as the playhead passes its start; otherwise it falls back to the current
@@ -71,7 +73,6 @@ import {
 } from './sections';
 import { buildCaptionChunks, chunkAt, type CaptionChunk, type CaptionWord } from './captions';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 
 /** One spoken line of the cut, with where it sits in the voice track. */
 interface ScriptLine {
@@ -1560,15 +1561,20 @@ export default function PresentationMode({
           );
           /* Full transport: unchanged from before — small buttons, clock and
              the labels+timeline column all on one row, vertically centered
-             together. Reduced (shipped) transport: the buttons — now the
-             app's shadcn `Button`, sized to at least 40px square — share a
-             row with just the clock and the labels+timeline column, so they
-             land vertically centered on the 28px bar itself rather than on
-             the (now taller, 14px) label row above it. The label row lives
-             inside that same column as the track, not as a sibling spanning
-             the whole transport row, so a label's percentage is a
-             percentage of the track and not of the buttons+clock+track
-             width. */
+             together.
+
+             Reduced (shipped) transport: Taylor's layout for the shipped
+             presentation timeline (Figma node 172:1479). The clock and the
+             three transport buttons stack into one narrow column at the
+             bar's left edge — clock on top, buttons beneath — so that the
+             track is no longer paying for a clock's width out of its own
+             line and can run all the way to the bar's right padding. The
+             column is exactly as wide as the buttons row it holds, which is
+             what keeps the clock's left edge and the first button's left
+             edge on the same rule. The label row still lives inside the
+             track's own column rather than spanning the whole transport row,
+             so a label's percentage is a percentage of the track and not of
+             the column+track width. */
           return fullTransport ? (
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', margin: '2px 0' }}>
             <button
@@ -1612,72 +1618,88 @@ export default function PresentationMode({
           <div style={{ display: shrunk ? 'none' : 'block', margin: '8px 0' }}>
             {/* Bottom-aligned on the track's own bottom edge, not centered on
                 the whole row: the row's cross-axis extent is the label row
-                (when there is one) plus the track, and centering the buttons
-                against that put them too high whenever a label row was up.
-                `flex-end` lands every item's bottom on the row's bottom,
-                which is the track's bottom - the label row, if any, sits
-                above it and does not move that edge. */}
-            <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
-              <Button
-                type="button"
-                data-testid="present-prev-beat"
-                onClick={() => toBeat(-1)}
-                title="Previous beat"
-                aria-label="Previous beat"
-                variant="secondary"
-                size="icon"
-                className="size-10"
-              >
-                <PrevBeatIcon />
-              </Button>
-              <Button
-                type="button"
-                data-testid="present-play"
-                onClick={toggle}
-                aria-label={playing ? 'Pause' : 'Play'}
-                variant="secondary"
-                size="icon"
-                className="size-10"
-              >
-                {playing ? <PauseIcon /> : <PlayIcon />}
-              </Button>
-              <Button
-                type="button"
-                data-testid="present-next-beat"
-                onClick={() => toBeat(1)}
-                title="Next beat"
-                aria-label="Next beat"
-                variant="secondary"
-                size="icon"
-                className="size-10"
-              >
-                <NextBeatIcon />
-              </Button>
-              <span data-testid="present-time" style={{ minWidth: 96, whiteSpace: 'nowrap' }}>
-                {mmssTenths(time)} / {mmss(duration)}
-              </span>
-              {/* The captions checkbox: off by default, remembered per viewer
-                  (the `captionsOn` state above). Sits by the clock rather than
-                  in with the play/beat buttons - it's a setting, not a
-                  transport control. */}
-              <label
+                (when there is one) plus the track, and centering the column
+                against that put it too high whenever a label row was up.
+                `flex-end` lands the column's bottom - the buttons row - on
+                the track's bottom edge; the label row, if any, sits above
+                the track and does not move that edge. The 24px gap is wide
+                enough that a label anchored at 0s reads as the track's and
+                not as something hanging off the buttons. */}
+            <div style={{ display: 'flex', gap: 24, alignItems: 'flex-end' }}>
+              {/* Clock over buttons, both flush with the bar's left padding.
+                  The column takes its width from the buttons row underneath
+                  (three 32px squares, 8px apart) rather than from the clock,
+                  so the clock can grow to "10:06.0 / 12:34" without pushing
+                  the track right. */}
+              <div
                 style={{
+                  flex: '0 0 auto',
                   display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  whiteSpace: 'nowrap',
-                  cursor: 'pointer',
-                  color: '#e6e6e6',
+                  flexDirection: 'column',
+                  alignItems: 'flex-start',
+                  gap: 8,
+                  width: 3 * 32 + 2 * 8,
                 }}
               >
-                <Checkbox
-                  data-testid="present-captions-checkbox"
-                  checked={captionsOn}
-                  onCheckedChange={(checked) => setCaptionsOn(checked === true)}
-                />
-                Captions
-              </label>
-              <div style={{ position: 'relative', flex: 1 }}>
+                {/* The app's own monospace at the slider values' size, not the
+                    bar's default face: this clock is the one thing on the
+                    shipped bar an audience reads, and tabular figures keep it
+                    from twitching as the tenths turn over. */}
+                <span
+                  data-testid="present-time"
+                  className="text-sm"
+                  style={{
+                    whiteSpace: 'nowrap',
+                    fontFamily: 'var(--mono)',
+                    fontVariantNumeric: 'tabular-nums',
+                    color: '#e6e6e6',
+                  }}
+                >
+                  {mmssTenths(time)} / {mmss(duration)}
+                </span>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <Button
+                    type="button"
+                    data-testid="present-prev-beat"
+                    onClick={() => toBeat(-1)}
+                    title="Previous beat"
+                    aria-label="Previous beat"
+                    variant="secondary"
+                    size="icon"
+                    className="size-8"
+                  >
+                    <PrevBeatIcon />
+                  </Button>
+                  <Button
+                    type="button"
+                    data-testid="present-play"
+                    onClick={toggle}
+                    aria-label={playing ? 'Pause' : 'Play'}
+                    variant="secondary"
+                    size="icon"
+                    className="size-8"
+                  >
+                    {playing ? <PauseIcon /> : <PlayIcon />}
+                  </Button>
+                  <Button
+                    type="button"
+                    data-testid="present-next-beat"
+                    onClick={() => toBeat(1)}
+                    title="Next beat"
+                    aria-label="Next beat"
+                    variant="secondary"
+                    size="icon"
+                    className="size-8"
+                  >
+                    <NextBeatIcon />
+                  </Button>
+                </div>
+              </div>
+              {/* No captions checkbox here: the caption layers and their
+                  remembered `captionsOn` state stay, but the control comes
+                  back on this bar in the captions pass, once there is a
+                  place for it that isn't the transport row. */}
+              <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
                 {labelsRow}
                 {timelineBar}
               </div>
