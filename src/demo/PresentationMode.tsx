@@ -43,6 +43,18 @@
  * unmounts on a frame, in the tool's own fixed colours, and it stays put at
  * the end of the track.
  *
+ * The shipped walkthrough also takes the app's input away for as long as it
+ * is up. An audience is being shown the tool, not handed it, and a viewer's
+ * press on a slider fights the cut for the same colour - so every real press,
+ * every wheel and every key that is not the transport's is swallowed, and the
+ * one decision left to the viewer is whether to stay: a press anywhere but
+ * the bar offers "Leave the presentation?" rather than doing anything. The
+ * line is `isTrusted` rather than a layer that eats the events, so the cut's
+ * own hands - which work the app through events the runner dispatches - are
+ * untouched; see the comment on `shielded` below for why a layer could not
+ * draw it. None of this applies to the `?present=` tool, which is somebody
+ * working on the cut and needs the app.
+ *
  * This is a tool, not a surface of the app: the styling is deliberately not
  * the app's, except on the shipped transport's clock, which an audience
  * reads. See docs/demo-script.md, "Presentation mode".
@@ -306,6 +318,29 @@ const inTextField = (target: EventTarget | null) => {
   if (!el) return false;
   return el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable;
 };
+
+/**
+ * The walkthrough's own surfaces: the transport bar and the leave offer.
+ *
+ * These are the only two places a real press or a real key is allowed to land
+ * while the shield is up, which is the whole of Taylor's rule - the viewer
+ * decides whether to stay, and decides nothing else.
+ */
+const CHROME_SELECTOR = '[data-present-chrome]';
+const fromChrome = (target: EventTarget | null) =>
+  target instanceof Element && target.closest(CHROME_SELECTOR) !== null;
+
+/** What Tab is allowed to walk around inside the chrome. */
+const FOCUSABLE_SELECTOR = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]),'
+  + ' textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/** How far a press may travel and still count as a click rather than a drag. */
+const OFFER_SLOP_PX = 6;
+
+/** The keys the transport answers, which the shield therefore lets past. */
+const isTransportKey = (e: KeyboardEvent) =>
+  e.code === 'Space' || e.key === ' ' || e.key === 'Escape'
+  || e.key === 'ArrowLeft' || e.key === 'ArrowRight';
 
 /** The line being spoken at `t`: the last one begun, preferring one still going. */
 function lineAt(lines: ScriptLine[], t: number): ScriptLine | null {
@@ -756,6 +791,184 @@ export default function PresentationMode({
     };
   }, [onLeave, fullTransport, planMode, beginLeave, voice, name, rebuilt]);
 
+  /*
+   * The input shield.
+   *
+   * During the shipped walkthrough the app is the picture, not the controls:
+   * a viewer's press on a slider fights the cut for the same colour, and the
+   * hands the audience is watching are the runner's. So every real press,
+   * every wheel and every key that is not the transport's is swallowed for as
+   * long as this component is mounted - playing, paused, through the beat 10
+   * hand-off to the built-in demo, and on the way out. What is left to the
+   * viewer is the one decision Taylor kept for them: whether to stay.
+   *
+   * Only the shipped entry, and only where the host gave us an `onLeave`: a
+   * lock with no way out is a trap, and the `?present=` tool is somebody
+   * working on the cut, who needs the app.
+   *
+   * The lock is a capture-phase listener rather than a layer that eats the
+   * events, though `shieldLayer` below still paints (and carries the offer).
+   * A layer with `pointer-events: auto` would be the first thing
+   * `document.elementFromPoint` finds, and three places read that point while
+   * the cut plays - the ghost's hover sync (drive.ts `syncUnder`), the
+   * hexagon's stem pick and the swatch drop target - so the shield would take
+   * the cut's own hands off the app it is working. Filtering on `isTrusted`
+   * draws the line where it actually belongs, between a person and the
+   * runner, and it is the line the built-in demo already draws (DemoRunner's
+   * "any real press ends the demo"). It also buys something a layer cannot:
+   * a real hover no longer lights the app up under the audience's cursor.
+   */
+  const shielded = mode === 'production' && !!onLeave;
+  const [offerOpen, setOfferOpen] = useState(false);
+  const [offerIn, setOfferIn] = useState(false);
+  const offerRef = useRef<HTMLDivElement | null>(null);
+  const offerOpenRef = useRef(false);
+  const offerReturn = useRef<HTMLElement | null>(null);
+  useEffect(() => { offerOpenRef.current = offerOpen; }, [offerOpen]);
+
+  const openOffer = useCallback(() => {
+    offerReturn.current = document.activeElement instanceof HTMLElement && fromChrome(document.activeElement)
+      ? document.activeElement
+      : null;
+    setOfferOpen(true);
+  }, []);
+  /** Back to the bar, so a viewer who was on the keyboard has not lost it. */
+  const closeOffer = useCallback(() => {
+    setOfferOpen(false);
+    setOfferIn(false);
+    const back = offerReturn.current
+      ?? transportRef.current?.querySelector<HTMLElement>('[data-testid="present-play"]')
+      ?? null;
+    offerReturn.current = null;
+    back?.focus();
+  }, []);
+  const toggleOffer = useCallback(() => {
+    if (offerOpenRef.current) closeOffer();
+    else openOffer();
+  }, [closeOffer, openOffer]);
+
+  /* The fade in is a frame late for the same reason the bar's slide is: the
+     class has to arrive after the browser has painted the dialog at zero. */
+  useEffect(() => {
+    if (!offerOpen) return;
+    const raf = requestAnimationFrame(() => setOfferIn(true));
+    return () => cancelAnimationFrame(raf);
+  }, [offerOpen]);
+
+  /* Focus into the offer, on the button that changes nothing. */
+  useEffect(() => {
+    if (!offerOpen) return;
+    offerRef.current?.querySelector<HTMLElement>('[data-testid="present-offer-stay"]')?.focus();
+  }, [offerOpen]);
+
+  /**
+   * Tab stays inside the walkthrough's own chrome.
+   *
+   * The app has no single element to make `inert` - `#root` holds the
+   * background layer and the app column as siblings, `#app-stage` leaves the
+   * plugin banner out, and the About and Settings panels are portals of their
+   * own in `<body>` - so there is nowhere to put one attribute that locks the
+   * lot. A ring over the bar (or over the offer, while it is up) locks the
+   * same thing without touching the app at all.
+   */
+  const trapFocus = useCallback((back: boolean) => {
+    const scope = offerOpenRef.current ? offerRef.current : transportRef.current;
+    if (!scope) return;
+    const list = Array.from(scope.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR))
+      .filter((el) => el.getClientRects().length > 0);
+    if (!list.length) return;
+    const here = list.indexOf(document.activeElement as HTMLElement);
+    const next = here < 0
+      ? (back ? list.length - 1 : 0)
+      : (here + (back ? -1 : 1) + list.length) % list.length;
+    list[next].focus();
+  }, []);
+
+  /* Read through refs so the lock below can register once, on mount: it has
+     to sit ahead of the demo's own "any real press ends the demo" listener,
+     which is registered when the hand-off mounts it. */
+  const toggleOfferRef = useRef(toggleOffer);
+  const trapFocusRef = useRef(trapFocus);
+  useEffect(() => { toggleOfferRef.current = toggleOffer; }, [toggleOffer]);
+  useEffect(() => { trapFocusRef.current = trapFocus; }, [trapFocus]);
+
+  useEffect(() => {
+    if (!shielded) return;
+    const root = document.documentElement;
+    root.setAttribute('data-present-locked', '');
+    let downAt: { x: number; y: number } | null = null;
+    /** A real person, anywhere but the bar and the offer. */
+    const hijack = (e: Event) => e.isTrusted && !fromChrome(e.target);
+    const swallow = (e: Event) => {
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      if (e.cancelable) e.preventDefault();
+    };
+    const onPress = (e: Event) => {
+      if (!hijack(e)) return;
+      const p = e as PointerEvent;
+      if (e.type === 'pointerdown') {
+        downAt = { x: p.clientX, y: p.clientY };
+      } else {
+        // A press that stayed put is the click Taylor asked for: nothing
+        // happens to the app, and the way out is offered instead. A drag is
+        // somebody trying to work the app, and is answered with nothing.
+        const still = downAt !== null && Math.hypot(p.clientX - downAt.x, p.clientY - downAt.y) <= OFFER_SLOP_PX;
+        downAt = null;
+        if (still) toggleOfferRef.current();
+      }
+      swallow(e);
+    };
+    const onQuiet = (e: Event) => { if (hijack(e)) swallow(e); };
+    const onKey = (e: KeyboardEvent) => {
+      if (!e.isTrusted) return;
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        trapFocusRef.current(e.shiftKey);
+        return;
+      }
+      // The transport's own keys go on to the handler below, and a key typed
+      // with the bar or the offer focused belongs to the button it is on.
+      if (isTransportKey(e) || fromChrome(e.target)) return;
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      // A chord is the browser's (Ctrl+R, Ctrl+T, Ctrl+W). Stopping it here
+      // is enough to keep it off the app's own shortcuts - the undo pair is
+      // the only thing listening - and taking its default away as well would
+      // take the viewer's window with it.
+      if (!e.ctrlKey && !e.metaKey && !e.altKey) e.preventDefault();
+    };
+    const quiet = [
+      'pointermove', 'pointercancel', 'pointerover', 'pointerout',
+      'mousedown', 'mouseup', 'mousemove', 'mouseover', 'mouseout',
+      'click', 'dblclick', 'auxclick', 'contextmenu', 'dragstart',
+    ];
+    const opts = { capture: true } as const;
+    // Not passive: a wheel and a touch drag are only stopped by a
+    // preventDefault the browser has agreed to wait for. The cut's own scroll
+    // cues are `window.scrollTo` calls and are untouched by this.
+    const rude = { capture: true, passive: false } as const;
+    window.addEventListener('pointerdown', onPress, opts);
+    window.addEventListener('pointerup', onPress, opts);
+    window.addEventListener('keydown', onKey, opts);
+    window.addEventListener('wheel', onQuiet, rude);
+    window.addEventListener('touchstart', onQuiet, rude);
+    window.addEventListener('touchmove', onQuiet, rude);
+    for (const type of quiet) window.addEventListener(type, onQuiet, opts);
+    return () => {
+      root.removeAttribute('data-present-locked');
+      window.removeEventListener('pointerdown', onPress, opts);
+      window.removeEventListener('pointerup', onPress, opts);
+      window.removeEventListener('keydown', onKey, opts);
+      window.removeEventListener('wheel', onQuiet, rude);
+      window.removeEventListener('touchstart', onQuiet, rude);
+      window.removeEventListener('touchmove', onQuiet, rude);
+      for (const type of quiet) window.removeEventListener(type, onQuiet, opts);
+    };
+  }, [shielded]);
+
   const seek = useCallback((t: number) => {
     // A seek lands on the frame the cut says is in force there, rather than
     // easing into it: the same rule the actions follow.
@@ -900,6 +1113,20 @@ export default function PresentationMode({
       // The clip editor owns the keyboard while it is open: its handles nudge
       // with the arrow keys and Space would otherwise start the track under it.
       if (editing !== null) return;
+      /*
+       * The leave offer owns it while it is up. Escape closes the question
+       * rather than answering it - a viewer who asked is not committed - so
+       * leaving by keyboard is Escape twice, which is also what Escape means
+       * everywhere else: close the nearest thing.
+       */
+      if (offerOpenRef.current) {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          e.stopPropagation();
+          closeOffer();
+        }
+        return;
+      }
       if (e.code === 'Space' || e.key === ' ') {
         e.preventDefault();
         e.stopPropagation();
@@ -918,7 +1145,10 @@ export default function PresentationMode({
          * here.
          */
         const jump = frames.active && !e.shiftKey;
-        if (!jump && !fullTransport) return;
+        // The shipped bar seeks on the arrows too. It has no line spans to
+        // step between, but a viewer who wants the last sentence again should
+        // not have to hit a 3px track with a mouse to get it.
+        if (!jump && !fullTransport && !shielded) return;
         e.preventDefault();
         e.stopPropagation();
         if (jump) jumpKeyframe(e.key === 'ArrowRight' ? 1 : -1);
@@ -949,7 +1179,8 @@ export default function PresentationMode({
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
-  }, [toggle, editing, authoring, fullTransport, seekBy, jumpKeyframe, frames.active, capturing, onLeave, beginLeave]);
+  }, [toggle, editing, authoring, fullTransport, seekBy, jumpKeyframe, frames.active, capturing, onLeave,
+    beginLeave, shielded, closeOffer]);
 
   useEffect(() => {
     if (noting) noteInputRef.current?.focus();
@@ -1249,6 +1480,7 @@ export default function PresentationMode({
           ref={transportRef}
           className={fullTransport ? undefined : `present-bar${barIn && !leaving ? ' present-bar-in' : ''}`}
           data-testid="present-transport"
+          data-present-chrome=""
           data-frames-hidden={hiddenForCapture ? 'true' : undefined}
           style={{
             // Hidden for a capture rather than unmounted: the audio element
@@ -2017,6 +2249,82 @@ export default function PresentationMode({
                 );
               })}
             </ul>
+          )}
+        </div>,
+        document.body,
+      )}
+      {shielded && createPortal(
+        /*
+         * The layer itself: transparent, and it paints nothing until there is
+         * an offer to paint. `pointer-events: none` for the reason in the
+         * lock above - the cut has to be able to find the app under here -
+         * and `aria-hidden` because there is nothing on it to read.
+         *
+         * z-52 is the one gap in the stack that fits: it clears everything
+         * the app puts up (the plugin banner at 40, the About and Settings
+         * panels at 50) and sits under everything the walkthrough puts up -
+         * the camera panel at 55, the ghost cursor at 60, the runner's own
+         * overlay at 70 and the transport bar at 80 - so the offer never
+         * lands on top of the picture the audience is being shown.
+         */
+        <div
+          data-testid="present-shield"
+          aria-hidden="true"
+          style={{ position: 'fixed', inset: 0, zIndex: 52, pointerEvents: 'none' }}
+        >
+          {offerOpen && (
+            <div
+              ref={offerRef}
+              data-testid="present-offer"
+              data-present-chrome=""
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="present-offer-title"
+              className={`present-offer${offerIn ? ' present-offer-in' : ''}`}
+              style={{
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                pointerEvents: 'auto',
+                background: 'var(--bar-bg)',
+                color: 'var(--bar-fg)',
+                borderRadius: 10,
+                padding: '18px 20px 16px',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.35)',
+                font: '13px/1.4 ui-monospace, Consolas, monospace',
+                textAlign: 'center',
+                userSelect: 'none',
+              }}
+            >
+              <p id="present-offer-title" style={{ margin: '0 0 14px' }}>Leave the presentation?</p>
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+                {/* The same `beginLeave` the bar's X calls, so the slide out
+                    and the hand-back to the host are one path, not two. */}
+                <Button
+                  type="button"
+                  data-testid="present-offer-leave"
+                  onClick={beginLeave}
+                  disabled={leaving}
+                  variant="destructive"
+                  size="sm"
+                >
+                  Leave
+                </Button>
+                {/* Nothing is paused to ask the question, so nothing is
+                    resumed by answering it: the cut has kept playing behind
+                    the dialog the whole time. */}
+                <Button
+                  type="button"
+                  data-testid="present-offer-stay"
+                  onClick={closeOffer}
+                  variant="secondary"
+                  size="sm"
+                >
+                  Keep watching
+                </Button>
+              </div>
+            </div>
           )}
         </div>,
         document.body,

@@ -896,6 +896,46 @@ the app's own entry with `mode="production"` (see "Shipping it" below).
   | `voice` | An `<audio>` the host created and played inside the click that started the walkthrough — playback needs that gesture, and only the host can call `play()` synchronously with it. The component adopts it as its clock instead of rendering its own: it is appended into the transport wearing the `present-audio` test id (which is what the camera panel reads the clock off), and its `src` is written only when it does not already point at the cut's voice, so an element that is already playing is taken over mid-flight rather than restarted. |
   | `onLeave` | The way out. With it the reduced transport grows a red X (`present-leave`) at the right of the bar, and **Escape** calls the same thing when focus is not in a text field; without it there is no way out of the walkthrough but a reload. What leaving means is the host's: `ColorPicker`'s `leavePresentation` pauses the voice and the camera element and drops their `src` so nothing goes on downloading, unmounts the pair, and closes the built-in demo if the cut had handed off to it. The picker keeps whatever colour the cut left it on. |
 
+- **The shield: the viewer decides whether to stay, and nothing else.** The
+  shipped walkthrough (`mode="production"` with an `onLeave`) locks the app's
+  own input for as long as it is mounted - playing, paused, through the beat 10
+  hand-off to the built-in demo, and on the way out. Taylor, 2026-09-16: "during
+  the presentation we should lock out the user from hijacking interactions, they
+  can decide to leave the demo/presentation, but not override the actions in the
+  presentation." A real press, a real wheel, a real touch and every key that is
+  not the transport's are swallowed in a capture-phase listener on `window`; a
+  full-viewport transparent layer (`present-shield`, z-52 - over the plugin
+  banner at 40 and the app's panels at 50, under the camera panel at 55, the
+  ghost at 60 and the bar at 80) carries the offer, and
+  `html[data-present-locked]` in `presentation-bar.css` takes the app's cursors
+  and its touch-action back, since a lock that still promises a slider is a
+  lock that reads as a bug.
+  - **Not locked:** the transport bar. Play/pause (**Space** or the button),
+    the scrub track, the arrows (`±5s`, enabled on the reduced transport by
+    this), the X and **Escape**. Tab cycles the bar's own buttons and goes
+    nowhere else; `inert` on the app would have been the tidier lock, but there
+    is no one element to put it on - `#root` holds the background layer and the
+    app column as siblings, `#app-stage` leaves the plugin banner out, and the
+    About and Settings panels are portals of their own in `<body>`.
+  - **Not locked either: the cut.** The line is `isTrusted`, not a layer: the
+    runner works the app through events it dispatches itself, so its clicks,
+    its drags and its scrolls are untouched, and so are the app's own hit tests
+    (`drive.ts`'s hover sync, the hexagon's stem pick, the swatch drop target)
+    which a layer with `pointer-events: auto` would have answered with the
+    shield instead of with the control under it. It is the line the built-in
+    demo already draws, and the demo's own "any real press ends the demo" now
+    stands down while the shield is up (`DemoRunner.tsx`) - during the hand-off
+    the demo is a chapter of the cut, not something the viewer started.
+  - **The offer.** A press that stays put - anywhere but the bar - opens a small
+    centred dialog in the bar's own `--bar-*` colours: "Leave the presentation?",
+    **Leave** (the same `beginLeave` the X calls) and **Keep watching**. Taylor
+    again, on what a click over the app should do: "nothing, if the user clicks
+    the shield, offer a panel to leave the presentation." Nothing pauses to ask,
+    so nothing resumes on the answer; focus moves to Keep watching and returns
+    to the bar; **Escape** closes the question rather than answering it, so
+    leaving by keyboard is Escape twice; another press on the shield closes it
+    too. It fades over 150ms, or not at all under `prefers-reduced-motion`.
+
 - **The shipped bar follows the app's theme.** Every colour on the reduced
   transport is a `--bar-*` custom property from `src/demo/presentation-bar.css`,
   declared on the `.present-bar` class the bar's root carries and redeclared

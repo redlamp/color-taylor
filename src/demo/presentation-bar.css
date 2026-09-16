@@ -15,9 +15,15 @@
  * `--foreground`: Taylor wants the bar a step darker than the page it sits on
  * in either theme (#111 under the dark page's #181818), so it reads as a
  * surface laid over the app rather than as more of the app.
+ *
+ * `.present-offer` - the shield's "leave the presentation?" dialog - takes the
+ * same tokens from the same two rules rather than a set of its own: it is the
+ * bar asking a question, and a dialog that answered the theme switch a
+ * different way would be a second surface.
  */
 
-.present-bar {
+.present-bar,
+.present-offer {
   /* Light: a step below the page's oklch(0.965) the way #111 sits below #181818. */
   --bar-bg: #e2e2e2;
   --bar-fg: #252525;
@@ -39,7 +45,8 @@
   --bar-playhead-glow: 0 0 3px rgba(255, 128, 0, 0.55), 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
-.dark .present-bar {
+.dark .present-bar,
+.dark .present-offer {
   --bar-bg: #111111;
   --bar-fg: #e6e6e6;
   --bar-fg-strong: #ff8000;
@@ -104,4 +111,47 @@
     color-mix(in srgb, var(--bar-bg) 94%, transparent) 60%,
     color-mix(in srgb, var(--bar-bg) 94%, transparent) 100%
   );
+}
+
+/*
+ * The shield's offer.
+ *
+ * A fade rather than the bar's slide: the dialog is an answer to a press that
+ * has just happened, and a thing that travels reads as something arriving on
+ * its own. Short, for the same reason - 150ms is long enough not to blink in
+ * and short enough not to be a transition anybody waits through.
+ */
+.present-offer {
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+
+.present-offer.present-offer-in {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .present-offer {
+    transition: none;
+  }
+}
+
+/*
+ * What the lock looks like.
+ *
+ * The shield swallows a real press in a capture-phase listener rather than by
+ * being the thing under the pointer (see PresentationMode.tsx), so the app's
+ * own cursors would otherwise still promise the slider, the handle and the
+ * swatch that a press is going to do something. One rule takes the promise
+ * back everywhere but the walkthrough's own chrome, where the presses do
+ * still land. `touch-action` is the same statement for a finger: nothing here
+ * pans, pinches or scrolls while the cut is playing.
+ */
+html[data-present-locked] *:not([data-present-chrome]):not([data-present-chrome] *) {
+  cursor: default !important;
+}
+
+html[data-present-locked] {
+  touch-action: none;
+  overscroll-behavior: none;
 }

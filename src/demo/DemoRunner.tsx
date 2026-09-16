@@ -659,6 +659,16 @@ export default function DemoRunner({ from = null, cursorFrom = null, onRestore, 
   useEffect(() => {
     const onDown = (e: Event) => {
       if (!e.isTrusted) return;
+      /*
+       * Nor while the shipped walkthrough owns the input (PresentationMode's
+       * shield). The demo is a chapter of the cut there rather than something
+       * the viewer started, and the shield has already decided what a real
+       * press means: it offers the way out of the whole walkthrough, not out
+       * of this one beat. The shield swallows a real press before it ever
+       * reaches this listener; the keys it does let through - Space, Escape,
+       * the arrows - are the transport's, and none of them is a skip.
+       */
+      if (document.documentElement.hasAttribute('data-present-locked')) return;
       const t = e.target;
       if (t instanceof Element && t.closest('[data-demo-chrome]')) return;
       skip();
