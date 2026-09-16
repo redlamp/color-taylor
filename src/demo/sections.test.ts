@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'bun:test';
-import { layoutSectionLabels, LABEL_ANGLE_DEG, type SectionMark } from './sections';
+import { layoutSectionLabels, LABEL_ANGLE_DEG, LABEL_MIN_GAP, type SectionMark } from './sections';
 
 /** Same fallback `measure()` falls back to outside a DOM canvas (bun's test
  *  runner has no `document`), so expectations below are computed from it
@@ -7,7 +7,7 @@ import { layoutSectionLabels, LABEL_ANGLE_DEG, type SectionMark } from './sectio
 const CHAR_W = 7.2;
 const LINE_HEIGHT = 16;
 const ANGLE_RAD = (LABEL_ANGLE_DEG * Math.PI) / 180;
-const MIN_GAP = 6;
+const MIN_GAP = LABEL_MIN_GAP;
 
 function extentOf(label: string): number {
   return label.length * CHAR_W * Math.cos(ANGLE_RAD) + LINE_HEIGHT * Math.sin(ANGLE_RAD);
