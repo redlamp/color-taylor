@@ -101,7 +101,7 @@ export function AboutPanel({ open, onClose, onWatchDemo, onPresentation }: About
           <DialogPrimitive.Description className="mx-auto mt-6 text-2xl leading-snug text-muted-foreground">
             {/* Non-breaking, so "models," never lands alone on its own line
                 when the card narrows. */}
-            Play with different color{' '}modes,
+            Play with different color{' '}models,
             <br />
             {/* The whole clause leans; only the verb is lit. */}
             <em>
@@ -169,19 +169,22 @@ export function AboutPanel({ open, onClose, onWatchDemo, onPresentation }: About
               dismisses it, and a panel that vanishes as a new tab opens behind
               it is a confusing way to leave. https rather than http - the site
               redirects, so this is the same destination without the hop. */}
-          <p className="mt-10 text-base text-muted-foreground">
-            Made by{' '}
-            <a
-              id="about-author"
-              href="https://redlamp.org"
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="cursor-pointer text-foreground underline underline-offset-4 hover:no-underline"
-            >
-              Taylor Wright
-            </a>
-          </p>
+          <div className="mt-10 flex items-baseline justify-between gap-4 text-base text-muted-foreground">
+            <p id="about-version">Version {__APP_VERSION__}</p>
+            <p>
+              Made by{' '}
+              <a
+                id="about-author"
+                href="https://redlamp.org"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="cursor-pointer text-foreground underline underline-offset-4 hover:no-underline"
+              >
+                Taylor Wright
+              </a>
+            </p>
+          </div>
         </DialogPrimitive.Popup>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>

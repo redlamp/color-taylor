@@ -5,6 +5,10 @@ import path from 'path'
 import fs from 'fs'
 import { spawnSync, spawn } from 'child_process'
 
+// The About panel shows the package version, so the two cannot drift: bump
+// package.json and the panel follows at the next build.
+const { version: appVersion } = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'package.json'), 'utf8'))
+
 const base = process.env.GH_PAGES_DEV
   ? '/color-taylor/dev/'
   : process.env.GITHUB_PAGES
@@ -571,6 +575,7 @@ const clipEditor = {
 // https://vite.dev/config/
 export default defineConfig({
   base,
+  define: { __APP_VERSION__: JSON.stringify(appVersion) },
   plugins: [react(), tailwindcss(), siteUrlHtml, presentationNotes, presentationFrames, clipEditor],
   server: {
     // The cut's assets are rebuilt and copied over while the server runs, and
