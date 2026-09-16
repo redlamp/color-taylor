@@ -77,8 +77,9 @@ const LABEL_FONT = `${LABEL_FONT_PX}px ui-monospace, Consolas, monospace`;
 const LABEL_LINE_HEIGHT = 16;
 /** Counterclockwise tilt applied to every label, like a spreadsheet column
  *  header: the left end stays pinned to the section's start marker and the
- *  text reads upward to the right. */
-export const LABEL_ANGLE_DEG = 15;
+ *  text reads upward to the right. 30 degrees, per Taylor's Figma pass
+ *  (node 172:1479, 2026-09-16); 15 collided at every width past 1600. */
+export const LABEL_ANGLE_DEG = 30;
 const LABEL_ANGLE_RAD = (LABEL_ANGLE_DEG * Math.PI) / 180;
 /** A little slack above the tallest rotated label so its top isn't flush
  *  with the row's edge. */
