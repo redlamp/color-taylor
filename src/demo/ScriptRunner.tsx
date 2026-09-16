@@ -108,6 +108,12 @@ export interface ScriptAction {
    * (default RAY_WIDTH). `radius`, on a `ray`, rounds the bar's two ends the
    * same way it rounds a `rect` - `"pill"` for ends fully rounded to the
    * bar's own width, square by default.
+   *
+   * `line`: the stroke's own thickness, default the layer's SHAPE_STROKE - the
+   * weight every other callout wears. A line naming a place rather than
+   * shouting about it can ask for less: beat 6.5 marks the zero end of the RGB
+   * tracks at 1.5, so the mark reads as a ruler's edge against the box already
+   * standing round those tracks.
    */
   width?: number;
   /**
@@ -137,6 +143,22 @@ export interface ScriptAction {
    * layer's own red, so a callout that is not naming a channel needs nothing.
    */
   color?: string;
+  /**
+   * `line`: dash the stroke. `true` is the house dash - about 6,6 at the width
+   * beat 6.5 asks for - worked out from the stroke rather than fixed, so a
+   * thinner line gets proportionally shorter dashes and a fatter one longer
+   * ones. An array is a stroke-dasharray verbatim, for a cue that wants a
+   * pattern of its own.
+   */
+  dash?: boolean | number[];
+  /**
+   * `line`: draw this one over every callout already on the layer, and keep it
+   * there as later callouts arrive. The layer is one SVG, so what sits on top
+   * is decided by element order and nothing else; without this a `rect` going
+   * up after the line would cover it. Beat 6.5 wants exactly that - a dashed
+   * line across the zero end of the tracks the box is drawn round.
+   */
+  above?: boolean;
   /**
    * Run even while the built-in demo is on screen, and show this runner's
    * cursor for as long as it does. Only for a gesture aimed at the demo's own
@@ -485,6 +507,14 @@ const splitBudget = (ms: number) => {
 /** The drawn callouts: a solid bright red stroke, thick enough to read on video. */
 const SHAPE_STROKE = 8;
 const SHAPE_FILL_OPACITY = 0.05;
+/**
+ * The house dash, as a multiple of the stroke: `"dash": true` becomes a dash
+ * and a gap of this many stroke-widths each. Written against the width rather
+ * than in flat px so the pattern keeps its proportions at any weight - at the
+ * 1.5 beat 6.5 asks for it comes out at the 6,6 that reads well over a slider
+ * track, and the layer's own 8px stroke would get a dash to match.
+ */
+const DASH_UNITS = 4;
 const SHAPE_COLOR = '#ff3333';
 const shapeColor = (): string => SHAPE_COLOR;
 /** A `ray`'s thickness in client px, and the stroke each channel's callouts wear. */
@@ -820,6 +850,22 @@ interface Drawn {
 }
 
 /**
+ * The look a `line` can ask for on top of its color: how thick the stroke is,
+ * whether it is dashed, and whether it stands over the callouts already drawn.
+ * Passed as one object rather than three more positional arguments - `line`
+ * already takes five, and a cue that wants only the dash should not have to
+ * count commas to get there.
+ */
+interface LineStyle {
+  /** Stroke width in client px; SHAPE_STROKE when not given. */
+  width?: number;
+  /** `true` for the house dash (see DASH_UNITS), or a stroke-dasharray verbatim. */
+  dash?: boolean | number[];
+  /** Keep this element last in the layer, so nothing drawn later covers it. */
+  above?: boolean;
+}
+
+/**
  * A finished callout standing on the layer, and the instant its own hold runs
  * out. What the cluster is computed from; see GROUP_FADE_WINDOW_MS.
  */
@@ -845,6 +891,8 @@ class Callouts {
   private frames = new Set<number>();
   /** The callouts standing on the layer with their holds running. See `clusterExpiry`. */
   private held = new Set<Held>();
+  /** The callouts that asked to stay in front of the rest. See `raise`. */
+  private onTop = new Set<SVGElement>();
   private color = shapeColor();
 
   constructor(private layer: SVGSVGElement | null) {}
@@ -861,17 +909,39 @@ class Callouts {
     el.setAttribute('ry', String(r));
   }
 
-  private add(tag: 'rect' | 'polyline', color?: string): SVGElement {
+  private add(tag: 'rect' | 'polyline', color?: string, style?: LineStyle): SVGElement {
     const el = document.createElementNS(SVG_NS, tag);
     const ink = color ?? this.color;
+    const stroke = style?.width ?? SHAPE_STROKE;
     el.setAttribute('fill', tag === 'rect' ? ink : 'none');
     el.setAttribute('fill-opacity', String(SHAPE_FILL_OPACITY));
     el.setAttribute('stroke', ink);
-    el.setAttribute('stroke-width', String(SHAPE_STROKE));
+    el.setAttribute('stroke-width', String(stroke));
     el.setAttribute('stroke-linecap', 'round');
     el.setAttribute('stroke-linejoin', 'round');
+    if (style?.dash) {
+      const dash = Array.isArray(style.dash)
+        ? style.dash
+        : [stroke * DASH_UNITS, stroke * DASH_UNITS];
+      el.setAttribute('stroke-dasharray', dash.join(','));
+    }
     this.layer?.appendChild(el);
+    if (style?.above) this.onTop.add(el);
+    // Everything goes on the end of the layer, so a callout is normally over
+    // whatever went up before it and under whatever comes after. A member of
+    // `onTop` is put back on the end every time anything joins, which is the
+    // only way an SVG says "in front" - and it is what beat 6.5 needs, where
+    // the rect round the RGB tracks is drawn after the line that marks them.
+    this.raise();
     return el;
+  }
+
+  /** Move the `above` callouts back to the end of the layer, in the order they arrived. */
+  private raise() {
+    if (!this.layer) return;
+    for (const el of this.onTop) {
+      if (el.parentNode === this.layer) this.layer.appendChild(el);
+    }
   }
 
   private later(ms: number, fn: () => void) {
@@ -957,7 +1027,7 @@ class Callouts {
   private fade(el: SVGElement) {
     el.style.transition = `opacity ${FADE_MS}ms ease-out`;
     el.style.opacity = '0';
-    this.later(FADE_MS, () => el.remove());
+    this.later(FADE_MS, () => { this.onTop.delete(el); el.remove(); });
   }
 
   /**
@@ -993,9 +1063,14 @@ class Callouts {
    * of the three RGB tracks marked while the handles scale away from it, and
    * the thing being named is a place rather than a control, so there is nothing
    * to put a box round.
+   *
+   * `style` is how a cue asks for something other than that stroke: beat 6.5
+   * wants the same mark thin, white and dashed, standing over the rect that is
+   * boxing the tracks at the time.
    */
-  line(a: Point, b: Point, ms: number, hold: number, color?: string, group?: string) {
-    const el = this.add('polyline', color);
+  line(a: Point, b: Point, ms: number, hold: number, color?: string, group?: string,
+    style?: LineStyle) {
+    const el = this.add('polyline', color, style);
     const t0 = performance.now();
     const step = (now: number) => {
       const t = smoothstep(clamp((now - t0) / Math.max(1, ms), 0, 1));
@@ -1188,6 +1263,7 @@ class Callouts {
     this.timers.clear();
     this.frames.forEach((id) => cancelAnimationFrame(id));
     this.frames.clear();
+    this.onTop.clear();
     while (this.layer?.firstChild) this.layer.firstChild.remove();
   }
 }
@@ -2772,7 +2848,11 @@ export default function ScriptRunner({
           // Measured once. What a `line` marks is a place on a control - the
           // zero end of a track - and the control does not move while it
           // stands; a live one would cost a re-measure a frame for nothing.
-          callouts.line(from.at(), to.at(), a.ms ?? CIRCLE_MS, a.hold ?? HOLD_MS, a.color, a.group);
+          // `width`/`dash`/`above` travel together as the line's look, so the
+          // call keeps its five positional arguments and a cue that wants only
+          // one of the three writes only that one.
+          callouts.line(from.at(), to.at(), a.ms ?? CIRCLE_MS, a.hold ?? HOLD_MS, a.color, a.group,
+            { width: a.width, dash: a.dash, above: a.above });
           return;
         }
         case 'arrow': {
