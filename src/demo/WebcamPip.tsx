@@ -638,7 +638,20 @@ export default function WebcamPip({ webcam }: WebcamPipProps = {}) {
         : t < clip.cutStart
           ? clip.clipOffset
           : clip.cutEnd - clip.cutStart + clip.clipOffset;
-      const playing = inside && !audio.paused && !audio.ended;
+      // Before the voice has started, unpaused is not playing. The shipped
+      // path calls play() on both elements in the same click and each buffers
+      // on its own: on a slow start the voice sat at readyState 0 with its
+      // clock at 0 while the clip had its data and ran ahead, 0.4 s by the
+      // time the voice moved (4 Mbps, live site, 2026-09-16), and the nudge
+      // then took the whole intro to close it. So until the voice's clock has
+      // left zero with data behind it, the picture holds its exact frame.
+      //
+      // Only at the start. Mid-cut the voice's readyState dips below
+      // HAVE_FUTURE_DATA for a moment during ordinary streaming while its
+      // clock keeps moving, and gating on it there paused the clip on every
+      // dip and restarted it behind (staging on Pages, 2026-09-16).
+      const voiceStarting = t < 0.05 && audio.readyState < HTMLMediaElement.HAVE_FUTURE_DATA;
+      const playing = inside && !audio.paused && !audio.ended && !voiceStarting;
       const at = Math.max(0, v.duration ? Math.min(want, v.duration - 1 / 120) : want);
       // Playing, the gap is taken out by running the file a couple of per cent
       // off speed until it closes - a seek mid-play restarts the decoder, which
@@ -662,7 +675,11 @@ export default function WebcamPip({ webcam }: WebcamPipProps = {}) {
         // Spent once the picture is back within DRIFT, by the seek below or
         // because the jump was small enough to land inside it anyway.
         if (clockJumped && Math.abs(off) <= DRIFT) clockJumped = false;
-        if (playing) {
+        if (v.seeking) {
+          // Let the last seek land before judging the gap again: a seek made
+          // on every frame of a clip still fetching its target throws each
+          // fetch away, and the clip never starts.
+        } else if (playing) {
           if (Math.abs(off) > JUMP || (forceSeek && Math.abs(off) > DRIFT)) {
             v.currentTime = at; v.playbackRate = 1; clockJumped = false;
           } else if (Math.abs(off) > DRIFT) v.playbackRate = off > 0 ? 1 - NUDGE : 1 + NUDGE;
