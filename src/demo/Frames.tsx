@@ -665,6 +665,12 @@ export function useFrames({ name, host, time, enabled, authoring }: UseFramesOpt
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement | null;
       if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
+      // A chord is the browser's: Ctrl+R is a reload, and its keydown arrives
+      // here before the page goes. Without this line every reload of the
+      // tab saved a `reset` at the playhead - keyframe 0 from the top, and a
+      // scatter of new keyframes at whatever second the tab was reloaded on
+      // (2026-09-16, seven times before it was found).
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (e.key.startsWith('Arrow') && nudgeRef.current) {
         e.preventDefault();
         e.stopPropagation();

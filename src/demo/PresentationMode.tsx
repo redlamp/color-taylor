@@ -772,6 +772,9 @@ export default function PresentationMode({
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (inTextField(e.target)) return;
+      // Chords belong to the browser (Ctrl+T, Ctrl+N, Ctrl+R): the keydown
+      // still arrives here first, and T on a reload chord toggled the bar.
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
       // The clip editor owns the keyboard while it is open: its handles nudge
       // with the arrow keys and Space would otherwise start the track under it.
       if (editing !== null) return;
