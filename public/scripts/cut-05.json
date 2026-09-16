@@ -425,10 +425,8 @@
       "at": 116.13
     },
     {
-      "do": "hover",
-      "target": "letter:y",
-      "ms": 400,
-      "anchor": "below",
+      "do": "rest",
+      "target": "hue-at:60",
       "at": 119.73
     },
     {
@@ -448,6 +446,11 @@
       "hold": 2440,
       "group": "3.14",
       "at": 120.33
+    },
+    {
+      "do": "click",
+      "target": "hue-at:60",
+      "at": 120.63
     },
     {
       "do": "arrow",
@@ -474,10 +477,8 @@
       "at": 121.89
     },
     {
-      "do": "hover",
-      "target": "letter:c",
-      "ms": 400,
-      "anchor": "below",
+      "do": "rest",
+      "target": "hue-at:180",
       "at": 123.17
     },
     {
@@ -497,6 +498,11 @@
       "hold": 1620,
       "group": "3.15",
       "at": 123.77
+    },
+    {
+      "do": "click",
+      "target": "hue-at:180",
+      "at": 124.07
     },
     {
       "do": "arrow",
@@ -523,10 +529,8 @@
       "at": 124.69
     },
     {
-      "do": "hover",
-      "target": "letter:m",
-      "ms": 400,
-      "anchor": "below",
+      "do": "rest",
+      "target": "hue-at:300",
       "at": 126.46
     },
     {
@@ -546,6 +550,11 @@
       "hold": 2020,
       "group": "3.16",
       "at": 127.06
+    },
+    {
+      "do": "click",
+      "target": "hue-at:300",
+      "at": 127.26
     },
     {
       "do": "arrow",
@@ -585,14 +594,6 @@
       "hold": 1800,
       "live": true,
       "at": 134.06
-    },
-    {
-      "do": "slider",
-      "target": "hex-sat",
-      "to": 100,
-      "ms": 900,
-      "from": 34,
-      "at": 134.16
     },
     {
       "do": "circle",
