@@ -498,7 +498,9 @@ export default function PresentationMode({
   useEffect(() => {
     let live = true;
     if (!name || !lines.length) { setWordChunks(null); return; }
-    fetch(`/scripts/${name}-words.json`)
+    // Base-relative like every other cut file: a root path worked on the dev
+    // server and 404ed under the Pages subpath (/color-taylor/).
+    fetch(`${import.meta.env.BASE_URL}scripts/${name}-words.json`)
       .then((res) => (res.ok ? (res.json() as Promise<CaptionWord[]>) : null))
       .then((words) => {
         if (!live) return;
