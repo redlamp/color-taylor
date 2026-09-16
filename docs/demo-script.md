@@ -1031,12 +1031,26 @@ picture is without knowing the layer exists.
 
 ### The camera panel
 
-`WebcamPip` stays in screen space. With a frame layer up its home corner is the
-**capture box's** bottom-right corner, at the usual 20 px margin, rather than
-being measured off the app's right edge — the page is being scaled and panned
+`WebcamPip` stays in screen space. Its home is the bottom-right corner of the
+screen: `bottom` is 20 px above the transport bar where there is one (the bar
+publishes its measured height through `frameState.ts`, which is also how the
+panel hears about a frame layer) and 20 px above the foot of the window where
+there is not — the `?script=` recording path has no bar. `left` puts it 20 px
+in from the right edge of a box that is **the viewport width capped at 1920 and
+centred in it**: up to 1920 that is simply 20 px off the display's right edge,
+and past it the corner stops walking outwards, because the picture is 1920 wide
+and a panel that keeps travelling with a very wide window ends up nowhere near
+anything the audience is looking at. At 2560 wide the panel's right edge is
+therefore 340 px in from the window's. This replaced an older rule that centred
+the panel in the gap between the app's right edge and the window's.
+
+With a frame layer up its home corner is the **capture box's** bottom-right
+corner instead, at the usual 20 px margin — the page is being scaled and panned
 underneath it, and a panel measured off the page would walk around with the
-frame. Its size is unchanged, and the `pip` drag on and off still runs in
-viewport coordinates, so both gestures are untouched.
+frame. That rule wins over the 1920 bound, and the bar's height is still added
+on top of it. Its size is unchanged, and the `pip` drag on and off still runs in
+viewport coordinates against whatever home is current (`parkPip` measures home
+off the element itself), so both gestures are untouched.
 
 Deferred: the drag's off-screen position is still the *window's* right edge
 rather than the capture box's. They are the same thing at 16:9 in a 16:9

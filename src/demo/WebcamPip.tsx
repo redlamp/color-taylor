@@ -1,9 +1,11 @@
 /**
  * The presenter's camera, as the picture-in-picture panel the recording has.
  *
- * A fixed box in the bottom-right corner, the same 400x400 at a 20px margin
- * with a 12px radius that the OBS scene uses, so what the script drags around
- * lines up with what the camera is composited into afterwards. It shows the
+ * A fixed box in the bottom-right corner - above the transport bar where
+ * there is one, and never further right than a centred 1920-wide box, so a
+ * very wide display does not walk it off to the side - the same 400x400 at a
+ * 20px margin with a 12px radius that the OBS scene uses, so what the script
+ * drags around lines up with what the camera is composited into afterwards. It shows the
  * camera footage of the cut where there is any (see below), the live webcam
  * when one is asked for and the browser gives it, and a dark plate with a
  * camera glyph otherwise - the placeholder is not a fallback, it is what the
@@ -53,6 +55,17 @@ export const PIP_WIDTH = 400;
 export const PIP_HEIGHT = 400;
 export const PIP_MARGIN = 20;
 export const PIP_RADIUS = 12;
+
+/**
+ * The widest the panel's home corner travels out to.
+ *
+ * The panel belongs to the bottom right of the *picture*, and the picture is
+ * 1920 wide. On a wider display the corner would otherwise keep walking out
+ * with the window, away from the app and off the edge of anything an audience
+ * is looking at, so past this width the corner stops where a 1920 box centred
+ * in the viewport would put it.
+ */
+export const PIP_BOUND = 1920;
 
 /** One span of footage: `video.currentTime = t - cutStart + clipOffset`. */
 interface PipClip {
@@ -194,24 +207,24 @@ export default function WebcamPip({ webcam }: WebcamPipProps = {}) {
   /** Whether the footage has a frame to show. Until it has, the plate does. */
   const [decoded, setDecoded] = useState(false);
   /**
-   * The panel's home `left`, so the gap between the app's right edge and the
-   * panel equals the gap between the panel and the display's right edge -
-   * rather than the panel sitting flush 20px off the display edge regardless
-   * of how much room the viewport leaves past the app. `null` while there
-   * isn't a sane app edge to measure from, or the viewport is too narrow to
-   * leave more than a sliver either side; the fixed 20px margin stands in.
+   * The panel's home `left`: 20px in from the right edge of a box that is the
+   * viewport capped at `PIP_BOUND` and centred in it. Up to 1920 that is
+   * simply 20px off the display's right edge; past it the corner holds still
+   * at the edge of the centred 1920 box. `null` only until the effect below
+   * has measured for the first time, when the fixed 20px margin stands in.
    */
   const [homeLeft, setHomeLeft] = useState<number | null>(null);
 
   /**
-   * How far the panel sits above the foot of the screen. The fixed 20px
-   * margin, unless a frame layer is up: then it is 20px above the foot of the
-   * capture box, so the panel keeps its corner of the picture rather than
-   * sitting in a letterbox band that is not being captured. Either way, the
-   * transport bar's own height is added on top: the bar is a fixed, portalled
-   * element outside the frame layer's transform, so it always sits at the
-   * real foot of the screen and would otherwise sit under (or the panel,
-   * over) the bar and hide the last section labels.
+   * How far the panel sits above the foot of the screen: 20px above the
+   * transport bar where there is one, and 20px above the foot of the window
+   * where there is not (the `?script=` recording path has no bar). Under a
+   * frame layer it is 20px above the foot of the *capture box* instead, so
+   * the panel keeps its corner of the picture rather than sitting in a
+   * letterbox band nothing is capturing; that rule wins, and the bar's height
+   * is still added on top of it, because the bar is a fixed, portalled
+   * element outside the frame layer's transform and always sits at the real
+   * foot of the screen.
    */
   const [homeBottom, setHomeBottom] = useState<number>(PIP_MARGIN);
 
@@ -275,10 +288,10 @@ export default function WebcamPip({ webcam }: WebcamPipProps = {}) {
     const compute = () => {
       /*
        * With a frame layer up the panel belongs to the capture, not to the
-       * page: the page is being scaled and panned underneath it, so measuring
-       * the app's right edge would walk the panel around with the frame. The
-       * capture box's own bottom-right corner is the one fixed thing in the
-       * picture, which is where the OBS layout puts it too.
+       * window: the frame is what the viewer will see, so its own
+       * bottom-right corner is the one the panel takes - which is where the
+       * OBS layout puts it too. The 1920 bound below is the same idea for a
+       * window with no frame layer over it.
        */
       const bar = transportHeight();
       const box = captureBox();
@@ -288,11 +301,8 @@ export default function WebcamPip({ webcam }: WebcamPipProps = {}) {
         return;
       }
       setHomeBottom(bar + PIP_MARGIN);
-      const app = document.querySelector('#color-editor-group');
-      const appRight = app?.getBoundingClientRect().right;
-      if (appRight == null) { setHomeLeft(null); return; }
-      const gap = (window.innerWidth - appRight - PIP_WIDTH) / 2;
-      setHomeLeft(gap >= 8 ? appRight + gap : null);
+      const inset = Math.max(0, (window.innerWidth - PIP_BOUND) / 2) + PIP_MARGIN;
+      setHomeLeft(window.innerWidth - inset - PIP_WIDTH);
     };
     compute();
     window.addEventListener('resize', compute);
