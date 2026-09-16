@@ -214,7 +214,7 @@ test.describe('Welcome panel', () => {
     const dev: string[] = [];
     page.on('request', (r) => { if (r.url().includes('/__')) dev.push(r.url()); });
     await page.setViewportSize({ width: 1376, height: 868 });
-    await page.goto('/?present=cut-03');
+    await page.goto(`/?present=${CURRENT_CUT}`);
     await expect(page.getByTestId('present-transport')).toBeVisible();
     // A link is not the gesture playback needs, so it opens stopped.
     await expect.poll(() => page.locator('audio[data-testid="present-audio"]').evaluate(
@@ -230,7 +230,7 @@ test.describe('Welcome panel', () => {
     // the port.
     // A production preview answers every unknown path with index.html, so
     // the tell is JSON, not a 200.
-    const devServer = ((await page.request.get('/__notes/cut-03')).headers()['content-type'] ?? '').includes('json');
+    const devServer = ((await page.request.get(`/__notes/${CURRENT_CUT}`)).headers()['content-type'] ?? '').includes('json');
     if (devServer) {
       await expect(page.getByTestId('present-note').first()).toBeVisible();
     } else {
@@ -242,7 +242,7 @@ test.describe('Welcome panel', () => {
 
   test('?script= mounts nothing outside a recording session', async ({ page }) => {
     await page.setViewportSize({ width: 1376, height: 868 });
-    await page.goto('/?script=cut-03');
+    await page.goto(`/?script=${CURRENT_CUT}`);
     await page.locator('#rgb-dot-green').waitFor();
     // Dev-only, and this suite may be pointed at either build: the one thing
     // that holds in both is that it never mounts presentation mode.

@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
@@ -56,9 +56,15 @@ const siteUrlHtml = {
  *
  * Unset by default. The notes, frames and clip-editor routes below all 404
  * with `{ error: 'PRESENTATION_NOTES_DIR is not set' }` until this points at
- * that directory - set it in `.env.development.local`.
+ * that directory - set it in `.env.development.local`. Read through Vite's
+ * own env loader rather than `process.env` alone: a `.env` file is not in the
+ * process environment when this config is evaluated, and the routes are dev
+ * server only, so the development file is the one that counts.
  */
-const NOTES_DIR = process.env.PRESENTATION_NOTES_DIR || ''
+const NOTES_DIR =
+  process.env.PRESENTATION_NOTES_DIR ||
+  loadEnv('development', process.cwd(), '').PRESENTATION_NOTES_DIR ||
+  ''
 
 /**
  * Dev-server only: `GET/POST /__notes/<name>` reads and writes that file as
