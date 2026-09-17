@@ -1,7 +1,7 @@
 {
   "name": "Color Taylor",
   "short_name": "Color Taylor",
-  "description": "Understand color by moving it. Get hands-on with how RGB, HSB, and HSL colors relate.",
+  "description": "Play with different color models, see how they move together! Get hands-on with how RGB, HSB, and HSL colors relate.",
   "start_url": ".",
   "scope": ".",
   "display": "standalone",
