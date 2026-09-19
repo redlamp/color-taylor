@@ -23,7 +23,7 @@
 import { getAudioCtx, getMasterGain } from '../utils/audioContext';
 import { midiToFreq } from '../utils/synthConfig';
 import {
-  clampGlide, gateSeconds, isLegato, stepSeconds,
+  CUTOFF_MAX, clampGlide, gateSeconds, isLegato, stepSeconds,
   type Channel, type NoteStep, type Step, type Subdivision,
 } from './sequencer';
 
@@ -115,6 +115,10 @@ export interface SeqCounters {
   readonly trackStartTime: readonly number[];
   readonly voiceLog: readonly VoiceLogEntry[];
   readonly playing: boolean;
+  /** Audition notes started since load: held keys, Run notes and Chord voices. */
+  readonly auditionNotes: number;
+  /** Audition keys held down right now. */
+  readonly auditionHeld: number;
 }
 
 export class SequencerEngine {
@@ -128,6 +132,10 @@ export class SequencerEngine {
   private lastStepTime = 0;
   private voiceLog: VoiceLogEntry[] = [];
   private ctx: AudioContext | null = null;
+  /** Audition voices, apart from `live` so a transport stop leaves a held key sounding. */
+  private auditions = new Map<Channel, { v: Voice; midi: number }>();
+  private auditionRuns = new Set<Voice>();
+  private auditionNotes = 0;
 
   constructor(params: EngineParams, trackCount = 2) {
     this.params = { ...params };
@@ -141,7 +149,12 @@ export class SequencerEngine {
   get playing(): boolean { return this.timer !== null; }
 
   /** Takes effect from the next step booked - no restart. */
-  setParams(p: Partial<EngineParams>): void { Object.assign(this.params, p); }
+  setParams(p: Partial<EngineParams>): void {
+    Object.assign(this.params, p);
+    // A held audition key follows its instrument's settings as they change.
+    const ctx = this.ctx;
+    if (ctx) for (const [ch, a] of this.auditions) this.retune(a.v, auditionStep(ch, a.midi), 0, ctx.currentTime, 0);
+  }
 
   setTrack(i: number, input: TrackInput): void {
     const tr = this.tracks[i];
@@ -208,7 +221,74 @@ export class SequencerEngine {
       trackStartTime: this.tracks.map((t) => t.startTime),
       voiceLog: this.voiceLog.map((e) => ({ ...e, keys: [...e.keys] })),
       playing: this.playing,
+      auditionNotes: this.auditionNotes,
+      auditionHeld: this.auditions.size,
     };
+  }
+
+  // --- audition: an instrument on its own, over the transport or without it ----
+
+  /** The context, resumed. Called from a press, so the resume counts as a gesture. */
+  private auditionCtx(): AudioContext {
+    const ctx = getAudioCtx();
+    this.ctx = ctx;
+    if (ctx.state !== 'running') void ctx.resume();
+    getMasterGain();
+    return ctx;
+  }
+
+  /**
+   * Hold `midi` on channel `ch`'s instrument until `auditionOff`. A key
+   * already down on that channel glides to the new note instead (sliding
+   * across the strip), over the transport's glide time.
+   */
+  auditionOn(ch: Channel, midi: number): void {
+    const ctx = this.auditionCtx();
+    const t = ctx.currentTime;
+    const step = auditionStep(ch, midi);
+    const held = this.auditions.get(ch);
+    if (held) {
+      if (held.midi === midi) return;
+      this.retune(held.v, step, 0, t, Math.min(0.3, this.params.glideMs / 1000));
+      held.midi = midi;
+    } else {
+      const v = this.voice(ctx, step, 0, null, t, 0);
+      this.live.delete(v);
+      this.auditions.set(ch, { v, midi });
+    }
+    this.auditionNotes++;
+  }
+
+  auditionOff(ch: Channel): void {
+    const held = this.auditions.get(ch);
+    if (!held || !this.ctx) return;
+    this.release(held.v, this.ctx.currentTime);
+    this.auditions.delete(ch);
+  }
+
+  /**
+   * Play `steps` one after another at the transport's tempo, subdivision and
+   * gate - a scale run, or a single chord step held for `holdSteps`. A new
+   * run cuts off the one before it.
+   */
+  auditionSequence(steps: readonly NoteStep[], holdSteps = 1): void {
+    const ctx = this.auditionCtx();
+    for (const v of this.auditionRuns) this.kill(v, ctx.currentTime);
+    this.auditionRuns.clear();
+    const stepSec = stepSeconds(this.params.bpm, this.params.subdivision);
+    const gate = holdSteps > 1 ? stepSec * (holdSteps - 1) + gateSeconds(this.params.gatePct, stepSec) : gateSeconds(this.params.gatePct, stepSec);
+    let t = ctx.currentTime + 0.03;
+    for (const step of steps) {
+      step.keys.forEach((_, n) => {
+        const v = this.voice(ctx, step, n, null, t, 0);
+        this.live.delete(v);
+        this.auditionRuns.add(v);
+        v.osc.addEventListener('ended', () => this.auditionRuns.delete(v));
+        this.release(v, t + gate);
+        this.auditionNotes++;
+      });
+      t += stepSec;
+    }
   }
 
   private tick(): void {
@@ -389,4 +469,12 @@ export class SequencerEngine {
       v.osc.stop(now + 0.04);
     } catch { /* already stopped */ }
   }
+}
+
+/** One RGB Instruments note on one channel at full accent - what an audition key plays. */
+export function auditionStep(ch: Channel, midi: number): NoteStep {
+  return {
+    rest: false, hex: '#000000', midis: [midi], keys: [ch], rgb: true, levels: [1], velocity: 1,
+    cutoff: CUTOFF_MAX, label: '', detail: '',
+  };
 }

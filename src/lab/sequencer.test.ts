@@ -6,7 +6,9 @@ import {
   midiToChannel, midiToHue, noteNameToMidi, parseRecentSlots, parseSavedSlots, rgbSongConfig,
   rgbSongMidis, rgbSongSlots, saturationToCutoff, songConfig, songMidis, songSlots, stepSeconds,
   swatchToStep, type MapConfig, type ScaleName,
+  instrumentName, noteIndices, snapToIndices, stickyIndex, stickyIndices,
 } from './sequencer';
+import { hexToRgb, hsbToRgb, rgbToHex, rgbToHsb } from '../utils/colorConversions';
 
 const MELODY: MapConfig = { mode: 'melody', scale: 'pentatonic', root: 0, octaveRange: 2, octaveOffset: 0 };
 const CHORDS: MapConfig = { ...MELODY, mode: 'chords' };
@@ -291,5 +293,80 @@ describe('note pickers', () => {
     expect(channelNoteToHex('#ffffff', 'g', null, RGB)).toBe('#ff00ff');
     const base = channelBase(DEFAULT_RANGES.r, 2, 0);
     expect(channelChoices('r', RGB)[0]).toBe(base);
+  });
+});
+
+describe('stickyIndex', () => {
+  // 10 buckets, each 0.1 wide; margin 0.2 of a bucket = 0.02.
+  test('no previous index: the plain bucket', () => {
+    expect(stickyIndex(0.35, null, 10)).toBe(3);
+    expect(stickyIndex(1, null, 10)).toBe(9);
+    expect(stickyIndex(-0.5, null, 10)).toBe(0);
+  });
+  test('holds inside the margin past either edge', () => {
+    expect(stickyIndex(0.41, 3, 10)).toBe(3); // 0.1 bucket past the top edge
+    expect(stickyIndex(0.29, 3, 10)).toBe(3); // 0.1 bucket under the bottom edge
+    expect(stickyIndex(0.419, 3, 10)).toBe(3);
+  });
+  test('moves once past the margin', () => {
+    expect(stickyIndex(0.425, 3, 10)).toBe(4);
+    expect(stickyIndex(0.275, 3, 10)).toBe(2);
+    expect(stickyIndex(0.9, 3, 10)).toBe(9); // a jump lands on the bucket under it
+  });
+  test('the margin is a parameter', () => {
+    expect(stickyIndex(0.425, 3, 10, 0.3)).toBe(3);
+    expect(stickyIndex(0.405, 3, 10, 0)).toBe(4);
+  });
+  test('an out-of-range previous index is ignored', () => {
+    expect(stickyIndex(0.35, 12, 10)).toBe(3);
+    expect(stickyIndex(0.35, -1, 10)).toBe(3);
+  });
+  test('wrap: the first and last buckets are neighbours', () => {
+    expect(stickyIndex(0.01, 9, 10, 0.2, true)).toBe(9); // 0.1 bucket past 1.0
+    expect(stickyIndex(0.03, 9, 10, 0.2, true)).toBe(0);
+    expect(stickyIndex(0.99, 0, 10, 0.2, true)).toBe(0);
+    expect(stickyIndex(0.97, 0, 10, 0.2, true)).toBe(9);
+    // without wrap the same move is a long way off
+    expect(stickyIndex(0.01, 9, 10)).toBe(0);
+  });
+});
+
+describe('sticky notes on a colour', () => {
+  const hueHex = (h: number) => { const c = hsbToRgb(h, 100, 100); return rgbToHex(c.r, c.g, c.b); };
+  test('noteIndices agrees with swatchToStep', () => {
+    for (let h = 0; h < 360; h += 7) {
+      const hex = hueHex(h);
+      const idx = noteIndices(hex, MELODY)[0];
+      const step = swatchToStep({ hex, alpha: 100 }, MELODY);
+      expect(step.rest).toBe(false);
+      if (!step.rest) expect(step.midis[0]).toBe(melodyChoices(MELODY)[idx]);
+    }
+    const RGB: MapConfig = { ...MELODY, mode: 'rgb' };
+    expect(noteIndices('#000000', RGB)).toEqual([-1, -1, -1]);
+    expect(noteIndices('#000000', MELODY)).toEqual([-1]);
+  });
+  test('a hue just over a boundary keeps the note, well over moves it', () => {
+    // Pentatonic over 2 octaves: 10 bands of 36 degrees; band 2 is 72..108.
+    expect(stickyIndices(hueHex(110), MELODY, [2])).toEqual([2]);
+    expect(stickyIndices(hueHex(118), MELODY, [2])).toEqual([3]);
+  });
+  test('snapToIndices lands on the bucket centre and plays that note', () => {
+    const snapped = snapToIndices(hueHex(110), MELODY, [2]);
+    expect(noteIndices(snapped, MELODY)).toEqual([2]);
+    const { r, g, b } = hexToRgb(snapped)!;
+    expect(Math.abs(rgbToHsb(r, g, b).h - 90)).toBeLessThan(1.5);
+    const RGB: MapConfig = { ...MELODY, mode: 'rgb' };
+    const s2 = snapToIndices('#7f0305', RGB, [4, -1, -1]);
+    expect(noteIndices(s2, RGB)).toEqual([4, -1, -1]);
+  });
+});
+
+describe('instrument names', () => {
+  test('the step detail names each instrument', () => {
+    const cfg: MapConfig = { ...MELODY, mode: 'rgb', names: { r: 'Low', g: '', b: 'Top' } };
+    const step = swatchToStep({ hex: '#ffffff', alpha: 100 }, cfg);
+    expect(step.rest).toBe(false);
+    if (!step.rest) expect(step.detail).toMatch(/^Low \S+ · Harmony \S+ · Top \S+$/);
+    expect(instrumentName('r', {})).toBe('Bass');
   });
 });

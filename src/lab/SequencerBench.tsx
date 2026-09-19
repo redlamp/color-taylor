@@ -12,21 +12,35 @@
  * file reads the app's swatch keys (never writes them), holds the controls in
  * the lab's own key, and paints what the audio clock says is sounding. The
  * paint loop reads `currentTime`; it never drives the audio.
+ *
+ * Selecting a cell makes it the current swatch in the side column
+ * (SequencerCellEditor: the app's hexagon and Color Editor parts). Saved
+ * tracks, their JSON file and the share link are in sequencerTracks.ts and
+ * SequencerLibrary.tsx.
  */
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Minus, Play, Plus, RefreshCw, Square } from 'lucide-react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Link, Minus, Play, Plus, RefreshCw, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Slider } from '@/components/ui/slider';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { hexToRgb, rgbToHex } from '../utils/colorConversions';
 import {
-  BUILTIN_PALETTES, CHANNELS, NOTE_NAMES, ODE_RGB, SONGS, parseRecentSlots, parseSavedSlots, rgbSongSlots, songSlots,
+  BUILTIN_PALETTES, CHANNELS, DEFAULT_NAMES, NOTE_NAMES, ODE_RGB, SONGS, parseRecentSlots, parseSavedSlots, rgbSongSlots, songSlots,
   swatchToStep,
-  type Channel, type LegacyAlpha, type MapConfig, type ScaleName, type SeqMode, type Slot, type Subdivision,
+  type Channel, type LegacyAlpha, type MapConfig, type NoteStep, type ScaleName, type SeqMode, type Slot, type Subdivision,
 } from './sequencer';
 import { BAR, SequencerEngine, type Instrument, type SeqCounters, type Wave } from './sequencerEngine';
+import {
+  decodeShare, encodeShare, newId, parseLibrary,
+  type ChordsSettings, type InstrumentCfg, type MelodySettings, type RgbSettings, type SavedTrack, type TrackSnapshot,
+} from './sequencerTracks';
+import CollapsibleSection from '../components/CollapsibleSection';
 import SequencerStepEditor from './SequencerStepEditor';
+import SequencerCellEditor, { type CellEditorHandle, type FollowTarget } from './SequencerCellEditor';
+import SequencerLibrary from './SequencerLibrary';
+import AuditionStrip from './SequencerAudition';
 
 type SongKey = keyof typeof SONGS;
 type SongSource = `${SongKey}-${'melody' | 'bass'}`;
@@ -41,8 +55,6 @@ interface TrackCfg {
   custom: Slot[];
 }
 
-interface InstrumentCfg { octave: number; range: number; wave: Wave; level: number; muted: boolean }
-
 /** Each mode keeps its own values, so switching away and back loses nothing. */
 interface Settings {
   version: 3;
@@ -51,10 +63,16 @@ interface Settings {
   glideMs: number;
   gatePct: number;
   mode: SeqMode;
-  melody: { scale: ScaleName; root: number; baseOctave: number; octaveRange: number; wave: Wave };
-  chords: { root: number; baseOctave: number; wave: Wave };
-  rgb: { scale: ScaleName; root: number; instruments: Record<Channel, InstrumentCfg> };
+  melody: MelodySettings;
+  chords: ChordsSettings;
+  rgb: RgbSettings;
   tracks: [TrackCfg, TrackCfg];
+  /** Snap a dragged cell to its note's centre on release. */
+  snap: boolean;
+  /** Saved tracks - "Save as..." and the JSON import land here. */
+  library: SavedTrack[];
+  /** Which collapsible sections are open, by id. Absent is open. */
+  open: Record<string, boolean>;
 }
 
 const DEFAULTS: Settings = {
@@ -71,15 +89,18 @@ const DEFAULTS: Settings = {
     root: 0,
     // Physics order: R bass, G middle, B lead.
     instruments: {
-      r: { octave: 2, range: 1, wave: 'sine', level: 90, muted: false },
-      g: { octave: 3, range: 2, wave: 'triangle', level: 70, muted: false },
-      b: { octave: 4, range: 2, wave: 'sawtooth', level: 70, muted: false },
+      r: { name: DEFAULT_NAMES.r, octave: 2, range: 1, wave: 'sine', level: 90, muted: false },
+      g: { name: DEFAULT_NAMES.g, octave: 3, range: 2, wave: 'triangle', level: 70, muted: false },
+      b: { name: DEFAULT_NAMES.b, octave: 4, range: 2, wave: 'sawtooth', level: 70, muted: false },
     },
   },
   tracks: [
     { source: 'saved', enabled: true, octave: 0, muted: false, custom: [] },
     { source: 'pulse', enabled: false, octave: -1, muted: false, custom: [] },
   ],
+  snap: true,
+  library: [],
+  open: {},
 };
 
 /** The lab's own key. Nothing else here is ever written to storage. */
@@ -101,10 +122,50 @@ function loadSettings(): Settings {
       chords: { ...DEFAULTS.chords, ...s.chords },
       rgb: { ...DEFAULTS.rgb, ...s.rgb, instruments: { r: inst('r'), g: inst('g'), b: inst('b') } },
       tracks: [track(0), track(1)],
+      library: parseLibrary(s.library),
+      open: s.open && typeof s.open === 'object' ? s.open : {},
     };
   } catch {
     return DEFAULTS;
   }
+}
+
+/** Track `i` as a snapshot: its row plus the settings it plays under. */
+function snapshotOf(s: Settings, row: Slot[], i: 0 | 1, name: string): TrackSnapshot {
+  const snap: TrackSnapshot = {
+    name, steps: row.map((x) => (x ? { ...x } : null)), mode: s.mode, bpm: s.bpm, subdivision: s.subdivision,
+    gatePct: s.gatePct, glideMs: s.glideMs, octave: s.tracks[i].octave,
+  };
+  if (s.mode === 'melody') snap.melody = { ...s.melody };
+  if (s.mode === 'chords') snap.chords = { ...s.chords };
+  if (s.mode === 'rgb') snap.rgb = { ...s.rgb, instruments: { ...s.rgb.instruments } };
+  return snap;
+}
+
+/** A snapshot onto track `i` as its Custom row, with the settings it was made with. */
+function applySnapshot(s: Settings, snap: TrackSnapshot, i: 0 | 1): Settings {
+  const tracks = [...s.tracks] as [TrackCfg, TrackCfg];
+  tracks[i] = { ...tracks[i], source: 'custom', custom: snap.steps.map((x) => (x ? { ...x } : null)), octave: snap.octave, enabled: true };
+  return {
+    ...s,
+    mode: snap.mode, bpm: snap.bpm, subdivision: snap.subdivision, gatePct: snap.gatePct, glideMs: snap.glideMs,
+    melody: snap.melody ?? s.melody,
+    chords: snap.chords ?? s.chords,
+    rgb: snap.rgb ?? s.rgb,
+    tracks,
+  };
+}
+
+/** Settings, with a `#seq=` share link in the URL loaded onto Track A. */
+function initialSettings(): Settings {
+  const s = loadSettings();
+  const shared = typeof location === 'undefined' ? null : decodeShare(location.hash);
+  return shared ? applySnapshot(s, shared, 0) : s;
+}
+
+/** The share link drops out of the address bar once loaded, so a reload doesn't undo edits made since. */
+function clearShareHash() {
+  if (location.hash.startsWith('#seq=')) history.replaceState(null, '', location.pathname + location.search);
 }
 
 function readJson(key: string): unknown {
@@ -177,6 +238,7 @@ function mapConfig(s: Settings, octaveOffset: number): MapConfig {
   return {
     mode: 'rgb', scale: s.rgb.scale, root: s.rgb.root, octaveRange: 1, octaveOffset,
     ranges: { r: inst.r, g: inst.g, b: inst.b },
+    names: { r: inst.r.name, g: inst.g.name, b: inst.b.name },
   };
 }
 
@@ -211,6 +273,38 @@ const HELP: Record<SeqMode, string> = {
 };
 const CHANNEL_INK: Record<Channel, string> = { r: '#e74c4c', g: '#2fa84f', b: '#3385ff' };
 const CHANNEL_NAME: Record<Channel, string> = { r: 'Red', g: 'Green', b: 'Blue' };
+/** The Chord audition's step: a warm off-white, so all three instruments sound. */
+const CHORD_SAMPLE = '#e8dcc8';
+const TRACK_NAME = ['A', 'B'] as const;
+
+interface Selection { track: 0 | 1; step: number }
+/** A drag's sticky colour for one cell: what it plays until release. */
+interface Live extends Selection { hex: string }
+
+const MODE_TITLE: Record<SeqMode, string> = { melody: 'Hue Melody', chords: 'Hue Chords', rgb: 'RGB Instruments' };
+
+/**
+ * The app's CollapsibleSection, with its open state kept in the lab's key.
+ * The section is uncontrolled and reports nothing, so its trigger's
+ * aria-expanded is watched instead: the DOM is the truth, whatever toggled it.
+ */
+function LabSection({ id, title, open, onOpenChange, headerRight, children }: {
+  id: string; title: string; open: boolean; onOpenChange: (id: string, open: boolean) => void;
+  headerRight?: ReactNode; children: ReactNode;
+}) {
+  useEffect(() => {
+    const trigger = document.getElementById(`${id}-trigger`);
+    if (!trigger) return;
+    const obs = new MutationObserver(() => onOpenChange(id, trigger.getAttribute('aria-expanded') === 'true'));
+    obs.observe(trigger, { attributes: true, attributeFilter: ['aria-expanded'] });
+    return () => obs.disconnect();
+  }, [id, onOpenChange]);
+  return (
+    <CollapsibleSection id={id} title={title} level="h2" variant="plain" defaultOpen={open} headerRight={headerRight}>
+      {children}
+    </CollapsibleSection>
+  );
+}
 
 /** A segmented control: `options` is `value:Label|value:Label`. */
 function Seg({ value, options, onChange, label, control }: {
@@ -260,7 +354,8 @@ declare global {
 }
 
 export default function SequencerBench() {
-  const [settings, setSettings] = useState<Settings>(loadSettings);
+  const [settings, setSettings] = useState<Settings>(initialSettings);
+  useEffect(clearShareHash, []);
   const [stored, setStored] = useState<Stored>(readStored);
   const [playing, setPlaying] = useState(false);
   const [engine] = useState(() => new SequencerEngine({
@@ -316,7 +411,14 @@ export default function SequencerBench() {
 
   const configs = useMemo(() => settings.tracks.map((t) => mapConfig(settings, t.octave)), [settings]);
   const slots = useMemo(() => settings.tracks.map((t) => slotsFor(t, stored)), [settings.tracks, stored]);
-  const steps = useMemo(() => slots.map((row, i) => row.map((slot) => swatchToStep(slot, configs[i]))), [slots, configs]);
+  const [selected, setSelected] = useState<Selection | null>(null);
+  const [live, setLive] = useState<Live | null>(null);
+  const steps = useMemo(() => slots.map((row, i) => row.map((slot, si) => (
+    // A cell being dragged plays its sticky note, not the raw colour under the pointer.
+    live && slot && live.track === i && live.step === si
+      ? swatchToStep({ hex: live.hex, alpha: slot.alpha }, configs[i])
+      : swatchToStep(slot, configs[i])
+  ))), [slots, configs, live]);
 
   const wave = settings.mode === 'chords' ? settings.chords.wave : settings.melody.wave;
   const instruments = useMemo(() => engineInstruments(settings), [settings]);
@@ -334,18 +436,33 @@ export default function SequencerBench() {
   // Verification hook: read-only counters, nothing to drive the engine with.
   useEffect(() => {
     const view = {} as SeqCounters;
-    for (const k of ['notesScheduled', 'lastStepTime', 'trackIndex', 'trackStartStep', 'trackStartTime', 'voiceLog', 'playing'] as const) {
+    for (const k of ['notesScheduled', 'lastStepTime', 'trackIndex', 'trackStartStep', 'trackStartTime', 'voiceLog', 'playing', 'auditionNotes', 'auditionHeld'] as const) {
       Object.defineProperty(view, k, { get: () => engine.counters()[k], enumerable: true });
     }
     window.__seq = Object.freeze(view);
     return () => { delete window.__seq; engine.stop(); };
   }, [engine]);
 
+  /*
+   * Follow: while playing, the side column shows the colour sounding on one
+   * track, straight from the paint loop below. Default Track A, or B when B
+   * is the only track on. A press on the editor pauses it; the next Play, or
+   * picking a Follow button, resumes.
+   */
+  const [follow, setFollow] = useState<FollowTarget>(() => (
+    !settings.tracks[0].enabled && settings.tracks[1].enabled ? 1 : 0));
+  const [followPaused, setFollowPaused] = useState(false);
+  const editorRef = useRef<CellEditorHandle | null>(null);
+  const followRef = useRef<FollowTarget | null>(follow);
+  useEffect(() => { followRef.current = followPaused ? null : follow; }, [follow, followPaused]);
+  const pickFollow = useCallback((f: FollowTarget) => { setFollow(f); setFollowPaused(false); }, []);
+
   const toggle = useCallback(() => {
     if (engine.playing) {
       engine.stop();
       setPlaying(false);
     } else {
+      setFollowPaused(false);
       void engine.start().then(() => setPlaying(true));
     }
   }, [engine]);
@@ -356,6 +473,7 @@ export default function SequencerBench() {
     setSettings((s) => ({ ...s, tracks: [{ ...s.tracks[0], enabled: true }, { ...s.tracks[1], enabled: true }] }));
     // Straight to the engine as well: the state lands a render later, after the first steps are booked.
     settings.tracks.forEach((t, i) => engine.setTrack(i, { steps: steps[i], enabled: true, muted: t.muted }));
+    setFollowPaused(false);
     void engine.start().then(() => setPlaying(true));
   }, [engine, settings.tracks, steps]);
 
@@ -411,6 +529,16 @@ export default function SequencerBench() {
   const cellRefs = useRef<(HTMLElement | null)[][]>([[], []]);
   const nowRefs = useRef<(HTMLDivElement | null)[]>([]);
   const nowLabelRefs = useRef<(HTMLSpanElement | null)[]>([]);
+  /** The colour last pushed to the side column, so a held note costs no render. */
+  const followShown = useRef<string | null>(null);
+  const tracksOn = useRef<boolean[]>([]);
+  useEffect(() => { tracksOn.current = settings.tracks.map((t) => t.enabled); }, [settings.tracks]);
+  // Stopped, or following switched off or paused: the side column goes back to the cell.
+  useEffect(() => {
+    if (playing && follow !== 'off' && !followPaused) return;
+    followShown.current = null;
+    editorRef.current?.follow(null);
+  }, [playing, follow, followPaused]);
   useEffect(() => {
     const active: number[] = [-1, -1];
     const clear = () => {
@@ -438,11 +566,19 @@ export default function SequencerBench() {
           if (label) label.textContent = idx >= 0 ? (steps[i][idx]?.label ?? '') : '';
         }
         const now = nowRefs.current[i];
-        if (!now) continue;
-        if (!ev || !ev.toHex) { now.style.backgroundColor = ''; continue; }
+        if (!ev || !ev.toHex) { if (now) now.style.backgroundColor = ''; continue; }
         // Same window as the pitch glide, then hold.
         const k = ev.glide > 0 && ev.fromHex ? Math.min(1, Math.max(0, (t - ev.time) / ev.glide)) : 1;
-        now.style.backgroundColor = ev.fromHex && k < 1 ? mixHex(ev.fromHex, ev.toHex, k) : ev.toHex;
+        const colour = ev.fromHex && k < 1 ? mixHex(ev.fromHex, ev.toHex, k) : ev.toHex;
+        if (now) now.style.backgroundColor = colour;
+        // The followed track (or the other, if it is the only one on) moves the side column's handle.
+        const f = followRef.current;
+        const on = tracksOn.current;
+        const target = f === null || f === 'off' ? -1 : (on[f] || !on[1 - f] ? f : 1 - f);
+        if (target === i && colour !== followShown.current) {
+          followShown.current = colour;
+          editorRef.current?.follow(colour);
+        }
       }
       raf = requestAnimationFrame(frame);
     };
@@ -451,33 +587,80 @@ export default function SequencerBench() {
   }, [playing, engine, steps]);
 
   const { mode } = settings;
+  const openOf = (id: string) => settings.open[id] !== false;
+  const setSectionOpen = useCallback((id: string, open: boolean) => {
+    setSettings((s) => (s.open[id] === open ? s : { ...s, open: { ...s.open, [id]: open } }));
+  }, []);
+
+  // --- selection and the side column -----------------------------------------
+  const sel = selected && selected.step < slots[selected.track].length ? selected : null;
+  const selSlot = sel ? slots[sel.track][sel.step] : null;
+  const writeSelected = useCallback((next: Slot) => {
+    if (!sel) return;
+    editTrack(sel.track, (row) => { row[sel.step] = next; return row; });
+  }, [sel, editTrack]);
+  const onLive = useCallback((hex: string | null) => {
+    setLive(hex && sel ? { ...sel, hex } : null);
+  }, [sel]);
+  const onGrab = useCallback(() => setFollowPaused(true), []);
+
+  // --- library and share --------------------------------------------------
+  const saveTrack = useCallback((i: 0 | 1, name: string) => {
+    setSettings((s) => ({
+      ...s,
+      library: [...s.library, { ...snapshotOf(s, slotsFor(s.tracks[i], stored), i, name), id: newId(), savedAt: Date.now() }],
+    }));
+  }, [stored]);
+  const loadTrack = useCallback((id: string, i: 0 | 1) => {
+    engine.stop();
+    setPlaying(false);
+    setSettings((s) => {
+      const t = s.library.find((x) => x.id === id);
+      return t ? applySnapshot(s, t, i) : s;
+    });
+  }, [engine]);
+  const [shareLink, setShareLink] = useState<{ track: 0 | 1; url: string; copied: boolean } | null>(null);
+  const share = useCallback((i: 0 | 1) => {
+    const snap = snapshotOf(settings, slots[i], i, `Track ${TRACK_NAME[i]}`);
+    const url = `${location.origin}${location.pathname}${location.search}#${encodeShare(snap)}`;
+    setShareLink({ track: i, url, copied: false });
+    void navigator.clipboard?.writeText(url).then(
+      () => setShareLink((l) => (l && l.url === url ? { ...l, copied: true } : l)),
+      () => { /* no clipboard permission: the field below still has it */ },
+    );
+  }, [settings, slots]);
+  // A share link pasted into this tab's address bar arrives as a hash change, not a load.
+  useEffect(() => {
+    const onHash = () => {
+      const snap = decodeShare(location.hash);
+      if (!snap) return;
+      engine.stop();
+      setPlaying(false);
+      setSettings((s) => applySnapshot(s, snap, 0));
+      clearShareHash();
+    };
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, [engine]);
+
+  const rgbCfg = useMemo(() => mapConfig({ ...settings, mode: 'rgb' }, 0), [settings]);
+  const playChord = useCallback(() => {
+    const step = swatchToStep({ hex: CHORD_SAMPLE, alpha: 100 }, rgbCfg);
+    if (!step.rest) engine.auditionSequence([step as NoteStep], 4);
+  }, [engine, rgbCfg]);
 
   return (
     <div className="min-h-screen bg-background text-base text-foreground">
-      <div className="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-6">
+      <div className="mx-auto flex max-w-[96rem] flex-col gap-6 px-4 py-6">
         <header className="flex flex-wrap items-center gap-3">
           <h1 className="mr-auto text-2xl font-semibold">Sequencer Lab</h1>
-          <select
-            aria-label="Load song"
-            className="h-9 rounded-lg border border-border bg-background px-2 text-base text-foreground"
-            value=""
-            onChange={(e) => { if (e.currentTarget.value) loadSong(e.currentTarget.value); }}
-          >
-            <option value="">Load song...</option>
-            {SONG_MENU.map(([k, name]) => <option key={k} value={k}>{name}</option>)}
-          </select>
-          <Button size="lg" variant="outline" className="text-base" onClick={reload}>
-            <RefreshCw /> Reload swatches
-          </Button>
-          <Button size="lg" variant="outline" className="text-base" onClick={playBoth}>
-            <Play /> Play A+B
-          </Button>
-          <Button size="lg" className="w-28 text-base" onClick={toggle} aria-pressed={playing}>
-            {playing ? <><Square /> Stop</> : <><Play /> Play</>}
-          </Button>
         </header>
 
-        <section className="flex flex-col gap-5 rounded-xl bg-muted/40 p-4">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_24rem]">
+        <div className="flex min-w-0 flex-col gap-6">
+        <section className="flex flex-col rounded-xl bg-muted/40 p-4" data-panel="mode">
+          <LabSection id="lab-seq-mode" title="Mode" open={openOf('lab-seq-mode')} onOpenChange={setSectionOpen}>
+          <div className="flex flex-col gap-5">
           <Seg label="Mode" control="mode" value={mode} options={MODES} onChange={(v) => set('mode', v as SeqMode)} />
           <p className="text-base text-muted-foreground" data-help="">
             {HELP[mode]} Empty slots rest; alpha 0 is a tie, holding the note before it. Click a cell to edit it.
@@ -491,6 +674,8 @@ export default function SequencerBench() {
             <Knob label="Gate" unit="%" value={settings.gatePct} min={5} max={100} onChange={(v) => set('gatePct', v)} />
           </div>
 
+          <LabSection id="lab-seq-mode-settings" title={`${MODE_TITLE[mode]} settings`} open={openOf('lab-seq-mode-settings')}
+            onOpenChange={setSectionOpen}>
           {mode === 'melody' && (
             <div className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2">
               <Seg label="Scale" control="scale" value={settings.melody.scale} options={SCALE_OPTIONS}
@@ -522,25 +707,46 @@ export default function SequencerBench() {
           )}
 
           {mode === 'rgb' && (
-            <>
-              <div className="grid grid-cols-1 gap-x-8 gap-y-5">
-                <Seg label="Scale" control="scale" value={settings.rgb.scale} options={SCALE_OPTIONS}
-                  onChange={(v) => setRgb({ scale: v as ScaleName })} />
-                <Seg label="Root" control="root" value={String(settings.rgb.root)} options={ROOTS}
-                  onChange={(v) => setRgb({ root: Number(v) })} />
-              </div>
+            <div className="grid grid-cols-1 gap-x-8 gap-y-5">
+              <Seg label="Scale" control="scale" value={settings.rgb.scale} options={SCALE_OPTIONS}
+                onChange={(v) => setRgb({ scale: v as ScaleName })} />
+              <Seg label="Root" control="root" value={String(settings.rgb.root)} options={ROOTS}
+                onChange={(v) => setRgb({ root: Number(v) })} />
+            </div>
+          )}
+          </LabSection>
+
+          {mode === 'rgb' && (
+            <LabSection id="lab-seq-instruments" title="Instruments" open={openOf('lab-seq-instruments')} onOpenChange={setSectionOpen}
+              headerRight={
+                <Button variant="outline" className="text-base" onClick={playChord} aria-label="Play all three instruments together">
+                  Chord
+                </Button>
+              }>
               <div className="flex flex-col gap-3" data-control="instruments">
-                <h2 className="text-xl font-semibold">Instruments</h2>
+                <p className="text-base text-muted-foreground">
+                  Hold a key to hear that note; slide along the keys to glide. Run plays the range up and back; Chord plays all three on a warm white.
+                </p>
                 {CHANNELS.map((c) => {
                   const inst = settings.rgb.instruments[c];
                   return (
                     <div
                       key={c}
                       data-instrument={c}
-                      className="grid grid-cols-1 items-end gap-4 rounded-lg border-l-4 bg-background/60 p-3 md:grid-cols-[6rem_1fr_9rem_1.4fr_1fr_auto]"
+                      className="grid grid-cols-1 items-end gap-4 rounded-lg border-l-4 bg-background/60 p-3 md:grid-cols-[9rem_1fr_9rem_1.4fr_1fr_auto]"
                       style={{ borderLeftColor: CHANNEL_INK[c], backgroundColor: withAlpha(CHANNEL_INK[c], 10) }}
                     >
-                      <span className="text-base font-semibold" style={{ color: CHANNEL_INK[c] }}>{CHANNEL_NAME[c]}</span>
+                      <label className="flex flex-col gap-1.5">
+                        <span className="text-base font-semibold" style={{ color: CHANNEL_INK[c] }}>{CHANNEL_NAME[c]}</span>
+                        <Input
+                          aria-label={`${CHANNEL_NAME[c]} instrument name`}
+                          className="h-9 text-base md:text-base"
+                          maxLength={24}
+                          value={inst.name}
+                          placeholder={DEFAULT_NAMES[c]}
+                          onChange={(e) => setInstrument(c, { name: e.currentTarget.value })}
+                        />
+                      </label>
                       <Seg label="Base octave" value={String(inst.octave)} options="1:1|2:2|3:3|4:4|5:5"
                         onChange={(v) => setInstrument(c, { octave: Number(v) })} />
                       <Seg label="Range" value={String(inst.range)} options="1:1|2:2|3:3"
@@ -552,13 +758,40 @@ export default function SequencerBench() {
                         onClick={() => setInstrument(c, { muted: !inst.muted })}>
                         {inst.muted ? 'Muted' : 'Mute'}
                       </Button>
+                      <div className="md:col-span-6">
+                        <AuditionStrip ch={c} cfg={rgbCfg} engine={engine} ink={CHANNEL_INK[c]} />
+                      </div>
                     </div>
                   );
                 })}
               </div>
-            </>
+            </LabSection>
           )}
+          </div>
+          </LabSection>
         </section>
+
+        {/* The transport: what you reach for while listening, next to what you are listening to. */}
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border p-3" data-transport="">
+          <Button size="lg" className="w-28 text-base" onClick={toggle} aria-pressed={playing}>
+            {playing ? <><Square /> Stop</> : <><Play /> Play</>}
+          </Button>
+          <Button size="lg" variant="outline" className="text-base" onClick={playBoth}>
+            <Play /> Play A+B
+          </Button>
+          <select
+            aria-label="Load song"
+            className="h-9 rounded-lg border border-border bg-background px-2 text-base text-foreground"
+            value=""
+            onChange={(e) => { if (e.currentTarget.value) loadSong(e.currentTarget.value); }}
+          >
+            <option value="">Load song...</option>
+            {SONG_MENU.map(([k, name]) => <option key={k} value={k}>{name}</option>)}
+          </select>
+          <Button size="lg" variant="outline" className="ml-auto text-base" onClick={reload}>
+            <RefreshCw /> Reload swatches
+          </Button>
+        </div>
 
         {settings.tracks.map((t, ti) => {
           const i = ti as 0 | 1;
@@ -587,7 +820,19 @@ export default function SequencerBench() {
                   disabled={rowSteps.length === 0} onClick={() => editTrack(i, (row) => row.slice(0, -1))}>
                   <Minus /> Step
                 </Button>
+                <Button variant="outline" className="text-base" aria-label={`Share track ${name}`} onClick={() => share(i)}>
+                  <Link /> Share
+                </Button>
               </div>
+              {shareLink?.track === i && (
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-base text-muted-foreground">
+                    {shareLink.copied ? 'Link copied. Opening it loads this track onto Track A.' : 'Share link - opening it loads this track onto Track A.'}
+                  </span>
+                  <Input readOnly value={shareLink.url} aria-label={`Track ${name} share link`}
+                    className="h-9 font-mono text-base md:text-base" onFocus={(e) => e.currentTarget.select()} />
+                </div>
+              )}
               <div className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_16rem]">
                 <label className="flex flex-col gap-1.5">
                   <span className="text-base text-muted-foreground">Source</span>
@@ -624,6 +869,7 @@ export default function SequencerBench() {
                     {rowSteps.map((s, si) => {
                       const slot = slots[i][si];
                       const tie = s.rest && s.tie;
+                      const isSel = sel?.track === i && sel.step === si;
                       return (
                         <Fragment key={si}>
                           {si % BAR === 0 && (
@@ -636,10 +882,13 @@ export default function SequencerBench() {
                               <PopoverTrigger
                                 ref={(el: HTMLElement | null) => { cellRefs.current[i][si] = el; }}
                                 data-step={si}
+                                data-selected={isSel || undefined}
+                                onClick={() => setSelected({ track: i, step: si })}
                                 aria-label={`Track ${name} step ${si + 1}: ${s.rest ? s.label : s.detail}`}
                                 className={
                                   'aspect-square w-full cursor-pointer rounded-md border border-border transition-transform duration-75 '
                                   + 'focus-visible:outline-2 focus-visible:outline-ring '
+                                  + 'data-selected:outline-3 data-selected:outline-offset-2 data-selected:outline-foreground '
                                   + 'data-active:scale-110 data-active:ring-3 data-active:ring-foreground '
                                   + (slot ? '' : 'border-dashed bg-muted/40')
                                 }
@@ -647,7 +896,7 @@ export default function SequencerBench() {
                                 style={slot ? { backgroundColor: withAlpha(slot.hex, tie ? 35 : slot.alpha) } : undefined}
                                 title={slot ? `${slot.hex} ${slot.alpha}% - ${s.rest ? s.label : s.detail}` : 'empty slot'}
                               />
-                              <PopoverContent className="w-80 p-3 text-base">
+                              <PopoverContent className="w-96 p-3 text-base">
                                 <SequencerStepEditor
                                   slot={slot}
                                   cfg={configs[i]}
@@ -668,6 +917,36 @@ export default function SequencerBench() {
             </section>
           );
         })}
+        </div>
+
+        <aside className="flex flex-col gap-4 rounded-xl border border-border p-4 lg:sticky lg:top-4 lg:row-span-2 lg:max-h-[calc(100vh-2rem)] lg:self-start lg:overflow-y-auto">
+          <SequencerCellEditor
+            ref={editorRef}
+            selectionKey={sel ? `${sel.track}:${sel.step}` : null}
+            title={sel ? `Track ${TRACK_NAME[sel.track]}, step ${sel.step + 1}${selSlot ? '' : ' (empty - an edit fills it)'}` : 'No step selected'}
+            slot={selSlot}
+            step={sel ? steps[sel.track][sel.step] ?? null : null}
+            cfg={configs[sel?.track ?? 0]}
+            snap={settings.snap}
+            onSnapChange={(v) => set('snap', v)}
+            onChange={writeSelected}
+            onLive={onLive}
+            follow={follow}
+            onFollow={pickFollow}
+            followPaused={followPaused}
+            onGrab={onGrab}
+          />
+        </aside>
+
+        <SequencerLibrary
+          library={settings.library}
+          onSave={saveTrack}
+          onLoad={loadTrack}
+          onRename={(id, name) => setSettings((s) => ({ ...s, library: s.library.map((t) => (t.id === id ? { ...t, name } : t)) }))}
+          onDelete={(id) => setSettings((s) => ({ ...s, library: s.library.filter((t) => t.id !== id) }))}
+          onImport={(tracks) => setSettings((s) => ({ ...s, library: [...s.library, ...tracks] }))}
+        />
+        </div>
       </div>
     </div>
   );

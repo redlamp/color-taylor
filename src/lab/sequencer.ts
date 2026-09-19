@@ -63,6 +63,16 @@ export interface MapConfig {
   baseOctave?: number;
   /** RGB Instruments: each channel's own base octave and range. DEFAULT_RANGES when absent. */
   ranges?: Record<Channel, ChannelRange>;
+  /** RGB Instruments: what each channel's instrument is called. DEFAULT_NAMES when absent. */
+  names?: Record<Channel, string>;
+}
+
+/** The instruments' default names, in physics order. */
+export const DEFAULT_NAMES: Record<Channel, string> = { r: 'Bass', g: 'Harmony', b: 'Lead' };
+
+/** Channel `ch`'s instrument name under `cfg`. */
+export function instrumentName(ch: Channel, cfg: Pick<MapConfig, 'names'>): string {
+  return cfg.names?.[ch]?.trim() || DEFAULT_NAMES[ch];
 }
 
 /** An RGB-chords instrument's pitch span: base octave (2 = C2 plus the root) and 1..3 octaves. */
@@ -226,7 +236,7 @@ function rgbChordStep(rgb: { r: number; g: number; b: number }, hex: string, alp
   }
   if (midis.length === 0) return { rest: true, tie: false, hex, label: 'rest' };
   // The cell shows the lead - the highest channel sounding; the tooltip has them all.
-  const detail = keys.map((k, i) => `${k.toUpperCase()} ${midiToName(midis[i])}`).join(' · ');
+  const detail = keys.map((k, i) => `${instrumentName(k as Channel, cfg)} ${midiToName(midis[i])}`).join(' · ');
   return {
     rest: false, hex, midis, keys, rgb: true, levels: midis.map(() => 1), velocity: alpha,
     cutoff: CUTOFF_MAX, label: midiToName(midis[midis.length - 1]), detail,
@@ -555,4 +565,94 @@ export function channelNotes(hex: string, cfg: MapConfig): Record<Channel, numbe
   const ranges = cfg.ranges ?? DEFAULT_RANGES;
   const note = (ch: Channel) => channelToMidi(rgb[ch], cfg.scale, ranges[ch].range, channelBase(ranges[ch], cfg.root, cfg.octaveOffset));
   return { r: note('r'), g: note('g'), b: note('b') };
+}
+
+// --- hysteresis: sticky notes while a colour is dragged ------------------------
+
+/**
+ * A bucket index with hysteresis. `value` is normalised 0..1 across
+ * `bucketCount` equal buckets; the answer stays `prevIndex` until the value is
+ * past that bucket's edge by `margin` bucket widths, so a drag sitting on a
+ * boundary does not flicker between two notes. `wrap` treats 0 and 1 as the
+ * same point (hue), so the first and last buckets are neighbours.
+ */
+export function stickyIndex(value: number, prevIndex: number | null, bucketCount: number, margin = 0.2, wrap = false): number {
+  const n = Math.max(1, Math.floor(bucketCount));
+  const v = wrap ? ((value % 1) + 1) % 1 : clamp(value, 0, 1);
+  const raw = Math.min(n - 1, Math.floor(v * n));
+  if (prevIndex === null || prevIndex < 0 || prevIndex >= n || raw === prevIndex) return raw;
+  const pos = v * n;
+  let past: number;
+  if (wrap) {
+    // Signed circular distance from the previous bucket's centre, in buckets.
+    const d = ((((pos - (prevIndex + 0.5)) % n) + n * 1.5) % n) - n / 2;
+    past = Math.abs(d) - 0.5;
+  } else {
+    past = pos < prevIndex ? prevIndex - pos : pos - (prevIndex + 1);
+  }
+  return past > margin ? raw : prevIndex;
+}
+
+/**
+ * The note buckets a mode reads out of a colour: one hue bucket in the hue
+ * modes, one per channel in RGB Instruments. `wrap` for hue.
+ */
+export function noteBuckets(cfg: MapConfig): { count: number; wrap: boolean }[] {
+  if (cfg.mode === 'melody') return [{ count: SCALES[cfg.scale].length * cfg.octaveRange, wrap: true }];
+  if (cfg.mode === 'chords') return [{ count: 12, wrap: true }];
+  const ranges = cfg.ranges ?? DEFAULT_RANGES;
+  return CHANNELS.map((ch) => ({ count: SCALES[cfg.scale].length * ranges[ch].range, wrap: false }));
+}
+
+/** Each bucket's normalised value for `hex`, or null where it rests (dark, or a channel under the line). */
+function bucketValues(hex: string, cfg: MapConfig): (number | null)[] {
+  const rgb = hexToRgb(hex) ?? { r: 0, g: 0, b: 0 };
+  if (cfg.mode === 'rgb') {
+    return CHANNELS.map((ch) => (rgb[ch] < CHANNEL_REST ? null : (rgb[ch] - CHANNEL_REST) / (256 - CHANNEL_REST)));
+  }
+  const hsb = rgbToHsb(rgb.r, rgb.g, rgb.b);
+  return [hsb.b < REST_BRIGHTNESS ? null : wrapHue(hsb.h) / 360];
+}
+
+/** The bucket each voice of `hex` falls in, -1 where it rests. Same answer as swatchToStep. */
+export function noteIndices(hex: string, cfg: MapConfig): number[] {
+  const buckets = noteBuckets(cfg);
+  return bucketValues(hex, cfg).map((v, k) => (v === null ? -1 : Math.min(buckets[k].count - 1, Math.floor(v * buckets[k].count))));
+}
+
+/** `noteIndices` with hysteresis against `prev`. Rests are never sticky: dark is silent at once. */
+export function stickyIndices(hex: string, cfg: MapConfig, prev: readonly number[] | null, margin = 0.2): number[] {
+  const buckets = noteBuckets(cfg);
+  return bucketValues(hex, cfg).map((v, k) => {
+    if (v === null) return -1;
+    const p = prev?.[k] ?? -1;
+    return stickyIndex(v, p < 0 ? null : p, buckets[k].count, margin, buckets[k].wrap);
+  });
+}
+
+/**
+ * `hex` moved to the centre of the buckets `idx` names - hue in the hue modes
+ * (S and B kept), each sounding channel in RGB Instruments - so it plays those
+ * notes with room either side. Where S is too low for the hue to survive 8-bit
+ * rounding it is lifted to the pickers' floor; failing that, `hex` comes back.
+ */
+export function snapToIndices(hex: string, cfg: MapConfig, idx: readonly number[]): string {
+  const buckets = noteBuckets(cfg);
+  if (cfg.mode === 'rgb') {
+    const rgb = hexToRgb(hex) ?? { r: 0, g: 0, b: 0 };
+    CHANNELS.forEach((ch, k) => {
+      const i = idx[k];
+      if (i >= 0) rgb[ch] = Math.min(255, Math.floor(CHANNEL_REST + ((i + 0.5) / buckets[k].count) * (256 - CHANNEL_REST)));
+    });
+    return rgbToHex(rgb.r, rgb.g, rgb.b);
+  }
+  const i = idx[0];
+  if (i === undefined || i < 0) return hex;
+  const { s, b } = hsbOf(hex);
+  const hue = ((i + 0.5) / buckets[0].count) * 360;
+  for (const sat of [s, Math.max(PICK_MIN_S, s)]) {
+    const out = hsbHex(hue, sat, b);
+    if (noteIndices(out, cfg)[0] === i) return out;
+  }
+  return hex;
 }
