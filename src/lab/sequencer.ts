@@ -10,6 +10,8 @@
  *   saturation   lowpass cutoff, exponential 200..8000 Hz
  *   brightness   velocity, (b/100)^1.5 - the app's curve. Below 3 it is a rest.
  *   alpha        multiplies velocity, so a see-through swatch is a ghost note
+ *   alpha 0      a tie: the previous note carries on through this step with no
+ *                retrigger. After a rest (or first in a row) it is a rest.
  *   null slot    a rest, so a Saved bank keeps its gaps as rhythm
  */
 import { hexToRgb, hsbToRgb, rgbToHex, rgbToHsb } from '../utils/colorConversions';
@@ -56,7 +58,8 @@ export interface MapConfig {
   octaveOffset: number;
 }
 
-export interface RestStep { rest: true; hex: string | null; label: 'rest' }
+/** A silent step. `tie` means "keep the previous note sounding" rather than silence. */
+export interface RestStep { rest: true; tie: boolean; hex: string | null; label: 'rest' | 'tie' }
 export interface NoteStep {
   rest: false;
   hex: string;
@@ -97,13 +100,15 @@ export function brightnessToVelocity(b: number): number {
 }
 
 export function swatchToStep(slot: Slot, cfg: MapConfig): Step {
-  if (!slot) return { rest: true, hex: null, label: 'rest' };
+  if (!slot) return { rest: true, tie: false, hex: null, label: 'rest' };
   const rgb = hexToRgb(slot.hex);
-  if (!rgb) return { rest: true, hex: null, label: 'rest' };
+  if (!rgb) return { rest: true, tie: false, hex: null, label: 'rest' };
   const hex = slot.hex;
-  const hsb = rgbToHsb(rgb.r, rgb.g, rgb.b);
   const alpha = clamp(slot.alpha, 0, 100) / 100;
-  if (hsb.b < REST_BRIGHTNESS || alpha <= 0) return { rest: true, hex, label: 'rest' };
+  // Alpha 0 is checked before brightness: a tie's colour doesn't matter.
+  if (alpha <= 0) return { rest: true, tie: true, hex, label: 'tie' };
+  const hsb = rgbToHsb(rgb.r, rgb.g, rgb.b);
+  if (hsb.b < REST_BRIGHTNESS) return { rest: true, tie: false, hex, label: 'rest' };
 
   const velocity = brightnessToVelocity(hsb.b) * alpha;
   const cutoff = saturationToCutoff(hsb.s);
@@ -195,3 +200,118 @@ export const BUILTIN_PALETTES = {
   pulse: solid(['#ffffff', '#000000', '#808080', '#000000', '#ffffff', '#404040', '#b0b0b0', '#000000']),
   sunset: solid(['#2b1055', '#7b2869', '#c73866', '#fe676e', '#fd8f52', '#ffbd71', '#ffdca2', '#f9f871']),
 } as const;
+
+// --- songs ----------------------------------------------------------------
+
+/** "F#4" -> 66. Sharps only, octave after the letter; C4 is 60. */
+export function noteNameToMidi(name: string): number {
+  const m = /^([A-G]#?)(-?\d)$/.exec(name);
+  if (!m) throw new Error(`bad note name: ${name}`);
+  const pc = NOTE_NAMES.indexOf(m[1] as (typeof NOTE_NAMES)[number]);
+  return (Number(m[2]) + 1) * 12 + pc;
+}
+
+/**
+ * Melody mode's inverse: the hue at the centre of the band `hueToMidi` maps to
+ * `midi`, so a small drift from 8-bit rounding still lands on the same note.
+ * Throws for a note outside the scale or the range - a song must fit its settings.
+ */
+export function midiToHue(midi: number, scale: ScaleName, octaveRange: number, base: number): number {
+  const table = SCALES[scale];
+  const offset = midi - base;
+  const oct = Math.floor(offset / 12);
+  const degree = table.indexOf(((offset % 12) + 12) % 12);
+  if (degree < 0 || oct < 0 || oct >= octaveRange) {
+    throw new Error(`midi ${midi} is not in ${scale} over ${octaveRange} octave(s) from ${base}`);
+  }
+  const total = table.length * octaveRange;
+  return ((oct * table.length + degree + 0.5) / total) * 360;
+}
+
+export interface SongSettings {
+  bpm: number;
+  subdivision: Subdivision;
+  scale: ScaleName;
+  root: number;
+  octaveRange: number;
+}
+
+export interface SongPart {
+  /** The track's octave offset: the part's base is C3 + root + 12 * octave. */
+  octave: number;
+  /** Space-separated, one token per step: a note ("F#4"), "-" a tie, "." a rest. */
+  notes: string;
+}
+
+export interface Song { name: string; settings: SongSettings; melody: SongPart; bass: SongPart }
+
+/** The config a part plays under - Melody mode, the song's key and range. */
+export function songConfig(song: Song, part: SongPart): MapConfig {
+  const { scale, root, octaveRange } = song.settings;
+  return { mode: 'melody', scale, root, octaveRange, octaveOffset: part.octave };
+}
+
+/** Each note is a full-saturation, full-brightness colour at its band's centre hue. */
+export function songSlots(song: Song, part: SongPart): Slot[] {
+  const cfg = songConfig(song, part);
+  const base = BASE_MIDI + cfg.root + 12 * cfg.octaveOffset;
+  let prev: string | null = null;
+  return part.notes.trim().split(/\s+/).map((tok) => {
+    if (tok === '.') { prev = null; return null; }
+    if (tok === '-') {
+      if (!prev) throw new Error('a tie needs a note before it');
+      return { hex: prev, alpha: 0 };
+    }
+    const { r, g, b } = hsbToRgb(midiToHue(noteNameToMidi(tok), cfg.scale, cfg.octaveRange, base), 100, 100);
+    prev = rgbToHex(r, g, b);
+    return { hex: prev, alpha: 100 };
+  });
+}
+
+/** The intended MIDI note per step (null for ties and rests) - the test's answer key. */
+export function songMidis(part: SongPart): (number | null)[] {
+  return part.notes.trim().split(/\s+/).map((tok) => (tok === '.' || tok === '-' ? null : noteNameToMidi(tok)));
+}
+
+// Quarter note = 2 steps at 1/8. Two four-bar phrases, 64 steps: four rows of 16.
+const ODE_MELODY = [
+  'F#4 - F#4 - G4 - A4 -   A4 - G4 - F#4 - E4 -   D4 - D4 - E4 - F#4 -   F#4 - - E4 E4 - - -',
+  'F#4 - F#4 - G4 - A4 -   A4 - G4 - F#4 - E4 -   D4 - D4 - E4 - F#4 -   E4 - - D4 D4 - - -',
+].join(' ');
+// Half notes, tonic and dominant: the first phrase ends on A (half cadence), the second home on D.
+const ODE_BASS = [
+  'D2 - - - A2 - - -   D2 - - - A2 - - -   D2 - - - A2 - - -   D2 - - - A2 - - -',
+  'D2 - - - A2 - - -   D2 - - - A2 - - -   D2 - - - A2 - - -   A2 - - - D2 - - -',
+].join(' ');
+
+// 2/4 at 1/16: "da-da-dum" is 16th 16th 8th. Eight bars, 64 steps.
+const TELL_MELODY = [
+  'B4 B4 B4 -  B4 B4 B4 -',
+  'B4 B4 E5 -  F#5 - G#5 -',
+  'B4 B4 B4 -  B4 B4 B4 -',
+  'B4 B4 G#5 - E5 - G#5 -',
+  'B4 B4 B4 -  B4 B4 B4 -',
+  'B4 B4 E5 -  F#5 - G#5 -',
+  'B4 B4 G#5 - F#5 - D#5 -',
+  'F#5 - E5 -  - - . .',
+].join(' ');
+// Staccato eighths on the root and fifth; the dominant under bar 7.
+const TELL_BASS = [
+  'E2 . B2 . E2 . B2 .', 'E2 . B2 . E2 . B2 .', 'E2 . B2 . E2 . B2 .', 'E2 . B2 . E2 . B2 .',
+  'E2 . B2 . E2 . B2 .', 'E2 . B2 . E2 . B2 .', 'B2 . F#2 . B2 . F#2 .', 'E2 . B2 . E2 . . .',
+].join(' ');
+
+export const SONGS = {
+  ode: {
+    name: 'Ode to Joy',
+    settings: { bpm: 100, subdivision: 8, scale: 'major', root: 2, octaveRange: 2 },
+    melody: { octave: 1, notes: ODE_MELODY }, // base D4
+    bass: { octave: -1, notes: ODE_BASS }, // base D2
+  },
+  tell: {
+    name: 'William Tell gallop',
+    settings: { bpm: 132, subdivision: 16, scale: 'major', root: 4, octaveRange: 2 },
+    melody: { octave: 1, notes: TELL_MELODY }, // base E4
+    bass: { octave: -1, notes: TELL_BASS }, // base E2
+  },
+} satisfies Record<string, Song>;

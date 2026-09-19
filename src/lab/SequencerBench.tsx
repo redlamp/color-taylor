@@ -8,19 +8,21 @@
  * paints what the audio clock says is sounding. The paint loop reads
  * `currentTime`; it never drives the audio.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Play, RefreshCw, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { hexToRgb, rgbToHex } from '../utils/colorConversions';
 import {
-  BUILTIN_PALETTES, NOTE_NAMES, parseRecentSlots, parseSavedSlots, swatchToStep,
+  BUILTIN_PALETTES, NOTE_NAMES, SONGS, parseRecentSlots, parseSavedSlots, songSlots, swatchToStep,
   type LegacyAlpha, type ScaleName, type SeqMode, type Slot, type Subdivision,
 } from './sequencer';
-import { SequencerEngine, type SeqCounters, type Wave } from './sequencerEngine';
+import { BAR, SequencerEngine, type SeqCounters, type Wave } from './sequencerEngine';
 
-type Source = 'saved' | 'recent' | 'rainbow' | 'pulse' | 'sunset';
+type SongKey = keyof typeof SONGS;
+type SongSource = `${SongKey}-${'melody' | 'bass'}`;
+type Source = 'saved' | 'recent' | 'rainbow' | 'pulse' | 'sunset' | SongSource;
 
 interface TrackCfg { source: Source; enabled: boolean; octave: number; muted: boolean }
 
@@ -90,12 +92,31 @@ function readStored(): Stored {
   };
 }
 
-const SOURCES = 'saved:Saved|recent:Recent|rainbow:Rainbow|pulse:Pulse|sunset:Sunset';
+const SONG_KEYS = Object.keys(SONGS) as SongKey[];
+
+/** Song parts are fixed, so their colours are generated once. */
+const SONG_SLOTS = Object.fromEntries(SONG_KEYS.flatMap((k) => [
+  [`${k}-melody`, songSlots(SONGS[k], SONGS[k].melody)],
+  [`${k}-bass`, songSlots(SONGS[k], SONGS[k].bass)],
+])) as Record<SongSource, Slot[]>;
+
+const SOURCE_GROUPS: { label: string; options: [Source, string][] }[] = [
+  { label: 'Your swatches', options: [['saved', 'Saved'], ['recent', 'Recent']] },
+  { label: 'Palettes', options: [['rainbow', 'Rainbow'], ['pulse', 'Pulse'], ['sunset', 'Sunset']] },
+  {
+    label: 'Songs',
+    options: SONG_KEYS.flatMap((k): [Source, string][] => [
+      [`${k}-melody`, `${SONGS[k].name} - melody`],
+      [`${k}-bass`, `${SONGS[k].name} - bass`],
+    ]),
+  },
+];
 
 function slotsFor(source: Source, stored: Stored): Slot[] {
   if (source === 'saved') return stored.saved;
   if (source === 'recent') return stored.recent;
-  return BUILTIN_PALETTES[source];
+  if (source in SONG_SLOTS) return SONG_SLOTS[source as SongSource];
+  return BUILTIN_PALETTES[source as keyof typeof BUILTIN_PALETTES];
 }
 
 function withAlpha(hex: string, alpha: number): string {
@@ -213,7 +234,7 @@ export default function SequencerBench() {
   // Verification hook: read-only counters, nothing to drive the engine with.
   useEffect(() => {
     const view = {} as SeqCounters;
-    for (const k of ['notesScheduled', 'lastStepTime', 'trackIndex', 'playing'] as const) {
+    for (const k of ['notesScheduled', 'lastStepTime', 'trackIndex', 'trackStartStep', 'trackStartTime', 'playing'] as const) {
       Object.defineProperty(view, k, { get: () => engine.counters()[k], enumerable: true });
     }
     window.__seq = Object.freeze(view);
@@ -227,6 +248,31 @@ export default function SequencerBench() {
     } else {
       void engine.start().then(() => setPlaying(true));
     }
+  }, [engine]);
+
+  /** Both tracks on and playing from step 0 together - a restart if already playing. */
+  const playBoth = useCallback(() => {
+    engine.stop();
+    setSettings((s) => ({ ...s, tracks: [{ ...s.tracks[0], enabled: true }, { ...s.tracks[1], enabled: true }] }));
+    // Straight to the engine as well: the state lands a render later, after the first steps are booked.
+    settings.tracks.forEach((t, i) => engine.setTrack(i, { steps: steps[i], enabled: true, muted: t.muted }));
+    void engine.start().then(() => setPlaying(true));
+  }, [engine, settings.tracks, steps]);
+
+  /** Melody on A, bass on B, B on, and the song's own tempo, key and range. Stops first. */
+  const loadSong = useCallback((key: SongKey) => {
+    const song = SONGS[key];
+    engine.stop();
+    setPlaying(false);
+    setSettings((s) => ({
+      ...s,
+      ...song.settings,
+      mode: 'melody',
+      tracks: [
+        { ...s.tracks[0], source: `${key}-melody`, octave: song.melody.octave },
+        { ...s.tracks[1], source: `${key}-bass`, octave: song.bass.octave, enabled: true },
+      ],
+    }));
   }, [engine]);
 
   useEffect(() => {
@@ -296,12 +342,25 @@ export default function SequencerBench() {
           <Button size="lg" variant="outline" className="text-base" onClick={reload}>
             <RefreshCw /> Reload swatches
           </Button>
+          <Button size="lg" variant="outline" className="text-base" onClick={playBoth}>
+            <Play /> Play A+B
+          </Button>
           <Button size="lg" className="w-28 text-base" onClick={toggle} aria-pressed={playing}>
             {playing ? <><Square /> Stop</> : <><Play /> Play</>}
           </Button>
         </header>
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-base text-muted-foreground">Load song</span>
+          {SONG_KEYS.map((k) => (
+            <Button key={k} variant="secondary" className="text-base" onClick={() => loadSong(k)}>
+              {SONGS[k].name}
+            </Button>
+          ))}
+          <span className="text-base text-muted-foreground">melody on A, bass on B, with the song's tempo and key</span>
+        </div>
         <p className="text-base text-muted-foreground">
-          Hue is pitch, brightness velocity, saturation the filter, alpha an accent. Empty slots and near-black swatches rest.
+          Hue is pitch, brightness velocity, saturation the filter, alpha an accent. Empty slots and near-black swatches rest;
+          a swatch at alpha 0 is a tie, holding the note before it. A track switched on mid-play joins at the next bar.
           Space plays and stops.
         </p>
 
@@ -344,7 +403,20 @@ export default function SequencerBench() {
                 </span>
               </div>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_16rem]">
-                <Seg label="Source" value={t.source} options={SOURCES} onChange={(v) => setTrack(i, { source: v as Source })} />
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-base text-muted-foreground">Source</span>
+                  <select
+                    className="h-9 rounded-lg border border-border bg-background px-2 text-base text-foreground"
+                    value={t.source}
+                    onChange={(e) => setTrack(i, { source: e.target.value as Source })}
+                  >
+                    {SOURCE_GROUPS.map((g) => (
+                      <optgroup key={g.label} label={g.label}>
+                        {g.options.map(([v, text]) => <option key={v} value={v}>{text}</option>)}
+                      </optgroup>
+                    ))}
+                  </select>
+                </label>
                 <Knob label="Octave" value={t.octave} min={-2} max={2} onChange={(v) => setTrack(i, { octave: v })} />
               </div>
               <div className="flex items-start gap-4">
@@ -361,26 +433,35 @@ export default function SequencerBench() {
                     Nothing here - {t.source === 'saved' ? 'no Saved swatches' : 'no Recent swatches'} in this browser yet.
                   </p>
                 ) : (
-                  <div className="flex flex-wrap gap-2">
+                  <div className="grid flex-1 grid-cols-[2rem_repeat(16,minmax(0,1fr))] gap-x-1.5 gap-y-2">
                     {rowSteps.map((s, si) => {
                       const slot = slots[i][si];
+                      const tie = s.rest && s.tie;
                       return (
-                        <div key={si} className="flex w-12 flex-col items-center gap-1">
-                          <div
-                            ref={(el) => { cellRefs.current[i][si] = el; }}
-                            data-step={si}
-                            className={
-                              'size-12 rounded-lg border border-border transition-transform duration-75 '
-                              + 'data-active:scale-110 data-active:ring-3 data-active:ring-foreground '
-                              + (slot ? '' : 'border-dashed bg-muted/40')
-                            }
-                            style={slot ? { backgroundColor: withAlpha(slot.hex, slot.alpha) } : undefined}
-                            title={slot ? `${slot.hex} ${slot.alpha}%` : 'empty slot'}
-                          />
-                          <span className={'text-base leading-tight ' + (s.rest ? 'text-muted-foreground' : 'text-foreground')}>
-                            {s.label}
-                          </span>
-                        </div>
+                        <Fragment key={si}>
+                          {si % BAR === 0 && (
+                            <span className="pt-2 text-right text-base tabular-nums text-muted-foreground" title={`bar ${si / BAR + 1}`}>
+                              {si / BAR + 1}
+                            </span>
+                          )}
+                          <div className="flex min-w-0 flex-col items-center gap-1">
+                            <div
+                              ref={(el) => { cellRefs.current[i][si] = el; }}
+                              data-step={si}
+                              className={
+                                'aspect-square w-full rounded-md border border-border transition-transform duration-75 '
+                                + 'data-active:scale-110 data-active:ring-3 data-active:ring-foreground '
+                                + (slot ? '' : 'border-dashed bg-muted/40')
+                              }
+                              // A tie shows its note's colour, faded - at its real alpha 0 it would vanish.
+                              style={slot ? { backgroundColor: withAlpha(slot.hex, tie ? 35 : slot.alpha) } : undefined}
+                              title={slot ? `${slot.hex} ${slot.alpha}%` : 'empty slot'}
+                            />
+                            <span className={'w-full truncate text-center text-base leading-tight ' + (s.rest ? 'text-muted-foreground' : 'text-foreground')}>
+                              {s.label}
+                            </span>
+                          </div>
+                        </Fragment>
                       );
                     })}
                   </div>

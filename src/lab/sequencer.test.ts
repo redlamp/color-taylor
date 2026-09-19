@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import {
-  BUILTIN_PALETTES, SCALES, clampGlide, gateSeconds, hueToFifthsRoot, hueToMidi, isLegato,
+  BUILTIN_PALETTES, SCALES, SONGS, midiToHue, noteNameToMidi, songConfig, songMidis, songSlots, clampGlide, gateSeconds, hueToFifthsRoot, hueToMidi, isLegato,
   parseRecentSlots, parseSavedSlots, saturationToCutoff, stepSeconds, swatchToStep,
   type MapConfig,
 } from './sequencer';
@@ -133,4 +133,50 @@ describe('sources', () => {
     expect(BUILTIN_PALETTES.rainbow[0]).toEqual({ hex: '#ff0000', alpha: 100 });
     expect(BUILTIN_PALETTES.pulse.some((s) => swatchToStep(s, MELODY).rest)).toBe(true);
   });
+});
+
+describe('ties', () => {
+  test('alpha 0 is a tie whatever the colour; black at full alpha is a rest', () => {
+    const tie = swatchToStep({ hex: '#000000', alpha: 0 }, MELODY);
+    expect(tie.rest && tie.tie).toBe(true);
+    const rest = swatchToStep({ hex: '#000000', alpha: 100 }, MELODY);
+    expect(rest.rest && !rest.tie).toBe(true);
+    const empty = swatchToStep(null, MELODY);
+    expect(empty.rest && !empty.tie).toBe(true);
+  });
+});
+
+describe('songs', () => {
+  test('note names', () => {
+    expect(noteNameToMidi('C4')).toBe(60);
+    expect(noteNameToMidi('F#4')).toBe(66);
+    expect(noteNameToMidi('D2')).toBe(38);
+  });
+
+  test('midiToHue is the band centre and refuses notes off the scale', () => {
+    expect(midiToHue(62, 'major', 1, 62)).toBeCloseTo(360 / 14);
+    expect(() => midiToHue(63, 'major', 1, 62)).toThrow();
+    expect(() => midiToHue(50, 'major', 1, 62)).toThrow();
+  });
+
+  for (const song of Object.values(SONGS)) {
+    for (const partName of ['melody', 'bass'] as const) {
+      test(`${song.name} ${partName}: every colour plays its intended note`, () => {
+        const part = song[partName];
+        const slots = songSlots(song, part);
+        const want = songMidis(part);
+        expect(slots.length).toBe(64);
+        slots.forEach((slot, i) => {
+          const step = swatchToStep(slot, songConfig(song, part));
+          if (want[i] === null) {
+            expect(step.rest).toBe(true);
+            // A tie token becomes a tie step, a '.' a plain rest.
+            expect(step.rest && step.tie).toBe(slot !== null);
+          } else {
+            expect(step.rest ? null : step.midis).toEqual([want[i] as number]);
+          }
+        });
+      });
+    }
+  }
 });

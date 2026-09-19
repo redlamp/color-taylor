@@ -6,7 +6,10 @@
  * late tick never makes a late note.
  *
  * Both tracks share one step clock and each loops over its own length, so two
- * rows of different lengths drift against each other into a polyrhythm.
+ * rows of different lengths drift against each other into a polyrhythm. Play
+ * starts every enabled track at step 0 on the same audio time; a track
+ * switched on mid-play waits for the next bar (a multiple of BAR steps on the
+ * shared counter) and starts its own step 0 there, so the tracks stay in phase.
  *
  * Visuals read the same clock through `visualAt` - nothing here waits on a
  * frame, and nothing a frame does reaches the audio.
@@ -68,14 +71,25 @@ interface TrackState extends TrackInput {
   lastHex: string | null;
   scheduledIndex: number;
   events: StepEvent[];
+  /** Shared-counter step where this track's step 0 falls. */
+  origin: number;
+  /** A note (or a muted one) is carrying on, so a tie extends rather than rests. */
+  sounding: boolean;
+  /** Counter and audio time of the track's first booked step since start or join; -1 before. */
+  startStep: number;
+  startTime: number;
 }
 
 const HISTORY = 64;
+/** Steps per bar - one row of cells. */
+export const BAR = 16;
 
 export interface SeqCounters {
   readonly notesScheduled: number;
   readonly lastStepTime: number;
   readonly trackIndex: readonly number[];
+  readonly trackStartStep: readonly number[];
+  readonly trackStartTime: readonly number[];
   readonly playing: boolean;
 }
 
@@ -95,6 +109,7 @@ export class SequencerEngine {
     this.tracks = Array.from({ length: trackCount }, () => ({
       steps: [], enabled: false, muted: false,
       held: null, lastMidis: null, lastHex: null, scheduledIndex: -1, events: [],
+      origin: 0, sounding: false, startStep: -1, startTime: -1,
     }));
   }
 
@@ -104,7 +119,14 @@ export class SequencerEngine {
   setParams(p: Partial<EngineParams>): void { Object.assign(this.params, p); }
 
   setTrack(i: number, input: TrackInput): void {
-    Object.assign(this.tracks[i], input);
+    const tr = this.tracks[i];
+    if (this.playing && input.enabled && !tr.enabled) {
+      // Join at the next bar line still to be booked, never mid-bar.
+      tr.origin = Math.ceil(this.stepCounter / BAR) * BAR;
+      tr.startStep = -1; tr.startTime = -1;
+      tr.lastMidis = null; tr.sounding = false;
+    }
+    Object.assign(tr, input);
   }
 
   /** Must run inside a user gesture, or the context stays suspended. */
@@ -118,6 +140,7 @@ export class SequencerEngine {
     this.stepCounter = 0;
     for (const t of this.tracks) {
       t.held = null; t.lastMidis = null; t.lastHex = null; t.scheduledIndex = -1; t.events = [];
+      t.origin = 0; t.sounding = false; t.startStep = -1; t.startTime = -1;
     }
     this.tick();
     this.timer = setInterval(() => this.tick(), TICK_MS);
@@ -155,6 +178,8 @@ export class SequencerEngine {
       notesScheduled: this.notesScheduled,
       lastStepTime: this.lastStepTime,
       trackIndex: this.tracks.map((t) => t.scheduledIndex),
+      trackStartStep: this.tracks.map((t) => t.startStep),
+      trackStartTime: this.tracks.map((t) => t.startTime),
       playing: this.playing,
     };
   }
@@ -177,25 +202,36 @@ export class SequencerEngine {
   private scheduleTrack(ctx: AudioContext, i: number, counter: number, t: number, stepSec: number): void {
     const tr = this.tracks[i];
     const len = tr.steps.length;
-    if (!tr.enabled || len === 0) {
+    if (!tr.enabled || len === 0 || counter < tr.origin) {
       if (tr.held) { this.release(tr.held, t); tr.held = null; }
       tr.scheduledIndex = -1;
+      tr.sounding = false;
       return;
     }
-    const index = counter % len;
+    const index = (counter - tr.origin) % len;
     const step = tr.steps[index];
     tr.scheduledIndex = index;
+    if (tr.startStep < 0) { tr.startStep = counter; tr.startTime = t; }
 
     const { gatePct, glideMs } = this.params;
     const legato = isLegato(gatePct);
     const glide = clampGlide(glideMs, stepSec);
 
-    if (step.rest) {
-      if (tr.held) { this.release(tr.held, t); tr.held = null; }
-      this.record(tr, { time: t, index, fromHex: tr.lastHex, toHex: step.hex, glide: 0 });
-      tr.lastHex = step.hex;
+    if (step.rest && step.tie && tr.sounding) {
+      // The note booked earlier already runs through this step: hold its colour, book nothing.
+      this.record(tr, { time: t, index, fromHex: tr.lastHex, toHex: tr.lastHex, glide: 0 });
       return;
     }
+    if (step.rest) {
+      if (tr.held) { this.release(tr.held, t); tr.held = null; }
+      // A tie with nothing to carry on is a rest, and shows as one.
+      const hex = step.tie ? null : step.hex;
+      this.record(tr, { time: t, index, fromHex: tr.lastHex, toHex: hex, glide: 0 });
+      tr.lastHex = hex;
+      tr.sounding = false;
+      return;
+    }
+    tr.sounding = true;
 
     const from = tr.lastMidis && tr.lastMidis.length === step.midis.length ? tr.lastMidis : null;
     this.record(tr, { time: t, index, fromHex: tr.lastHex, toHex: step.hex, glide: from ? glide : 0 });
@@ -217,7 +253,17 @@ export class SequencerEngine {
     if (legato) {
       tr.held = voice;
     } else {
-      this.release(voice, Math.max(t + ATTACK, t + gateSeconds(gatePct, stepSec)));
+      // Ties are known now, so the note's length is too: it runs through every
+      // tied step and the gate applies to the last one. Deciding later is too
+      // late - with a short gate the release time can pass before the next
+      // step is booked.
+      let ties = 0;
+      while (ties < len - 1) {
+        const next = tr.steps[(index + ties + 1) % len];
+        if (!(next.rest && next.tie)) break;
+        ties++;
+      }
+      this.release(voice, Math.max(t + ATTACK, t + ties * stepSec + gateSeconds(gatePct, stepSec)));
     }
   }
 
