@@ -133,3 +133,18 @@ describe('library', () => {
     expect(describeArr(MELODY)).toBe('Hue Melody - A minor - 4 tracks - 5 steps - 132 BPM');
   });
 });
+
+describe('the new scales', () => {
+  for (const scale of ['harmonicMinor', 'phrygianDominant'] as const) {
+    test(`${scale} survives the share link and the library, and is described by name`, () => {
+      const hue: Arrangement = { ...MELODY, melody: { ...MELODY.melody!, scale } };
+      const rgb: Arrangement = { ...RGB, rgb: { ...RGB.rgb!, scale } };
+      for (const arr of [hue, rgb]) {
+        expect(decodeShare(`#${encodeShare(arr)}`)).toEqual(arr);
+        const lib = parseLibrary([{ ...arr, id: 'x', savedAt: 1 }]);
+        expect(parseLibrary(JSON.parse(libraryFile(lib)))).toEqual(lib);
+      }
+      expect(describeArr(rgb)).toContain(scale === 'harmonicMinor' ? 'D harmonic minor' : 'D phrygian dominant');
+    });
+  }
+});

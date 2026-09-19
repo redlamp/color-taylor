@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import {
-  BUILTIN_PALETTES, CHANNELS, DEFAULT_RANGES, ODE_RGB, SCALES, SONGS,
+  BUILTIN_PALETTES, CHANNELS, DEFAULT_RANGES, ODE_RGB, RGB_SONGS, SCALES, SCALE_LABELS, SONGS, SPY_STRINGS,
   channelBase, channelChoices, channelNoteToHex, channelNotes, channelToMidi, chordRootToHex,
   clampGlide, gateSeconds, hueToFifthsRoot, hueToMidi, isLegato, melodyChoices, melodyNoteToHex,
   midiToChannel, midiToHue, noteNameToMidi, parseRecentSlots, parseSavedSlots, rgbSongConfig,
@@ -384,5 +384,78 @@ describe('instrument names', () => {
     expect(step.rest).toBe(false);
     if (!step.rest) expect(step.detail).toMatch(/^Low \S+ · Harmony \S+ · Top \S+$/);
     expect(instrumentName('r', {})).toBe('Bass');
+  });
+});
+
+describe('harmonic minor and Phrygian dominant', () => {
+  test('the tables', () => {
+    expect(SCALES.harmonicMinor).toEqual([0, 2, 3, 5, 7, 8, 11]);
+    expect(SCALES.phrygianDominant).toEqual([0, 1, 4, 5, 7, 8, 10]);
+    // Phrygian dominant is harmonic minor's fifth mode: the same notes from the 5th.
+    const fifthMode = SCALES.harmonicMinor.map((d) => (d - 7 + 12) % 12).sort((a, b) => a - b);
+    expect(fifthMode).toEqual([...SCALES.phrygianDominant]);
+    expect(Object.keys(SCALE_LABELS).sort()).toEqual(Object.keys(SCALES).sort());
+  });
+
+  for (const scale of ['harmonicMinor', 'phrygianDominant'] as ScaleName[]) {
+    test(`${scale}: every note round-trips through hue and through a channel, and the pickers offer it`, () => {
+      const hueCfg: MapConfig = { mode: 'melody', scale, root: 4, octaveRange: 2, octaveOffset: 0 };
+      const hueNotes = melodyChoices(hueCfg);
+      expect(hueNotes).toHaveLength(14);
+      for (const midi of hueNotes) {
+        const hex = melodyNoteToHex('#ff0000', midi, hueCfg);
+        const step = swatchToStep({ hex, alpha: 100 }, hueCfg);
+        expect(step.rest ? null : step.midis).toEqual([midi]);
+      }
+      const rgbCfg: MapConfig = { mode: 'rgb', scale, root: 4, octaveRange: 1, octaveOffset: 0, ranges: DEFAULT_RANGES };
+      for (const ch of CHANNELS) {
+        const notes = channelChoices(ch, rgbCfg);
+        expect(notes).toHaveLength(7 * DEFAULT_RANGES[ch].range);
+        for (const midi of notes) {
+          const hex = channelNoteToHex('#000000', ch, midi, rgbCfg);
+          expect(channelNotes(hex, rgbCfg)[ch]).toBe(midi);
+        }
+      }
+      // A note off the scale is refused by the inverse mapping.
+      const offScale = [...Array(12).keys()].find((pc) => !SCALES[scale].includes(pc))!;
+      expect(() => midiToHue(60 + offScale, scale, 1, 60)).toThrow();
+    });
+  }
+});
+
+describe('Spy Strings', () => {
+  const cfg = rgbSongConfig(SPY_STRINGS);
+  const slots = rgbSongSlots(SPY_STRINGS);
+  const want = rgbSongMidis(SPY_STRINGS);
+
+  test('eight bars of 1/16 in D harmonic minor at 140, gate 25, no glide, a sawtooth lead', () => {
+    expect(RGB_SONGS['spy-rgb']).toBe(SPY_STRINGS);
+    expect(slots).toHaveLength(128);
+    const st = SPY_STRINGS.settings;
+    expect([st.bpm, st.subdivision, st.scale, st.root, st.gatePct, st.glideMs, st.waves?.b]).toEqual([140, 16, 'harmonicMinor', 2, 25, 0, 'sawtooth']);
+    for (const ch of CHANNELS) {
+      const playable = new Set(channelChoices(ch, cfg));
+      const notes = want.flatMap((w) => (w && w[ch] !== null ? [w[ch] as number] : []));
+      expect(notes.length).toBeGreaterThan(20);
+      for (const n of notes) expect(playable.has(n)).toBe(true);
+    }
+    // The bass line, one note per two bars: D3 C#3 A#2 A2.
+    expect([0, 32, 64, 96].map((i) => want[i]?.r)).toEqual([50, 49, 46, 45]);
+    // Ties hold the chords closing bars 4 and 8.
+    for (const i of [61, 62, 63, 125, 126, 127]) expect(slots[i]?.alpha).toBe(0);
+  });
+
+  test('every step decodes to its notes, a tie or an empty slot', () => {
+    slots.forEach((slot, i) => {
+      const w = want[i];
+      const step = swatchToStep(slot, cfg);
+      if (w === null) {
+        expect(step.rest).toBe(true);
+        expect(step.rest && step.tie).toBe(slot !== null);
+        return;
+      }
+      expect(channelNotes(slot!.hex, cfg)).toEqual(w);
+      expect(step.rest ? null : step.keys).toEqual(CHANNELS.filter((c) => w[c] !== null));
+    });
   });
 });

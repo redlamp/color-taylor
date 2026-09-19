@@ -9,7 +9,7 @@
  * the same music under the mapping it was written for. Entries saved before
  * arrangements were single tracks; they are migrated on read (arrangementFrom).
  */
-import { CHANNELS, DEFAULT_NAMES, NOTE_NAMES, SCALES, type Channel, type ScaleName, type SeqMode, type Slot, type Subdivision } from './sequencer';
+import { CHANNELS, DEFAULT_NAMES, NOTE_NAMES, SCALES, SCALE_LABELS, type Channel, type ScaleName, type SeqMode, type Slot, type Subdivision } from './sequencer';
 import type { Wave } from './sequencerEngine';
 
 export interface MelodySettings { scale: ScaleName; root: number; baseOctave: number; octaveRange: number; wave: Wave }
@@ -335,11 +335,13 @@ export function decodeShare(hash: string): Arrangement | null {
 
 const MODE_NAME: Record<SeqMode, string> = { melody: 'Hue Melody', chords: 'Hue Chords', rgb: 'RGB Instruments' };
 
+const keyName = (root: number, scale: ScaleName) => `${NOTE_NAMES[root]} ${SCALE_LABELS[scale].toLowerCase()}`;
+
 /** A one-line summary for the library list: "Hue Melody - D major - 2 tracks - 64 steps - 100 BPM". */
 export function describe(arr: Arrangement): string {
-  const key = arr.mode === 'melody' && arr.melody ? `${NOTE_NAMES[arr.melody.root]} ${arr.melody.scale}`
+  const key = arr.mode === 'melody' && arr.melody ? keyName(arr.melody.root, arr.melody.scale)
     : arr.mode === 'chords' && arr.chords ? `root ${NOTE_NAMES[arr.chords.root]}`
-      : arr.rgb ? `${NOTE_NAMES[arr.rgb.root]} ${arr.rgb.scale}` : '';
+      : arr.rgb ? keyName(arr.rgb.root, arr.rgb.scale) : '';
   const n = arr.tracks.length;
   const steps = Math.max(0, ...arr.tracks.map((t) => t.steps.length));
   return [MODE_NAME[arr.mode], key, `${n} track${n === 1 ? '' : 's'}`, `${steps} step${steps === 1 ? '' : 's'}`, `${arr.bpm} BPM`]

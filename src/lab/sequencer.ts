@@ -16,8 +16,9 @@
  */
 import { hexToRgb, hsbToRgb, rgbToHex, rgbToHsb } from '../utils/colorConversions';
 import { midiToName } from '../utils/synthConfig';
+import type { Wave } from './sequencerEngine';
 
-export type ScaleName = 'pentatonic' | 'major' | 'minor' | 'chromatic';
+export type ScaleName = 'pentatonic' | 'major' | 'minor' | 'harmonicMinor' | 'phrygianDominant' | 'chromatic';
 /** 'chords' is Hue Chords (a circle-of-fifths triad); 'rgb' is RGB Instruments (a note per channel). */
 export type SeqMode = 'melody' | 'chords' | 'rgb';
 export type Channel = 'r' | 'g' | 'b';
@@ -28,7 +29,17 @@ export const SCALES: Record<ScaleName, readonly number[]> = {
   pentatonic: [0, 2, 4, 7, 9],
   major: [0, 2, 4, 5, 7, 9, 11],
   minor: [0, 2, 3, 5, 7, 8, 10],
+  // Natural minor with a raised 7th: the augmented second between 6 and 7 is the "exotic" sound.
+  harmonicMinor: [0, 2, 3, 5, 7, 8, 11],
+  // Harmonic minor's 5th mode: flat 2, major 3 - surf guitar and spy-film territory.
+  phrygianDominant: [0, 1, 4, 5, 7, 8, 10],
   chromatic: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+};
+
+/** What each scale is called on screen. */
+export const SCALE_LABELS: Record<ScaleName, string> = {
+  pentatonic: 'Pentatonic', major: 'Major', minor: 'Minor',
+  harmonicMinor: 'Harmonic minor', phrygianDominant: 'Phrygian dominant', chromatic: 'Chromatic',
 };
 
 export const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'] as const;
@@ -431,7 +442,13 @@ export const SONGS = {
 
 export interface RgbSong {
   name: string;
-  settings: SongSettings & { ranges: Record<Channel, ChannelRange> };
+  settings: SongSettings & {
+    ranges: Record<Channel, ChannelRange>;
+    /** Loaded with the song where given; otherwise the bench keeps what it has. */
+    gatePct?: number;
+    glideMs?: number;
+    waves?: Partial<Record<Channel, Wave>>;
+  };
   /**
    * One token string per channel, aligned step for step. A step is a tie only
    * if every channel ties ("-"), since a tie holds all three; "." silences
@@ -537,6 +554,66 @@ export const ODE_RGB: RgbSong = {
   },
   parts: { b: ODE_FULL_LEAD, g: ODE_FULL_HARMONY, r: ODE_FULL_BASS },
 };
+
+/*
+ * Spy Strings - an original piece written for this lab, not a transcription:
+ * tense spy-thriller strings in D harmonic minor (D E F G A A# C#), 140 BPM in
+ * 1/16, 4/4, eight bars of 16 steps (128), one RGB Instruments track.
+ *
+ *   Bars  Bass (R) pulse  Harmony (G) stabs   Lead (B)
+ *   1-2   D3              F4                  staccato stabs, a C#-D pickup
+ *   3-4   C#3             E4                  surf figure: E5 pedal skipping under
+ *                                             a falling line, then a C#dim7 climb
+ *   5-6   A#2             D4                  stabs a third up, falling to E5
+ *   7-8   A2              C#4                 surf figure on an A4 pedal, then a
+ *                                             run down to the dominant A5, held
+ *
+ * The bass is a steady eighth-note pulse under a descending line D3 - C#3 -
+ * A#2 - A2. A truly chromatic descent (D C# C B A# A) needs C and B, which
+ * harmonic minor does not have; the line is shaped to the scale instead, using
+ * its own half steps at both ends (D-C#, A#-A) around the augmented second
+ * C#-A#, so the song keeps the new scale rather than falling back to chromatic.
+ * Harmony stabs on 1, the "and" of 2 and the "and" of 3; the end of bars 4
+ * and 8 is a chord held (ties, all three channels) before the line moves on.
+ *
+ * Ranges: Bass D2..C#4 (octave 2, 2 octaves), Harmony D3..C#5 (octave 3, 2),
+ * Lead D4..C#6 (octave 4, 2). Gate 25%, no glide, sawtooth strings; the
+ * engine's release is a fixed 40 ms, already quick.
+ */
+const pulse = (n: string) => `${n} . ${n} . ${n} . ${n} . ${n} . ${n} . ${n} . ${n} .`;
+const stabs = (n: string) => `${n} . . . . . ${n} . . . ${n} . . . . .`;
+const SPY_LEAD = bars(
+  'A4 . . . . . A4 . . . D5 . . C#5 D5 .',
+  'F5 . . . . . E5 . . . D5 . C#5 . A4 .',
+  'E5 G5 E5 A#5 E5 A5 E5 G5 E5 F5 E5 D5 E5 C#5 E5 .',
+  'C#5 E5 G5 A#5 C#6 . A#5 . G5 . E5 . C#6 - - -',
+  'D5 . . . . . D5 . . . F5 . . E5 F5 .',
+  'A#5 . . . . . A5 . . . G5 . F5 . E5 .',
+  'A4 C#5 A4 E5 A4 G5 A4 F5 A4 E5 A4 C#5 A4 D5 E5 F5',
+  'G5 F5 E5 F5 E5 C#5 A#4 C#5 A4 . . . A5 - - -',
+);
+const SPY_HARMONY = bars(
+  stabs('F4'), stabs('F4'), stabs('E4'), 'E4 . . . . . E4 . . . E4 . E4 - - -',
+  stabs('D4'), stabs('D4'), stabs('C#4'), 'C#4 . . . . . C#4 . . . . . C#4 - - -',
+);
+const SPY_BASS = bars(
+  pulse('D3'), pulse('D3'), pulse('C#3'), 'C#3 . C#3 . C#3 . C#3 . C#3 . C#3 . C#3 - - -',
+  pulse('A#2'), pulse('A#2'), pulse('A2'), 'A2 . A2 . A2 . A2 . A2 . A2 . A2 - - -',
+);
+
+export const SPY_STRINGS: RgbSong = {
+  name: 'Spy Strings - RGB Instruments',
+  settings: {
+    bpm: 140, subdivision: 16, scale: 'harmonicMinor', root: 2, octaveRange: 2,
+    ranges: { r: { octave: 2, range: 2 }, g: { octave: 3, range: 2 }, b: { octave: 4, range: 2 } },
+    gatePct: 25, glideMs: 0,
+    waves: { r: 'triangle', g: 'sawtooth', b: 'sawtooth' },
+  },
+  parts: { b: SPY_LEAD, g: SPY_HARMONY, r: SPY_BASS },
+};
+
+/** The RGB Instruments songs, by the source key a track names them with. */
+export const RGB_SONGS = { 'ode-rgb': ODE_RGB, 'spy-rgb': SPY_STRINGS } satisfies Record<string, RgbSong>;
 
 // --- note pickers: notes -> colour, per mode --------------------------------
 

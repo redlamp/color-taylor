@@ -28,7 +28,8 @@ import { Slider } from '@/components/ui/slider';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { hexToRgb, rgbToHex } from '../utils/colorConversions';
 import {
-  BUILTIN_PALETTES, CHANNELS, DEFAULT_NAMES, NOTE_NAMES, ODE_RGB, SONGS, parseRecentSlots, parseSavedSlots, rgbSongSlots, songSlots,
+  BUILTIN_PALETTES, CHANNELS, DEFAULT_NAMES, NOTE_NAMES, RGB_SONGS, SCALES, SCALE_LABELS, SONGS, parseRecentSlots, parseSavedSlots,
+  rgbSongConfig, rgbSongSlots, songConfig, songSlots,
   swatchToStep,
   type Channel, type LegacyAlpha, type MapConfig, type NoteStep, type ScaleName, type SeqMode, type Slot, type Subdivision,
 } from './sequencer';
@@ -45,7 +46,8 @@ import AuditionStrip from './SequencerAudition';
 
 type SongKey = keyof typeof SONGS;
 type SongSource = `${SongKey}-${'melody' | 'bass'}`;
-type Source = 'saved' | 'recent' | 'rainbow' | 'pulse' | 'sunset' | SongSource | 'ode-rgb' | 'custom';
+type RgbSongKey = keyof typeof RGB_SONGS;
+type Source = 'saved' | 'recent' | 'rainbow' | 'pulse' | 'sunset' | SongSource | RgbSongKey | 'custom';
 
 interface TrackCfg {
   /** Stable while tracks are added and removed around it; the engine keys its playing state by it. */
@@ -235,7 +237,8 @@ const SONG_SLOTS = Object.fromEntries(SONG_KEYS.flatMap((k) => [
   [`${k}-melody`, songSlots(SONGS[k], SONGS[k].melody)],
   [`${k}-bass`, songSlots(SONGS[k], SONGS[k].bass)],
 ])) as Record<SongSource, Slot[]>;
-const ODE_RGB_SLOTS = rgbSongSlots(ODE_RGB);
+const RGB_SONG_KEYS = Object.keys(RGB_SONGS) as RgbSongKey[];
+const RGB_SONG_SLOTS = Object.fromEntries(RGB_SONG_KEYS.map((k) => [k, rgbSongSlots(RGB_SONGS[k])])) as Record<RgbSongKey, Slot[]>;
 
 const SOURCE_GROUPS: { label: string; options: [Source, string][] }[] = [
   { label: 'Your swatches', options: [['saved', 'Saved'], ['recent', 'Recent'], ['custom', 'Custom']] },
@@ -247,15 +250,25 @@ const SOURCE_GROUPS: { label: string; options: [Source, string][] }[] = [
         [`${k}-melody`, `${SONGS[k].name} - melody`],
         [`${k}-bass`, `${SONGS[k].name} - bass`],
       ]),
-      ['ode-rgb', ODE_RGB.name],
+      ...RGB_SONG_KEYS.map((k): [Source, string] => [k, RGB_SONGS[k].name]),
     ],
   },
 ];
 
-const SONG_MENU: [string, string][] = [
-  ...SONG_KEYS.map((k): [string, string] => [k, `${SONGS[k].name} (Hue Melody, two tracks)`]),
-  ['ode-rgb', `${ODE_RGB.name} (one track)`],
-];
+/**
+ * The Load song menu, one group per mode. A song's group is the mode its own
+ * config plays under - read from the song, not listed by hand - and a mode
+ * with no songs has no group.
+ */
+const SONG_MENU: { mode: SeqMode; songs: [string, string][] }[] = (() => {
+  const all: { mode: SeqMode; key: string; name: string }[] = [
+    ...SONG_KEYS.map((k) => ({ mode: songConfig(SONGS[k], SONGS[k].melody).mode, key: k as string, name: `${SONGS[k].name} (two tracks)` })),
+    ...RGB_SONG_KEYS.map((k) => ({ mode: rgbSongConfig(RGB_SONGS[k]).mode, key: k as string, name: `${RGB_SONGS[k].name} (one track)` })),
+  ];
+  return (['melody', 'chords', 'rgb'] as const)
+    .map((mode) => ({ mode, songs: all.filter((x) => x.mode === mode).map((x): [string, string] => [x.key, x.name]) }))
+    .filter((g) => g.songs.length > 0);
+})();
 
 const ALL_SOURCES = new Set<Source>(SOURCE_GROUPS.flatMap((g) => g.options.map(([v]) => v)));
 /** Sources whose row never changes: palettes and song parts. A saved arrangement names them as a hint. */
@@ -263,7 +276,7 @@ const FIXED_SOURCES = new Set<Source>([...ALL_SOURCES].filter((x) => x !== 'save
 
 /** A palette's or song part's row. */
 function fixedSlots(source: Source): Slot[] {
-  if (source === 'ode-rgb') return ODE_RGB_SLOTS;
+  if (source in RGB_SONG_SLOTS) return RGB_SONG_SLOTS[source as RgbSongKey];
   if (source in SONG_SLOTS) return SONG_SLOTS[source as SongSource];
   return BUILTIN_PALETTES[source as keyof typeof BUILTIN_PALETTES] ?? [];
 }
@@ -320,7 +333,7 @@ function mixHex(a: string, b: string, t: number): string {
 }
 
 const WAVES = 'triangle:Triangle|sine:Sine|sawtooth:Saw|square:Square';
-const SCALE_OPTIONS = 'pentatonic:Pentatonic|major:Major|minor:Minor|chromatic:Chromatic';
+const SCALE_OPTIONS = (Object.keys(SCALES) as ScaleName[]).map((k) => `${k}:${SCALE_LABELS[k]}`).join('|');
 const ROOTS = NOTE_NAMES.map((n, i) => `${i}:${n}`).join('|');
 const MODES = 'melody:Hue Melody|chords:Hue Chords|rgb:RGB Instruments';
 const HELP: Record<SeqMode, string> = {
@@ -362,17 +375,18 @@ function LabSection({ id, title, open, onOpenChange, headerRight, children }: {
 }
 
 /** A segmented control: `options` is `value:Label|value:Label`. */
-function Seg({ value, options, onChange, label, control }: {
-  value: string; options: string; onChange: (x: string) => void; label: string; control?: string;
+/** `wrap` lets a long list (the six scales) run onto a second line on a narrow screen instead of overflowing. */
+function Seg({ value, options, onChange, label, control, wrap }: {
+  value: string; options: string; onChange: (x: string) => void; label: string; control?: string; wrap?: boolean;
 }) {
   return (
     <div className="flex flex-col gap-1.5" data-control={control}>
       <span className="text-base text-muted-foreground">{label}</span>
       <Tabs value={value} onValueChange={(x) => onChange(String(x))}>
-        <TabsList className="h-9 w-full">
+        <TabsList className={wrap ? 'w-full flex-wrap group-data-horizontal/tabs:h-auto' : 'h-9 w-full'}>
           {options.split('|').map((o) => {
             const [val, text] = o.split(':');
-            return <TabsTrigger key={val} value={val} className="flex-1 text-base">{text}</TabsTrigger>;
+            return <TabsTrigger key={val} value={val} className={wrap ? 'h-8 flex-1 text-base' : 'flex-1 text-base'}>{text}</TabsTrigger>;
           })}
         </TabsList>
       </Tabs>
@@ -543,19 +557,15 @@ export default function SequencerBench() {
       while (out.length < parts.length) out.push(blankTrack());
       return out.map((t, i) => (i < parts.length ? { ...t, ...parts[i], enabled: true } : { ...t, enabled: false }));
     };
-    if (key === 'ode-rgb') {
-      const { bpm, subdivision, scale, root, ranges } = ODE_RGB.settings;
+    if (key in RGB_SONGS) {
+      const k = key as RgbSongKey;
+      const { bpm, subdivision, scale, root, ranges, gatePct, glideMs, waves } = RGB_SONGS[k].settings;
+      const inst = (s: Settings, ch: Channel): InstrumentCfg => ({ ...s.rgb.instruments[ch], ...ranges[ch], wave: waves?.[ch] ?? s.rgb.instruments[ch].wave });
       setSettings((s) => ({
         ...s, bpm, subdivision, mode: 'rgb',
-        rgb: {
-          scale, root,
-          instruments: {
-            r: { ...s.rgb.instruments.r, ...ranges.r },
-            g: { ...s.rgb.instruments.g, ...ranges.g },
-            b: { ...s.rgb.instruments.b, ...ranges.b },
-          },
-        },
-        tracks: fill(s.tracks, [{ source: 'ode-rgb', octave: 0 }]),
+        gatePct: gatePct ?? s.gatePct, glideMs: glideMs ?? s.glideMs,
+        rgb: { scale, root, instruments: { r: inst(s, 'r'), g: inst(s, 'g'), b: inst(s, 'b') } },
+        tracks: fill(s.tracks, [{ source: k, octave: 0 }]),
       }));
       return;
     }
@@ -763,7 +773,7 @@ export default function SequencerBench() {
             onOpenChange={setSectionOpen}>
           {mode === 'melody' && (
             <div className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2">
-              <Seg label="Scale" control="scale" value={settings.melody.scale} options={SCALE_OPTIONS}
+              <Seg label="Scale" control="scale" value={settings.melody.scale} options={SCALE_OPTIONS} wrap
                 onChange={(v) => setMelody({ scale: v as ScaleName })} />
               <Seg label="Waveform" control="wave" value={settings.melody.wave} options={WAVES}
                 onChange={(v) => setMelody({ wave: v as Wave })} />
@@ -793,7 +803,7 @@ export default function SequencerBench() {
 
           {mode === 'rgb' && (
             <div className="grid grid-cols-1 gap-x-8 gap-y-5">
-              <Seg label="Scale" control="scale" value={settings.rgb.scale} options={SCALE_OPTIONS}
+              <Seg label="Scale" control="scale" value={settings.rgb.scale} options={SCALE_OPTIONS} wrap
                 onChange={(v) => setRgb({ scale: v as ScaleName })} />
               <Seg label="Root" control="root" value={String(settings.rgb.root)} options={ROOTS}
                 onChange={(v) => setRgb({ root: Number(v) })} />
@@ -871,7 +881,11 @@ export default function SequencerBench() {
             onChange={(e) => { if (e.currentTarget.value) loadSong(e.currentTarget.value); }}
           >
             <option value="">Load song...</option>
-            {SONG_MENU.map(([k, name]) => <option key={k} value={k}>{name}</option>)}
+            {SONG_MENU.map((g) => (
+              <optgroup key={g.mode} label={MODE_TITLE[g.mode]}>
+                {g.songs.map(([k, name]) => <option key={k} value={k}>{name}</option>)}
+              </optgroup>
+            ))}
           </select>
           <Button size="lg" variant="outline" className="text-base" onClick={addTrack} disabled={settings.tracks.length >= MAX_TRACKS}
             aria-label="Add a track">
