@@ -7,7 +7,10 @@
  *
  * Every track (1 to 6 of them) shares one step clock and each loops over its
  * own length, so rows of different lengths drift against each other into a
- * polyrhythm. Play
+ * polyrhythm. With `loop` off each track plays through once and falls silent
+ * at its end, and the transport stops itself (calling `onEnded`) once the
+ * last one has - switched off mid-play, the lap each track is on is its last.
+ * Play
  * starts every enabled track at step 0 on the same audio time; a track
  * switched on mid-play waits for the next bar (a multiple of BAR steps on the
  * shared counter) and starts its own step 0 there, so the tracks stay in phase.
@@ -19,13 +22,18 @@
  * only into a step that has its key. In RGB Instruments the keys are the channels,
  * each with its own instrument (wave, level, mute, fixed cutoff).
  *
+ * A hold step (sequencer.ts, HOLD_ALPHA) books voices only for the keys whose
+ * note changed; an unchanged key's voice was booked long enough when it
+ * struck, because a voice's length is worked out ahead through every tie and
+ * every hold that keeps it (carrySteps).
+ *
  * Visuals read the same clock through `visualAt` - nothing here waits on a
  * frame, and nothing a frame does reaches the audio.
  */
 import { getAudioCtx, getMasterGain } from '../utils/audioContext';
 import { midiToFreq } from '../utils/synthConfig';
 import {
-  CUTOFF_MAX, clampGlide, gateSeconds, isLegato, stepSeconds,
+  CUTOFF_MAX, carrySteps, clampGlide, gateSeconds, isLegato, soundingAfter, stepSeconds, sustainedKeys,
   type Channel, type NoteStep, type Step, type Subdivision,
 } from './sequencer';
 
@@ -41,6 +49,8 @@ export interface EngineParams {
   glideMs: number;
   wave: Wave;
   instruments: Record<Channel, Instrument>;
+  /** Off: every track plays once and the transport stops when the longest is done. */
+  loop: boolean;
 }
 
 export interface TrackInput {
@@ -101,6 +111,12 @@ interface TrackState extends TrackInput {
   origin: number;
   /** A note (or a muted one) is carrying on, so a tie extends rather than rests. */
   sounding: boolean;
+  /** The note each key is sounding after the last step booked - what a hold step compares against. */
+  now: Map<string, number>;
+  /** Per key, the last counter step its booked voice runs through; a hold only sustains a voice still running. */
+  until: Map<string, number>;
+  /** Loop off: the last lap (0 = the first pass) this track plays. */
+  lastLap: number;
   /** Counter and audio time of the track's first booked step since start or join; -1 before. */
   startStep: number;
   startTime: number;
@@ -142,6 +158,10 @@ export class SequencerEngine {
   private auditions = new Map<Channel, { v: Voice; midi: number }>();
   private auditionRuns = new Set<Voice>();
   private auditionNotes = 0;
+  /** Loop off: audio time the last track's last step ends, once every track is done. */
+  private endAt: number | null = null;
+  /** Called when the transport stops itself - loop off, every track played through. */
+  onEnded: (() => void) | null = null;
 
   constructor(params: EngineParams) {
     this.params = { ...params };
@@ -152,7 +172,11 @@ export class SequencerEngine {
 
   /** Takes effect from the next step booked - no restart. */
   setParams(p: Partial<EngineParams>): void {
+    const loopOff = p.loop === false && this.params.loop;
     Object.assign(this.params, p);
+    if (p.loop) this.endAt = null;
+    // Switched off mid-play: each track finishes the lap it is on.
+    if (loopOff) for (const t of this.tracks) t.lastLap = Math.max(0, Math.floor((this.stepCounter - t.origin) / Math.max(1, t.steps.length)));
     // A held audition key follows its instrument's settings as they change.
     const ctx = this.ctx;
     if (ctx) for (const [ch, a] of this.auditions) this.retune(a.v, auditionStep(ch, a.midi), 0, ctx.currentTime, 0);
@@ -169,14 +193,14 @@ export class SequencerEngine {
       const tr = byId.get(input.id) ?? {
         id: input.id, steps: [], enabled: false, muted: false,
         held: new Map(), booked: new Set(), lastMidi: new Map(), lastHex: null, scheduledIndex: -1, events: [],
-        origin: 0, sounding: false, startStep: -1, startTime: -1,
+        origin: 0, sounding: false, now: new Map(), until: new Map(), lastLap: 0, startStep: -1, startTime: -1,
       };
       byId.delete(input.id);
       if (this.playing && input.enabled && !tr.enabled) {
         // Join at the next bar line still to be booked, never mid-bar.
         tr.origin = Math.ceil(this.stepCounter / BAR) * BAR;
         tr.startStep = -1; tr.startTime = -1;
-        tr.lastMidi.clear(); tr.sounding = false;
+        tr.lastMidi.clear(); tr.sounding = false; tr.now.clear(); tr.until.clear(); tr.lastLap = 0;
       }
       Object.assign(tr, input);
       return tr;
@@ -199,8 +223,9 @@ export class SequencerEngine {
     this.voiceLog = [];
     for (const t of this.tracks) {
       t.held.clear(); t.lastMidi.clear(); t.lastHex = null; t.scheduledIndex = -1; t.events = [];
-      t.origin = 0; t.sounding = false; t.startStep = -1; t.startTime = -1;
+      t.origin = 0; t.sounding = false; t.now.clear(); t.until.clear(); t.lastLap = 0; t.startStep = -1; t.startTime = -1;
     }
+    this.endAt = null;
     this.tick();
     this.timer = setInterval(() => this.tick(), TICK_MS);
   }
@@ -208,6 +233,7 @@ export class SequencerEngine {
   stop(): void {
     if (this.timer !== null) clearInterval(this.timer);
     this.timer = null;
+    this.endAt = null;
     const ctx = this.ctx;
     if (ctx) {
       // Steps are booked up to 1.5 s ahead, so a stop has to reach into the future too.
@@ -314,16 +340,33 @@ export class SequencerEngine {
   private tick(): void {
     const ctx = this.ctx;
     if (!ctx) return;
+    if (this.endAt !== null && ctx.currentTime >= this.endAt + RELEASE) {
+      this.stop();
+      this.onEnded?.();
+      return;
+    }
     const ahead = typeof document !== 'undefined' && document.hidden ? LOOKAHEAD_HIDDEN : LOOKAHEAD;
     // A stalled timer (a laptop lid, a debugger) must not book a burst of past steps.
     if (this.nextStepTime < ctx.currentTime - 0.2) this.nextStepTime = ctx.currentTime + 0.02;
     while (this.nextStepTime < ctx.currentTime + ahead) {
       const stepSec = stepSeconds(this.params.bpm, this.params.subdivision);
       for (let i = 0; i < this.tracks.length; i++) this.scheduleTrack(ctx, i, this.stepCounter, this.nextStepTime, stepSec);
+      if (this.endAt === null && !this.params.loop && this.allDone(this.stepCounter)) this.endAt = this.nextStepTime;
       this.lastStepTime = this.nextStepTime;
       this.nextStepTime += stepSec;
       this.stepCounter++;
     }
+  }
+
+  /** Loop off and past its last lap: the track has played through and is silent. */
+  private done(tr: TrackState, counter: number): boolean {
+    return !this.params.loop && counter >= tr.origin && Math.floor((counter - tr.origin) / tr.steps.length) > tr.lastLap;
+  }
+
+  /** Every enabled track with steps has played through (and there is at least one). */
+  private allDone(counter: number): boolean {
+    const on = this.tracks.filter((t) => t.enabled && t.steps.length > 0);
+    return on.length > 0 && on.every((t) => this.done(t, counter));
   }
 
   private releaseHeld(tr: TrackState, at: number, keep?: ReadonlySet<string>): void {
@@ -337,10 +380,11 @@ export class SequencerEngine {
   private scheduleTrack(ctx: AudioContext, i: number, counter: number, t: number, stepSec: number): void {
     const tr = this.tracks[i];
     const len = tr.steps.length;
-    if (!tr.enabled || len === 0 || counter < tr.origin) {
+    if (!tr.enabled || len === 0 || counter < tr.origin || this.done(tr, counter)) {
       this.releaseHeld(tr, t);
       tr.scheduledIndex = -1;
       tr.sounding = false;
+      tr.now.clear();
       return;
     }
     const index = (counter - tr.origin) % len;
@@ -365,12 +409,17 @@ export class SequencerEngine {
       this.record(tr, { time: t, index, fromHex: tr.lastHex, toHex: hex, glide: 0 });
       tr.lastHex = hex;
       tr.sounding = false;
+      tr.now.clear();
       return;
     }
     tr.sounding = true;
+    // A hold step: keys whose note is unchanged carry on - if their voice is still running.
+    const sustained = sustainedKeys(step, tr.now);
+    for (const k of sustained) if (legato ? !tr.held.has(k) : (tr.until.get(k) ?? -1) < counter) sustained.delete(k);
+    tr.now = soundingAfter(step, tr.now);
 
     const from = step.keys.map((k) => tr.lastMidi.get(k) ?? null);
-    const glides = from.some((m) => m !== null) && glide > 0;
+    const glides = step.keys.some((k, n) => from[n] !== null && !sustained.has(k)) && glide > 0;
     this.record(tr, { time: t, index, fromHex: tr.lastHex, toHex: step.hex, glide: glides ? glide : 0 });
     tr.lastHex = step.hex;
     step.keys.forEach((k, n) => tr.lastMidi.set(k, step.midis[n]));
@@ -380,34 +429,29 @@ export class SequencerEngine {
       return;
     }
 
-    // Ties are known now, so the note's length is too: it runs through every
-    // tied step and the gate applies to the last one. Deciding later is too
-    // late - with a short gate the release time can pass before the next step
-    // is booked.
-    let ties = 0;
-    while (ties < len - 1) {
-      const next = tr.steps[(index + ties + 1) % len];
-      if (!(next.rest && next.tie)) break;
-      ties++;
-    }
-    const end = Math.max(t + ATTACK, t + ties * stepSec + gateSeconds(gatePct, stepSec));
-
     const sounding = step.keys.filter((k) => !(step.rgb && this.params.instruments[k as Channel].muted));
     // A held voice whose key is gone from this step (a channel fell silent) ends here.
     this.releaseHeld(tr, t, legato ? new Set(sounding) : undefined);
+    const struck = sounding.filter((k) => !sustained.has(k));
     this.notesScheduled++;
-    this.voiceLog.push({ track: i, index, keys: sounding });
+    this.voiceLog.push({ track: i, index, keys: struck });
     if (this.voiceLog.length > HISTORY) this.voiceLog.splice(0, this.voiceLog.length - HISTORY);
 
     step.keys.forEach((key, n) => {
-      if (!sounding.includes(key)) return;
+      if (!struck.includes(key)) return;
       const held = tr.held.get(key);
       if (legato && held) { this.retune(held, step, n, t, glide); return; }
       const v = this.voice(ctx, step, n, from[n], t, glide);
       tr.booked.add(v);
       v.osc.addEventListener('ended', () => tr.booked.delete(v));
-      if (legato) tr.held.set(key, v);
-      else this.release(v, end);
+      if (legato) { tr.held.set(key, v); return; }
+      // The voice's length is known now: it runs through every tie, and every
+      // hold that keeps this key on this note, and the gate applies to the last
+      // of those steps. Deciding later is too late - with a short gate the
+      // release time can pass before the next step is booked.
+      const carry = carrySteps(tr.steps, index, key, step.midis[n], this.params.loop);
+      tr.until.set(key, counter + carry);
+      this.release(v, Math.max(t + ATTACK, t + carry * stepSec + gateSeconds(gatePct, stepSec)));
     });
   }
 

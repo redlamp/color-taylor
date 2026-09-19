@@ -40,6 +40,8 @@ export interface Arrangement {
   subdivision: Subdivision;
   gatePct: number;
   glideMs: number;
+  /** false: each track plays through once. Absent is on (looping), as before the switch existed. */
+  loop?: boolean;
   /** Only the arrangement's own mode's settings are present. */
   melody?: MelodySettings;
   chords?: ChordsSettings;
@@ -150,6 +152,7 @@ function sharedFrom(o: Record<string, unknown>): Shared {
     gatePct: clampInt(o.gatePct, 5, 100, 70),
     glideMs: clampInt(o.glideMs, 0, 300, 40),
   };
+  if (o.loop === false) out.loop = false;
   if (mode === 'melody') out.melody = melodyFrom(o.melody);
   if (mode === 'chords') out.chords = chordsFrom(o.chords);
   if (mode === 'rgb') out.rgb = rgbFrom(o.rgb);
@@ -234,7 +237,7 @@ export function libraryFile(arrangements: readonly SavedArrangement[]): string {
  *   v2;nm:Riff;m:melody;t:110;d:8;g:70;l:40;s:pentatonic;r:0;b:3;n:2;w:triangle;k:2;
  *     o0:0;f0:1;x0:ff0000,00ff00@50,.;o1:-1;f1:3;c1:pulse;x1:...
  *
- * The arrangement's settings first, then `k` tracks, each as `o<i>` octave,
+ * The arrangement's settings first (`lp:0` only when it plays once), then `k` tracks, each as `o<i>` octave,
  * `f<i>` flags (1 on, 2 muted), an optional `c<i>` built-in source hint and
  * `x<i>` its steps. Steps are hex without the hash, `@alpha` only where alpha
  * is not 100 (so a tie is `@0`), and `.` for an empty slot. RGB Instruments
@@ -264,6 +267,7 @@ export function encodeShare(arr: Arrangement): string {
   const f: [string, string | number][] = [
     ['nm', encodeField(arr.name)], ['m', arr.mode], ['t', arr.bpm], ['d', arr.subdivision], ['g', arr.gatePct], ['l', arr.glideMs],
   ];
+  if (arr.loop === false) f.push(['lp', 0]);
   if (arr.mode === 'melody' && arr.melody) {
     const m = arr.melody;
     f.push(['s', m.scale], ['r', m.root], ['b', m.baseOctave], ['n', m.octaveRange], ['w', m.wave]);
@@ -300,6 +304,7 @@ export function decodeShare(hash: string): Arrangement | null {
   }
   const raw: Record<string, unknown> = {
     name: f.nm ? decodeField(f.nm, 'Shared') : 'Shared', mode: f.m, bpm: f.t, subdivision: f.d, gatePct: f.g, glideMs: f.l,
+    loop: f.lp !== '0',
   };
   if (f.m === 'melody') raw.melody = { scale: f.s, root: f.r, baseOctave: f.b, octaveRange: f.n, wave: f.w };
   if (f.m === 'chords') raw.chords = { root: f.r, baseOctave: f.b, wave: f.w };

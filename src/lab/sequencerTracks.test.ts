@@ -148,3 +148,17 @@ describe('the new scales', () => {
     });
   }
 });
+
+describe('loop', () => {
+  test('play-once rides in the share link and the library; looping is the default and stays implicit', () => {
+    const once: Arrangement = { ...RGB, loop: false };
+    const hash = `#${encodeShare(once)}`;
+    expect(hash).toContain(';lp:0;');
+    expect(decodeShare(hash)).toEqual(once);
+    expect(encodeShare(RGB)).not.toContain('lp:');
+    const lib = parseLibrary([{ ...once, id: 'x', savedAt: 1 }]);
+    expect(lib[0].loop).toBe(false);
+    expect(parseLibrary(JSON.parse(libraryFile(lib)))).toEqual(lib);
+    expect(arrangementFrom(JSON.parse(JSON.stringify(RGB)))?.loop).toBeUndefined();
+  });
+});

@@ -20,7 +20,7 @@
  * file and the share link are in sequencerTracks.ts and SequencerLibrary.tsx.
  */
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Link, Minus, Play, Plus, RefreshCw, Square, X } from 'lucide-react';
+import { Link, Minus, Play, Plus, RefreshCw, Repeat, Square, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -67,6 +67,8 @@ interface Settings {
   subdivision: Subdivision;
   glideMs: number;
   gatePct: number;
+  /** Off: each track plays through once and the transport stops after the longest. */
+  loop: boolean;
   mode: SeqMode;
   melody: MelodySettings;
   chords: ChordsSettings;
@@ -89,6 +91,7 @@ const DEFAULTS: Settings = {
   subdivision: 8,
   glideMs: 40,
   gatePct: 70,
+  loop: true,
   mode: 'melody',
   melody: { scale: 'pentatonic', root: 0, baseOctave: 3, octaveRange: 2, wave: 'triangle' },
   chords: { root: 0, baseOctave: 3, wave: 'triangle' },
@@ -158,6 +161,7 @@ function loadSettings(): Settings {
 function arrangementOf(s: Settings, rows: readonly Slot[][], name: string): Arrangement {
   const arr: Arrangement = {
     name, mode: s.mode, bpm: s.bpm, subdivision: s.subdivision, gatePct: s.gatePct, glideMs: s.glideMs,
+    ...(s.loop ? {} : { loop: false }),
     tracks: s.tracks.map((t, i) => ({
       steps: (rows[i] ?? []).map((x) => (x ? { ...x } : null)),
       octave: t.octave, enabled: t.enabled, muted: t.muted,
@@ -190,6 +194,7 @@ function applyArrangement(s: Settings, arr: Arrangement): Settings {
   return {
     ...s,
     mode: arr.mode, bpm: arr.bpm, subdivision: arr.subdivision, gatePct: arr.gatePct, glideMs: arr.glideMs,
+    loop: arr.loop !== false,
     melody: arr.melody ?? s.melody,
     chords: arr.chords ?? s.chords,
     rgb: arr.rgb ?? s.rgb,
@@ -430,8 +435,13 @@ export default function SequencerBench() {
   const [engine] = useState(() => new SequencerEngine({
     bpm: settings.bpm, subdivision: settings.subdivision, gatePct: settings.gatePct, glideMs: settings.glideMs,
     wave: settings.mode === 'chords' ? settings.chords.wave : settings.melody.wave,
-    instruments: engineInstruments(settings),
+    instruments: engineInstruments(settings), loop: settings.loop,
   }));
+  // Loop off: the engine stops itself after the longest track, and the button goes back to Play.
+  useEffect(() => {
+    engine.onEnded = () => setPlaying(false);
+    return () => { engine.onEnded = null; };
+  }, [engine]);
 
   const set = useCallback(<K extends keyof Settings>(k: K, v: Settings[K]) => {
     setSettings((s) => ({ ...s, [k]: v }));
@@ -490,9 +500,9 @@ export default function SequencerBench() {
   useEffect(() => {
     engine.setParams({
       bpm: settings.bpm, subdivision: settings.subdivision, gatePct: settings.gatePct,
-      glideMs: settings.glideMs, wave, instruments,
+      glideMs: settings.glideMs, wave, instruments, loop: settings.loop,
     });
-  }, [engine, settings.bpm, settings.subdivision, settings.gatePct, settings.glideMs, wave, instruments]);
+  }, [engine, settings.bpm, settings.subdivision, settings.gatePct, settings.glideMs, wave, instruments, settings.loop]);
 
   useEffect(() => {
     engine.setTracks(settings.tracks.map((t, i) => ({ id: t.id, steps: steps[i] ?? [], enabled: t.enabled, muted: t.muted })));
@@ -758,7 +768,8 @@ export default function SequencerBench() {
           <div className="flex flex-col gap-5">
           <Seg label="Mode" control="mode" value={mode} options={MODES} onChange={(v) => set('mode', v as SeqMode)} />
           <p className="text-base text-muted-foreground" data-help="">
-            {HELP[mode]} Empty slots rest; alpha 0 is a tie, holding the note before it. Click a cell to edit it.
+            {HELP[mode]} Empty slots rest; alpha 0 is a tie, holding the note before it; alpha 1 is a hold, where
+            only the voices whose note changed strike and the rest carry on (marked with a bar). Click a cell to edit it.
             Space plays and stops.
           </p>
           <div className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2">
@@ -874,9 +885,14 @@ export default function SequencerBench() {
           <Button size="lg" variant="outline" className="text-base" onClick={playAll}>
             <Play /> Play all
           </Button>
+          <Button size="lg" variant={settings.loop ? 'secondary' : 'outline'} className="text-base" aria-pressed={settings.loop}
+            onClick={() => set('loop', !settings.loop)}
+            title={settings.loop ? 'Looping - click to play each track once' : 'Plays each track once - click to loop'}>
+            <Repeat /> {settings.loop ? 'Loop on' : 'Loop off'}
+          </Button>
           <select
             aria-label="Load song"
-            className="h-9 w-48 rounded-lg border border-border bg-background px-2 text-base text-foreground"
+            className="h-9 min-w-48 grow basis-48 max-sm:basis-full rounded-lg border border-border bg-background px-2 text-base text-foreground"
             value=""
             onChange={(e) => { if (e.currentTarget.value) loadSong(e.currentTarget.value); }}
           >
@@ -983,6 +999,7 @@ export default function SequencerBench() {
                     {rowSteps.map((s, si) => {
                       const slot = slots[i][si];
                       const tie = s.rest && s.tie;
+                      const hold = !s.rest && !!s.hold;
                       const isSel = sel?.track === i && sel.step === si;
                       return (
                         <Fragment key={si}>
@@ -1004,12 +1021,19 @@ export default function SequencerBench() {
                                   + 'focus-visible:outline-2 focus-visible:outline-ring '
                                   + 'data-selected:outline-3 data-selected:outline-offset-2 data-selected:outline-foreground '
                                   + 'data-active:scale-110 data-active:ring-3 data-active:ring-foreground '
+                                  + 'relative '
                                   + (slot ? '' : 'border-dashed bg-muted/40')
                                 }
-                                // A tie shows its note's colour, faded - at its real alpha 0 it would vanish.
-                                style={slot ? { backgroundColor: withAlpha(slot.hex, tie ? 35 : slot.alpha) } : undefined}
+                                data-hold={hold || undefined}
+                                // A tie shows its note's colour, faded - at its real alpha 0 it would vanish; a
+                                // hold (alpha 1) shows it solid, marked with a bar down its left edge.
+                                style={slot ? { backgroundColor: withAlpha(slot.hex, tie ? 35 : hold ? 100 : slot.alpha) } : undefined}
                                 title={slot ? `${slot.hex} ${slot.alpha}% - ${s.rest ? s.label : s.detail}` : 'empty slot'}
-                              />
+                              >
+                                {hold && (
+                                  <span aria-hidden className="absolute inset-y-1 left-1 w-1.5 rounded-full border border-foreground bg-background" />
+                                )}
+                              </PopoverTrigger>
                               <PopoverContent className="w-96 p-3 text-base">
                                 <SequencerStepEditor
                                   slot={slot}

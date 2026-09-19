@@ -2,14 +2,14 @@
  * The step popover: quick edits to one cell, notes first. The colour itself is
  * edited in the side column (the app's hexagon and Color Editor), so this is
  * only what is quicker at the cell - pick a note off the drawn picker, set
- * alpha, make it a rest or a tie.
+ * alpha, make it a rest, a tie or a hold.
  *
  * The picker goes notes -> colour through the inverse mappings in
  * sequencer.ts; see SequencerNotePicker.
  */
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { swatchToStep, type MapConfig, type Slot } from './sequencer';
+import { HOLD_ALPHA, swatchToStep, type MapConfig, type Slot } from './sequencer';
 import SequencerNotePicker from './SequencerNotePicker';
 
 const FIELD = 'h-9 text-base md:text-base tabular-nums';
@@ -61,8 +61,15 @@ export default function SequencerStepEditor({ slot, cfg, onChange }: {
       <div className="flex gap-2">
         <Button variant="outline" className="flex-1 text-base" onClick={() => onChange(null)}>Rest</Button>
         <Button variant="outline" className="flex-1 text-base" onClick={() => put(hex, 0)}>Tie</Button>
+        <Button variant="outline" className="flex-1 text-base" disabled={!slot} onClick={() => put(hex, HOLD_ALPHA)}
+          title="Voices whose note is unchanged carry on; only the ones that changed strike">
+          Hold
+        </Button>
       </div>
-      <p className="text-base text-muted-foreground">Alpha 0 is a tie. The hexagon beside the tracks edits this cell&apos;s colour.</p>
+      <p className="text-base text-muted-foreground">
+        Alpha 0 is a tie, holding every voice. Alpha {HOLD_ALPHA} is a hold: voices whose note is unchanged carry on and
+        only the changed ones strike. The hexagon beside the tracks edits this cell&apos;s colour.
+      </p>
     </div>
   );
 }

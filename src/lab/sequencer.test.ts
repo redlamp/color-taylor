@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import {
-  BUILTIN_PALETTES, CHANNELS, DEFAULT_RANGES, ODE_RGB, RGB_SONGS, SCALES, SCALE_LABELS, SONGS, SPY_STRINGS,
+  BUILTIN_PALETTES, CHANNELS, COLTRANE_CHANGES, DEFAULT_RANGES, HOLD_ALPHA, ODE_RGB, RGB_SONGS, SCALES, SCALE_LABELS, SONGS, SPY_STRINGS,
+  carrySteps, rgbSongHolds, soundingAfter, sustainedKeys, type Channel, type NoteStep, type RgbSong, type Sounding, type Step,
   channelBase, channelChoices, channelNoteToHex, channelNotes, channelToMidi, chordRootToHex,
   clampGlide, gateSeconds, hueToFifthsRoot, hueToMidi, isLegato, melodyChoices, melodyNoteToHex,
   midiToChannel, midiToHue, noteNameToMidi, parseRecentSlots, parseSavedSlots, rgbSongConfig,
@@ -239,11 +240,15 @@ describe('RGB Instruments', () => {
       expect(notes.length).toBeGreaterThan(50);
       for (const n of notes) expect(playable.has(n)).toBe(true);
     }
-    // The lead's lowest note is the A3 of bar 12; the bridge's syncopated F# ties over into bar 13.
+    // The lead's lowest note is the A3 of bar 12.
     expect(Math.min(...want.flatMap((w) => (w?.b ? [w.b] : [])))).toBe(57);
-    expect(want[94]).toEqual({ r: 38, g: 62, b: 66 });
-    expect(want.slice(95, 98)).toEqual([null, null, null]);
-    expect(want[98]).toEqual({ r: 38, g: 62, b: 66 });
+    // Bar 12 beat 4: the lead's F#4 enters over the A harmony still held (E3, A2)...
+    expect(want[94]).toEqual({ r: 45, g: 52, b: 66 });
+    expect(rgbSongHolds(ODE_RGB)[94]).toEqual(['r', 'g']);
+    // ...and on the downbeat of bar 13 the lead holds while harmony and bass strike D.
+    expect(want[96]).toEqual({ r: 38, g: 54, b: 66 });
+    expect(rgbSongHolds(ODE_RGB)[96]).toEqual(['b']);
+    expect([want[95], want[97]]).toEqual([null, null]);
   });
 
   test('Ode to Joy, full theme: every step decodes to its three notes, a tie or a rest', () => {
@@ -457,5 +462,158 @@ describe('Spy Strings', () => {
       expect(channelNotes(slot!.hex, cfg)).toEqual(w);
       expect(step.rest ? null : step.keys).toEqual(CHANNELS.filter((c) => w[c] !== null));
     });
+  });
+});
+
+/** Plays a row through the hold rule the engine uses: the keys each step strikes, null for a tie or rest. */
+function struck(steps: Step[]): (string[] | null)[] {
+  let now: Sounding = new Map();
+  return steps.map((step) => {
+    const out = step.rest ? null : step.keys.filter((k) => !sustainedKeys(step, now).has(k));
+    now = soundingAfter(step, now);
+    return out;
+  });
+}
+
+const note = (keys: string[], midis: number[], hold = false): NoteStep => ({
+  rest: false, hex: '#000000', midis, keys, rgb: true, levels: midis.map(() => 1), velocity: 1, cutoff: 8000, label: '', detail: '', hold,
+});
+const TIE: Step = { rest: true, tie: true, hex: '#000000', label: 'tie' };
+const REST: Step = { rest: true, tie: false, hex: null, label: 'rest' };
+
+describe('hold steps', () => {
+  test('alpha HOLD_ALPHA is a hold at full accent; alpha 0 still a tie', () => {
+    const h = swatchToStep({ hex: '#ffffff', alpha: HOLD_ALPHA }, RGB);
+    expect(h.rest ? null : [h.hold, h.velocity]).toEqual([true, 1]);
+    expect(h.rest ? '' : h.detail).toMatch(/^hold - /);
+    const plain = swatchToStep({ hex: '#ffffff', alpha: 50 }, RGB);
+    expect(plain.rest ? null : [!!plain.hold, plain.velocity]).toEqual([false, 0.5]);
+    const tie = swatchToStep({ hex: '#ffffff', alpha: 0 }, RGB);
+    expect(tie.rest && tie.tie).toBe(true);
+    // Black at the hold alpha is still a rest - there is nothing to hold with.
+    expect(swatchToStep({ hex: '#000000', alpha: HOLD_ALPHA }, RGB).rest).toBe(true);
+  });
+
+  test('a hold strikes only the voices whose note changed', () => {
+    const prev: Sounding = new Map([['r', 45], ['g', 52], ['b', 57]]);
+    expect([...sustainedKeys(note(['r', 'g', 'b'], [45, 52, 66], true), prev)]).toEqual(['r', 'g']);
+    // A plain step strikes every voice, changed or not.
+    expect([...sustainedKeys(note(['r', 'g', 'b'], [45, 52, 66]), prev)]).toEqual([]);
+    // A voice silent before the hold strikes; one silent in it stops.
+    expect([...sustainedKeys(note(['g', 'b'], [52, 57], true), new Map([['b', 57]]))]).toEqual(['b']);
+    expect(soundingAfter(note(['b'], [57], true), prev)).toEqual(new Map([['b', 57]]));
+    expect(soundingAfter(TIE, prev)).toEqual(new Map(prev));
+    expect(soundingAfter(REST, prev)).toEqual(new Map());
+  });
+
+  test('hue modes: a hold on the same note is a tie, on a new note a full-accent note', () => {
+    const red = swatchToStep({ hex: '#ff0000', alpha: 100 }, MELODY);
+    const redHold = swatchToStep({ hex: '#ff0000', alpha: HOLD_ALPHA }, MELODY);
+    const blueHold = swatchToStep({ hex: '#0000ff', alpha: HOLD_ALPHA }, MELODY);
+    expect(struck([red, redHold, blueHold])).toEqual([['0'], [], ['0']]);
+    expect(blueHold.rest ? 0 : blueHold.velocity).toBe(1);
+  });
+
+  test('a voice carries on through ties and through holds that keep its note', () => {
+    const steps: Step[] = [
+      note(['r', 'b'], [38, 66]), TIE, note(['r', 'b'], [45, 66], true), note(['r', 'b'], [45, 67], true), REST,
+    ];
+    expect(carrySteps(steps, 0, 'b', 66)).toBe(2);
+    expect(carrySteps(steps, 0, 'r', 38)).toBe(1);
+    expect(carrySteps(steps, 2, 'r', 45)).toBe(1);
+    expect(struck(steps)).toEqual([['r', 'b'], null, ['r'], ['b'], null]);
+    // Round the loop, but not past the end when the row plays once.
+    const loop: Step[] = [note(['b'], [60], true), note(['b'], [62]), TIE];
+    expect(carrySteps(loop, 1, 'b', 62)).toBe(1);
+    expect(carrySteps(loop, 2, 'b', 60)).toBe(1);
+    expect(carrySteps(loop, 2, 'b', 60, false)).toBe(0);
+  });
+});
+
+describe('RGB song tokens: "~" holds one voice', () => {
+  const song = (b: string, g: string, r: string): RgbSong => ({
+    name: 't', settings: { bpm: 100, subdivision: 8, scale: 'major', root: 2, octaveRange: 2, ranges: DEFAULT_RANGES }, parts: { r, g, b },
+  });
+  test('a "~" step is a hold whose held voices keep their note', () => {
+    const s = song('F#4 ~ ~ -', 'D4 E4 ~ -', 'D2 ~ A2 -');
+    const slots = rgbSongSlots(s);
+    expect(slots.map((x) => x?.alpha)).toEqual([100, HOLD_ALPHA, HOLD_ALPHA, 0]);
+    expect(rgbSongMidis(s)).toEqual([
+      { r: 38, g: 62, b: 66 }, { r: 38, g: 64, b: 66 }, { r: 45, g: 64, b: 66 }, null,
+    ]);
+    expect(rgbSongHolds(s)).toEqual([null, ['r', 'b'], ['g', 'b'], null]);
+    const cfg = rgbSongConfig(s);
+    expect(struck(slots.map((x) => swatchToStep(x, cfg)))).toEqual([['r', 'g', 'b'], ['g'], ['r'], null]);
+  });
+  test('malformed holds throw', () => {
+    expect(() => rgbSongSlots(song('~ F#4', 'D4 E4', 'D2 A2'))).toThrow(/holds with nothing/);
+    expect(() => rgbSongSlots(song('F#4 G4', 'D4 D4', 'D2 ~'))).toThrow(/repeats its note/);
+    expect(() => rgbSongSlots(song('F#4 -', 'D4 ~', 'D2 -'))).toThrow(/tie must hold all three/);
+    expect(() => rgbSongSlots(song('F#4 .', 'D4 .', '. ~'))).toThrow(/holds with nothing/);
+  });
+});
+
+/** Every step of an RGB song decodes to its notes, and plays through the hold rule striking exactly the voices not written "~". */
+function roundTrip(song: RgbSong) {
+  const cfg = rgbSongConfig(song);
+  const slots = rgbSongSlots(song);
+  const want = rgbSongMidis(song);
+  const holds = rgbSongHolds(song);
+  const steps = slots.map((slot) => swatchToStep(slot, cfg));
+  const hits = struck(steps);
+  slots.forEach((slot, i) => {
+    const w = want[i];
+    const step = steps[i];
+    if (w === null) {
+      expect(step.rest).toBe(true);
+      expect(step.rest && step.tie).toBe(slot !== null);
+      return;
+    }
+    expect(channelNotes(slot!.hex, cfg)).toEqual(w);
+    const sounding = CHANNELS.filter((c) => w[c] !== null);
+    expect(step.rest ? null : step.keys).toEqual(sounding);
+    expect(hits[i]).toEqual(sounding.filter((c) => !(holds[i] ?? []).includes(c)));
+  });
+  for (const ch of CHANNELS) {
+    const playable = new Set(channelChoices(ch, cfg));
+    for (const w of want) if (w && w[ch] !== null) expect(playable.has(w[ch] as number)).toBe(true);
+  }
+}
+
+describe('songs with holds round-trip', () => {
+  test('Ode to Joy: every step, holds included; the bar 13 downbeat strikes harmony and bass only', () => {
+    roundTrip(ODE_RGB);
+    const hits = struck(rgbSongSlots(ODE_RGB).map((s) => swatchToStep(s, rgbSongConfig(ODE_RGB))));
+    expect(hits[94]).toEqual(['b']);
+    expect(hits[96]).toEqual(['r', 'g']);
+  });
+  test('Spy Strings still round-trips', () => roundTrip(SPY_STRINGS));
+});
+
+describe('Coltrane Changes (original line)', () => {
+  const want = rgbSongMidis(COLTRANE_CHANGES);
+  test('16 bars of eighths in half time, chromatic from C, in the RGB song menu', () => {
+    expect(RGB_SONGS['coltrane-rgb']).toBe(COLTRANE_CHANGES);
+    expect(rgbSongSlots(COLTRANE_CHANGES)).toHaveLength(128);
+    const st = COLTRANE_CHANGES.settings;
+    expect([st.bpm, st.subdivision, st.scale, st.root]).toEqual([140, 16, 'chromatic', 0]);
+    roundTrip(COLTRANE_CHANGES);
+  });
+  test('the bass lands on each chord root as the chord arrives', () => {
+    // [step, pitch class]: a change every half tune bar (4 steps) or bar (8).
+    const roots: [number, number][] = [
+      [0, 11], [4, 2], [8, 7], [12, 10], [16, 3], [24, 9], [28, 2], [32, 7], [36, 10], [40, 3], [44, 6], [48, 11],
+      [56, 5], [60, 10], [64, 3], [72, 9], [76, 2], [80, 7], [88, 1], [92, 6], [96, 11], [104, 5], [108, 10], [112, 3],
+      [120, 1], [124, 6],
+    ];
+    for (const [i, pc] of roots) expect((want[i]?.r ?? -1) % 12).toBe(pc);
+  });
+  test('the harmony stays between the bass and the lead', () => {
+    for (const w of want) {
+      if (!w) continue;
+      const on = (ch: Channel) => w[ch];
+      if (on('g') !== null && on('b') !== null) expect(on('g')!).toBeLessThan(on('b')!);
+      if (on('r') !== null && on('g') !== null) expect(on('r')!).toBeLessThan(on('g')!);
+    }
   });
 });
