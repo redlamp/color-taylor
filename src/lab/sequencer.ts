@@ -21,6 +21,7 @@
 import { hexToRgb, hsbToRgb, rgbToHex, rgbToHsb } from '../utils/colorConversions';
 import { midiToName } from '../utils/synthConfig';
 import type { Wave } from './sequencerEngine';
+import { JAZZ_SONGS } from './sequencerJazzSongs';
 
 export type ScaleName = 'pentatonic' | 'major' | 'minor' | 'harmonicMinor' | 'phrygianDominant' | 'chromatic';
 /** 'chords' is Hue Chords (a circle-of-fifths triad); 'rgb' is RGB Instruments (a note per channel). */
@@ -940,7 +941,7 @@ export const COLTRANE_CHANGES: RgbSong = {
 };
 
 /** The RGB Instruments songs, by the source key a track names them with. */
-export const RGB_SONGS = { 'ode-rgb': ODE_RGB, 'spy-rgb': SPY_STRINGS, 'coltrane-rgb': COLTRANE_CHANGES } satisfies Record<string, RgbSong>;
+export const RGB_SONGS = { 'ode-rgb': ODE_RGB, 'spy-rgb': SPY_STRINGS, 'coltrane-rgb': COLTRANE_CHANGES, ...JAZZ_SONGS } satisfies Record<string, RgbSong>;
 
 // --- note pickers: notes -> colour, per mode --------------------------------
 
