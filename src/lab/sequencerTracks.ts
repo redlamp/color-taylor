@@ -1,11 +1,13 @@
 /**
- * Saved tracks, their JSON file and the share link - the pure half, no DOM, so
- * the round trips are unit-tested (sequencerTracks.test.ts).
+ * Saved arrangements, their JSON file and the share link - the pure half, no
+ * DOM, so the round trips are unit-tested (sequencerTracks.test.ts).
  *
- * A snapshot is a row of slots plus the settings it was made with: the mode,
- * that mode's own settings, tempo, subdivision, gate, glide and the track's
- * octave. Loading one puts the settings back too, because a row of colours
- * only means the same music under the mapping it was written for.
+ * An arrangement is every track - each one's row, octave, on and mute - plus
+ * the settings they were made with: the mode, that mode's own settings (the
+ * instruments and their names included), tempo, subdivision, gate and glide.
+ * Loading one puts the settings back too, because a row of colours only means
+ * the same music under the mapping it was written for. Entries saved before
+ * arrangements were single tracks; they are migrated on read (arrangementFrom).
  */
 import { CHANNELS, DEFAULT_NAMES, NOTE_NAMES, SCALES, type Channel, type ScaleName, type SeqMode, type Slot, type Subdivision } from './sequencer';
 import type { Wave } from './sequencerEngine';
@@ -15,23 +17,43 @@ export interface ChordsSettings { root: number; baseOctave: number; wave: Wave }
 export interface InstrumentCfg { name: string; octave: number; range: number; wave: Wave; level: number; muted: boolean }
 export interface RgbSettings { scale: ScaleName; root: number; instruments: Record<Channel, InstrumentCfg> }
 
-export interface TrackSnapshot {
-  name: string;
+/** One track of an arrangement: its row and its own settings. */
+export interface ArrangementTrack {
   steps: Slot[];
+  /** The track's own octave offset. */
+  octave: number;
+  enabled: boolean;
+  muted: boolean;
+  /**
+   * The built-in source the row came from (a palette or a song part), so a
+   * load can put the track back on it. A hint only: `steps` is the truth, and
+   * the bench loads the track as Custom when the hint is missing or no longer
+   * matches.
+   */
+  source?: string;
+}
+
+export interface Arrangement {
+  name: string;
   mode: SeqMode;
   bpm: number;
   subdivision: Subdivision;
   gatePct: number;
   glideMs: number;
-  /** The track's own octave offset. */
-  octave: number;
-  /** Only the snapshot's own mode's settings are present. */
+  /** Only the arrangement's own mode's settings are present. */
   melody?: MelodySettings;
   chords?: ChordsSettings;
   rgb?: RgbSettings;
+  /** 1..MAX_TRACKS, in order: the first is Track A. */
+  tracks: ArrangementTrack[];
 }
 
-export interface SavedTrack extends TrackSnapshot { id: string; savedAt: number }
+export interface SavedArrangement extends Arrangement { id: string; savedAt: number }
+
+export const MAX_TRACKS = 6;
+const MAX_STEPS = 256;
+/** A source hint is a short key like `rainbow` or `ode-melody`, never free text. */
+const SOURCE_HINT = /^[a-z][a-z0-9-]{0,31}$/;
 
 export const FILE_FORMAT = 'color-taylor-sequencer';
 
@@ -58,7 +80,7 @@ const decodeField = (v: string, dflt: string) => {
   try { return decodeURIComponent(v); } catch { return dflt; }
 };
 
-// --- validation (shared by the file import and the share link) ---------------
+// --- validation (shared by the stored library, the file import and the share link)
 
 function slotFrom(v: unknown): Slot {
   if (!v || typeof v !== 'object') return null;
@@ -116,67 +138,112 @@ function rgbFrom(v: unknown): RgbSettings {
   };
 }
 
-/** A snapshot from anything - a stored entry, a file, a decoded link. Null if it has no steps array. */
-export function snapshotFrom(v: unknown): TrackSnapshot | null {
-  if (!v || typeof v !== 'object') return null;
-  const o = v as Record<string, unknown>;
-  if (!Array.isArray(o.steps)) return null;
+type Shared = Omit<Arrangement, 'name' | 'tracks'>;
+
+/** The settings every arrangement carries, whatever its tracks: mode, timing and that mode's own settings. */
+function sharedFrom(o: Record<string, unknown>): Shared {
   const mode = oneOf(o.mode, MODES, 'melody');
-  const snap: TrackSnapshot = {
-    name: typeof o.name === 'string' && o.name.trim() ? o.name.trim().slice(0, 80) : 'Untitled track',
-    steps: o.steps.slice(0, 256).map(slotFrom),
+  const out: Shared = {
     mode,
     bpm: clampInt(o.bpm, 40, 240, 110),
     subdivision: oneOf(Number(o.subdivision) as Subdivision, SUBDIVISIONS, 8),
     gatePct: clampInt(o.gatePct, 5, 100, 70),
     glideMs: clampInt(o.glideMs, 0, 300, 40),
-    octave: clampInt(o.octave, -2, 2, 0),
   };
-  if (mode === 'melody') snap.melody = melodyFrom(o.melody);
-  if (mode === 'chords') snap.chords = chordsFrom(o.chords);
-  if (mode === 'rgb') snap.rgb = rgbFrom(o.rgb);
-  return snap;
+  if (mode === 'melody') out.melody = melodyFrom(o.melody);
+  if (mode === 'chords') out.chords = chordsFrom(o.chords);
+  if (mode === 'rgb') out.rgb = rgbFrom(o.rgb);
+  return out;
+}
+
+const stepsFrom = (v: readonly unknown[]) => v.slice(0, MAX_STEPS).map(slotFrom);
+
+function trackFrom(v: unknown): ArrangementTrack | null {
+  if (!v || typeof v !== 'object') return null;
+  const o = v as Record<string, unknown>;
+  if (!Array.isArray(o.steps)) return null;
+  const t: ArrangementTrack = {
+    steps: stepsFrom(o.steps),
+    octave: clampInt(o.octave, -2, 2, 0),
+    enabled: o.enabled !== false,
+    muted: o.muted === true,
+  };
+  if (typeof o.source === 'string' && SOURCE_HINT.test(o.source)) t.source = o.source;
+  return t;
+}
+
+/**
+ * An arrangement from anything - a stored entry, a file, a decoded link. Null
+ * if it has no tracks. A single-track snapshot from before arrangements (a
+ * `steps` array and the track's `octave` at the top level) is migrated into a
+ * one-track arrangement rather than dropped.
+ */
+export function arrangementFrom(v: unknown): Arrangement | null {
+  if (!v || typeof v !== 'object') return null;
+  const o = v as Record<string, unknown>;
+  let tracks: ArrangementTrack[];
+  if (Array.isArray(o.tracks)) {
+    tracks = o.tracks.slice(0, MAX_TRACKS).map(trackFrom).filter((t): t is ArrangementTrack => t !== null);
+  } else if (Array.isArray(o.steps)) {
+    tracks = [{ steps: stepsFrom(o.steps), octave: clampInt(o.octave, -2, 2, 0), enabled: true, muted: false }];
+  } else {
+    return null;
+  }
+  if (tracks.length === 0) return null;
+  const name = typeof o.name === 'string' && o.name.trim() ? o.name.trim().slice(0, 80) : 'Untitled';
+  return { name, ...sharedFrom(o), tracks };
 }
 
 export function newId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-/** The stored library, or a file's `tracks`. Bad entries are dropped, not fatal. */
-export function parseLibrary(raw: unknown): SavedTrack[] {
-  const list = Array.isArray(raw) ? raw : (raw && typeof raw === 'object' && Array.isArray((raw as { tracks?: unknown }).tracks)
-    ? (raw as { tracks: unknown[] }).tracks : []);
-  const out: SavedTrack[] = [];
+/**
+ * The stored library, or a file's `arrangements` (version 2) or `tracks`
+ * (version 1: single-track snapshots). Bad entries are dropped, not fatal.
+ */
+export function parseLibrary(raw: unknown): SavedArrangement[] {
+  const o = (raw && typeof raw === 'object' ? raw : {}) as { arrangements?: unknown; tracks?: unknown };
+  const list: unknown[] = Array.isArray(raw) ? raw
+    : Array.isArray(o.arrangements) ? o.arrangements
+      : Array.isArray(o.tracks) ? o.tracks : [];
+  const out: SavedArrangement[] = [];
   for (const v of list) {
-    const snap = snapshotFrom(v);
-    if (!snap) continue;
-    const o = v as { id?: unknown; savedAt?: unknown };
+    const arr = arrangementFrom(v);
+    if (!arr) continue;
+    const e = v as { id?: unknown; savedAt?: unknown };
     out.push({
-      ...snap,
-      id: typeof o.id === 'string' && o.id ? o.id : newId(),
-      savedAt: typeof o.savedAt === 'number' ? o.savedAt : Date.now(),
+      ...arr,
+      id: typeof e.id === 'string' && e.id ? e.id : newId(),
+      savedAt: typeof e.savedAt === 'number' ? e.savedAt : Date.now(),
     });
   }
   return out;
 }
 
 /** The export file's contents. */
-export function libraryFile(tracks: readonly SavedTrack[]): string {
-  return JSON.stringify({ format: FILE_FORMAT, version: 1, tracks }, null, 2);
+export function libraryFile(arrangements: readonly SavedArrangement[]): string {
+  return JSON.stringify({ format: FILE_FORMAT, version: 2, arrangements }, null, 2);
 }
 
 // --- the share link -------------------------------------------------------
 
 /*
- * `#seq=` then `;`-separated `key:value` fields, the steps last:
+ * `#seq=v2` then `;`-separated `key:value` fields:
  *
- *   v1;nm:Riff;m:melody;t:110;d:8;g:70;l:40;o:0;s:pentatonic;r:0;b:3;n:2;w:triangle;x:ff0000,00ff00@50,.
+ *   v2;nm:Riff;m:melody;t:110;d:8;g:70;l:40;s:pentatonic;r:0;b:3;n:2;w:triangle;k:2;
+ *     o0:0;f0:1;x0:ff0000,00ff00@50,.;o1:-1;f1:3;c1:pulse;x1:...
  *
- * Steps are hex without the hash, `@alpha` only where alpha is not 100 (so a
- * tie is `@0`), and `.` for an empty slot. RGB Instruments carries its three
- * instruments as `i:` octave.range.wave.level.muted.name, joined by `_` in R
- * G B order. Everything is URL-safe as written except the names, which are
- * percent-encoded - separators included.
+ * The arrangement's settings first, then `k` tracks, each as `o<i>` octave,
+ * `f<i>` flags (1 on, 2 muted), an optional `c<i>` built-in source hint and
+ * `x<i>` its steps. Steps are hex without the hash, `@alpha` only where alpha
+ * is not 100 (so a tie is `@0`), and `.` for an empty slot. RGB Instruments
+ * carries its three instruments as `i:` octave.range.wave.level.muted.name,
+ * joined by `_` in R G B order. Everything is URL-safe as written except the
+ * names, which are percent-encoded - separators included.
+ *
+ * `v1` links - one track, `o` and `x` with no index - still open, as a
+ * one-track arrangement.
  */
 export const SHARE_PREFIX = 'seq=';
 
@@ -186,50 +253,53 @@ export function encodeSteps(steps: readonly Slot[]): string {
 
 export function decodeSteps(text: string): Slot[] {
   if (!text) return [];
-  return text.split(',').map((tok) => {
+  return text.split(',').slice(0, MAX_STEPS).map((tok) => {
     if (tok === '.' || tok === '') return null;
     const [hex, alpha] = tok.split('@');
     return slotFrom({ hex, alpha: alpha === undefined ? 100 : Number(alpha) });
   });
 }
 
-export function encodeShare(snap: TrackSnapshot): string {
+export function encodeShare(arr: Arrangement): string {
   const f: [string, string | number][] = [
-    ['nm', encodeField(snap.name)], ['m', snap.mode], ['t', snap.bpm], ['d', snap.subdivision],
-    ['g', snap.gatePct], ['l', snap.glideMs], ['o', snap.octave],
+    ['nm', encodeField(arr.name)], ['m', arr.mode], ['t', arr.bpm], ['d', arr.subdivision], ['g', arr.gatePct], ['l', arr.glideMs],
   ];
-  if (snap.mode === 'melody' && snap.melody) {
-    const m = snap.melody;
+  if (arr.mode === 'melody' && arr.melody) {
+    const m = arr.melody;
     f.push(['s', m.scale], ['r', m.root], ['b', m.baseOctave], ['n', m.octaveRange], ['w', m.wave]);
-  } else if (snap.mode === 'chords' && snap.chords) {
-    const c = snap.chords;
+  } else if (arr.mode === 'chords' && arr.chords) {
+    const c = arr.chords;
     f.push(['r', c.root], ['b', c.baseOctave], ['w', c.wave]);
-  } else if (snap.mode === 'rgb' && snap.rgb) {
-    const r = snap.rgb;
+  } else if (arr.mode === 'rgb' && arr.rgb) {
+    const r = arr.rgb;
     f.push(['s', r.scale], ['r', r.root], ['i', CHANNELS.map((ch) => {
       const x = r.instruments[ch];
       return [x.octave, x.range, x.wave, x.level, x.muted ? 1 : 0, encodeField(x.name)].join('.');
     }).join('_')]);
   }
-  f.push(['x', encodeSteps(snap.steps)]);
-  return `${SHARE_PREFIX}v1;${f.map(([k, v]) => `${k}:${v}`).join(';')}`;
+  f.push(['k', arr.tracks.length]);
+  arr.tracks.forEach((t, i) => {
+    f.push([`o${i}`, t.octave], [`f${i}`, (t.enabled ? 1 : 0) + (t.muted ? 2 : 0)]);
+    if (t.source) f.push([`c${i}`, t.source]);
+    f.push([`x${i}`, encodeSteps(t.steps)]);
+  });
+  return `${SHARE_PREFIX}v2;${f.map(([k, v]) => `${k}:${v}`).join(';')}`;
 }
 
-/** A hash (with or without `#`) back to a snapshot, or null if it isn't a share link. */
-export function decodeShare(hash: string): TrackSnapshot | null {
+/** A hash (with or without `#`) back to an arrangement, or null if it isn't a share link. */
+export function decodeShare(hash: string): Arrangement | null {
   const body = hash.replace(/^#/, '');
   if (!body.startsWith(SHARE_PREFIX)) return null;
   const parts = body.slice(SHARE_PREFIX.length).split(';');
-  if (parts[0] !== 'v1') return null;
+  const version = parts[0];
+  if (version !== 'v1' && version !== 'v2') return null;
   const f: Record<string, string> = {};
   for (const p of parts.slice(1)) {
     const at = p.indexOf(':');
     if (at > 0) f[p.slice(0, at)] = p.slice(at + 1);
   }
-  if (f.x === undefined) return null;
-  const name = f.nm ? decodeField(f.nm, 'Shared track') : 'Shared track';
   const raw: Record<string, unknown> = {
-    name, steps: [], mode: f.m, bpm: f.t, subdivision: f.d, gatePct: f.g, glideMs: f.l, octave: f.o,
+    name: f.nm ? decodeField(f.nm, 'Shared') : 'Shared', mode: f.m, bpm: f.t, subdivision: f.d, gatePct: f.g, glideMs: f.l,
   };
   if (f.m === 'melody') raw.melody = { scale: f.s, root: f.r, baseOctave: f.b, octaveRange: f.n, wave: f.w };
   if (f.m === 'chords') raw.chords = { root: f.r, baseOctave: f.b, wave: f.w };
@@ -240,17 +310,38 @@ export function decodeShare(hash: string): TrackSnapshot | null {
     });
     raw.rgb = { scale: f.s, root: f.r, instruments: { r: inst[0], g: inst[1], b: inst[2] } };
   }
-  const snap = snapshotFrom(raw);
-  if (!snap) return null;
-  snap.steps = decodeSteps(f.x);
-  return snap;
+
+  // Steps are decoded after validation: the validator takes objects, the link carries tokens.
+  const rows: string[] = [];
+  if (version === 'v1') {
+    if (f.x === undefined) return null;
+    rows.push(f.x);
+    raw.tracks = [{ steps: [], octave: f.o }];
+  } else {
+    const tracks: Record<string, unknown>[] = [];
+    for (let i = 0; i < clampInt(f.k, 0, MAX_TRACKS, 0); i++) {
+      if (f[`x${i}`] === undefined) continue;
+      const flags = clampInt(f[`f${i}`], 0, 3, 1);
+      rows.push(f[`x${i}`]);
+      tracks.push({ steps: [], octave: f[`o${i}`], enabled: (flags & 1) === 1, muted: (flags & 2) === 2, source: f[`c${i}`] });
+    }
+    raw.tracks = tracks;
+  }
+  const arr = arrangementFrom(raw);
+  if (!arr) return null;
+  arr.tracks.forEach((t, i) => { t.steps = decodeSteps(rows[i]); });
+  return arr;
 }
 
-/** A one-line summary for the library list: "Hue Melody - D major - 16 steps - 100 BPM". */
-export function describe(snap: TrackSnapshot): string {
-  const mode = snap.mode === 'melody' ? 'Hue Melody' : snap.mode === 'chords' ? 'Hue Chords' : 'RGB Instruments';
-  const key = snap.mode === 'melody' && snap.melody ? `${NOTE_NAMES[snap.melody.root]} ${snap.melody.scale}`
-    : snap.mode === 'chords' && snap.chords ? `root ${NOTE_NAMES[snap.chords.root]}`
-      : snap.rgb ? `${NOTE_NAMES[snap.rgb.root]} ${snap.rgb.scale}` : '';
-  return [mode, key, `${snap.steps.length} step${snap.steps.length === 1 ? '' : 's'}`, `${snap.bpm} BPM`].filter(Boolean).join(' - ');
+const MODE_NAME: Record<SeqMode, string> = { melody: 'Hue Melody', chords: 'Hue Chords', rgb: 'RGB Instruments' };
+
+/** A one-line summary for the library list: "Hue Melody - D major - 2 tracks - 64 steps - 100 BPM". */
+export function describe(arr: Arrangement): string {
+  const key = arr.mode === 'melody' && arr.melody ? `${NOTE_NAMES[arr.melody.root]} ${arr.melody.scale}`
+    : arr.mode === 'chords' && arr.chords ? `root ${NOTE_NAMES[arr.chords.root]}`
+      : arr.rgb ? `${NOTE_NAMES[arr.rgb.root]} ${arr.rgb.scale}` : '';
+  const n = arr.tracks.length;
+  const steps = Math.max(0, ...arr.tracks.map((t) => t.steps.length));
+  return [MODE_NAME[arr.mode], key, `${n} track${n === 1 ? '' : 's'}`, `${steps} step${steps === 1 ? '' : 's'}`, `${arr.bpm} BPM`]
+    .filter(Boolean).join(' - ');
 }

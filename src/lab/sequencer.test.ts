@@ -229,11 +229,27 @@ describe('RGB Instruments', () => {
     }
   });
 
-  test('Ode to Joy - RGB Instruments: every channel plays its intended note', () => {
+  test('Ode to Joy, full theme: 16 bars of 1/8 steps, every note inside its instrument\'s range', () => {
+    const cfg = rgbSongConfig(ODE_RGB);
+    expect(rgbSongSlots(ODE_RGB).length).toBe(128);
+    const want = rgbSongMidis(ODE_RGB);
+    for (const ch of CHANNELS) {
+      const playable = new Set(channelChoices(ch, cfg));
+      const notes = want.flatMap((w) => (w && w[ch] !== null ? [w[ch] as number] : []));
+      expect(notes.length).toBeGreaterThan(50);
+      for (const n of notes) expect(playable.has(n)).toBe(true);
+    }
+    // The lead's lowest note is the A3 of bar 12; the bridge's syncopated F# ties over into bar 13.
+    expect(Math.min(...want.flatMap((w) => (w?.b ? [w.b] : [])))).toBe(57);
+    expect(want[94]).toEqual({ r: 38, g: 62, b: 66 });
+    expect(want.slice(95, 98)).toEqual([null, null, null]);
+    expect(want[98]).toEqual({ r: 38, g: 62, b: 66 });
+  });
+
+  test('Ode to Joy, full theme: every step decodes to its three notes, a tie or a rest', () => {
     const cfg = rgbSongConfig(ODE_RGB);
     const slots = rgbSongSlots(ODE_RGB);
     const want = rgbSongMidis(ODE_RGB);
-    expect(slots.length).toBe(64);
     slots.forEach((slot, i) => {
       const w = want[i];
       if (w === null) {

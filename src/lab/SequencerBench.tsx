@@ -1,7 +1,8 @@
 /**
  * Sequencer bench: the user's Saved and Recent swatches, a built-in palette, a
- * song, or a Custom row edited here, played as a two-track step sequencer - a
- * test bench for turning colour into music without touching the app.
+ * song, or a Custom row edited here, played as a step sequencer of one to six
+ * tracks (A to F) - a test bench for turning colour into music without
+ * touching the app.
  *
  * Three modes, each with its own controls (switching keeps each one's values):
  *   Hue Melody       hue -> a note of the scale, S -> filter, B -> volume
@@ -15,11 +16,11 @@
  *
  * Selecting a cell makes it the current swatch in the side column
  * (SequencerCellEditor: the app's hexagon and Color Editor parts). Saved
- * tracks, their JSON file and the share link are in sequencerTracks.ts and
- * SequencerLibrary.tsx.
+ * arrangements - every track and the settings they play under - their JSON
+ * file and the share link are in sequencerTracks.ts and SequencerLibrary.tsx.
  */
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Link, Minus, Play, Plus, RefreshCw, Square } from 'lucide-react';
+import { Link, Minus, Play, Plus, RefreshCw, Square, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -33,8 +34,8 @@ import {
 } from './sequencer';
 import { BAR, SequencerEngine, type Instrument, type SeqCounters, type Wave } from './sequencerEngine';
 import {
-  decodeShare, encodeShare, newId, parseLibrary,
-  type ChordsSettings, type InstrumentCfg, type MelodySettings, type RgbSettings, type SavedTrack, type TrackSnapshot,
+  MAX_TRACKS, decodeShare, encodeShare, newId, parseLibrary,
+  type Arrangement, type ChordsSettings, type InstrumentCfg, type MelodySettings, type RgbSettings, type SavedArrangement,
 } from './sequencerTracks';
 import CollapsibleSection from '../components/CollapsibleSection';
 import SequencerStepEditor from './SequencerStepEditor';
@@ -47,6 +48,8 @@ type SongSource = `${SongKey}-${'melody' | 'bass'}`;
 type Source = 'saved' | 'recent' | 'rainbow' | 'pulse' | 'sunset' | SongSource | 'ode-rgb' | 'custom';
 
 interface TrackCfg {
+  /** Stable while tracks are added and removed around it; the engine keys its playing state by it. */
+  id: string;
   source: Source;
   enabled: boolean;
   octave: number;
@@ -57,7 +60,7 @@ interface TrackCfg {
 
 /** Each mode keeps its own values, so switching away and back loses nothing. */
 interface Settings {
-  version: 3;
+  version: 4;
   bpm: number;
   subdivision: Subdivision;
   glideMs: number;
@@ -66,17 +69,20 @@ interface Settings {
   melody: MelodySettings;
   chords: ChordsSettings;
   rgb: RgbSettings;
-  tracks: [TrackCfg, TrackCfg];
+  /** 1..MAX_TRACKS, lettered A, B, C... by position. */
+  tracks: TrackCfg[];
+  /** A Custom row was edited since the last save or load: loading another arrangement asks first. */
+  dirty: boolean;
   /** Snap a dragged cell to its note's centre on release. */
   snap: boolean;
-  /** Saved tracks - "Save as..." and the JSON import land here. */
-  library: SavedTrack[];
+  /** Saved arrangements - "Save as..." and the JSON import land here. */
+  library: SavedArrangement[];
   /** Which collapsible sections are open, by id. Absent is open. */
   open: Record<string, boolean>;
 }
 
 const DEFAULTS: Settings = {
-  version: 3,
+  version: 4,
   bpm: 110,
   subdivision: 8,
   glideMs: 40,
@@ -95,9 +101,10 @@ const DEFAULTS: Settings = {
     },
   },
   tracks: [
-    { source: 'saved', enabled: true, octave: 0, muted: false, custom: [] },
-    { source: 'pulse', enabled: false, octave: -1, muted: false, custom: [] },
+    { id: 'track-a', source: 'saved', enabled: true, octave: 0, muted: false, custom: [] },
+    { id: 'track-b', source: 'pulse', enabled: false, octave: -1, muted: false, custom: [] },
   ],
+  dirty: false,
   snap: true,
   library: [],
   open: {},
@@ -110,18 +117,33 @@ function loadSettings(): Settings {
   try {
     const raw = localStorage.getItem(LAB_KEY);
     if (!raw) return DEFAULTS;
-    const s = JSON.parse(raw) as Partial<Settings>;
-    // An older shape is dropped rather than migrated: it is a lab.
-    if (s.version !== 3) return DEFAULTS;
-    const track = (i: 0 | 1) => ({ ...DEFAULTS.tracks[i], ...s.tracks?.[i] });
+    const s = JSON.parse(raw) as Omit<Partial<Settings>, 'version'> & { version?: number };
+    // Version 3 is the two-track shape, the same fields: it reads straight into
+    // this one, and its library's single-track entries migrate in parseLibrary.
+    // Anything older is dropped rather than migrated: it is a lab.
+    if (s.version !== 3 && s.version !== 4) return DEFAULTS;
     const inst = (c: Channel) => ({ ...DEFAULTS.rgb.instruments[c], ...s.rgb?.instruments?.[c] });
+    const seen = new Set<string>();
+    const tracks = (Array.isArray(s.tracks) ? s.tracks : []).slice(0, MAX_TRACKS).map((t, i): TrackCfg => {
+      const base = DEFAULTS.tracks[i] ?? blankTrack();
+      const merged = { ...base, ...t };
+      const id = typeof merged.id === 'string' && !seen.has(merged.id) ? merged.id : newId();
+      seen.add(id);
+      return {
+        ...merged, id,
+        source: ALL_SOURCES.has(merged.source) ? merged.source : base.source,
+        custom: Array.isArray(merged.custom) ? merged.custom : [],
+      };
+    });
     return {
       ...DEFAULTS,
       ...s,
+      version: 4,
       melody: { ...DEFAULTS.melody, ...s.melody },
       chords: { ...DEFAULTS.chords, ...s.chords },
       rgb: { ...DEFAULTS.rgb, ...s.rgb, instruments: { r: inst('r'), g: inst('g'), b: inst('b') } },
-      tracks: [track(0), track(1)],
+      tracks: tracks.length ? tracks : DEFAULTS.tracks,
+      dirty: s.dirty === true,
       library: parseLibrary(s.library),
       open: s.open && typeof s.open === 'object' ? s.open : {},
     };
@@ -130,37 +152,55 @@ function loadSettings(): Settings {
   }
 }
 
-/** Track `i` as a snapshot: its row plus the settings it plays under. */
-function snapshotOf(s: Settings, row: Slot[], i: 0 | 1, name: string): TrackSnapshot {
-  const snap: TrackSnapshot = {
-    name, steps: row.map((x) => (x ? { ...x } : null)), mode: s.mode, bpm: s.bpm, subdivision: s.subdivision,
-    gatePct: s.gatePct, glideMs: s.glideMs, octave: s.tracks[i].octave,
+/** Every track as an arrangement: rows, per-track settings and the settings they play under. */
+function arrangementOf(s: Settings, rows: readonly Slot[][], name: string): Arrangement {
+  const arr: Arrangement = {
+    name, mode: s.mode, bpm: s.bpm, subdivision: s.subdivision, gatePct: s.gatePct, glideMs: s.glideMs,
+    tracks: s.tracks.map((t, i) => ({
+      steps: (rows[i] ?? []).map((x) => (x ? { ...x } : null)),
+      octave: t.octave, enabled: t.enabled, muted: t.muted,
+      ...(FIXED_SOURCES.has(t.source) ? { source: t.source } : {}),
+    })),
   };
-  if (s.mode === 'melody') snap.melody = { ...s.melody };
-  if (s.mode === 'chords') snap.chords = { ...s.chords };
-  if (s.mode === 'rgb') snap.rgb = { ...s.rgb, instruments: { ...s.rgb.instruments } };
-  return snap;
+  if (s.mode === 'melody') arr.melody = { ...s.melody };
+  if (s.mode === 'chords') arr.chords = { ...s.chords };
+  if (s.mode === 'rgb') arr.rgb = { ...s.rgb, instruments: { ...s.rgb.instruments } };
+  return arr;
 }
 
-/** A snapshot onto track `i` as its Custom row, with the settings it was made with. */
-function applySnapshot(s: Settings, snap: TrackSnapshot, i: 0 | 1): Settings {
-  const tracks = [...s.tracks] as [TrackCfg, TrackCfg];
-  tracks[i] = { ...tracks[i], source: 'custom', custom: snap.steps.map((x) => (x ? { ...x } : null)), octave: snap.octave, enabled: true };
+const sameRow = (a: readonly Slot[], b: readonly Slot[]) => a.length === b.length
+  && a.every((x, i) => (x === null ? b[i] === null : b[i] !== null && x.hex === b[i]!.hex && x.alpha === b[i]!.alpha));
+
+/**
+ * An arrangement replacing every track, with the settings it was made with. A
+ * track whose row is still exactly its built-in source goes back on that
+ * source; any other row becomes the track's Custom row.
+ */
+function applyArrangement(s: Settings, arr: Arrangement): Settings {
+  const tracks = arr.tracks.map((t): TrackCfg => {
+    const hint = t.source as Source | undefined;
+    const fixed = hint !== undefined && FIXED_SOURCES.has(hint) && sameRow(fixedSlots(hint), t.steps);
+    return {
+      id: newId(), source: fixed ? hint : 'custom', custom: fixed ? [] : t.steps.map((x) => (x ? { ...x } : null)),
+      octave: t.octave, enabled: t.enabled, muted: t.muted,
+    };
+  });
   return {
     ...s,
-    mode: snap.mode, bpm: snap.bpm, subdivision: snap.subdivision, gatePct: snap.gatePct, glideMs: snap.glideMs,
-    melody: snap.melody ?? s.melody,
-    chords: snap.chords ?? s.chords,
-    rgb: snap.rgb ?? s.rgb,
+    mode: arr.mode, bpm: arr.bpm, subdivision: arr.subdivision, gatePct: arr.gatePct, glideMs: arr.glideMs,
+    melody: arr.melody ?? s.melody,
+    chords: arr.chords ?? s.chords,
+    rgb: arr.rgb ?? s.rgb,
     tracks,
+    dirty: false,
   };
 }
 
-/** Settings, with a `#seq=` share link in the URL loaded onto Track A. */
+/** Settings, with a `#seq=` share link in the URL loaded in place of the tracks. */
 function initialSettings(): Settings {
   const s = loadSettings();
   const shared = typeof location === 'undefined' ? null : decodeShare(location.hash);
-  return shared ? applySnapshot(s, shared, 0) : s;
+  return shared ? applyArrangement(s, shared) : s;
 }
 
 /** The share link drops out of the address bar once loaded, so a reload doesn't undo edits made since. */
@@ -213,18 +253,35 @@ const SOURCE_GROUPS: { label: string; options: [Source, string][] }[] = [
 ];
 
 const SONG_MENU: [string, string][] = [
-  ...SONG_KEYS.map((k): [string, string] => [k, `${SONGS[k].name} (Hue Melody, A + B)`]),
+  ...SONG_KEYS.map((k): [string, string] => [k, `${SONGS[k].name} (Hue Melody, two tracks)`]),
   ['ode-rgb', `${ODE_RGB.name} (one track)`],
 ];
+
+const ALL_SOURCES = new Set<Source>(SOURCE_GROUPS.flatMap((g) => g.options.map(([v]) => v)));
+/** Sources whose row never changes: palettes and song parts. A saved arrangement names them as a hint. */
+const FIXED_SOURCES = new Set<Source>([...ALL_SOURCES].filter((x) => x !== 'saved' && x !== 'recent' && x !== 'custom'));
+
+/** A palette's or song part's row. */
+function fixedSlots(source: Source): Slot[] {
+  if (source === 'ode-rgb') return ODE_RGB_SLOTS;
+  if (source in SONG_SLOTS) return SONG_SLOTS[source as SongSource];
+  return BUILTIN_PALETTES[source as keyof typeof BUILTIN_PALETTES] ?? [];
+}
 
 function slotsFor(track: TrackCfg, stored: Stored): Slot[] {
   const source = track.source;
   if (source === 'custom') return track.custom;
   if (source === 'saved') return stored.saved;
   if (source === 'recent') return stored.recent;
-  if (source === 'ode-rgb') return ODE_RGB_SLOTS;
-  if (source in SONG_SLOTS) return SONG_SLOTS[source as SongSource];
-  return BUILTIN_PALETTES[source as keyof typeof BUILTIN_PALETTES];
+  return fixedSlots(source);
+}
+
+/** Track letters by position: A, B, C... */
+const trackLetter = (i: number) => String.fromCharCode(65 + i);
+
+/** A track added with the + button: the rainbow, on, so it has something to play straight away. */
+function blankTrack(): TrackCfg {
+  return { id: newId(), source: 'rainbow', enabled: true, octave: 0, muted: false, custom: [] };
 }
 
 /** The mapping a track plays under, from the current mode's own settings. */
@@ -275,9 +332,7 @@ const CHANNEL_INK: Record<Channel, string> = { r: '#e74c4c', g: '#2fa84f', b: '#
 const CHANNEL_NAME: Record<Channel, string> = { r: 'Red', g: 'Green', b: 'Blue' };
 /** The Chord audition's step: a warm off-white, so all three instruments sound. */
 const CHORD_SAMPLE = '#e8dcc8';
-const TRACK_NAME = ['A', 'B'] as const;
-
-interface Selection { track: 0 | 1; step: number }
+interface Selection { track: number; step: number }
 /** A drag's sticky colour for one cell: what it plays until release. */
 interface Live extends Selection { hex: string }
 
@@ -373,12 +428,8 @@ export default function SequencerBench() {
   const setInstrument = useCallback((c: Channel, p: Partial<InstrumentCfg>) => setSettings((s) => ({
     ...s, rgb: { ...s.rgb, instruments: { ...s.rgb.instruments, [c]: { ...s.rgb.instruments[c], ...p } } },
   })), []);
-  const setTrack = useCallback((i: 0 | 1, patch: Partial<TrackCfg>) => {
-    setSettings((s) => {
-      const tracks = [...s.tracks] as [TrackCfg, TrackCfg];
-      tracks[i] = { ...tracks[i], ...patch };
-      return { ...s, tracks };
-    });
+  const setTrack = useCallback((i: number, patch: Partial<TrackCfg>) => {
+    setSettings((s) => ({ ...s, tracks: s.tracks.map((t, k) => (k === i ? { ...t, ...patch } : t)) }));
   }, []);
 
   useEffect(() => {
@@ -399,13 +450,13 @@ export default function SequencerBench() {
    * Editing a cell forks the track into its Custom row first (a copy of what
    * it was playing), so no source but the lab's own is ever changed.
    */
-  const editTrack = useCallback((i: 0 | 1, edit: (row: Slot[]) => Slot[]) => {
+  const editTrack = useCallback((i: number, edit: (row: Slot[]) => Slot[]) => {
     setSettings((s) => {
       const t = s.tracks[i];
+      if (!t) return s;
       const row = t.source === 'custom' ? t.custom : [...slotsFor(t, stored)];
-      const tracks = [...s.tracks] as [TrackCfg, TrackCfg];
-      tracks[i] = { ...t, source: 'custom', custom: edit([...row]) };
-      return { ...s, tracks };
+      const tracks = s.tracks.map((x, k) => (k === i ? { ...t, source: 'custom' as const, custom: edit([...row]) } : x));
+      return { ...s, tracks, dirty: true };
     });
   }, [stored]);
 
@@ -430,7 +481,7 @@ export default function SequencerBench() {
   }, [engine, settings.bpm, settings.subdivision, settings.gatePct, settings.glideMs, wave, instruments]);
 
   useEffect(() => {
-    settings.tracks.forEach((t, i) => engine.setTrack(i, { steps: steps[i], enabled: t.enabled, muted: t.muted }));
+    engine.setTracks(settings.tracks.map((t, i) => ({ id: t.id, steps: steps[i] ?? [], enabled: t.enabled, muted: t.muted })));
   }, [engine, settings.tracks, steps]);
 
   // Verification hook: read-only counters, nothing to drive the engine with.
@@ -445,12 +496,14 @@ export default function SequencerBench() {
 
   /*
    * Follow: while playing, the side column shows the colour sounding on one
-   * track, straight from the paint loop below. Default Track A, or B when B
-   * is the only track on. A press on the editor pauses it; the next Play, or
-   * picking a Follow button, resumes.
+   * track, straight from the paint loop below. Default the first track that
+   * is on; a followed track that is off hands over to the first one on. A
+   * press on the editor pauses it; the next Play, or picking a Follow button,
+   * resumes.
    */
-  const [follow, setFollow] = useState<FollowTarget>(() => (
-    !settings.tracks[0].enabled && settings.tracks[1].enabled ? 1 : 0));
+  const [followPick, setFollow] = useState<FollowTarget>(() => Math.max(0, settings.tracks.findIndex((t) => t.enabled)));
+  // A followed track that has since been removed falls back to Track A.
+  const follow: FollowTarget = typeof followPick === 'number' && followPick >= settings.tracks.length ? 0 : followPick;
   const [followPaused, setFollowPaused] = useState(false);
   const editorRef = useRef<CellEditorHandle | null>(null);
   const followRef = useRef<FollowTarget | null>(follow);
@@ -467,20 +520,29 @@ export default function SequencerBench() {
     }
   }, [engine]);
 
-  /** Both tracks on and playing from step 0 together - a restart if already playing. */
-  const playBoth = useCallback(() => {
+  /** Every track on and playing from step 0 together - a restart if already playing. */
+  const playAll = useCallback(() => {
     engine.stop();
-    setSettings((s) => ({ ...s, tracks: [{ ...s.tracks[0], enabled: true }, { ...s.tracks[1], enabled: true }] }));
+    setSettings((s) => ({ ...s, tracks: s.tracks.map((t) => ({ ...t, enabled: true })) }));
     // Straight to the engine as well: the state lands a render later, after the first steps are booked.
-    settings.tracks.forEach((t, i) => engine.setTrack(i, { steps: steps[i], enabled: true, muted: t.muted }));
+    engine.setTracks(settings.tracks.map((t, i) => ({ id: t.id, steps: steps[i] ?? [], enabled: true, muted: t.muted })));
     setFollowPaused(false);
     void engine.start().then(() => setPlaying(true));
   }, [engine, settings.tracks, steps]);
 
-  /** Loads a song with its own settings. Stops first, so the next Play starts it at bar one. */
+  /**
+   * Loads a song with its own settings onto the first tracks, one per part,
+   * adding tracks if there are too few; any tracks after those are switched
+   * off. Stops first, so the next Play starts it at bar one.
+   */
   const loadSong = useCallback((key: string) => {
     engine.stop();
     setPlaying(false);
+    const fill = (tracks: TrackCfg[], parts: { source: Source; octave: number }[]) => {
+      const out = [...tracks];
+      while (out.length < parts.length) out.push(blankTrack());
+      return out.map((t, i) => (i < parts.length ? { ...t, ...parts[i], enabled: true } : { ...t, enabled: false }));
+    };
     if (key === 'ode-rgb') {
       const { bpm, subdivision, scale, root, ranges } = ODE_RGB.settings;
       setSettings((s) => ({
@@ -493,21 +555,36 @@ export default function SequencerBench() {
             b: { ...s.rgb.instruments.b, ...ranges.b },
           },
         },
-        tracks: [{ ...s.tracks[0], source: 'ode-rgb', octave: 0, enabled: true }, { ...s.tracks[1], enabled: false }],
+        tracks: fill(s.tracks, [{ source: 'ode-rgb', octave: 0 }]),
       }));
       return;
     }
-    const song = SONGS[key as SongKey];
+    const k = key as SongKey;
+    const song = SONGS[k];
     const { bpm, subdivision, scale, root, octaveRange } = song.settings;
     setSettings((s) => ({
       ...s, bpm, subdivision, mode: 'melody',
       melody: { ...s.melody, scale, root, octaveRange, baseOctave: 3 },
-      tracks: [
-        { ...s.tracks[0], source: `${key as SongKey}-melody`, octave: song.melody.octave, enabled: true },
-        { ...s.tracks[1], source: `${key as SongKey}-bass`, octave: song.bass.octave, enabled: true },
-      ],
+      tracks: fill(s.tracks, [
+        { source: `${k}-melody`, octave: song.melody.octave },
+        { source: `${k}-bass`, octave: song.bass.octave },
+      ]),
     }));
   }, [engine]);
+
+  // --- adding and removing tracks ---------------------------------------------
+  /** The track waiting on a remove confirm (it has a Custom row), by id. */
+  const [removing, setRemoving] = useState<string | null>(null);
+  const addTrack = useCallback(() => {
+    setSettings((s) => (s.tracks.length >= MAX_TRACKS ? s : { ...s, tracks: [...s.tracks, blankTrack()] }));
+  }, []);
+  const removeTrack = useCallback((id: string) => {
+    setRemoving(null);
+    // Positions shift, so a selection or share link pointing past here would point at the wrong track.
+    setSelected(null);
+    setShareLink(null);
+    setSettings((s) => (s.tracks.length <= 1 ? s : { ...s, tracks: s.tracks.filter((t) => t.id !== id) }));
+  }, []);
 
   useEffect(() => {
     const isField = (el: EventTarget | null) => {
@@ -526,7 +603,7 @@ export default function SequencerBench() {
   }, [toggle]);
 
   // Paint from the audio clock. Written straight to the DOM - no re-render per frame.
-  const cellRefs = useRef<(HTMLElement | null)[][]>([[], []]);
+  const cellRefs = useRef<(HTMLElement | null)[][]>([]);
   const nowRefs = useRef<(HTMLDivElement | null)[]>([]);
   const nowLabelRefs = useRef<(HTMLSpanElement | null)[]>([]);
   /** The colour last pushed to the side column, so a held note costs no render. */
@@ -540,10 +617,11 @@ export default function SequencerBench() {
     editorRef.current?.follow(null);
   }, [playing, follow, followPaused]);
   useEffect(() => {
-    const active: number[] = [-1, -1];
+    const n = steps.length;
+    const active: number[] = new Array(n).fill(-1);
     const clear = () => {
-      for (let i = 0; i < 2; i++) {
-        cellRefs.current[i][active[i]]?.removeAttribute('data-active');
+      for (let i = 0; i < n; i++) {
+        cellRefs.current[i]?.[active[i]]?.removeAttribute('data-active');
         active[i] = -1;
         const now = nowRefs.current[i];
         if (now) now.style.backgroundColor = '';
@@ -555,12 +633,16 @@ export default function SequencerBench() {
     let raf = 0;
     const frame = () => {
       const t = engine.audibleTime();
-      for (let i = 0; i < 2; i++) {
+      // The followed track, or the first one on if it is off; -1 when following is off or paused.
+      const f = followRef.current;
+      const on = tracksOn.current;
+      const target = f === null || f === 'off' ? -1 : (on[f] || !on.some(Boolean) ? f : on.findIndex(Boolean));
+      for (let i = 0; i < n; i++) {
         const ev = engine.visualAt(i, t);
         const idx = ev ? ev.index : -1;
         if (idx !== active[i]) {
-          cellRefs.current[i][active[i]]?.removeAttribute('data-active');
-          cellRefs.current[i][idx]?.setAttribute('data-active', '');
+          cellRefs.current[i]?.[active[i]]?.removeAttribute('data-active');
+          cellRefs.current[i]?.[idx]?.setAttribute('data-active', '');
           active[i] = idx;
           const label = nowLabelRefs.current[i];
           if (label) label.textContent = idx >= 0 ? (steps[i][idx]?.label ?? '') : '';
@@ -571,10 +653,6 @@ export default function SequencerBench() {
         const k = ev.glide > 0 && ev.fromHex ? Math.min(1, Math.max(0, (t - ev.time) / ev.glide)) : 1;
         const colour = ev.fromHex && k < 1 ? mixHex(ev.fromHex, ev.toHex, k) : ev.toHex;
         if (now) now.style.backgroundColor = colour;
-        // The followed track (or the other, if it is the only one on) moves the side column's handle.
-        const f = followRef.current;
-        const on = tracksOn.current;
-        const target = f === null || f === 'off' ? -1 : (on[f] || !on[1 - f] ? f : 1 - f);
         if (target === i && colour !== followShown.current) {
           followShown.current = colour;
           editorRef.current?.follow(colour);
@@ -593,7 +671,7 @@ export default function SequencerBench() {
   }, []);
 
   // --- selection and the side column -----------------------------------------
-  const sel = selected && selected.step < slots[selected.track].length ? selected : null;
+  const sel = selected && selected.track < slots.length && selected.step < slots[selected.track].length ? selected : null;
   const selSlot = sel ? slots[sel.track][sel.step] : null;
   const writeSelected = useCallback((next: Slot) => {
     if (!sel) return;
@@ -605,43 +683,50 @@ export default function SequencerBench() {
   const onGrab = useCallback(() => setFollowPaused(true), []);
 
   // --- library and share --------------------------------------------------
-  const saveTrack = useCallback((i: 0 | 1, name: string) => {
+  const saveArrangement = useCallback((name: string) => {
     setSettings((s) => ({
       ...s,
-      library: [...s.library, { ...snapshotOf(s, slotsFor(s.tracks[i], stored), i, name), id: newId(), savedAt: Date.now() }],
+      dirty: false,
+      library: [...s.library, { ...arrangementOf(s, s.tracks.map((t) => slotsFor(t, stored)), name), id: newId(), savedAt: Date.now() }],
     }));
   }, [stored]);
-  const loadTrack = useCallback((id: string, i: 0 | 1) => {
+  const replaceWith = useCallback((arr: Arrangement) => {
     engine.stop();
     setPlaying(false);
-    setSettings((s) => {
-      const t = s.library.find((x) => x.id === id);
-      return t ? applySnapshot(s, t, i) : s;
-    });
+    setSelected(null);
+    setShareLink(null);
+    setRemoving(null);
+    setSettings((s) => applyArrangement(s, arr));
   }, [engine]);
-  const [shareLink, setShareLink] = useState<{ track: 0 | 1; url: string; copied: boolean } | null>(null);
-  const share = useCallback((i: 0 | 1) => {
-    const snap = snapshotOf(settings, slots[i], i, `Track ${TRACK_NAME[i]}`);
-    const url = `${location.origin}${location.pathname}${location.search}#${encodeShare(snap)}`;
-    setShareLink({ track: i, url, copied: false });
+  const loadArrangement = useCallback((id: string) => {
+    const arr = settings.library.find((x) => x.id === id);
+    if (arr) replaceWith(arr);
+  }, [settings.library, replaceWith]);
+  const [shareLink, setShareLink] = useState<{ url: string; copied: boolean; tracks: number } | null>(null);
+  const share = useCallback(() => {
+    const arr = arrangementOf(settings, slots, 'Shared arrangement');
+    const url = `${location.origin}${location.pathname}${location.search}#${encodeShare(arr)}`;
+    setShareLink({ url, copied: false, tracks: arr.tracks.length });
     void navigator.clipboard?.writeText(url).then(
       () => setShareLink((l) => (l && l.url === url ? { ...l, copied: true } : l)),
       () => { /* no clipboard permission: the field below still has it */ },
     );
   }, [settings, slots]);
   // A share link pasted into this tab's address bar arrives as a hash change, not a load.
+  const dirtyRef = useRef(settings.dirty);
+  useEffect(() => { dirtyRef.current = settings.dirty; }, [settings.dirty]);
   useEffect(() => {
     const onHash = () => {
-      const snap = decodeShare(location.hash);
-      if (!snap) return;
-      engine.stop();
-      setPlaying(false);
-      setSettings((s) => applySnapshot(s, snap, 0));
+      const arr = decodeShare(location.hash);
+      if (!arr) return;
+      if (!dirtyRef.current || window.confirm('Replace the current tracks with the shared ones? Their Custom edits are not saved.')) {
+        replaceWith(arr);
+      }
       clearShareHash();
     };
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
-  }, [engine]);
+  }, [replaceWith]);
 
   const rgbCfg = useMemo(() => mapConfig({ ...settings, mode: 'rgb' }, 0), [settings]);
   const playChord = useCallback(() => {
@@ -776,29 +861,45 @@ export default function SequencerBench() {
           <Button size="lg" className="w-28 text-base" onClick={toggle} aria-pressed={playing}>
             {playing ? <><Square /> Stop</> : <><Play /> Play</>}
           </Button>
-          <Button size="lg" variant="outline" className="text-base" onClick={playBoth}>
-            <Play /> Play A+B
+          <Button size="lg" variant="outline" className="text-base" onClick={playAll}>
+            <Play /> Play all
           </Button>
           <select
             aria-label="Load song"
-            className="h-9 rounded-lg border border-border bg-background px-2 text-base text-foreground"
+            className="h-9 w-48 rounded-lg border border-border bg-background px-2 text-base text-foreground"
             value=""
             onChange={(e) => { if (e.currentTarget.value) loadSong(e.currentTarget.value); }}
           >
             <option value="">Load song...</option>
             {SONG_MENU.map(([k, name]) => <option key={k} value={k}>{name}</option>)}
           </select>
+          <Button size="lg" variant="outline" className="text-base" onClick={addTrack} disabled={settings.tracks.length >= MAX_TRACKS}
+            aria-label="Add a track">
+            <Plus /> Track
+          </Button>
+          <Button size="lg" variant="outline" className="text-base" onClick={share} aria-label="Share all tracks">
+            <Link /> Share
+          </Button>
           <Button size="lg" variant="outline" className="ml-auto text-base" onClick={reload}>
             <RefreshCw /> Reload swatches
           </Button>
+          {shareLink && (
+            <div className="flex w-full flex-col gap-1.5">
+              <span className="text-base text-muted-foreground">
+                {shareLink.copied ? 'Link copied. ' : 'Share link - '}
+                opening it loads these {shareLink.tracks} track{shareLink.tracks === 1 ? '' : 's'} and their settings.
+              </span>
+              <Input readOnly value={shareLink.url} aria-label="Share link"
+                className="h-9 font-mono text-base md:text-base" onFocus={(e) => e.currentTarget.select()} />
+            </div>
+          )}
         </div>
 
-        {settings.tracks.map((t, ti) => {
-          const i = ti as 0 | 1;
+        {settings.tracks.map((t, i) => {
           const rowSteps = steps[i];
-          const name = i === 0 ? 'A' : 'B';
+          const name = trackLetter(i);
           return (
-            <section key={i} className="flex flex-col gap-4 rounded-xl border border-border p-4" data-track={name}>
+            <section key={t.id} className="flex flex-col gap-4 rounded-xl border border-border p-4" data-track={name}>
               <div className="flex flex-wrap items-center gap-3">
                 <h2 className="text-xl font-semibold">Track {name}</h2>
                 <Button variant={t.enabled ? 'default' : 'outline'} className="text-base" aria-pressed={t.enabled}
@@ -820,17 +921,16 @@ export default function SequencerBench() {
                   disabled={rowSteps.length === 0} onClick={() => editTrack(i, (row) => row.slice(0, -1))}>
                   <Minus /> Step
                 </Button>
-                <Button variant="outline" className="text-base" aria-label={`Share track ${name}`} onClick={() => share(i)}>
-                  <Link /> Share
+                <Button variant="ghost" size="icon" aria-label={`Remove track ${name}`} disabled={settings.tracks.length <= 1}
+                  onClick={() => (t.custom.length > 0 ? setRemoving(t.id) : removeTrack(t.id))}>
+                  <X />
                 </Button>
               </div>
-              {shareLink?.track === i && (
-                <div className="flex flex-col gap-1.5">
-                  <span className="text-base text-muted-foreground">
-                    {shareLink.copied ? 'Link copied. Opening it loads this track onto Track A.' : 'Share link - opening it loads this track onto Track A.'}
-                  </span>
-                  <Input readOnly value={shareLink.url} aria-label={`Track ${name} share link`}
-                    className="h-9 font-mono text-base md:text-base" onFocus={(e) => e.currentTarget.select()} />
+              {removing === t.id && (
+                <div className="flex flex-wrap items-center gap-2" data-confirm="remove-track">
+                  <span className="text-base">Remove Track {name}? Its Custom row ({t.custom.length} step{t.custom.length === 1 ? '' : 's'}) goes with it.</span>
+                  <Button variant="destructive" className="text-base" onClick={() => removeTrack(t.id)}>Remove</Button>
+                  <Button variant="outline" className="text-base" onClick={() => setRemoving(null)}>Keep</Button>
                 </div>
               )}
               <div className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_16rem]">
@@ -880,7 +980,7 @@ export default function SequencerBench() {
                           <div className="flex min-w-0 flex-col items-center gap-1">
                             <Popover>
                               <PopoverTrigger
-                                ref={(el: HTMLElement | null) => { cellRefs.current[i][si] = el; }}
+                                ref={(el: HTMLElement | null) => { (cellRefs.current[i] ??= [])[si] = el; }}
                                 data-step={si}
                                 data-selected={isSel || undefined}
                                 onClick={() => setSelected({ track: i, step: si })}
@@ -904,9 +1004,12 @@ export default function SequencerBench() {
                                 />
                               </PopoverContent>
                             </Popover>
-                            <span data-label={si} className={'w-full truncate text-center text-base leading-tight ' + (s.rest ? 'text-muted-foreground' : 'text-foreground')}>
-                              {s.label}
-                            </span>
+                            {/* RGB Instruments plays three notes a cell - too many to print; the tooltip and aria-label carry them. */}
+                            {mode !== 'rgb' && (
+                              <span data-label={si} className={'w-full truncate text-center text-base leading-tight ' + (s.rest ? 'text-muted-foreground' : 'text-foreground')}>
+                                {s.label}
+                              </span>
+                            )}
                           </div>
                         </Fragment>
                       );
@@ -923,7 +1026,7 @@ export default function SequencerBench() {
           <SequencerCellEditor
             ref={editorRef}
             selectionKey={sel ? `${sel.track}:${sel.step}` : null}
-            title={sel ? `Track ${TRACK_NAME[sel.track]}, step ${sel.step + 1}${selSlot ? '' : ' (empty - an edit fills it)'}` : 'No step selected'}
+            title={sel ? `Track ${trackLetter(sel.track)}, step ${sel.step + 1}${selSlot ? '' : ' (empty - an edit fills it)'}` : 'No step selected'}
             slot={selSlot}
             step={sel ? steps[sel.track][sel.step] ?? null : null}
             cfg={configs[sel?.track ?? 0]}
@@ -935,16 +1038,19 @@ export default function SequencerBench() {
             onFollow={pickFollow}
             followPaused={followPaused}
             onGrab={onGrab}
+            trackNames={settings.tracks.map((_, i) => trackLetter(i))}
           />
         </aside>
 
         <SequencerLibrary
           library={settings.library}
-          onSave={saveTrack}
-          onLoad={loadTrack}
+          trackCount={settings.tracks.length}
+          dirty={settings.dirty}
+          onSave={saveArrangement}
+          onLoad={loadArrangement}
           onRename={(id, name) => setSettings((s) => ({ ...s, library: s.library.map((t) => (t.id === id ? { ...t, name } : t)) }))}
           onDelete={(id) => setSettings((s) => ({ ...s, library: s.library.filter((t) => t.id !== id) }))}
-          onImport={(tracks) => setSettings((s) => ({ ...s, library: [...s.library, ...tracks] }))}
+          onImport={(list) => setSettings((s) => ({ ...s, library: [...s.library, ...list] }))}
         />
         </div>
       </div>

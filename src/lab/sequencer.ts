@@ -481,23 +481,61 @@ export function rgbSongMidis(song: RgbSong): (Record<Channel, number | null> | n
   });
 }
 
-// Ode to Joy again, as one track: B the tune, G a diatonic third under it
-// (the sixth, A3, at the final cadence), R the bass root. Ties hold all
-// three, so the bass restrikes with each melody note.
+/*
+ * Ode to Joy, the whole main theme, as one RGB Instruments track: Beethoven's
+ * 16 bars of 4/4 in D major, A A' B A' (public domain). 1/8 steps, so a
+ * quarter is two steps ("F#4 -"), a dotted quarter three, a half four; 128
+ * steps, two bars to a row of 16. B (Lead) is the tune, G (Harmony) mostly a
+ * diatonic third under it with chord tones at the cadences, R (Bass) the
+ * roots, walking at the cadences. A tie holds all three channels, so wherever
+ * one voice moves the other two restrike.
+ *
+ * The notes, bar by bar - Lead / Harmony / Bass, one chord per melody note:
+ *
+ *   A   1  F#4 F#4 G4 A4     D4 D4 E4 F#4     D2 D2 A2 D2      D D A7 D
+ *       2  A4 G4 F#4 E4      F#4 E4 D4 C#4    D2 A2 D2 A2      D A7 D A
+ *       3  D4 D4 E4 F#4      B3 B3 C#4 D4     G2 G2 A2 D2      G G A D
+ *       4  F#4. E4(8) E4(2)  D4 A3 C#4        D2 C#3 A2        D A/C# A   (half cadence)
+ *   A'  5-7 as 1-3
+ *       8  E4. D4(8) D4(2)   C#4 A3 F#3       A2 F#2 D2        A D/F# D   (full cadence)
+ *   B   9  E4 E4 F#4 D4      C#4 C#4 D4 A3    A2 A2 D2 D2      A A D D
+ *      10  E4 F#4(8) G4(8) F#4 D4   C#4 D4 E4 D4 A3   A2 D2 A2 D2 D2
+ *      11  E4 F#4(8) G4(8) F#4 E4   C#4 D4 E4 D4 C#4  A2 D2 A2 D2 A2
+ *      12  D4 E4 A3 F#4~     B3 B3 E3 D4~     B2 E2 A2 D2~     Bm Em A D
+ *   A' 13  ~F# F#4 G4 A4     ~D4 D4 E4 F#4    ~D2 D2 A2 D2     (the syncopation: F# enters on
+ *                                                               beat 4 of bar 12, tied over the bar)
+ *      14-16 as 6-8
+ *
+ * Ranges: Bass D2..C#3 (octave 2, 1 octave), Harmony D3..C#5 and Lead D3..C#5
+ * (octave 3, 2 octaves) - the lead drops to A3 in bar 12, below the default D4.
+ */
+const bars = (...b: string[]) => b.join('   ');
+const ODE_FULL_LEAD = bars(
+  'F#4 - F#4 - G4 - A4 -', 'A4 - G4 - F#4 - E4 -', 'D4 - D4 - E4 - F#4 -', 'F#4 - - E4 E4 - - -',
+  'F#4 - F#4 - G4 - A4 -', 'A4 - G4 - F#4 - E4 -', 'D4 - D4 - E4 - F#4 -', 'E4 - - D4 D4 - - -',
+  'E4 - E4 - F#4 - D4 -', 'E4 - F#4 G4 F#4 - D4 -', 'E4 - F#4 G4 F#4 - E4 -', 'D4 - E4 - A3 - F#4 -',
+  '- - F#4 - G4 - A4 -', 'A4 - G4 - F#4 - E4 -', 'D4 - D4 - E4 - F#4 -', 'E4 - - D4 D4 - - -',
+);
+const ODE_FULL_HARMONY = bars(
+  'D4 - D4 - E4 - F#4 -', 'F#4 - E4 - D4 - C#4 -', 'B3 - B3 - C#4 - D4 -', 'D4 - - A3 C#4 - - -',
+  'D4 - D4 - E4 - F#4 -', 'F#4 - E4 - D4 - C#4 -', 'B3 - B3 - C#4 - D4 -', 'C#4 - - A3 F#3 - - -',
+  'C#4 - C#4 - D4 - A3 -', 'C#4 - D4 E4 D4 - A3 -', 'C#4 - D4 E4 D4 - C#4 -', 'B3 - B3 - E3 - D4 -',
+  '- - D4 - E4 - F#4 -', 'F#4 - E4 - D4 - C#4 -', 'B3 - B3 - C#4 - D4 -', 'C#4 - - A3 F#3 - - -',
+);
+const ODE_FULL_BASS = bars(
+  'D2 - D2 - A2 - D2 -', 'D2 - A2 - D2 - A2 -', 'G2 - G2 - A2 - D2 -', 'D2 - - C#3 A2 - - -',
+  'D2 - D2 - A2 - D2 -', 'D2 - A2 - D2 - A2 -', 'G2 - G2 - A2 - D2 -', 'A2 - - F#2 D2 - - -',
+  'A2 - A2 - D2 - D2 -', 'A2 - D2 A2 D2 - D2 -', 'A2 - D2 A2 D2 - A2 -', 'B2 - E2 - A2 - D2 -',
+  '- - D2 - A2 - D2 -', 'D2 - A2 - D2 - A2 -', 'G2 - G2 - A2 - D2 -', 'A2 - - F#2 D2 - - -',
+);
+
 export const ODE_RGB: RgbSong = {
-  name: 'Ode to Joy - RGB Instruments',
-  settings: { bpm: 100, subdivision: 8, scale: 'major', root: 2, octaveRange: 2, ranges: DEFAULT_RANGES },
-  parts: {
-    b: ODE_MELODY,
-    g: [
-      'D4 - D4 - E4 - F#4 -   F#4 - E4 - D4 - C#4 -   B3 - B3 - C#4 - D4 -   D4 - - C#4 C#4 - - -',
-      'D4 - D4 - E4 - F#4 -   F#4 - E4 - D4 - C#4 -   B3 - B3 - C#4 - D4 -   C#4 - - A3 A3 - - -',
-    ].join(' '),
-    r: [
-      'D2 - D2 - D2 - D2 -   A2 - A2 - D2 - A2 -   B2 - B2 - A2 - D2 -   D2 - - A2 A2 - - -',
-      'D2 - D2 - D2 - D2 -   A2 - A2 - D2 - A2 -   B2 - B2 - A2 - D2 -   A2 - - D2 D2 - - -',
-    ].join(' '),
+  name: 'Ode to Joy (full theme) - RGB Instruments',
+  settings: {
+    bpm: 100, subdivision: 8, scale: 'major', root: 2, octaveRange: 2,
+    ranges: { r: { octave: 2, range: 1 }, g: { octave: 3, range: 2 }, b: { octave: 3, range: 2 } },
   },
+  parts: { b: ODE_FULL_LEAD, g: ODE_FULL_HARMONY, r: ODE_FULL_BASS },
 };
 
 // --- note pickers: notes -> colour, per mode --------------------------------

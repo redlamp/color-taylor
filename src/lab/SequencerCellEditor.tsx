@@ -47,7 +47,8 @@ export interface CellEditorHandle {
   follow: (hex: string | null) => void;
 }
 
-export type FollowTarget = 0 | 1 | 'off';
+/** A track's index, or 'off'. */
+export type FollowTarget = number | 'off';
 
 const GROUPS = ['RGB', 'HSB', 'HSL', 'A'] as const;
 type Group = (typeof GROUPS)[number];
@@ -64,7 +65,7 @@ interface Gesture { prev: number[] | null; snapped: string | null }
 
 export default function SequencerCellEditor({
   ref, selectionKey, title, slot, step, cfg, snap, onSnapChange, onChange, onLive,
-  follow, onFollow, followPaused, onGrab,
+  follow, onFollow, followPaused, onGrab, trackNames,
 }: {
   ref?: Ref<CellEditorHandle>;
   /** Changes whenever a different cell is selected; null with nothing selected. */
@@ -83,6 +84,8 @@ export default function SequencerCellEditor({
   onFollow: (f: FollowTarget) => void;
   followPaused: boolean;
   onGrab: () => void;
+  /** The tracks Follow can choose from, by letter, in order. */
+  trackNames: readonly string[];
 }) {
   // The hexagon's hold tone goes through the app's toneController, which is
   // off until the app's settings switch it on. This page mounts no settings,
@@ -228,9 +231,9 @@ export default function SequencerCellEditor({
 
       <div className="flex flex-wrap items-center gap-2 text-base" data-control="follow">
         <span className="text-muted-foreground">Follow</span>
-        {([[0, 'Track A'], [1, 'Track B'], ['off', 'Off']] as [FollowTarget, string][]).map(([v, label]) => (
+        {[...trackNames.map((n, i): [FollowTarget, string] => [i, n]), ['off', 'Off'] as [FollowTarget, string]].map(([v, label]) => (
           <Button key={String(v)} size="sm" variant={follow === v ? 'default' : 'outline'} className="text-base"
-            aria-pressed={follow === v} onClick={() => onFollow(v)}>
+            aria-pressed={follow === v} aria-label={v === 'off' ? 'Follow off' : `Follow track ${label}`} onClick={() => onFollow(v)}>
             {label}
           </Button>
         ))}

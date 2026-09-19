@@ -5,11 +5,13 @@
  * clock. The timer only decides *what*; the audio clock decides *when*, so a
  * late tick never makes a late note.
  *
- * Both tracks share one step clock and each loops over its own length, so two
- * rows of different lengths drift against each other into a polyrhythm. Play
+ * Every track (1 to 6 of them) shares one step clock and each loops over its
+ * own length, so rows of different lengths drift against each other into a
+ * polyrhythm. Play
  * starts every enabled track at step 0 on the same audio time; a track
  * switched on mid-play waits for the next bar (a multiple of BAR steps on the
  * shared counter) and starts its own step 0 there, so the tracks stay in phase.
+ * A track added mid-play is a track switched on: it joins at the next bar too.
  *
  * Every note in a step is its own voice - one oscillator -> lowpass -> gain
  * chain - keyed by the step's `keys`. Glide and legato work key by key: a
@@ -42,6 +44,8 @@ export interface EngineParams {
 }
 
 export interface TrackInput {
+  /** Stable across re-renders and reorders: a track's playing state follows its id, not its position. */
+  id: string;
   steps: Step[];
   enabled: boolean;
   muted: boolean;
@@ -86,6 +90,8 @@ export interface StepEvent {
 interface TrackState extends TrackInput {
   /** Held legato voices by key, carried into the next step. */
   held: Map<string, Voice>;
+  /** Every voice this track has booked and not yet ended, so removing the track can silence them. */
+  booked: Set<Voice>;
   /** Last pitch each key played, for its glide into the next note. */
   lastMidi: Map<string, number>;
   lastHex: string | null;
@@ -137,13 +143,9 @@ export class SequencerEngine {
   private auditionRuns = new Set<Voice>();
   private auditionNotes = 0;
 
-  constructor(params: EngineParams, trackCount = 2) {
+  constructor(params: EngineParams) {
     this.params = { ...params };
-    this.tracks = Array.from({ length: trackCount }, () => ({
-      steps: [], enabled: false, muted: false,
-      held: new Map(), lastMidi: new Map(), lastHex: null, scheduledIndex: -1, events: [],
-      origin: 0, sounding: false, startStep: -1, startTime: -1,
-    }));
+    this.tracks = [];
   }
 
   get playing(): boolean { return this.timer !== null; }
@@ -156,15 +158,33 @@ export class SequencerEngine {
     if (ctx) for (const [ch, a] of this.auditions) this.retune(a.v, auditionStep(ch, a.midi), 0, ctx.currentTime, 0);
   }
 
-  setTrack(i: number, input: TrackInput): void {
-    const tr = this.tracks[i];
-    if (this.playing && input.enabled && !tr.enabled) {
-      // Join at the next bar line still to be booked, never mid-bar.
-      tr.origin = Math.ceil(this.stepCounter / BAR) * BAR;
-      tr.startStep = -1; tr.startTime = -1;
-      tr.lastMidi.clear(); tr.sounding = false;
-    }
-    Object.assign(tr, input);
+  /**
+   * The whole track list, in order. A track keeps its playing state by id; a
+   * new id is a new track (joining at the next bar if the transport runs), and
+   * a missing one is removed, its held voices released.
+   */
+  setTracks(inputs: readonly TrackInput[]): void {
+    const byId = new Map(this.tracks.map((t) => [t.id, t]));
+    const next = inputs.map((input) => {
+      const tr = byId.get(input.id) ?? {
+        id: input.id, steps: [], enabled: false, muted: false,
+        held: new Map(), booked: new Set(), lastMidi: new Map(), lastHex: null, scheduledIndex: -1, events: [],
+        origin: 0, sounding: false, startStep: -1, startTime: -1,
+      };
+      byId.delete(input.id);
+      if (this.playing && input.enabled && !tr.enabled) {
+        // Join at the next bar line still to be booked, never mid-bar.
+        tr.origin = Math.ceil(this.stepCounter / BAR) * BAR;
+        tr.startStep = -1; tr.startTime = -1;
+        tr.lastMidi.clear(); tr.sounding = false;
+      }
+      Object.assign(tr, input);
+      return tr;
+    });
+    // A removed track's notes may be booked well ahead (a long tie): cut them all now.
+    const at = this.ctx?.currentTime ?? 0;
+    for (const gone of byId.values()) for (const v of gone.booked) this.kill(v, at);
+    this.tracks = next;
   }
 
   /** Must run inside a user gesture, or the context stays suspended. */
@@ -194,7 +214,7 @@ export class SequencerEngine {
       for (const v of this.live) this.kill(v, ctx.currentTime);
     }
     this.live.clear();
-    for (const t of this.tracks) { t.held.clear(); t.events = []; t.scheduledIndex = -1; }
+    for (const t of this.tracks) { t.held.clear(); t.booked.clear(); t.events = []; t.scheduledIndex = -1; }
   }
 
   /** The clock the listener hears: currentTime less the output latency. */
@@ -207,7 +227,7 @@ export class SequencerEngine {
 
   /** The event sounding on track `i` at audio time `now`, or null before the first. */
   visualAt(i: number, now: number): StepEvent | null {
-    const ev = this.tracks[i].events;
+    const ev = this.tracks[i]?.events ?? [];
     for (let k = ev.length - 1; k >= 0; k--) if (ev[k].time <= now) return ev[k];
     return null;
   }
@@ -384,6 +404,8 @@ export class SequencerEngine {
       const held = tr.held.get(key);
       if (legato && held) { this.retune(held, step, n, t, glide); return; }
       const v = this.voice(ctx, step, n, from[n], t, glide);
+      tr.booked.add(v);
+      v.osc.addEventListener('ended', () => tr.booked.delete(v));
       if (legato) tr.held.set(key, v);
       else this.release(v, end);
     });
