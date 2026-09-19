@@ -15,8 +15,8 @@
     "test": "playwright test",
     "test:ui": "playwright test --ui",
     "test:headed": "playwright test --headed",
-    "deploy": "GITHUB_PAGES=1 vite build && gh-pages -d dist",
-    "deploy:dev": "GH_PAGES_DEV=1 vite build && gh-pages -d dist -e dev",
+    "deploy": "GITHUB_PAGES=1 vite build && gh-pages -d dist -m \"deploy: $(git rev-parse --short HEAD) from $(git branch --show-current), by hand\"",
+    "deploy:dev": "GH_PAGES_DEV=1 vite build && gh-pages -d dist -e dev -m \"deploy(dev): $(git rev-parse --short HEAD) from $(git branch --show-current)\"",
     "test:unit": "bun test src"
   },
   "dependencies": {
