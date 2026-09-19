@@ -40,7 +40,7 @@ import BlendIcon from '../components/BlendIcon';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
-import { noteIndices, snapToIndices, stickyIndices, type MapConfig, type Slot, type Step } from './sequencer';
+import { noteIndices, snapAlpha, snapToIndices, stickyIndices, type MapConfig, type Slot, type Step } from './sequencer';
 
 export interface CellEditorHandle {
   /** Show `hex` without editing anything (following playback); null returns to the cell. */
@@ -201,10 +201,13 @@ export default function SequencerCellEditor({
     write({ hex, alpha: s?.alpha ?? 100 });
   }, [hex]);
 
+  // Alpha is one of nine notches (which voices hold, or silence), so the slider snaps to them.
   const writeAlpha = useCallback((a: number) => {
     const { slot: s, selectionKey: key, onChange: write } = latest.current;
     if (!key) return;
-    write({ hex: s?.hex ?? hex, alpha: a });
+    const next = snapAlpha(a);
+    if (s && s.alpha === next) return;
+    write({ hex: s?.hex ?? hex, alpha: next });
   }, [hex]);
 
   // --- handlers: every one is a user edit -------------------------------------
@@ -217,7 +220,7 @@ export default function SequencerCellEditor({
   const onHex = useCallback((c: RGB) => { mark(); setRgb(c); }, [mark, setRgb]);
 
   const alpha = slot?.alpha ?? 100;
-  const plays = !step ? '' : step.rest ? (step.tie ? 'tie' : 'rest') : step.detail;
+  const plays = !step ? '' : step.rest ? step.label : step.detail;
 
   return (
     <div className="flex flex-col gap-3" data-cell-editor="">
@@ -323,7 +326,7 @@ export default function SequencerCellEditor({
           )}
           {groups.includes('A') && (
             <div className={BLOCK} role="group" aria-label="Alpha">
-              <ColorSlider label="A" group="alpha" value={alpha} max={100} suffix="%" onChange={writeAlpha}
+              <ColorSlider label="A" group="alpha" value={alpha} max={100} onChange={writeAlpha}
                 gradient={`linear-gradient(to right, transparent, ${hex}),${CHECKER}`} />
             </div>
           )}

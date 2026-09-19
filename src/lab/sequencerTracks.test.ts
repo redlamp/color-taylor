@@ -58,15 +58,15 @@ describe('share link', () => {
       const hash = `#${encodeShare(arr)}`;
       expect(decodeShare(hash)).toEqual(arr);
       // Nothing in it needs escaping by the address bar.
-      expect(hash).toMatch(/^#seq=v2;[A-Za-z0-9%;:,.@_=-]+$/);
+      expect(hash).toMatch(/^#seq=v3;[A-Za-z0-9%;:,.@_=-]+$/);
     });
   }
-  test('a v1 single-track link still opens, as a one-track arrangement', () => {
+  test('a v1 single-track link still opens, as a one-track arrangement, its old tie migrated', () => {
     const arr = decodeShare('#seq=v1;nm:Old;m:melody;t:120;d:16;g:70;l:40;o:-1;s:major;r:2;b:3;n:2;w:sine;x:ff0000,.,00ff00@0');
     expect(arr?.name).toBe('Old');
     expect(arr?.melody?.scale).toBe('major');
     expect(arr?.tracks).toEqual([{
-      steps: [{ hex: '#ff0000', alpha: 100 }, null, { hex: '#00ff00', alpha: 0 }], octave: -1, enabled: true, muted: false,
+      steps: [{ hex: '#ff0000', alpha: 100 }, null, { hex: '#00ff00', alpha: 13 }], octave: -1, enabled: true, muted: false,
     }]);
   });
   test('not a share link', () => {
@@ -147,6 +147,50 @@ describe('the new scales', () => {
       expect(describeArr(rgb)).toContain(scale === 'harmonicMinor' ? 'D harmonic minor' : 'D phrygian dominant');
     });
   }
+});
+
+describe('migrating from before the hold notches', () => {
+  // D major RGB, default-ish ranges: R D2 (1 octave), G D3 (2), B D4 (2).
+  const OLD_RGB = {
+    name: 'Old holds', mode: 'rgb', bpm: 100, subdivision: 8, gatePct: 70, glideMs: 0,
+    rgb: {
+      scale: 'major', root: 2, instruments: {
+        r: { name: 'Bass', octave: 2, range: 1, wave: 'sine', level: 90, muted: false },
+        g: { name: 'Harmony', octave: 3, range: 2, wave: 'triangle', level: 70, muted: false },
+        b: { name: 'Lead', octave: 4, range: 2, wave: 'sawtooth', level: 70, muted: false },
+      },
+    },
+    // A chord, an old tie, an old hold moving only R (G and B unchanged), an old accent.
+    tracks: [{ steps: [{ hex: '#406080', alpha: 100 }, { hex: '#406080', alpha: 0 }, { hex: '#a06080', alpha: 1 }, { hex: '#a06080', alpha: 40 }], octave: 0 }],
+  };
+  const MIGRATED = [{ hex: '#406080', alpha: 100 }, { hex: '#406080', alpha: 13 }, { hex: '#a06080', alpha: 25 }, { hex: '#a06080', alpha: 100 }];
+
+  test('a version 2 file: ties to 13, holds to the unchanged voices\' mask, accents to 100', () => {
+    const lib = parseLibrary({ format: 'color-taylor-sequencer', version: 2, arrangements: [{ ...OLD_RGB, id: 'o', savedAt: 1 }] });
+    expect(lib[0].tracks[0].steps).toEqual(MIGRATED);
+  });
+  test('a bare stored list migrates only when told it is old', () => {
+    expect(parseLibrary([OLD_RGB], true)[0].tracks[0].steps).toEqual(MIGRATED);
+    expect(parseLibrary([OLD_RGB])[0].tracks[0].steps).toEqual(OLD_RGB.tracks[0].steps);
+  });
+  test('a version 3 file is read as written: alpha 0 is a silence', () => {
+    const lib = parseLibrary(JSON.parse(libraryFile(parseLibrary([{ ...OLD_RGB, id: 'o', savedAt: 1 }]))));
+    expect(lib[0].tracks[0].steps).toEqual(OLD_RGB.tracks[0].steps);
+    expect(JSON.parse(libraryFile(lib)).version).toBe(3);
+  });
+  test('a v2 share link migrates; a v3 one does not', () => {
+    const arr = arrangementFrom(OLD_RGB)!;
+    const v3 = encodeShare(arr);
+    expect(decodeShare(v3)?.tracks[0].steps).toEqual(OLD_RGB.tracks[0].steps);
+    expect(decodeShare(v3.replace('seq=v3;', 'seq=v2;'))?.tracks[0].steps).toEqual(MIGRATED);
+  });
+  test('arrangementFrom migrates under the track\'s own octave and mode', () => {
+    const hue = {
+      name: 'h', mode: 'melody', melody: { scale: 'major', root: 0, baseOctave: 3, octaveRange: 2, wave: 'sine' },
+      tracks: [{ steps: [{ hex: '#ff0000', alpha: 100 }, { hex: '#ff0000', alpha: 1 }, { hex: '#0000ff', alpha: 1 }, { hex: '#0000ff', alpha: 0 }], octave: 1 }],
+    };
+    expect(arrangementFrom(hue, true)?.tracks[0].steps.map((s) => s?.alpha)).toEqual([100, 13, 100, 13]);
+  });
 });
 
 describe('loop', () => {

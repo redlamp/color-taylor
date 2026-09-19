@@ -22,10 +22,11 @@
  * only into a step that has its key. In RGB Instruments the keys are the channels,
  * each with its own instrument (wave, level, mute, fixed cutoff).
  *
- * A hold step (sequencer.ts, HOLD_ALPHA) books voices only for the keys whose
- * note changed; an unchanged key's voice was booked long enough when it
- * struck, because a voice's length is worked out ahead through every tie and
- * every hold that keeps it (carrySteps).
+ * A hold step (sequencer.ts, the alpha notches) books voices only for the keys
+ * it strikes; a held key's voice was booked long enough when it struck,
+ * because a voice's length is worked out ahead through every tie and every
+ * hold that holds its key (carrySteps). A silence (alpha 0) is a rest: it
+ * books nothing and ends every voice, held ones included.
  *
  * Visuals read the same clock through `visualAt` - nothing here waits on a
  * frame, and nothing a frame does reaches the audio.
@@ -412,11 +413,12 @@ export class SequencerEngine {
       tr.now.clear();
       return;
     }
-    tr.sounding = true;
-    // A hold step: keys whose note is unchanged carry on - if their voice is still running.
+    // A hold step: held keys that were sounding carry on - if their voice is still running.
     const sustained = sustainedKeys(step, tr.now);
     for (const k of sustained) if (legato ? !tr.held.has(k) : (tr.until.get(k) ?? -1) < counter) sustained.delete(k);
     tr.now = soundingAfter(step, tr.now);
+    for (const k of tr.now.keys()) if (!sustained.has(k) && !step.keys.includes(k)) tr.now.delete(k);
+    tr.sounding = tr.now.size > 0;
 
     const from = step.keys.map((k) => tr.lastMidi.get(k) ?? null);
     const glides = step.keys.some((k, n) => from[n] !== null && !sustained.has(k)) && glide > 0;
@@ -429,10 +431,9 @@ export class SequencerEngine {
       return;
     }
 
-    const sounding = step.keys.filter((k) => !(step.rgb && this.params.instruments[k as Channel].muted));
-    // A held voice whose key is gone from this step (a channel fell silent) ends here.
-    this.releaseHeld(tr, t, legato ? new Set(sounding) : undefined);
-    const struck = sounding.filter((k) => !sustained.has(k));
+    const struck = step.keys.filter((k) => !(step.rgb && this.params.instruments[k as Channel].muted));
+    // A held legato voice whose key neither strikes nor holds here (a channel fell silent) ends here.
+    this.releaseHeld(tr, t, legato ? new Set([...struck, ...sustained]) : undefined);
     this.notesScheduled++;
     this.voiceLog.push({ track: i, index, keys: struck });
     if (this.voiceLog.length > HISTORY) this.voiceLog.splice(0, this.voiceLog.length - HISTORY);
@@ -446,10 +447,10 @@ export class SequencerEngine {
       v.osc.addEventListener('ended', () => tr.booked.delete(v));
       if (legato) { tr.held.set(key, v); return; }
       // The voice's length is known now: it runs through every tie, and every
-      // hold that keeps this key on this note, and the gate applies to the last
-      // of those steps. Deciding later is too late - with a short gate the
-      // release time can pass before the next step is booked.
-      const carry = carrySteps(tr.steps, index, key, step.midis[n], this.params.loop);
+      // hold that holds this key, and the gate applies to the last of those
+      // steps. Deciding later is too late - with a short gate the release time
+      // can pass before the next step is booked.
+      const carry = carrySteps(tr.steps, index, key, this.params.loop);
       tr.until.set(key, counter + carry);
       this.release(v, Math.max(t + ATTACK, t + carry * stepSec + gateSeconds(gatePct, stepSec)));
     });

@@ -8,8 +8,16 @@
  * Loading one puts the settings back too, because a row of colours only means
  * the same music under the mapping it was written for. Entries saved before
  * arrangements were single tracks; they are migrated on read (arrangementFrom).
+ *
+ * Alpha changed meaning with the hold notches (sequencer.ts, alphaToStepKind):
+ * data written before them - file version 1 and 2, links v1 and v2, the
+ * bench's stored settings before version 5 - is read with `legacyAlpha`, and
+ * each row goes through migrateLegacyRow under the arrangement's own mapping.
  */
-import { CHANNELS, DEFAULT_NAMES, NOTE_NAMES, SCALES, SCALE_LABELS, type Channel, type ScaleName, type SeqMode, type Slot, type Subdivision } from './sequencer';
+import {
+  CHANNELS, DEFAULT_NAMES, NOTE_NAMES, SCALES, SCALE_LABELS, migrateLegacyRow,
+  type Channel, type MapConfig, type ScaleName, type SeqMode, type Slot, type Subdivision,
+} from './sequencer';
 import type { Wave } from './sequencerEngine';
 
 export interface MelodySettings { scale: ScaleName; root: number; baseOctave: number; octaveRange: number; wave: Wave }
@@ -58,6 +66,10 @@ const MAX_STEPS = 256;
 const SOURCE_HINT = /^[a-z][a-z0-9-]{0,31}$/;
 
 export const FILE_FORMAT = 'color-taylor-sequencer';
+/** The export file's version. 3 is the first with the alpha hold notches; 1 and 2 are migrated on import. */
+export const FILE_VERSION = 3;
+/** The share link's version. v3 is the first with the alpha hold notches; v1 and v2 are migrated on open. */
+export const SHARE_VERSION = 'v3';
 
 const WAVES: readonly Wave[] = ['triangle', 'sine', 'sawtooth', 'square'];
 const SCALE_NAMES = Object.keys(SCALES) as ScaleName[];
@@ -175,13 +187,32 @@ function trackFrom(v: unknown): ArrangementTrack | null {
   return t;
 }
 
+/** The mapping a track of `arr` plays under - the same one the bench builds from its settings. */
+export function arrangementConfig(arr: Shared, octaveOffset: number): MapConfig {
+  if (arr.mode === 'rgb') {
+    const r = arr.rgb ?? rgbFrom(undefined);
+    const inst = r.instruments;
+    return {
+      mode: 'rgb', scale: r.scale, root: r.root, octaveRange: 1, octaveOffset,
+      ranges: { r: inst.r, g: inst.g, b: inst.b }, names: { r: inst.r.name, g: inst.g.name, b: inst.b.name },
+    };
+  }
+  if (arr.mode === 'chords') {
+    const c = arr.chords ?? chordsFrom(undefined);
+    return { mode: 'chords', scale: 'major', octaveRange: 1, root: c.root, baseOctave: c.baseOctave, octaveOffset };
+  }
+  const m = arr.melody ?? melodyFrom(undefined);
+  return { mode: 'melody', scale: m.scale, root: m.root, octaveRange: m.octaveRange, baseOctave: m.baseOctave, octaveOffset };
+}
+
 /**
  * An arrangement from anything - a stored entry, a file, a decoded link. Null
  * if it has no tracks. A single-track snapshot from before arrangements (a
  * `steps` array and the track's `octave` at the top level) is migrated into a
- * one-track arrangement rather than dropped.
+ * one-track arrangement rather than dropped. `legacyAlpha`: the rows were
+ * written before the hold notches, and are migrated into them.
  */
-export function arrangementFrom(v: unknown): Arrangement | null {
+export function arrangementFrom(v: unknown, legacyAlpha = false): Arrangement | null {
   if (!v || typeof v !== 'object') return null;
   const o = v as Record<string, unknown>;
   let tracks: ArrangementTrack[];
@@ -194,7 +225,9 @@ export function arrangementFrom(v: unknown): Arrangement | null {
   }
   if (tracks.length === 0) return null;
   const name = typeof o.name === 'string' && o.name.trim() ? o.name.trim().slice(0, 80) : 'Untitled';
-  return { name, ...sharedFrom(o), tracks };
+  const shared = sharedFrom(o);
+  if (legacyAlpha) for (const t of tracks) t.steps = migrateLegacyRow(t.steps, arrangementConfig(shared, t.octave));
+  return { name, ...shared, tracks };
 }
 
 export function newId(): string {
@@ -202,17 +235,21 @@ export function newId(): string {
 }
 
 /**
- * The stored library, or a file's `arrangements` (version 2) or `tracks`
- * (version 1: single-track snapshots). Bad entries are dropped, not fatal.
+ * The stored library, or a file's `arrangements` (version 2 and 3) or
+ * `tracks` (version 1: single-track snapshots). Bad entries are dropped, not
+ * fatal. A file says for itself whether it predates the hold notches (a
+ * version under 3, or none); a bare list - the bench's stored library - is
+ * as old as `legacyAlpha` says.
  */
-export function parseLibrary(raw: unknown): SavedArrangement[] {
-  const o = (raw && typeof raw === 'object' ? raw : {}) as { arrangements?: unknown; tracks?: unknown };
+export function parseLibrary(raw: unknown, legacyAlpha = false): SavedArrangement[] {
+  const o = (raw && typeof raw === 'object' ? raw : {}) as { arrangements?: unknown; tracks?: unknown; version?: unknown };
   const list: unknown[] = Array.isArray(raw) ? raw
     : Array.isArray(o.arrangements) ? o.arrangements
       : Array.isArray(o.tracks) ? o.tracks : [];
+  const legacy = Array.isArray(raw) ? legacyAlpha : !(typeof o.version === 'number' && o.version >= FILE_VERSION);
   const out: SavedArrangement[] = [];
   for (const v of list) {
-    const arr = arrangementFrom(v);
+    const arr = arrangementFrom(v, legacy);
     if (!arr) continue;
     const e = v as { id?: unknown; savedAt?: unknown };
     out.push({
@@ -226,27 +263,28 @@ export function parseLibrary(raw: unknown): SavedArrangement[] {
 
 /** The export file's contents. */
 export function libraryFile(arrangements: readonly SavedArrangement[]): string {
-  return JSON.stringify({ format: FILE_FORMAT, version: 2, arrangements }, null, 2);
+  return JSON.stringify({ format: FILE_FORMAT, version: FILE_VERSION, arrangements }, null, 2);
 }
 
 // --- the share link -------------------------------------------------------
 
 /*
- * `#seq=v2` then `;`-separated `key:value` fields:
+ * `#seq=v3` then `;`-separated `key:value` fields:
  *
- *   v2;nm:Riff;m:melody;t:110;d:8;g:70;l:40;s:pentatonic;r:0;b:3;n:2;w:triangle;k:2;
+ *   v3;nm:Riff;m:melody;t:110;d:8;g:70;l:40;s:pentatonic;r:0;b:3;n:2;w:triangle;k:2;
  *     o0:0;f0:1;x0:ff0000,00ff00@50,.;o1:-1;f1:3;c1:pulse;x1:...
  *
  * The arrangement's settings first (`lp:0` only when it plays once), then `k` tracks, each as `o<i>` octave,
  * `f<i>` flags (1 on, 2 muted), an optional `c<i>` built-in source hint and
  * `x<i>` its steps. Steps are hex without the hash, `@alpha` only where alpha
- * is not 100 (so a tie is `@0`), and `.` for an empty slot. RGB Instruments
+ * is not 100 (a tie is `@13`, a silence `@0`), and `.` for an empty slot. RGB Instruments
  * carries its three instruments as `i:` octave.range.wave.level.muted.name,
  * joined by `_` in R G B order. Everything is URL-safe as written except the
  * names, which are percent-encoded - separators included.
  *
- * `v1` links - one track, `o` and `x` with no index - still open, as a
- * one-track arrangement.
+ * `v2` links are the same fields from before the hold notches: their steps
+ * are migrated. `v1` links - one track, `o` and `x` with no index - still
+ * open, as a migrated one-track arrangement.
  */
 export const SHARE_PREFIX = 'seq=';
 
@@ -287,7 +325,7 @@ export function encodeShare(arr: Arrangement): string {
     if (t.source) f.push([`c${i}`, t.source]);
     f.push([`x${i}`, encodeSteps(t.steps)]);
   });
-  return `${SHARE_PREFIX}v2;${f.map(([k, v]) => `${k}:${v}`).join(';')}`;
+  return `${SHARE_PREFIX}${SHARE_VERSION};${f.map(([k, v]) => `${k}:${v}`).join(';')}`;
 }
 
 /** A hash (with or without `#`) back to an arrangement, or null if it isn't a share link. */
@@ -296,7 +334,7 @@ export function decodeShare(hash: string): Arrangement | null {
   if (!body.startsWith(SHARE_PREFIX)) return null;
   const parts = body.slice(SHARE_PREFIX.length).split(';');
   const version = parts[0];
-  if (version !== 'v1' && version !== 'v2') return null;
+  if (version !== 'v1' && version !== 'v2' && version !== SHARE_VERSION) return null;
   const f: Record<string, string> = {};
   for (const p of parts.slice(1)) {
     const at = p.indexOf(':');
@@ -334,7 +372,11 @@ export function decodeShare(hash: string): Arrangement | null {
   }
   const arr = arrangementFrom(raw);
   if (!arr) return null;
-  arr.tracks.forEach((t, i) => { t.steps = decodeSteps(rows[i]); });
+  const legacy = version !== SHARE_VERSION;
+  arr.tracks.forEach((t, i) => {
+    const steps = decodeSteps(rows[i]);
+    t.steps = legacy ? migrateLegacyRow(steps, arrangementConfig(arr, t.octave)) : steps;
+  });
   return arr;
 }
 

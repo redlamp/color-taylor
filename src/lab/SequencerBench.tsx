@@ -29,7 +29,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { hexToRgb, rgbToHex } from '../utils/colorConversions';
 import {
   BUILTIN_PALETTES, CHANNELS, DEFAULT_NAMES, NOTE_NAMES, RGB_SONGS, SCALES, SCALE_LABELS, SONGS, parseRecentSlots, parseSavedSlots,
-  rgbSongConfig, rgbSongSlots, songConfig, songSlots,
+  alphaToStepKind, heldChannels, instrumentName, migrateLegacyRow, rgbSongConfig, rgbSongSlots, songConfig, songSlots,
   swatchToStep,
   type Channel, type LegacyAlpha, type MapConfig, type NoteStep, type ScaleName, type SeqMode, type Slot, type Subdivision,
 } from './sequencer';
@@ -62,7 +62,7 @@ interface TrackCfg {
 
 /** Each mode keeps its own values, so switching away and back loses nothing. */
 interface Settings {
-  version: 4;
+  version: 5;
   bpm: number;
   subdivision: Subdivision;
   glideMs: number;
@@ -86,7 +86,7 @@ interface Settings {
 }
 
 const DEFAULTS: Settings = {
-  version: 4,
+  version: 5,
   bpm: 110,
   subdivision: 8,
   glideMs: 40,
@@ -125,8 +125,11 @@ function loadSettings(): Settings {
     const s = JSON.parse(raw) as Omit<Partial<Settings>, 'version'> & { version?: number };
     // Version 3 is the two-track shape, the same fields: it reads straight into
     // this one, and its library's single-track entries migrate in parseLibrary.
-    // Anything older is dropped rather than migrated: it is a lab.
-    if (s.version !== 3 && s.version !== 4) return DEFAULTS;
+    // 3 and 4 predate the alpha hold notches, so their rows - Custom and
+    // library - are migrated into them. Anything older is dropped rather than
+    // migrated: it is a lab.
+    if (s.version !== 3 && s.version !== 4 && s.version !== 5) return DEFAULTS;
+    const legacyAlpha = s.version !== 5;
     const inst = (c: Channel) => ({ ...DEFAULTS.rgb.instruments[c], ...s.rgb?.instruments?.[c] });
     const seen = new Set<string>();
     const tracks = (Array.isArray(s.tracks) ? s.tracks : []).slice(0, MAX_TRACKS).map((t, i): TrackCfg => {
@@ -140,18 +143,22 @@ function loadSettings(): Settings {
         custom: Array.isArray(merged.custom) ? merged.custom : [],
       };
     });
-    return {
+    const out: Settings = {
       ...DEFAULTS,
       ...s,
-      version: 4,
+      version: 5,
       melody: { ...DEFAULTS.melody, ...s.melody },
       chords: { ...DEFAULTS.chords, ...s.chords },
       rgb: { ...DEFAULTS.rgb, ...s.rgb, instruments: { r: inst('r'), g: inst('g'), b: inst('b') } },
       tracks: tracks.length ? tracks : DEFAULTS.tracks,
       dirty: s.dirty === true,
-      library: parseLibrary(s.library),
+      library: parseLibrary(s.library, legacyAlpha),
       open: s.open && typeof s.open === 'object' ? s.open : {},
     };
+    if (legacyAlpha) {
+      out.tracks = out.tracks.map((t) => ({ ...t, custom: migrateLegacyRow(t.custom, mapConfig(out, t.octave)) }));
+    }
+    return out;
   } catch {
     return DEFAULTS;
   }
@@ -344,7 +351,13 @@ const MODES = 'melody:Hue Melody|chords:Hue Chords|rgb:RGB Instruments';
 const HELP: Record<SeqMode, string> = {
   melody: 'Hue picks a note of the scale across the octave range. Saturation opens the filter, brightness sets the volume.',
   chords: 'Hue picks a triad root on the circle of fifths, 30 degrees a step from the root below. Saturation under 35 is minor. Brightness sets the volume.',
-  rgb: 'Red, green and blue are three instruments: each channel\'s value picks its note across that instrument\'s range, and a channel under 8 is silent. Alpha is an accent for all three.',
+  rgb: 'Red, green and blue are three instruments: each channel\'s value picks its note across that instrument\'s range, and a channel under 8 is silent. Each instrument\'s level sets its volume.',
+};
+/** How alpha reads, per mode: nine notches, none of them a volume. */
+const ALPHA_HELP: Record<SeqMode, string> = {
+  melody: 'Alpha is not volume: 100 strikes, any lower notch holds the note before (a tie, marked with a bar), and 0 silences the step.',
+  chords: 'Alpha is not volume: 100 strikes, any lower notch holds the chord before (a tie, marked with a bar), and 0 silences the step.',
+  rgb: 'Alpha is not volume but which instruments hold, in notches of 12.5: 100 strikes all three, 88 holds Bass, 75 Harmony, 50 Lead, the notches between hold two, 13 all three, and 0 silences every voice. A held voice keeps its note whatever its channel reads, marked with a tick in its colour.',
 };
 const CHANNEL_INK: Record<Channel, string> = { r: '#e74c4c', g: '#2fa84f', b: '#3385ff' };
 const CHANNEL_NAME: Record<Channel, string> = { r: 'Red', g: 'Green', b: 'Blue' };
@@ -768,9 +781,8 @@ export default function SequencerBench() {
           <div className="flex flex-col gap-5">
           <Seg label="Mode" control="mode" value={mode} options={MODES} onChange={(v) => set('mode', v as SeqMode)} />
           <p className="text-base text-muted-foreground" data-help="">
-            {HELP[mode]} Empty slots rest; alpha 0 is a tie, holding the note before it; alpha 1 is a hold, where
-            only the voices whose note changed strike and the rest carry on (marked with a bar). Click a cell to edit it.
-            Space plays and stops.
+            {HELP[mode]} {ALPHA_HELP[mode]} A silenced step shows its colour faded and struck through. Empty slots
+            rest. Click a cell to edit it. Space plays and stops.
           </p>
           <div className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2">
             <Knob label="Tempo" unit=" BPM" value={settings.bpm} min={40} max={240} onChange={(v) => set('bpm', v)} />
@@ -998,8 +1010,10 @@ export default function SequencerBench() {
                   <div className="grid flex-1 grid-cols-[2rem_repeat(16,minmax(0,1fr))] gap-x-1.5 gap-y-2">
                     {rowSteps.map((s, si) => {
                       const slot = slots[i][si];
-                      const tie = s.rest && s.tie;
-                      const hold = !s.rest && !!s.hold;
+                      // The marks read the alpha notch itself, so a hold shows even where it has nothing to hold.
+                      const kind = slot ? alphaToStepKind(slot.alpha) : null;
+                      const silence = !!kind?.silence;
+                      const held = kind && !kind.silence ? heldChannels(kind.mask) : [];
                       const isSel = sel?.track === i && sel.step === si;
                       return (
                         <Fragment key={si}>
@@ -1024,19 +1038,37 @@ export default function SequencerBench() {
                                   + 'relative '
                                   + (slot ? '' : 'border-dashed bg-muted/40')
                                 }
-                                data-hold={hold || undefined}
-                                // A tie shows its note's colour, faded - at its real alpha 0 it would vanish; a
-                                // hold (alpha 1) shows it solid, marked with a bar down its left edge.
-                                style={slot ? { backgroundColor: withAlpha(slot.hex, tie ? 35 : hold ? 100 : slot.alpha) } : undefined}
-                                title={slot ? `${slot.hex} ${slot.alpha}% - ${s.rest ? s.label : s.detail}` : 'empty slot'}
+                                data-hold={held.length ? held.join('') : undefined}
+                                data-silence={silence || undefined}
+                                // Alpha is no longer transparency: every cell is its solid colour, except a
+                                // silence, faded and struck through - at its real alpha 0 it would vanish.
+                                style={slot ? { backgroundColor: withAlpha(slot.hex, silence ? 35 : 100) } : undefined}
+                                title={slot ? `${slot.hex} alpha ${slot.alpha} - ${s.rest ? s.label : s.detail}` : 'empty slot'}
                               >
-                                {hold && (
-                                  <span aria-hidden className="absolute inset-y-1 left-1 w-1.5 rounded-full border border-foreground bg-background" />
+                                {silence && (
+                                  <svg aria-hidden viewBox="0 0 10 10" preserveAspectRatio="none" className="pointer-events-none absolute inset-0 size-full">
+                                    <line x1="1" y1="9" x2="9" y2="1" className="stroke-foreground" strokeWidth={2} strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+                                  </svg>
+                                )}
+                                {held.length > 0 && mode !== 'rgb' && (
+                                  <span aria-hidden data-tick="hold"
+                                    className="absolute bottom-1 left-1/2 h-1.5 w-3/5 -translate-x-1/2 rounded-full border border-foreground bg-background" />
+                                )}
+                                {held.length > 0 && mode === 'rgb' && (
+                                  <span aria-hidden className="pointer-events-none absolute inset-x-1 bottom-1 flex justify-between">
+                                    {CHANNELS.map((ch) => (
+                                      <span key={ch} data-tick={held.includes(ch) ? ch : undefined}
+                                        title={held.includes(ch) ? `${instrumentName(ch, configs[i])} holds` : undefined}
+                                        className={'h-2.5 w-1.5 rounded-sm ' + (held.includes(ch) ? 'ring-1 ring-background' : 'invisible')}
+                                        style={held.includes(ch) ? { backgroundColor: CHANNEL_INK[ch] } : undefined} />
+                                    ))}
+                                  </span>
                                 )}
                               </PopoverTrigger>
                               <PopoverContent className="w-96 p-3 text-base">
                                 <SequencerStepEditor
                                   slot={slot}
+                                  prevHex={slots[i][(si + slots[i].length - 1) % slots[i].length]?.hex ?? null}
                                   cfg={configs[i]}
                                   onChange={(next) => editTrack(i, (row) => { row[si] = next; return row; })}
                                 />

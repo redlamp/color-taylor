@@ -9,16 +9,13 @@
  *                Chords picks a root on the circle of fifths.
  *   saturation   lowpass cutoff, exponential 200..8000 Hz
  *   brightness   velocity, (b/100)^1.5 - the app's curve. Below 3 it is a rest.
- *   alpha        multiplies velocity, so a see-through swatch is a ghost note
- *   alpha 0      a tie: the previous note carries on through this step with no
- *                retrigger. After a rest (or first in a row) it is a rest.
- *   alpha 1      a hold (HOLD_ALPHA): voice by voice, a note equal to the one
- *                that voice was sounding carries on, and only the voices that
- *                changed strike - at full accent. A voice silent here stops.
- *                Made for RGB Instruments (a lead held over a moving bass), but
- *                the rule is per voice everywhere: in Hue Melody a hold on an
- *                unchanged note is a tie and on a new note a plain full-accent
- *                note; in Hue Chords the triad's common tones carry on.
+ *   alpha        not a volume: one of nine notches (alphaToStepKind) saying
+ *                which voices hold. 100 strikes every voice; 88..13 are hold
+ *                masks 1..7 (R Bass 1, G Harmony 2, B Lead 4), a held voice
+ *                carrying on its previous note whatever its channel reads now
+ *                (silent if it was silent); 0 is silence - every voice stops,
+ *                held ones too, and the step keeps its colour. The hue modes
+ *                have one voice, so any hold notch is a tie; so is mask 7.
  *   null slot    a rest, so a Saved bank keeps its gaps as rhythm
  */
 import { hexToRgb, hsbToRgb, rgbToHex, rgbToHsb } from '../utils/colorConversions';
@@ -53,12 +50,6 @@ export const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A',
 
 /** C3. The octave range climbs from here, the track's octave offset moves it. */
 export const BASE_MIDI = 48;
-/**
- * The hold alpha. 1, not a round number like 50: alpha is also the accent, and
- * at 1 it would be a ghost note nobody could hear, so reading it as "hold"
- * takes nothing away. A hold's struck voices play at full accent.
- */
-export const HOLD_ALPHA = 1;
 /** Brightness (0-100) below this is a rest: near-black is silence, not a whisper. */
 export const REST_BRIGHTNESS = 3;
 /**
@@ -114,8 +105,62 @@ export const DEFAULT_RANGES: Record<Channel, ChannelRange> = {
 /** RGB Instruments: a channel below this is silent, so pure red plays R alone. */
 export const CHANNEL_REST = 8;
 
-/** A silent step. `tie` means "keep the previous note sounding" rather than silence. */
-export interface RestStep { rest: true; tie: boolean; hex: string | null; label: 'rest' | 'tie' }
+// --- alpha: nine notches, which voices hold ----------------------------------
+
+/** Which voice a hold-mask bit holds: R (Bass) 1, G (Harmony) 2, B (Lead) 4. */
+export const HOLD_BIT: Record<Channel, number> = { r: 1, g: 2, b: 4 };
+/** Every voice holds: the old tie. */
+export const ALL_HOLD = 7;
+/** Silence: every voice stops, held ones too. */
+export const SILENCE_ALPHA = 0;
+/** Under this, alpha decodes to silence rather than to the all-hold notch at 13. */
+const SILENCE_BELOW = 6;
+
+/** A step's alpha, decoded: silence, or which voices hold (mask 0 = every voice strikes). */
+export type StepKind = { silence: true; mask: 0 } | { silence: false; mask: number };
+
+/** A hold mask 0..7 -> its alpha notch: round(100 - mask * 12.5). */
+export function maskToAlpha(mask: number): number {
+  return Math.round(100 - clamp(Math.round(mask), 0, ALL_HOLD) * 12.5);
+}
+
+/** Any alpha 0..100 -> the notch nearest it. Under 6 is silence. */
+export function alphaToStepKind(alpha: number): StepKind {
+  const a = Number.isFinite(alpha) ? clamp(alpha, 0, 100) : 100;
+  if (a < SILENCE_BELOW) return { silence: true, mask: 0 };
+  return { silence: false, mask: clamp(Math.round((100 - a) / 12.5), 0, ALL_HOLD) };
+}
+
+/** Any alpha, snapped to its notch. */
+export function snapAlpha(alpha: number): number {
+  const k = alphaToStepKind(alpha);
+  return k.silence ? SILENCE_ALPHA : maskToAlpha(k.mask);
+}
+
+/** The every-voice-holds notch, 13: the old tie. */
+export const TIE_ALPHA = 13;
+
+export const heldChannels = (mask: number): Channel[] => CHANNELS.filter((ch) => (mask & HOLD_BIT[ch]) !== 0);
+export const maskOf = (held: readonly Channel[]): number => held.reduce((m, ch) => m | HOLD_BIT[ch], 0);
+
+/**
+ * `hex` with each held channel set to `prevHex`'s value for it, so a held
+ * channel shows what it carries on playing rather than a stray value. With no
+ * previous colour nothing is copied.
+ */
+export function copyHeld(hex: string, mask: number, prevHex: string | null): string {
+  const cur = hexToRgb(hex);
+  const prev = prevHex ? hexToRgb(prevHex) : null;
+  if (!cur || !prev || mask === 0) return hex;
+  for (const ch of heldChannels(mask)) cur[ch] = prev[ch];
+  return rgbToHex(cur.r, cur.g, cur.b);
+}
+
+/**
+ * A silent step. `tie` means "keep the previous note sounding" rather than
+ * silence. 'silence' is the alpha-0 notch: a rest that keeps its colour.
+ */
+export interface RestStep { rest: true; tie: boolean; hex: string | null; label: 'rest' | 'tie' | 'silence' }
 export interface NoteStep {
   rest: false;
   hex: string;
@@ -131,14 +176,18 @@ export interface NoteStep {
   rgb: boolean;
   /** Per-voice level 0..1, parallel to `midis`. 1 in Melody mode; R, G, B in Chords. */
   levels: number[];
-  /** 0..1 - brightness curve times alpha. */
+  /** 0..1 - the brightness curve in the hue modes; 1 in RGB Instruments, where the instrument's level rules. */
   velocity: number;
   cutoff: number;
   label: string;
   /** Every voice spelled out, for a tooltip. */
   detail: string;
-  /** A hold step (alpha HOLD_ALPHA): voices unchanged from the step before carry on, the rest strike. */
-  hold?: boolean;
+  /**
+   * RGB Instruments, a hold step: the channels that carry on whatever they
+   * were sounding (silent if they were silent). They are not in `keys` - every
+   * key there strikes - and `keys` may be empty when the rest are silent.
+   */
+  held?: Channel[];
 }
 export type Step = RestStep | NoteStep;
 
@@ -177,21 +226,20 @@ export function swatchToStep(slot: Slot, cfg: MapConfig): Step {
   const rgb = hexToRgb(slot.hex);
   if (!rgb) return { rest: true, tie: false, hex: null, label: 'rest' };
   const hex = slot.hex;
-  // Alpha 0 is checked before brightness: a tie's colour doesn't matter.
-  if (slot.alpha <= 0) return { rest: true, tie: true, hex, label: 'tie' };
-  if (slot.alpha === HOLD_ALPHA) {
-    const step = colourStep(rgb, hex, 1, cfg);
-    return step.rest ? step : { ...step, hold: true, detail: `hold - ${step.detail}` };
-  }
-  return colourStep(rgb, hex, clamp(slot.alpha, 0, 100) / 100, cfg);
+  // Alpha is read before the colour: neither silence nor a full hold depends on it.
+  const kind = alphaToStepKind(slot.alpha);
+  if (kind.silence) return { rest: true, tie: false, hex, label: 'silence' };
+  // One voice in the hue modes, so any hold is a tie; in RGB Instruments all three held is one too.
+  if (kind.mask !== 0 && (cfg.mode !== 'rgb' || kind.mask === ALL_HOLD)) return { rest: true, tie: true, hex, label: 'tie' };
+  if (cfg.mode === 'rgb') return rgbChordStep(rgb, hex, heldChannels(kind.mask), cfg);
+  return hueStep(rgb, hex, cfg);
 }
 
-function colourStep(rgb: { r: number; g: number; b: number }, hex: string, alpha: number, cfg: MapConfig): Step {
-  if (cfg.mode === 'rgb') return rgbChordStep(rgb, hex, alpha, cfg);
+function hueStep(rgb: { r: number; g: number; b: number }, hex: string, cfg: MapConfig): Step {
   const hsb = rgbToHsb(rgb.r, rgb.g, rgb.b);
   if (hsb.b < REST_BRIGHTNESS) return { rest: true, tie: false, hex, label: 'rest' };
 
-  const velocity = brightnessToVelocity(hsb.b) * alpha;
+  const velocity = brightnessToVelocity(hsb.b);
   const cutoff = saturationToCutoff(hsb.s);
   const base = hueBase(cfg) + cfg.root;
 
@@ -254,26 +302,33 @@ export function midiToChannel(midi: number, scale: ScaleName, octaveRange: numbe
 }
 
 /**
- * RGB Instruments: each channel is its own instrument and its value picks its note.
- * Loudness is the instrument's level times the alpha accent (the engine owns
- * the levels), so `velocity` here is alpha alone; the filter is the
- * instrument's too, so `cutoff` is left open.
+ * RGB Instruments: each channel is its own instrument and its value picks its
+ * note. Loudness is the instrument's level (the engine owns the levels), so
+ * `velocity` is 1; the filter is the instrument's too, so `cutoff` is left
+ * open. A `held` channel is not read at all: it carries on what it was playing.
  */
-function rgbChordStep(rgb: { r: number; g: number; b: number }, hex: string, alpha: number, cfg: MapConfig): Step {
+function rgbChordStep(rgb: { r: number; g: number; b: number }, hex: string, held: Channel[], cfg: MapConfig): Step {
   const ranges = cfg.ranges ?? DEFAULT_RANGES;
   const midis: number[] = [];
   const keys: string[] = [];
   for (const ch of CHANNELS) {
+    if (held.includes(ch)) continue;
     const midi = channelToMidi(rgb[ch], cfg.scale, ranges[ch].range, channelBase(ranges[ch], cfg.root, cfg.octaveOffset));
     if (midi !== null) { midis.push(midi); keys.push(ch); }
   }
-  if (midis.length === 0) return { rest: true, tie: false, hex, label: 'rest' };
-  // The cell shows the lead - the highest channel sounding; the tooltip has them all.
-  const detail = keys.map((k, i) => `${instrumentName(k as Channel, cfg)} ${midiToName(midis[i])}`).join(' · ');
-  return {
-    rest: false, hex, midis, keys, rgb: true, levels: midis.map(() => 1), velocity: alpha,
-    cutoff: CUTOFF_MAX, label: midiToName(midis[midis.length - 1]), detail,
+  if (midis.length === 0 && held.length === 0) return { rest: true, tie: false, hex, label: 'rest' };
+  // The label is the lead - the highest channel struck; the tooltip has them all.
+  const detail = CHANNELS.flatMap((ch) => {
+    if (held.includes(ch)) return [`${instrumentName(ch, cfg)} holds`];
+    const n = keys.indexOf(ch);
+    return n < 0 ? [] : [`${instrumentName(ch, cfg)} ${midiToName(midis[n])}`];
+  }).join(' · ');
+  const step: NoteStep = {
+    rest: false, hex, midis, keys, rgb: true, levels: midis.map(() => 1), velocity: 1,
+    cutoff: CUTOFF_MAX, label: midis.length ? midiToName(midis[midis.length - 1]) : 'hold', detail,
   };
+  if (held.length) step.held = held;
+  return step;
 }
 
 // --- holds: which voices strike ---------------------------------------------
@@ -282,43 +337,75 @@ function rgbChordStep(rgb: { r: number; g: number; b: number }, hex: string, alp
 export type Sounding = ReadonlyMap<string, number>;
 
 /**
- * The keys of `step` that carry on rather than strike: on a hold step, each
- * voice whose note equals what that voice was sounding in `prev`. A plain
- * step sustains nothing - every voice strikes.
+ * The keys of `step` that carry on rather than strike: its held channels that
+ * were sounding in `prev`. A held channel that was silent stays silent.
  */
 export function sustainedKeys(step: NoteStep, prev: Sounding): Set<string> {
-  const out = new Set<string>();
-  if (!step.hold) return out;
-  step.keys.forEach((k, n) => { if (prev.get(k) === step.midis[n]) out.add(k); });
-  return out;
-}
-
-/** What sounds after `step`: a tie keeps `prev`, a rest nothing, a note step exactly its own voices. */
-export function soundingAfter(step: Step, prev: Sounding): Map<string, number> {
-  if (step.rest) return step.tie ? new Map(prev) : new Map();
-  return new Map(step.keys.map((k, n) => [k, step.midis[n]]));
+  return new Set((step.held ?? []).filter((k) => prev.has(k)));
 }
 
 /**
- * How many steps after `index` a voice sounding `midi` on `key` there carries
- * on through: every tie, and every hold step that keeps that voice on that
- * note. Wraps round the row (at most one lap short) when the row loops, and
- * stops at its end when it plays once.
+ * What sounds after `step`: a tie keeps `prev`, a rest or a silence nothing, a
+ * note step its struck voices plus whichever held ones were sounding.
  */
-export function carrySteps(steps: readonly Step[], index: number, key: string, midi: number, wrap = true): number {
+export function soundingAfter(step: Step, prev: Sounding): Map<string, number> {
+  if (step.rest) return step.tie ? new Map(prev) : new Map();
+  const out = new Map<string, number>();
+  for (const k of sustainedKeys(step, prev)) out.set(k, prev.get(k)!);
+  step.keys.forEach((k, n) => out.set(k, step.midis[n]));
+  return out;
+}
+
+/**
+ * How many steps after `index` a voice struck there on `key` carries on
+ * through: every tie, and every hold step that holds that key. A rest, a
+ * silence or a step that doesn't hold it ends it. Wraps round the row (at
+ * most one lap short) when the row loops, and stops at its end when it plays
+ * once.
+ */
+export function carrySteps(steps: readonly Step[], index: number, key: string, wrap = true): number {
   const len = steps.length;
   const limit = wrap ? len - 1 : len - 1 - index;
   let n = 0;
   while (n < limit) {
     const next = steps[(index + n + 1) % len];
-    if (next.rest) { if (!next.tie) break; }
-    else {
-      const k = next.keys.indexOf(key);
-      if (!next.hold || k < 0 || next.midis[k] !== midi) break;
-    }
+    if (next.rest ? !next.tie : !(next.held ?? []).includes(key as Channel)) break;
     n++;
   }
   return n;
+}
+
+/**
+ * A row saved before the hold notches, read into them. Old alpha meant: 0 a
+ * tie, 1 a hold (a voice whose note equalled the one it was sounding carried
+ * on, the rest struck), anything else a volume accent. So 0 becomes the
+ * all-hold notch; 1 the mask of the voices whose note was unchanged from what
+ * was sounding - in the hue modes, one voice: a tie if unchanged, else a plain
+ * strike; and every other alpha 100. Colours are kept as they were.
+ */
+export function migrateLegacyRow(row: readonly Slot[], cfg: MapConfig): Slot[] {
+  let sounding: Sounding = new Map();
+  return row.map((slot) => {
+    if (!slot) { sounding = new Map(); return null; }
+    let alpha = 100;
+    let step = swatchToStep({ hex: slot.hex, alpha: 100 }, cfg);
+    if (slot.alpha <= 0) {
+      alpha = TIE_ALPHA;
+      step = { rest: true, tie: true, hex: slot.hex, label: 'tie' };
+    } else if (slot.alpha === 1 && !step.rest) {
+      const s = step;
+      const same = s.keys.filter((k, n) => sounding.get(k) === s.midis[n]);
+      if (cfg.mode === 'rgb') {
+        alpha = maskToAlpha(maskOf(same as Channel[]));
+        if (alpha !== 100) step = swatchToStep({ hex: slot.hex, alpha }, cfg);
+      } else if (same.length === s.keys.length) {
+        alpha = TIE_ALPHA;
+        step = { rest: true, tie: true, hex: slot.hex, label: 'tie' };
+      }
+    }
+    sounding = soundingAfter(step, sounding);
+    return { hex: slot.hex, alpha };
+  });
 }
 
 // --- timing ---------------------------------------------------------------
@@ -428,7 +515,11 @@ export interface SongSettings {
 export interface SongPart {
   /** The track's octave offset: the part's base is C3 + root + 12 * octave. */
   octave: number;
-  /** Space-separated, one token per step: a note ("F#4"), "-" a tie, "." a rest. */
+  /**
+   * Space-separated, one token per step: a note ("F#4"), "-" a tie (the
+   * all-hold notch), "." a rest (an empty slot), "!" a silence (alpha 0, in
+   * the colour of the step before).
+   */
   notes: string;
 }
 
@@ -444,22 +535,26 @@ export function songConfig(song: Song, part: SongPart): MapConfig {
 export function songSlots(song: Song, part: SongPart): Slot[] {
   const cfg = songConfig(song, part);
   const base = BASE_MIDI + cfg.root + 12 * cfg.octaveOffset;
+  /** The note a tie would carry on, null once a rest or silence has stopped it. */
   let prev: string | null = null;
+  /** The last colour written, which a silence keeps. */
+  let last = '#000000';
   return part.notes.trim().split(/\s+/).map((tok) => {
     if (tok === '.') { prev = null; return null; }
+    if (tok === '!') { prev = null; return { hex: last, alpha: SILENCE_ALPHA }; }
     if (tok === '-') {
       if (!prev) throw new Error('a tie needs a note before it');
-      return { hex: prev, alpha: 0 };
+      return { hex: prev, alpha: TIE_ALPHA };
     }
     const { r, g, b } = hsbToRgb(midiToHue(noteNameToMidi(tok), cfg.scale, cfg.octaveRange, base), 100, 100);
-    prev = rgbToHex(r, g, b);
+    prev = last = rgbToHex(r, g, b);
     return { hex: prev, alpha: 100 };
   });
 }
 
-/** The intended MIDI note per step (null for ties and rests) - the test's answer key. */
+/** The intended MIDI note per step (null for ties, rests and silences) - the test's answer key. */
 export function songMidis(part: SongPart): (number | null)[] {
-  return part.notes.trim().split(/\s+/).map((tok) => (tok === '.' || tok === '-' ? null : noteNameToMidi(tok)));
+  return part.notes.trim().split(/\s+/).map((tok) => (tok === '.' || tok === '-' || tok === '!' ? null : noteNameToMidi(tok)));
 }
 
 // Quarter note = 2 steps at 1/8. Two four-bar phrases, 64 steps: four rows of 16.
@@ -519,11 +614,12 @@ export interface RgbSong {
   /**
    * One token string per channel, aligned step for step: a note ("F#4"), "."
    * this channel silent, "~" this channel holds its note while others may
-   * strike, "-" a tie. A tie holds all three, so "-" must fill the whole step;
-   * a step with any "~" is a hold step (alpha HOLD_ALPHA), where every "~"
-   * stands for the note that voice was sounding, and any note written out
-   * must differ from it (an equal one would carry on, not strike - write "~").
-   * A step where every channel is "." is an empty slot.
+   * strike, "-" a tie, "!" a silence. A tie holds all three and a silence
+   * stops all three, so either must fill the whole step. The encoder sets the
+   * hold mask from the "~" channels (every one of them is the alpha-13 tie)
+   * and copies each held channel's value from the step before; a note written
+   * out always strikes, even the one the voice was already playing. A step
+   * where every channel is "." is an empty slot.
    */
   parts: Record<Channel, string>;
 }
@@ -538,6 +634,7 @@ const tokens = (s: string) => s.trim().split(/\s+/);
 type ParsedRgbStep =
   | { kind: 'tie' }
   | { kind: 'empty' }
+  | { kind: 'silence' }
   | { kind: 'note'; notes: Record<Channel, number | null>; held: Channel[] };
 
 /** The token columns, read step by step with each voice's sounding note tracked. Throws on a malformed step. */
@@ -552,8 +649,9 @@ function parseRgbSong(song: RgbSong): ParsedRgbStep[] {
       return { kind: 'tie' };
     }
     if (toks.includes('-')) throw new Error(`step ${i}: a tie must hold all three channels - "~" holds one`);
+    if (toks.every((t) => t === '!')) { prev = null; return { kind: 'silence' }; }
+    if (toks.includes('!')) throw new Error(`step ${i}: a silence stops all three channels - "." silences one`);
     if (toks.every((t) => t === '.')) { prev = null; return { kind: 'empty' }; }
-    const hold = toks.includes('~');
     const was = prev;
     const notes = {} as Record<Channel, number | null>;
     const held: Channel[] = [];
@@ -566,9 +664,7 @@ function parseRgbSong(song: RgbSong): ParsedRgbStep[] {
       } else if (t === '.') {
         notes[ch] = null;
       } else {
-        const midi = noteNameToMidi(t);
-        if (hold && midi === before) throw new Error(`step ${i}: ${ch} ${t} repeats its note in a hold step, where it would carry on - write "~"`);
-        notes[ch] = midi;
+        notes[ch] = noteNameToMidi(t);
       }
     });
     prev = notes;
@@ -576,24 +672,31 @@ function parseRgbSong(song: RgbSong): ParsedRgbStep[] {
   });
 }
 
-/** Each step's colour: every channel set to the centre of its note's bucket; alpha 0 a tie, HOLD_ALPHA a hold. */
+/**
+ * Each step's colour: every struck channel set to the centre of its note's
+ * bucket, every held one copied from the step before; alpha the hold notch of
+ * the "~" channels, TIE_ALPHA for a tie, SILENCE_ALPHA for a silence.
+ */
 export function rgbSongSlots(song: RgbSong): Slot[] {
   const cfg = rgbSongConfig(song);
   const ranges = cfg.ranges ?? DEFAULT_RANGES;
+  /** The colour before, which ties and held channels copy; null after an empty slot. */
   let prev: string | null = null;
   return parseRgbSong(song).map((st) => {
-    if (st.kind === 'tie') return { hex: prev!, alpha: 0 };
+    if (st.kind === 'tie') return { hex: prev!, alpha: TIE_ALPHA };
+    if (st.kind === 'silence') return { hex: prev ?? '#000000', alpha: SILENCE_ALPHA };
     if (st.kind === 'empty') { prev = null; return null; }
     const [r, g, b] = CHANNELS.map((ch) => {
       const m = st.notes[ch];
       return m === null ? 0 : midiToChannel(m, cfg.scale, ranges[ch].range, channelBase(ranges[ch], cfg.root, 0));
     });
-    prev = rgbToHex(r, g, b);
-    return { hex: prev, alpha: st.held.length ? HOLD_ALPHA : 100 };
+    const mask = maskOf(st.held);
+    prev = copyHeld(rgbToHex(r, g, b), mask, prev);
+    return { hex: prev, alpha: maskToAlpha(mask) };
   });
 }
 
-/** Intended notes per step as {r, g, b} MIDI (null = silent, a "~" is its held note); null for ties and empty slots. */
+/** Intended notes per step as {r, g, b} MIDI (null = silent, a "~" is its held note); null for ties, silences and empty slots. */
 export function rgbSongMidis(song: RgbSong): (Record<Channel, number | null> | null)[] {
   return parseRgbSong(song).map((st) => (st.kind === 'note' ? { ...st.notes } : null));
 }
