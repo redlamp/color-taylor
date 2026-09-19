@@ -11,6 +11,12 @@
  * switched on mid-play waits for the next bar (a multiple of BAR steps on the
  * shared counter) and starts its own step 0 there, so the tracks stay in phase.
  *
+ * Every note in a step is its own voice - one oscillator -> lowpass -> gain
+ * chain - keyed by the step's `keys`. Glide and legato work key by key: a
+ * voice glides from the last pitch its key played, and a held voice carries on
+ * only into a step that has its key. In RGB Instruments the keys are the channels,
+ * each with its own instrument (wave, level, mute, fixed cutoff).
+ *
  * Visuals read the same clock through `visualAt` - nothing here waits on a
  * frame, and nothing a frame does reaches the audio.
  */
@@ -18,10 +24,13 @@ import { getAudioCtx, getMasterGain } from '../utils/audioContext';
 import { midiToFreq } from '../utils/synthConfig';
 import {
   clampGlide, gateSeconds, isLegato, stepSeconds,
-  type NoteStep, type Step, type Subdivision,
+  type Channel, type NoteStep, type Step, type Subdivision,
 } from './sequencer';
 
 export type Wave = 'triangle' | 'sine' | 'sawtooth' | 'square';
+
+/** One RGB Instruments instrument's sound. Its pitch span lives in the mapping (sequencer.ts). */
+export interface Instrument { wave: Wave; level: number; muted: boolean }
 
 export interface EngineParams {
   bpm: number;
@@ -29,6 +38,7 @@ export interface EngineParams {
   gatePct: number;
   glideMs: number;
   wave: Wave;
+  instruments: Record<Channel, Instrument>;
 }
 
 export interface TrackInput {
@@ -48,9 +58,19 @@ const LEGATO_SLEW = 0.01;
 const TRACK_GAIN = 0.28;
 /** Rough equal-loudness trim per waveform, so switching wave doesn't jump the level. */
 const WAVE_LOUDNESS: Record<Wave, number> = { sine: 1, triangle: 0.9, sawtooth: 0.38, square: 0.32 };
+/** RGB Instruments: a fixed lowpass per instrument, set to its waveform - bright waves get tamed more. */
+export const WAVE_CUTOFF: Record<Wave, number> = { sine: 8000, triangle: 5000, sawtooth: 2800, square: 2400 };
 
-interface Osc { osc: OscillatorNode; filter: BiquadFilterNode; gain: GainNode; level: number; freq: number; cutoff: number }
-interface Voice { oscs: Osc[]; dead: boolean }
+interface Voice {
+  key: string;
+  osc: OscillatorNode;
+  filter: BiquadFilterNode;
+  gain: GainNode;
+  level: number;
+  freq: number;
+  cutoff: number;
+  dead: boolean;
+}
 
 /** What a track was doing at one scheduled step - the visuals' record. */
 export interface StepEvent {
@@ -64,10 +84,10 @@ export interface StepEvent {
 }
 
 interface TrackState extends TrackInput {
-  /** Held legato voice, carried into the next step. */
-  held: Voice | null;
-  /** Last sounding pitches, for the glide into the next note. */
-  lastMidis: number[] | null;
+  /** Held legato voices by key, carried into the next step. */
+  held: Map<string, Voice>;
+  /** Last pitch each key played, for its glide into the next note. */
+  lastMidi: Map<string, number>;
   lastHex: string | null;
   scheduledIndex: number;
   events: StepEvent[];
@@ -84,12 +104,16 @@ const HISTORY = 64;
 /** Steps per bar - one row of cells. */
 export const BAR = 16;
 
+/** One booked step, for verification: how many voices it started or retuned. */
+export interface VoiceLogEntry { track: number; index: number; keys: string[] }
+
 export interface SeqCounters {
   readonly notesScheduled: number;
   readonly lastStepTime: number;
   readonly trackIndex: readonly number[];
   readonly trackStartStep: readonly number[];
   readonly trackStartTime: readonly number[];
+  readonly voiceLog: readonly VoiceLogEntry[];
   readonly playing: boolean;
 }
 
@@ -102,13 +126,14 @@ export class SequencerEngine {
   private stepCounter = 0;
   private notesScheduled = 0;
   private lastStepTime = 0;
+  private voiceLog: VoiceLogEntry[] = [];
   private ctx: AudioContext | null = null;
 
   constructor(params: EngineParams, trackCount = 2) {
     this.params = { ...params };
     this.tracks = Array.from({ length: trackCount }, () => ({
       steps: [], enabled: false, muted: false,
-      held: null, lastMidis: null, lastHex: null, scheduledIndex: -1, events: [],
+      held: new Map(), lastMidi: new Map(), lastHex: null, scheduledIndex: -1, events: [],
       origin: 0, sounding: false, startStep: -1, startTime: -1,
     }));
   }
@@ -124,7 +149,7 @@ export class SequencerEngine {
       // Join at the next bar line still to be booked, never mid-bar.
       tr.origin = Math.ceil(this.stepCounter / BAR) * BAR;
       tr.startStep = -1; tr.startTime = -1;
-      tr.lastMidis = null; tr.sounding = false;
+      tr.lastMidi.clear(); tr.sounding = false;
     }
     Object.assign(tr, input);
   }
@@ -138,8 +163,9 @@ export class SequencerEngine {
     getMasterGain();
     this.nextStepTime = ctx.currentTime + 0.06;
     this.stepCounter = 0;
+    this.voiceLog = [];
     for (const t of this.tracks) {
-      t.held = null; t.lastMidis = null; t.lastHex = null; t.scheduledIndex = -1; t.events = [];
+      t.held.clear(); t.lastMidi.clear(); t.lastHex = null; t.scheduledIndex = -1; t.events = [];
       t.origin = 0; t.sounding = false; t.startStep = -1; t.startTime = -1;
     }
     this.tick();
@@ -155,7 +181,7 @@ export class SequencerEngine {
       for (const v of this.live) this.kill(v, ctx.currentTime);
     }
     this.live.clear();
-    for (const t of this.tracks) { t.held = null; t.events = []; t.scheduledIndex = -1; }
+    for (const t of this.tracks) { t.held.clear(); t.events = []; t.scheduledIndex = -1; }
   }
 
   /** The clock the listener hears: currentTime less the output latency. */
@@ -180,6 +206,7 @@ export class SequencerEngine {
       trackIndex: this.tracks.map((t) => t.scheduledIndex),
       trackStartStep: this.tracks.map((t) => t.startStep),
       trackStartTime: this.tracks.map((t) => t.startTime),
+      voiceLog: this.voiceLog.map((e) => ({ ...e, keys: [...e.keys] })),
       playing: this.playing,
     };
   }
@@ -199,11 +226,19 @@ export class SequencerEngine {
     }
   }
 
+  private releaseHeld(tr: TrackState, at: number, keep?: ReadonlySet<string>): void {
+    for (const [key, v] of tr.held) {
+      if (keep?.has(key)) continue;
+      this.release(v, at);
+      tr.held.delete(key);
+    }
+  }
+
   private scheduleTrack(ctx: AudioContext, i: number, counter: number, t: number, stepSec: number): void {
     const tr = this.tracks[i];
     const len = tr.steps.length;
     if (!tr.enabled || len === 0 || counter < tr.origin) {
-      if (tr.held) { this.release(tr.held, t); tr.held = null; }
+      this.releaseHeld(tr, t);
       tr.scheduledIndex = -1;
       tr.sounding = false;
       return;
@@ -218,12 +253,13 @@ export class SequencerEngine {
     const glide = clampGlide(glideMs, stepSec);
 
     if (step.rest && step.tie && tr.sounding) {
-      // The note booked earlier already runs through this step: hold its colour, book nothing.
+      // The notes booked earlier already run through this step - every voice
+      // of them. Hold the colour, book nothing.
       this.record(tr, { time: t, index, fromHex: tr.lastHex, toHex: tr.lastHex, glide: 0 });
       return;
     }
     if (step.rest) {
-      if (tr.held) { this.release(tr.held, t); tr.held = null; }
+      this.releaseHeld(tr, t);
       // A tie with nothing to carry on is a rest, and shows as one.
       const hex = step.tie ? null : step.hex;
       this.record(tr, { time: t, index, fromHex: tr.lastHex, toHex: hex, glide: 0 });
@@ -233,38 +269,44 @@ export class SequencerEngine {
     }
     tr.sounding = true;
 
-    const from = tr.lastMidis && tr.lastMidis.length === step.midis.length ? tr.lastMidis : null;
-    this.record(tr, { time: t, index, fromHex: tr.lastHex, toHex: step.hex, glide: from ? glide : 0 });
+    const from = step.keys.map((k) => tr.lastMidi.get(k) ?? null);
+    const glides = from.some((m) => m !== null) && glide > 0;
+    this.record(tr, { time: t, index, fromHex: tr.lastHex, toHex: step.hex, glide: glides ? glide : 0 });
     tr.lastHex = step.hex;
-    tr.lastMidis = step.midis;
+    step.keys.forEach((k, n) => tr.lastMidi.set(k, step.midis[n]));
 
     if (tr.muted) {
-      if (tr.held) { this.release(tr.held, t); tr.held = null; }
+      this.releaseHeld(tr, t);
       return;
     }
 
+    // Ties are known now, so the note's length is too: it runs through every
+    // tied step and the gate applies to the last one. Deciding later is too
+    // late - with a short gate the release time can pass before the next step
+    // is booked.
+    let ties = 0;
+    while (ties < len - 1) {
+      const next = tr.steps[(index + ties + 1) % len];
+      if (!(next.rest && next.tie)) break;
+      ties++;
+    }
+    const end = Math.max(t + ATTACK, t + ties * stepSec + gateSeconds(gatePct, stepSec));
+
+    const sounding = step.keys.filter((k) => !(step.rgb && this.params.instruments[k as Channel].muted));
+    // A held voice whose key is gone from this step (a channel fell silent) ends here.
+    this.releaseHeld(tr, t, legato ? new Set(sounding) : undefined);
     this.notesScheduled++;
-    if (legato && tr.held && tr.held.oscs.length === step.midis.length) {
-      this.retune(tr.held, step, t, glide);
-      return;
-    }
-    if (tr.held) { this.release(tr.held, t); tr.held = null; }
-    const voice = this.voice(ctx, step, from, t, glide);
-    if (legato) {
-      tr.held = voice;
-    } else {
-      // Ties are known now, so the note's length is too: it runs through every
-      // tied step and the gate applies to the last one. Deciding later is too
-      // late - with a short gate the release time can pass before the next
-      // step is booked.
-      let ties = 0;
-      while (ties < len - 1) {
-        const next = tr.steps[(index + ties + 1) % len];
-        if (!(next.rest && next.tie)) break;
-        ties++;
-      }
-      this.release(voice, Math.max(t + ATTACK, t + ties * stepSec + gateSeconds(gatePct, stepSec)));
-    }
+    this.voiceLog.push({ track: i, index, keys: sounding });
+    if (this.voiceLog.length > HISTORY) this.voiceLog.splice(0, this.voiceLog.length - HISTORY);
+
+    step.keys.forEach((key, n) => {
+      if (!sounding.includes(key)) return;
+      const held = tr.held.get(key);
+      if (legato && held) { this.retune(held, step, n, t, glide); return; }
+      const v = this.voice(ctx, step, n, from[n], t, glide);
+      if (legato) tr.held.set(key, v);
+      else this.release(v, end);
+    });
   }
 
   private record(tr: TrackState, ev: StepEvent): void {
@@ -272,39 +314,43 @@ export class SequencerEngine {
     if (tr.events.length > HISTORY) tr.events.splice(0, tr.events.length - HISTORY);
   }
 
-  private levelFor(step: NoteStep, k: number): number {
-    const n = step.midis.length;
-    return step.velocity * step.levels[k] * TRACK_GAIN * WAVE_LOUDNESS[this.params.wave] / Math.sqrt(n);
+  /** Wave, level and cutoff for note `n`: the channel's instrument in RGB Instruments, the globals otherwise. */
+  private sound(step: NoteStep, n: number): { wave: Wave; level: number; cutoff: number } {
+    if (step.rgb) {
+      const inst = this.params.instruments[step.keys[n] as Channel];
+      // Three instruments at once: trim so full levels on all three don't clip the bus.
+      const level = step.velocity * inst.level * TRACK_GAIN * WAVE_LOUDNESS[inst.wave] / Math.sqrt(3);
+      return { wave: inst.wave, level, cutoff: WAVE_CUTOFF[inst.wave] };
+    }
+    const wave = this.params.wave;
+    const level = step.velocity * step.levels[n] * TRACK_GAIN * WAVE_LOUDNESS[wave] / Math.sqrt(step.midis.length);
+    return { wave, level, cutoff: step.cutoff };
   }
 
-  /** A new voice: glides from the previous pitches if there are any, attacks from 0. */
-  private voice(ctx: AudioContext, step: NoteStep, from: number[] | null, t: number, glide: number): Voice {
-    const out = getMasterGain();
-    const oscs = step.midis.map((midi, k) => {
-      const osc = ctx.createOscillator();
-      osc.type = this.params.wave;
-      const freq = midiToFreq(midi);
-      if (from && glide > 0) {
-        osc.frequency.setValueAtTime(midiToFreq(from[k]), t);
-        osc.frequency.linearRampToValueAtTime(freq, t + glide);
-      } else {
-        osc.frequency.setValueAtTime(freq, t);
-      }
-      const filter = ctx.createBiquadFilter();
-      filter.type = 'lowpass';
-      filter.Q.value = 0.7;
-      filter.frequency.setValueAtTime(step.cutoff, t);
-      const gain = ctx.createGain();
-      const level = this.levelFor(step, k);
-      gain.gain.setValueAtTime(0, t);
-      gain.gain.linearRampToValueAtTime(level, t + ATTACK);
-      osc.connect(filter).connect(gain).connect(out);
-      osc.start(t);
-      return { osc, filter, gain, level, freq, cutoff: step.cutoff };
-    });
-    const v: Voice = { oscs, dead: false };
-    oscs[0].osc.onended = () => {
-      for (const o of oscs) { o.osc.disconnect(); o.filter.disconnect(); o.gain.disconnect(); }
+  /** A new voice: glides from its key's previous pitch if there is one, attacks from 0. */
+  private voice(ctx: AudioContext, step: NoteStep, n: number, from: number | null, t: number, glide: number): Voice {
+    const { wave, level, cutoff } = this.sound(step, n);
+    const osc = ctx.createOscillator();
+    osc.type = wave;
+    const freq = midiToFreq(step.midis[n]);
+    if (from !== null && glide > 0) {
+      osc.frequency.setValueAtTime(midiToFreq(from), t);
+      osc.frequency.linearRampToValueAtTime(freq, t + glide);
+    } else {
+      osc.frequency.setValueAtTime(freq, t);
+    }
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.Q.value = 0.7;
+    filter.frequency.setValueAtTime(cutoff, t);
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(level, t + ATTACK);
+    osc.connect(filter).connect(gain).connect(getMasterGain());
+    osc.start(t);
+    const v: Voice = { key: step.keys[n], osc, filter, gain, level, freq, cutoff, dead: false };
+    osc.onended = () => {
+      osc.disconnect(); filter.disconnect(); gain.disconnect();
       this.live.delete(v);
     };
     this.live.add(v);
@@ -312,41 +358,35 @@ export class SequencerEngine {
   }
 
   /** Legato: keep the voice sounding, ramp it to the new note instead of retriggering. */
-  private retune(v: Voice, step: NoteStep, t: number, glide: number): void {
-    v.oscs.forEach((o, k) => {
-      const freq = midiToFreq(step.midis[k]);
-      const level = this.levelFor(step, k);
-      o.osc.frequency.setValueAtTime(o.freq, t);
-      if (glide > 0) o.osc.frequency.linearRampToValueAtTime(freq, t + glide);
-      else o.osc.frequency.setValueAtTime(freq, t);
-      o.filter.frequency.setValueAtTime(o.cutoff, t);
-      o.filter.frequency.exponentialRampToValueAtTime(step.cutoff, t + Math.max(glide, LEGATO_SLEW));
-      o.gain.gain.setValueAtTime(o.level, t);
-      o.gain.gain.linearRampToValueAtTime(level, t + LEGATO_SLEW);
-      o.osc.type = this.params.wave;
-      o.freq = freq; o.level = level; o.cutoff = step.cutoff;
-    });
+  private retune(v: Voice, step: NoteStep, n: number, t: number, glide: number): void {
+    const { wave, level, cutoff } = this.sound(step, n);
+    const freq = midiToFreq(step.midis[n]);
+    v.osc.frequency.setValueAtTime(v.freq, t);
+    if (glide > 0) v.osc.frequency.linearRampToValueAtTime(freq, t + glide);
+    else v.osc.frequency.setValueAtTime(freq, t);
+    v.filter.frequency.setValueAtTime(v.cutoff, t);
+    v.filter.frequency.exponentialRampToValueAtTime(cutoff, t + Math.max(glide, LEGATO_SLEW));
+    v.gain.gain.setValueAtTime(v.level, t);
+    v.gain.gain.linearRampToValueAtTime(level, t + LEGATO_SLEW);
+    v.osc.type = wave;
+    v.freq = freq; v.level = level; v.cutoff = cutoff;
   }
 
   /** Hold to `at`, fade over RELEASE, then stop (and disconnect, via onended). */
   private release(v: Voice, at: number): void {
-    for (const o of v.oscs) {
-      o.gain.gain.setValueAtTime(o.level, at);
-      o.gain.gain.linearRampToValueAtTime(0, at + RELEASE);
-      o.osc.stop(at + RELEASE + 0.01);
-    }
+    v.gain.gain.setValueAtTime(v.level, at);
+    v.gain.gain.linearRampToValueAtTime(0, at + RELEASE);
+    v.osc.stop(at + RELEASE + 0.01);
   }
 
   /** Stop now, whatever was booked: cancel the future automation and fade fast. */
   private kill(v: Voice, now: number): void {
     if (v.dead) return;
     v.dead = true;
-    for (const o of v.oscs) {
-      try {
-        o.gain.gain.cancelScheduledValues(now);
-        o.gain.gain.setTargetAtTime(0, now, 0.005);
-        o.osc.stop(now + 0.04);
-      } catch { /* already stopped */ }
-    }
+    try {
+      v.gain.gain.cancelScheduledValues(now);
+      v.gain.gain.setTargetAtTime(0, now, 0.005);
+      v.osc.stop(now + 0.04);
+    } catch { /* already stopped */ }
   }
 }

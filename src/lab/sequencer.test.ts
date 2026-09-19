@@ -1,8 +1,11 @@
 import { describe, expect, test } from 'bun:test';
 import {
-  BUILTIN_PALETTES, SCALES, SONGS, midiToHue, noteNameToMidi, songConfig, songMidis, songSlots, clampGlide, gateSeconds, hueToFifthsRoot, hueToMidi, isLegato,
-  parseRecentSlots, parseSavedSlots, saturationToCutoff, stepSeconds, swatchToStep,
-  type MapConfig,
+  BUILTIN_PALETTES, CHANNELS, DEFAULT_RANGES, ODE_RGB, SCALES, SONGS,
+  channelBase, channelChoices, channelNoteToHex, channelNotes, channelToMidi, chordRootToHex,
+  clampGlide, gateSeconds, hueToFifthsRoot, hueToMidi, isLegato, melodyChoices, melodyNoteToHex,
+  midiToChannel, midiToHue, noteNameToMidi, parseRecentSlots, parseSavedSlots, rgbSongConfig,
+  rgbSongMidis, rgbSongSlots, saturationToCutoff, songConfig, songMidis, songSlots, stepSeconds,
+  swatchToStep, type MapConfig, type ScaleName,
 } from './sequencer';
 
 const MELODY: MapConfig = { mode: 'melody', scale: 'pentatonic', root: 0, octaveRange: 2, octaveOffset: 0 };
@@ -179,4 +182,114 @@ describe('songs', () => {
       });
     }
   }
+});
+
+const RGB: MapConfig = { mode: 'rgb', scale: 'major', root: 2, octaveRange: 2, octaveOffset: 0 };
+
+describe('RGB Instruments', () => {
+  test('channel value picks a degree across its own range; below 8 is silent', () => {
+    // Major over 1 octave from D2 (38): 7 buckets over 8..255.
+    expect(channelToMidi(7, 'major', 1, 38)).toBeNull();
+    expect(channelToMidi(8, 'major', 1, 38)).toBe(38);
+    expect(channelToMidi(255, 'major', 1, 38)).toBe(49);
+    expect(channelToMidi(128, 'major', 1, 38)).toBe(43);
+  });
+
+  test('pure red plays R alone, white all three, black rests', () => {
+    const red = swatchToStep({ hex: '#ff0000', alpha: 100 }, RGB);
+    expect(red.rest ? null : red.keys).toEqual(['r']);
+    const white = swatchToStep({ hex: '#ffffff', alpha: 100 }, RGB);
+    expect(white.rest ? null : white.keys).toEqual(['r', 'g', 'b']);
+    expect(swatchToStep({ hex: '#000000', alpha: 100 }, RGB).rest).toBe(true);
+    const tie = swatchToStep({ hex: '#ffffff', alpha: 0 }, RGB);
+    expect(tie.rest && tie.tie).toBe(true);
+  });
+
+  test('R is the bass, B the lead, by default', () => {
+    const w = swatchToStep({ hex: '#808080', alpha: 100 }, RGB);
+    if (w.rest) throw new Error('rest');
+    expect(w.midis[0]).toBeLessThan(w.midis[1]);
+    expect(w.midis[1]).toBeLessThan(w.midis[2]);
+  });
+
+  test('midiToChannel round-trips every note, every scale and range', () => {
+    for (const scale of Object.keys(SCALES) as ScaleName[]) {
+      for (const range of [1, 2, 3]) {
+        const base = 40;
+        const table = SCALES[scale];
+        for (let i = 0; i < table.length * range; i++) {
+          const midi = base + Math.floor(i / table.length) * 12 + table[i % table.length];
+          const v = midiToChannel(midi, scale, range, base);
+          expect(v).toBeGreaterThanOrEqual(8);
+          expect(channelToMidi(v, scale, range, base)).toBe(midi);
+        }
+      }
+    }
+  });
+
+  test('Ode to Joy - RGB Instruments: every channel plays its intended note', () => {
+    const cfg = rgbSongConfig(ODE_RGB);
+    const slots = rgbSongSlots(ODE_RGB);
+    const want = rgbSongMidis(ODE_RGB);
+    expect(slots.length).toBe(64);
+    slots.forEach((slot, i) => {
+      const w = want[i];
+      if (w === null) {
+        const step = swatchToStep(slot, cfg);
+        expect(step.rest && step.tie).toBe(true);
+        return;
+      }
+      expect(channelNotes(slot!.hex, cfg)).toEqual(w);
+      const step = swatchToStep(slot, cfg);
+      expect(step.rest ? null : step.keys).toEqual(CHANNELS.filter((c) => w[c] !== null));
+    });
+  });
+});
+
+describe('note pickers', () => {
+  const HUE_CFGS: MapConfig[] = [
+    MELODY,
+    { ...MELODY, scale: 'chromatic', octaveRange: 3, root: 5, baseOctave: 2 },
+    { ...MELODY, scale: 'minor', octaveRange: 1, octaveOffset: 1 },
+  ];
+  test('melody: every choice, from any starting colour, plays that note', () => {
+    for (const cfg of HUE_CFGS) {
+      for (const start of ['#ffffff', '#000000', '#3a2f1c', '#ff0000', '#20c0f0']) {
+        for (const midi of melodyChoices(cfg)) {
+          const hex = melodyNoteToHex(start, midi, cfg);
+          const step = swatchToStep({ hex, alpha: 100 }, cfg);
+          expect(step.rest ? null : step.midis).toEqual([midi]);
+        }
+      }
+    }
+  });
+
+  test('melody keeps S and B when they are high enough', () => {
+    const hex = melodyNoteToHex('#804040', 55, MELODY);
+    expect(hex).not.toBe('#804040');
+    // #804040 is S 50, B 50: both above the floors, so kept.
+    expect(swatchToStep({ hex, alpha: 100 }, MELODY).rest).toBe(false);
+  });
+
+  test('chord root: every pitch class, keeping minor for low saturation', () => {
+    const cfg: MapConfig = { ...MELODY, mode: 'chords', root: 3 };
+    for (let pc = 0; pc < 12; pc++) {
+      const major = swatchToStep({ hex: chordRootToHex('#ff0000', pc, cfg), alpha: 100 }, cfg);
+      expect(major.rest ? null : major.label).toBe(['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'][pc]);
+      const minor = swatchToStep({ hex: chordRootToHex('#808080', pc, cfg), alpha: 100 }, cfg);
+      expect(minor.rest ? null : minor.label.endsWith('m')).toBe(true);
+    }
+  });
+
+  test('channel pickers set one channel and leave the others', () => {
+    for (const ch of CHANNELS) {
+      for (const midi of channelChoices(ch, RGB)) {
+        const hex = channelNoteToHex('#102030', ch, midi, RGB);
+        expect(channelNotes(hex, RGB)[ch]).toBe(midi);
+      }
+    }
+    expect(channelNoteToHex('#ffffff', 'g', null, RGB)).toBe('#ff00ff');
+    const base = channelBase(DEFAULT_RANGES.r, 2, 0);
+    expect(channelChoices('r', RGB)[0]).toBe(base);
+  });
 });

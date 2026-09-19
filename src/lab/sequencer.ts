@@ -18,7 +18,10 @@ import { hexToRgb, hsbToRgb, rgbToHex, rgbToHsb } from '../utils/colorConversion
 import { midiToName } from '../utils/synthConfig';
 
 export type ScaleName = 'pentatonic' | 'major' | 'minor' | 'chromatic';
-export type SeqMode = 'melody' | 'chords';
+/** 'chords' is Hue Chords (a circle-of-fifths triad); 'rgb' is RGB Instruments (a note per channel). */
+export type SeqMode = 'melody' | 'chords' | 'rgb';
+export type Channel = 'r' | 'g' | 'b';
+export const CHANNELS: readonly Channel[] = ['r', 'g', 'b'];
 export type Subdivision = 4 | 8 | 16;
 
 export const SCALES: Record<ScaleName, readonly number[]> = {
@@ -56,21 +59,50 @@ export interface MapConfig {
   octaveRange: number;
   /** The track's own shift, -2..+2. */
   octaveOffset: number;
+  /** Hue modes: the octave whose C is the bottom of the range (3 = C3). Default 3. */
+  baseOctave?: number;
+  /** RGB Instruments: each channel's own base octave and range. DEFAULT_RANGES when absent. */
+  ranges?: Record<Channel, ChannelRange>;
 }
+
+/** An RGB-chords instrument's pitch span: base octave (2 = C2 plus the root) and 1..3 octaves. */
+export interface ChannelRange { octave: number; range: number }
+
+/**
+ * Physics order: red is the lowest frequency of visible light, so R is the
+ * bass, G the middle voice and B the lead.
+ */
+export const DEFAULT_RANGES: Record<Channel, ChannelRange> = {
+  r: { octave: 2, range: 1 },
+  g: { octave: 3, range: 2 },
+  b: { octave: 4, range: 2 },
+};
+/** RGB Instruments: a channel below this is silent, so pure red plays R alone. */
+export const CHANNEL_REST = 8;
 
 /** A silent step. `tie` means "keep the previous note sounding" rather than silence. */
 export interface RestStep { rest: true; tie: boolean; hex: string | null; label: 'rest' | 'tie' }
 export interface NoteStep {
   rest: false;
   hex: string;
-  /** One note in Melody mode, a triad in Chords mode. */
+  /** One note in Melody mode, a triad in Hue Chords, one per sounding channel in RGB Instruments. */
   midis: number[];
+  /**
+   * Parallel to `midis`: which voice each note is. The engine glides and holds
+   * voice by voice, matching keys. '0'.. for Melody and Hue Chords, the
+   * channel ('r' | 'g' | 'b') in RGB Instruments.
+   */
+  keys: string[];
+  /** RGB Instruments: each key is a channel, played by that channel's instrument. */
+  rgb: boolean;
   /** Per-voice level 0..1, parallel to `midis`. 1 in Melody mode; R, G, B in Chords. */
   levels: number[];
   /** 0..1 - brightness curve times alpha. */
   velocity: number;
   cutoff: number;
   label: string;
+  /** Every voice spelled out, for a tooltip. */
+  detail: string;
 }
 export type Step = RestStep | NoteStep;
 
@@ -99,6 +131,11 @@ export function brightnessToVelocity(b: number): number {
   return Math.pow(clamp(b, 0, 100) / 100, VELOCITY_CURVE);
 }
 
+/** The C at the bottom of a hue mode's range: base octave plus the track's offset. */
+export function hueBase(cfg: MapConfig): number {
+  return BASE_MIDI + 12 * ((cfg.baseOctave ?? 3) - 3) + 12 * cfg.octaveOffset;
+}
+
 export function swatchToStep(slot: Slot, cfg: MapConfig): Step {
   if (!slot) return { rest: true, tie: false, hex: null, label: 'rest' };
   const rgb = hexToRgb(slot.hex);
@@ -107,21 +144,23 @@ export function swatchToStep(slot: Slot, cfg: MapConfig): Step {
   const alpha = clamp(slot.alpha, 0, 100) / 100;
   // Alpha 0 is checked before brightness: a tie's colour doesn't matter.
   if (alpha <= 0) return { rest: true, tie: true, hex, label: 'tie' };
+  if (cfg.mode === 'rgb') return rgbChordStep(rgb, hex, alpha, cfg);
   const hsb = rgbToHsb(rgb.r, rgb.g, rgb.b);
   if (hsb.b < REST_BRIGHTNESS) return { rest: true, tie: false, hex, label: 'rest' };
 
   const velocity = brightnessToVelocity(hsb.b) * alpha;
   const cutoff = saturationToCutoff(hsb.s);
-  const base = BASE_MIDI + cfg.root + 12 * cfg.octaveOffset;
+  const base = hueBase(cfg) + cfg.root;
 
   if (cfg.mode === 'melody') {
     const midi = hueToMidi(hsb.h, cfg.scale, cfg.octaveRange, base);
-    return { rest: false, hex, midis: [midi], levels: [1], velocity, cutoff, label: midiToName(midi) };
+    const name = midiToName(midi);
+    return { rest: false, hex, midis: [midi], keys: ['0'], rgb: false, levels: [1], velocity, cutoff, label: name, detail: name };
   }
 
   // The chord root sits in the octave above the track's base C, whatever the key.
   const pc = hueToFifthsRoot(hsb.h, cfg.root);
-  const rootMidi = BASE_MIDI + 12 * cfg.octaveOffset + pc;
+  const rootMidi = hueBase(cfg) + pc;
   const minor = hsb.s < MINOR_SATURATION;
   const midis = [rootMidi, rootMidi + (minor ? 3 : 4), rootMidi + 7];
   // Brightness is the largest channel and already rides in velocity, so each
@@ -129,7 +168,69 @@ export function swatchToStep(slot: Slot, cfg: MapConfig): Step {
   // channel's voice is at full velocity, the others under it.
   const max = Math.max(rgb.r, rgb.g, rgb.b);
   const levels = [rgb.r, rgb.g, rgb.b].map((c) => Math.pow(c / max, VELOCITY_CURVE));
-  return { rest: false, hex, midis, levels, velocity, cutoff, label: `${NOTE_NAMES[pc]}${minor ? 'm' : ''}` };
+  const label = `${NOTE_NAMES[pc]}${minor ? 'm' : ''}`;
+  return {
+    rest: false, hex, midis, keys: ['0', '1', '2'], rgb: false, levels, velocity, cutoff, label,
+    detail: `${label}: ${midis.map(midiToName).join(' ')}`,
+  };
+}
+
+// --- RGB Instruments -----------------------------------------------------------
+
+/** The lowest note an instrument plays: its base octave's C, plus the key's root and the track offset. */
+export function channelBase(range: ChannelRange, root: number, octaveOffset: number): number {
+  return (range.octave + 1) * 12 + root + 12 * octaveOffset;
+}
+
+/** A 0..255 channel value -> a scale degree across the instrument's range (over 8..255), or null (silent) below CHANNEL_REST. */
+export function channelToMidi(v: number, scale: ScaleName, octaveRange: number, base: number): number | null {
+  if (v < CHANNEL_REST) return null;
+  const table = SCALES[scale];
+  const steps = table.length * octaveRange;
+  // The audible span 8..255 is split evenly - measuring from 0 would leave the
+  // lowest bucket wholly under the rest line at 3 octaves of chromatic (36 steps).
+  const deg = Math.min(steps - 1, Math.floor(((clamp(v, 0, 255) - CHANNEL_REST) / (256 - CHANNEL_REST)) * steps));
+  return base + Math.floor(deg / table.length) * 12 + table[deg % table.length];
+}
+
+/**
+ * The inverse: the channel value at the centre of `midi`'s bucket. Throws for
+ * a note off the scale or out of range.
+ */
+export function midiToChannel(midi: number, scale: ScaleName, octaveRange: number, base: number): number {
+  const table = SCALES[scale];
+  const offset = midi - base;
+  const oct = Math.floor(offset / 12);
+  const degree = table.indexOf(((offset % 12) + 12) % 12);
+  if (degree < 0 || oct < 0 || oct >= octaveRange) {
+    throw new Error(`midi ${midi} is not in ${scale} over ${octaveRange} octave(s) from ${base}`);
+  }
+  const steps = table.length * octaveRange;
+  const idx = oct * table.length + degree;
+  return Math.min(255, Math.floor(CHANNEL_REST + ((idx + 0.5) / steps) * (256 - CHANNEL_REST)));
+}
+
+/**
+ * RGB Instruments: each channel is its own instrument and its value picks its note.
+ * Loudness is the instrument's level times the alpha accent (the engine owns
+ * the levels), so `velocity` here is alpha alone; the filter is the
+ * instrument's too, so `cutoff` is left open.
+ */
+function rgbChordStep(rgb: { r: number; g: number; b: number }, hex: string, alpha: number, cfg: MapConfig): Step {
+  const ranges = cfg.ranges ?? DEFAULT_RANGES;
+  const midis: number[] = [];
+  const keys: string[] = [];
+  for (const ch of CHANNELS) {
+    const midi = channelToMidi(rgb[ch], cfg.scale, ranges[ch].range, channelBase(ranges[ch], cfg.root, cfg.octaveOffset));
+    if (midi !== null) { midis.push(midi); keys.push(ch); }
+  }
+  if (midis.length === 0) return { rest: true, tie: false, hex, label: 'rest' };
+  // The cell shows the lead - the highest channel sounding; the tooltip has them all.
+  const detail = keys.map((k, i) => `${k.toUpperCase()} ${midiToName(midis[i])}`).join(' · ');
+  return {
+    rest: false, hex, midis, keys, rgb: true, levels: midis.map(() => 1), velocity: alpha,
+    cutoff: CUTOFF_MAX, label: midiToName(midis[midis.length - 1]), detail,
+  };
 }
 
 // --- timing ---------------------------------------------------------------
@@ -315,3 +416,143 @@ export const SONGS = {
     bass: { octave: -1, notes: TELL_BASS }, // base E2
   },
 } satisfies Record<string, Song>;
+
+// --- RGB Instruments songs -----------------------------------------------------
+
+export interface RgbSong {
+  name: string;
+  settings: SongSettings & { ranges: Record<Channel, ChannelRange> };
+  /**
+   * One token string per channel, aligned step for step. A step is a tie only
+   * if every channel ties ("-"), since a tie holds all three; "." silences
+   * that channel; a step where every channel is "." is an empty slot.
+   */
+  parts: Record<Channel, string>;
+}
+
+export function rgbSongConfig(song: RgbSong): MapConfig {
+  const { scale, root, octaveRange, ranges } = song.settings;
+  return { mode: 'rgb', scale, root, octaveRange, octaveOffset: 0, ranges };
+}
+
+const tokens = (s: string) => s.trim().split(/\s+/);
+
+/** Each step's colour: every channel set to the centre of its note's bucket. */
+export function rgbSongSlots(song: RgbSong): Slot[] {
+  const cfg = rgbSongConfig(song);
+  const ranges = cfg.ranges ?? DEFAULT_RANGES;
+  const cols = CHANNELS.map((ch) => tokens(song.parts[ch]));
+  if (cols.some((c) => c.length !== cols[0].length)) throw new Error('RGB song parts differ in length');
+  let prev: string | null = null;
+  return cols[0].map((_, i) => {
+    const toks = cols.map((c) => c[i]);
+    if (toks.every((t) => t === '-')) {
+      if (!prev) throw new Error('a tie needs a note before it');
+      return { hex: prev, alpha: 0 };
+    }
+    if (toks.includes('-')) throw new Error(`step ${i}: a tie must hold all three channels`);
+    if (toks.every((t) => t === '.')) { prev = null; return null; }
+    const [r, g, b] = CHANNELS.map((ch, k) => (toks[k] === '.'
+      ? 0
+      : midiToChannel(noteNameToMidi(toks[k]), cfg.scale, ranges[ch].range, channelBase(ranges[ch], cfg.root, 0))));
+    prev = rgbToHex(r, g, b);
+    return { hex: prev, alpha: 100 };
+  });
+}
+
+/** Intended notes per step as {r, g, b} MIDI (null = silent); null for ties and empty slots. */
+export function rgbSongMidis(song: RgbSong): (Record<Channel, number | null> | null)[] {
+  const cols = CHANNELS.map((ch) => tokens(song.parts[ch]));
+  return cols[0].map((_, i) => {
+    const toks = cols.map((c) => c[i]);
+    if (toks.every((t) => t === '-') || toks.every((t) => t === '.')) return null;
+    const note = (t: string) => (t === '.' ? null : noteNameToMidi(t));
+    return { r: note(toks[0]), g: note(toks[1]), b: note(toks[2]) };
+  });
+}
+
+// Ode to Joy again, as one track: B the tune, G a diatonic third under it
+// (the sixth, A3, at the final cadence), R the bass root. Ties hold all
+// three, so the bass restrikes with each melody note.
+export const ODE_RGB: RgbSong = {
+  name: 'Ode to Joy - RGB Instruments',
+  settings: { bpm: 100, subdivision: 8, scale: 'major', root: 2, octaveRange: 2, ranges: DEFAULT_RANGES },
+  parts: {
+    b: ODE_MELODY,
+    g: [
+      'D4 - D4 - E4 - F#4 -   F#4 - E4 - D4 - C#4 -   B3 - B3 - C#4 - D4 -   D4 - - C#4 C#4 - - -',
+      'D4 - D4 - E4 - F#4 -   F#4 - E4 - D4 - C#4 -   B3 - B3 - C#4 - D4 -   C#4 - - A3 A3 - - -',
+    ].join(' '),
+    r: [
+      'D2 - D2 - D2 - D2 -   A2 - A2 - D2 - A2 -   B2 - B2 - A2 - D2 -   D2 - - A2 A2 - - -',
+      'D2 - D2 - D2 - D2 -   A2 - A2 - D2 - A2 -   B2 - B2 - A2 - D2 -   A2 - - D2 D2 - - -',
+    ].join(' '),
+  },
+};
+
+// --- note pickers: notes -> colour, per mode --------------------------------
+
+/**
+ * A colour whose hue survives 8-bit rounding needs some chroma: at S or B near
+ * 0 the hue is lost. The pickers keep the swatch's S and B but lift them to
+ * these floors.
+ */
+const PICK_MIN_S = 40;
+const PICK_MIN_B = 40;
+/** Hue Chords keeps low saturation (minor) where it can: a floor under the minor line. */
+const PICK_MIN_S_CHORD = 15;
+
+function hsbOf(hex: string): { h: number; s: number; b: number } {
+  const rgb = hexToRgb(hex) ?? { r: 255, g: 255, b: 255 };
+  return rgbToHsb(rgb.r, rgb.g, rgb.b);
+}
+function hsbHex(h: number, s: number, b: number): string {
+  const { r, g, b: bl } = hsbToRgb(h, s, b);
+  return rgbToHex(r, g, bl);
+}
+
+/** Every note Hue Melody can play under `cfg`, low to high. */
+export function melodyChoices(cfg: MapConfig): number[] {
+  const table = SCALES[cfg.scale];
+  const base = hueBase(cfg) + cfg.root;
+  return Array.from({ length: table.length * cfg.octaveRange }, (_, i) => base + Math.floor(i / table.length) * 12 + table[i % table.length]);
+}
+
+/** Hue Melody: `hex` moved to the centre hue of `midi`'s band, S and B kept (above the floors). */
+export function melodyNoteToHex(hex: string, midi: number, cfg: MapConfig): string {
+  const { s, b } = hsbOf(hex);
+  const hue = midiToHue(midi, cfg.scale, cfg.octaveRange, hueBase(cfg) + cfg.root);
+  return hsbHex(hue, Math.max(PICK_MIN_S, s), Math.max(PICK_MIN_B, b));
+}
+
+/** Hue Chords: `hex` moved to the centre of the slice whose root is pitch class `pc`. */
+export function chordRootToHex(hex: string, pc: number, cfg: MapConfig): string {
+  const { s, b } = hsbOf(hex);
+  // Slice i has root (root + 7i) % 12; 7 is its own inverse mod 12.
+  const slice = ((((pc - cfg.root) * 7) % 12) + 12) % 12;
+  return hsbHex(slice * 30 + 15, Math.max(PICK_MIN_S_CHORD, s), Math.max(PICK_MIN_B, b));
+}
+
+/** Every note channel `ch` can play under `cfg`, low to high. */
+export function channelChoices(ch: Channel, cfg: MapConfig): number[] {
+  const range = (cfg.ranges ?? DEFAULT_RANGES)[ch];
+  const table = SCALES[cfg.scale];
+  const base = channelBase(range, cfg.root, cfg.octaveOffset);
+  return Array.from({ length: table.length * range.range }, (_, i) => base + Math.floor(i / table.length) * 12 + table[i % table.length]);
+}
+
+/** RGB Instruments: `hex` with channel `ch` set to `midi`'s bucket centre, or to 0 (silent) for null. */
+export function channelNoteToHex(hex: string, ch: Channel, midi: number | null, cfg: MapConfig): string {
+  const rgb = hexToRgb(hex) ?? { r: 0, g: 0, b: 0 };
+  const range = (cfg.ranges ?? DEFAULT_RANGES)[ch];
+  rgb[ch] = midi === null ? 0 : midiToChannel(midi, cfg.scale, range.range, channelBase(range, cfg.root, cfg.octaveOffset));
+  return rgbToHex(rgb.r, rgb.g, rgb.b);
+}
+
+/** RGB Instruments: the note each channel of `hex` plays, null where silent. */
+export function channelNotes(hex: string, cfg: MapConfig): Record<Channel, number | null> {
+  const rgb = hexToRgb(hex) ?? { r: 0, g: 0, b: 0 };
+  const ranges = cfg.ranges ?? DEFAULT_RANGES;
+  const note = (ch: Channel) => channelToMidi(rgb[ch], cfg.scale, ranges[ch].range, channelBase(ranges[ch], cfg.root, cfg.octaveOffset));
+  return { r: note('r'), g: note('g'), b: note('b') };
+}
