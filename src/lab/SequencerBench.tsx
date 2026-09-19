@@ -20,7 +20,7 @@
  * file and the share link are in sequencerTracks.ts and SequencerLibrary.tsx.
  */
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Link, Minus, Play, Plus, RefreshCw, Repeat, Square, X } from 'lucide-react';
+import { Eye, EyeOff, Link, Minus, Play, Plus, RefreshCw, Repeat, Square, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -79,6 +79,8 @@ interface Settings {
   dirty: boolean;
   /** Snap a dragged cell to its note's centre on release. */
   snap: boolean;
+  /** Draw the hold marks on the step cells. A view preference: not part of an arrangement. */
+  holdMarks: boolean;
   /** Saved arrangements - "Save as..." and the JSON import land here. */
   library: SavedArrangement[];
   /** Which collapsible sections are open, by id. Absent is open. */
@@ -92,6 +94,7 @@ const DEFAULTS: Settings = {
   glideMs: 40,
   gatePct: 70,
   loop: true,
+  holdMarks: true,
   mode: 'melody',
   melody: { scale: 'pentatonic', root: 0, baseOctave: 3, octaveRange: 2, wave: 'triangle' },
   chords: { root: 0, baseOctave: 3, wave: 'triangle' },
@@ -902,6 +905,11 @@ export default function SequencerBench() {
             title={settings.loop ? 'Looping - click to play each track once' : 'Plays each track once - click to loop'}>
             <Repeat /> {settings.loop ? 'Loop on' : 'Loop off'}
           </Button>
+          <Button size="lg" variant={settings.holdMarks ? 'secondary' : 'outline'} className="text-base" aria-pressed={settings.holdMarks}
+            onClick={() => set('holdMarks', !settings.holdMarks)}
+            title={settings.holdMarks ? 'Hold marks shown on the cells - click to hide' : 'Hold marks hidden - click to show'}>
+            {settings.holdMarks ? <Eye /> : <EyeOff />} Hold marks
+          </Button>
           <select
             aria-label="Load song"
             className="h-9 min-w-48 grow basis-48 max-sm:basis-full rounded-lg border border-border bg-background px-2 text-base text-foreground"
@@ -1050,11 +1058,11 @@ export default function SequencerBench() {
                                     <line x1="1" y1="9" x2="9" y2="1" className="stroke-foreground" strokeWidth={2} strokeLinecap="round" vectorEffect="non-scaling-stroke" />
                                   </svg>
                                 )}
-                                {held.length > 0 && mode !== 'rgb' && (
+                                {settings.holdMarks && held.length > 0 && mode !== 'rgb' && (
                                   <span aria-hidden data-tick="hold"
                                     className="absolute bottom-1 left-1/2 h-1.5 w-3/5 -translate-x-1/2 rounded-full border border-foreground bg-background" />
                                 )}
-                                {held.length > 0 && mode === 'rgb' && (
+                                {settings.holdMarks && held.length > 0 && mode === 'rgb' && (
                                   <span aria-hidden className="pointer-events-none absolute inset-x-1 bottom-1 flex justify-between">
                                     {CHANNELS.map((ch) => (
                                       <span key={ch} data-tick={held.includes(ch) ? ch : undefined}
