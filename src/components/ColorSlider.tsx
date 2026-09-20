@@ -28,6 +28,10 @@ const CHANNEL_NAMES: Record<string, string> = {
   'hsl-l': 'Lightness',
   'oklch-l': 'Lightness',
   'oklch-c': 'Chroma',
+  // The Oklch lab's relative track: chroma as a share of what the gamut holds
+  // at this L and H, which is the thing people mean by saturation. Without the
+  // entry the lookup falls through to the letter and it reads as "S channel".
+  'oklch-s': 'Saturation',
   'oklch-h': 'Hue',
   'alpha-a': 'Alpha',
 };
