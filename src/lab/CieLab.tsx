@@ -141,30 +141,60 @@ function figuresFor(gamut: GamutId): GamutFigures {
  * The chromaticity diagram and the two square figures are plain ratios: their
  * height is proportional to their width and nothing else.
  *
- * The hexagon is not, and that is the interesting one. `ColorHexagon` puts a
- * mode-switch row above a stage, and the row has a fixed height while the
- * stage scales - so its height is *affine* in its width, not proportional,
- * and a single aspect ratio is wrong at every size but one. Measured on the
- * rendered element at seven widths from 200 to 553 px, with `satBar` off:
- * height came out 247, 288, 334, 381, 428, 475 and 516 px, which is a
- * straight line of slope 0.762 and intercept 95 px to within two pixels
- * across the whole range. Inverting that line is what the expression does.
+ * THE HEXAGON HAS TWO LAYOUTS AND ONLY ONE OF THEM IS THE PICKER'S.
  *
- * Measured rather than derived because the alternative is re-deriving a dozen
- * constants in hexConstants.ts plus two container-query breakpoints, and the
- * answer would still have to be checked against the rendered element.
+ * `ColorHexagon` stands its brightness bar beside the hexagon while the card
+ * is wider than `HEX_STACKED_BARS_MAX`, and lays it down under the saturation
+ * bar below that. The two are different shapes and different controls: the
+ * wide one carries the value *pills* - the draggable chips the app's own
+ * picker has - and the narrow one replaces them with title readouts, because
+ * a pill needs a gutter the narrow card has already spent.
+ *
+ * Measured in a real browser at settled widths, both regimes:
+ *
+ *     stacked   200 -> 352,  440 -> 572   (h = 0.917w + 169)
+ *     with pill 480 -> 486,  560 -> 555   (h = 0.863w + 73)
+ *
+ * The wide one is *shorter* for the same width, because the bar beside the
+ * hexagon costs width rather than height. So the panel asks for at least the
+ * width that keeps it there, and the grid gives its row the height that
+ * width needs. The alternative - a narrower hexagon in a shorter row - buys
+ * about 90px of page and costs the pills, and the pills are half the control.
  */
 const FIT_DIAGRAM = 0.885 / 0.95;
 const FIT_SQUARE = 1;
-/** Height in px per px of width, and the fixed part on top. See above. */
-const HEX_SLOPE = 0.762;
-const HEX_FIXED = 95;
+/**
+ * A hair over `HEX_STACKED_BARS_MAX`, which is the width at or below which
+ * `ColorHexagon` lays its brightness bar down and drops the pills.
+ */
+const HEX_PILL_MIN = 470;
+/** Height per px of width in that layout, and the fixed part on top. */
+const HEX_PILL_SLOPE = 0.863;
+const HEX_PILL_FIXED = 73;
+
+/** Height per px of width in the *stacked* layout, and its fixed part. */
+const HEX_STACK_SLOPE = 0.917;
+const HEX_STACK_FIXED = 169;
 
 /** A width expression for a figure whose height is a fixed multiple of it. */
 const fitRatio = (ratio: number) => `min(100%, calc(100cqh * ${ratio}))`;
 
-/** And one for the hexagon, whose height is affine rather than proportional. */
-const FIT_HEX = `min(100%, max(0px, (100cqh - ${HEX_FIXED}px) / ${HEX_SLOPE}))`;
+/**
+ * The hexagon, twice: the layout it gets depends on how wide its cell is, and
+ * each layout has its own affine height.
+ *
+ * Narrow cells get the stacked one and must be sized for it, or the
+ * saturation bar is clipped off the bottom - which is how this went wrong the
+ * first time. Cells wide enough for the bars to stand side by side get that
+ * one, floored at the width that keeps them there.
+ */
+const FIT_HEX_STACKED = `min(100%, (100cqh - ${HEX_STACK_FIXED}px) / ${HEX_STACK_SLOPE})`;
+const FIT_HEX_WIDE = `min(100%, max(${HEX_PILL_MIN}px, (100cqh - ${HEX_PILL_FIXED}px) / ${HEX_PILL_SLOPE}))`;
+
+/** What the wide layout costs the row it sits in: the height its floor implies. */
+const HEX_ROW_MIN = Math.ceil(HEX_PILL_MIN * HEX_PILL_SLOPE + HEX_PILL_FIXED);
+/** Card padding, title row, caption row and the gap under them. */
+const PANEL_CHROME = 80;
 
 /**
  * Hold a figure inside a cell whose height is known.
@@ -174,11 +204,27 @@ const FIT_HEX = `min(100%, max(0px, (100cqh - ${HEX_FIXED}px) / ${HEX_SLOPE}))`;
  * the width its own shape needs. Capped at the cell's own width, so a cell
  * that is short and wide and a cell that is tall and narrow both end up with
  * the whole figure in them and neither ends up with a clipped one.
+ *
+ * `wideWidth` is a second expression for cells at least `wideAt` across - the
+ * hexagon's case, where the layout itself changes at a threshold and one
+ * expression cannot describe both sides of it. The container is named and
+ * typed inline rather than through `@container/fig`, because that utility
+ * sets `container-type: inline-size` and `100cqh` needs `size`.
  */
-function Fit({ width, children }: { width: string; children: ReactNode }) {
+function Fit({ width, wideWidth, children }: {
+  width: string;
+  wideWidth?: string;
+  children: ReactNode;
+}) {
   return (
-    <div className="flex min-h-0 flex-1 items-center justify-center [container-type:size]">
-      <div className="min-w-0" style={{ width }}>
+    <div
+      className="flex min-h-0 flex-1 items-center justify-center"
+      style={{ containerType: 'size', containerName: 'fig' }}
+    >
+      <div
+        className={wideWidth ? 'min-w-0 w-(--fit-narrow) @min-[470px]/fig:w-(--fit-wide)' : 'min-w-0 w-(--fit-narrow)'}
+        style={{ '--fit-narrow': width, '--fit-wide': wideWidth ?? width } as React.CSSProperties}
+      >
         {children}
       </div>
     </div>
@@ -532,7 +578,18 @@ export default function CieLab() {
               */}
             <div className="grid min-h-full gap-3 @[1180px]/page:h-full @[1180px]/page:min-h-0 @[1180px]/page:grid-cols-[minmax(0,1fr)_330px]">
               <div className="@container/grid min-h-0">
-                <div className="grid h-full min-h-0 grid-cols-1 gap-3 [grid-template-rows:repeat(4,minmax(360px,1fr))] @[780px]/grid:grid-cols-2 @[780px]/grid:[grid-template-rows:repeat(2,minmax(300px,1fr))]">
+                {/*
+                  * The top row is taller than the bottom one, and the floor on
+                  * it is the hexagon's: the two flat figures are the ones that
+                  * need height, and the morph and the solid are square and do
+                  * not. At a viewport about 1000px tall the whole grid fits;
+                  * below that it scrolls rather than crushing a figure, which
+                  * is the trade the hexagon's pills are worth.
+                  */}
+                <div
+                  className="grid h-full min-h-0 grid-cols-1 gap-3 [grid-template-rows:repeat(4,minmax(360px,1fr))] @[780px]/grid:grid-cols-2 @[780px]/grid:[grid-template-rows:var(--cie-rows)]"
+                  style={{ '--cie-rows': `minmax(${HEX_ROW_MIN + PANEL_CHROME}px,1.15fr) minmax(330px,1fr)` } as React.CSSProperties}
+                >
                   <Panel
                     n={1}
                     title="The hexagon"
@@ -543,7 +600,7 @@ export default function CieLab() {
                       exactly one dimension &mdash; the neutral one &mdash; which is the
                       brightness bar beside it.</>}
                   >
-                    <Fit width={FIT_HEX}>
+                    <Fit width={FIT_HEX_STACKED} wideWidth={FIT_HEX_WIDE}>
                       <ColorHexagon
                         rgb={rgb}
                         hue={hsb.h}
@@ -563,12 +620,6 @@ export default function CieLab() {
                         colorSpace={colorSpace}
                         onColorSpaceChange={setColorSpace}
                         bare
-                        // The editor beside the grid already has S on an
-                        // ordinary slider, which is what this prop is for -
-                        // and in a cell this short the saturation bar is the
-                        // difference between the brightness bar fitting and
-                        // being clipped off the bottom.
-                        satBar={false}
                       />
                     </Fit>
                   </Panel>
