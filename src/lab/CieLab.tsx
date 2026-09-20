@@ -269,10 +269,12 @@ function Fit({ width, wideWidth, children }: {
  * A panel: a titled card with a `?` for the explanation and one line of
  * caption under the title. One shape for all four.
  */
-function Panel({ n, title, help, caption, children, aside }: {
+function Panel({ n, title, help, helpWide = false, caption, children, aside }: {
   n: number;
   title: string;
   help: ReactNode;
+  /** A long explanation gets a wider card rather than a taller one. */
+  helpWide?: boolean;
   /** The one line that stays visible. Everything longer belongs in `help`. */
   caption: ReactNode;
   children: ReactNode;
@@ -288,7 +290,7 @@ function Panel({ n, title, help, caption, children, aside }: {
           <h2 className="flex items-center gap-1.5 text-lg font-semibold text-foreground">
             <span className="text-muted-foreground tabular-nums">{n}</span>
             <span className="truncate">{title}</span>
-            <HelpTip label={`What panel ${n} shows`}>{help}</HelpTip>
+            <HelpTip label={`What panel ${n} shows`} className={helpWide ? 'max-w-[72ch]' : undefined}>{help}</HelpTip>
           </h2>
           <p className="truncate text-base leading-snug tabular-nums text-muted-foreground">{caption}</p>
         </div>
@@ -691,13 +693,13 @@ export default function CieLab() {
                     n={2}
                     title="CIE 1931 chromaticity"
                     caption={`x ${here ? here.x.toFixed(4) : '-'}  y ${here ? here.y.toFixed(4) : '-'}`}
-                    help={<>The horseshoe is the spectral locus, drawn from the CIE 1931
+                    help={<><p>The horseshoe is the spectral locus, drawn from the CIE 1931
                       2&deg; colour-matching functions at 5&nbsp;nm &mdash; measured data,
-                      not a curve fitted here. Inside the sRGB triangle each point is
+                      not a curve fitted here.</p><p>Inside the sRGB triangle each point is
                       painted the brightest sRGB colour of that chromaticity. Outside it
                       there is no such colour, so it is a flat wash rather than a clamped
                       rainbow &mdash; and that stays true whichever gamut is outlined,
-                      because the paint is made of pixels on this screen.</>}
+                      because the paint is made of pixels on this screen.</p></>}
                     aside={
                       <GamutPicker
                         visible={visible}
@@ -753,34 +755,37 @@ export default function CieLab() {
 
                   <Panel
                     n={3}
+                    helpWide
                     title="The hexagon, told the truth"
                     caption="Nothing is recoloured; every pixel moves to where the space puts it."
-                    help={<>Nothing is recoloured &mdash; every pixel keeps the colour it had
+                    help={<><p>Nothing is recoloured &mdash; every pixel keeps the colour it had
                       and moves to where the space puts it, so every difference between the
-                      two ends is a claim the hexagon makes that is not true. Two points are
+                      two ends is a claim the hexagon makes that is not true.</p>
+                      <p>Two points are
                       pinned and no more: white at the centre, which both spaces put there
                       anyway, and red at its corner, which fixes the rotation and the scale.
-                      Two points is exactly what a rotation-and-scale has room for. In
-                      the <strong className="font-semibold">CIE</strong> frame the same morph
+                      Two points is exactly what a rotation-and-scale has room for.</p>
+                      <p>In the <strong className="font-semibold">CIE</strong> frame the same morph
                       is drawn inside the spectral locus, so you can watch the whole wheel
                       land on the gamut triangle &mdash; and watch what the rest of the plane
-                      has to do to let it. <strong className="font-semibold">The horseshoe
+                      has to do to let it.</p>
+                      <p><strong className="font-semibold">The horseshoe
                       outside the triangle is an extrapolation, not a measurement:</strong> a
                       monochromatic stimulus is not a colour this gamut holds, so it has no
                       place on the hexagon at all. It is carried along its own ray by the
                       same angle and the same ratio the gamut boundary takes in that
                       direction &mdash; continuous, and exact on the boundary, but a
-                      consequence of that rule rather than a fact about colour. The frame is
+                      consequence of that rule rather than a fact about colour.</p>
+                      <p>The frame is
                       offered for CIE&nbsp;xy only: Oklab&rsquo;s a/b shrink with luminance,
                       so a chromaticity is a line there rather than a point and there is no
-                      horseshoe to carry.
-                      <br /><br />
-                      Wheel to zoom, drag to pan, shift-drag to turn, double-click to come
+                      horseshoe to carry.</p>
+                      <p>Wheel to zoom, drag to pan, shift-drag to turn, double-click to come
                       back. The <strong className="font-semibold">CIE</strong> frame starts
                       turned by red&rsquo;s own angle from white, so at t&nbsp;=&nbsp;1 it is
                       the same way up as the chromaticity panel &mdash; a fifth of a degree
                       for sRGB and 13.5&deg; for ProPhoto, whose red is far round and whose
-                      white is D50.</>}
+                      white is D50.</p></>}
                     aside={
                       // Two switches on one line that cannot wrap: a second
                       // row here would change the header's height and move the

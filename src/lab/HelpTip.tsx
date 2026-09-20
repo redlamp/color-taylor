@@ -34,13 +34,21 @@ export default function HelpTip({ label, children, className }: HelpTipProps) {
         </button>
       </TooltipTrigger>
       {/* text-base: the tooltip primitive defaults to text-xs, which is right
-          for a two-word hint and wrong for a paragraph of explanation. */}
+          for a two-word hint and wrong for a paragraph of explanation.
+
+          The inner div is load-bearing. The primitive's popup is an
+          `inline-flex` row, built for an icon beside a word, and in a flex row
+          every `<strong>` and every run of text between two of them is its own
+          item - so a paragraph with two bold phrases in it was laid out as five
+          narrow columns side by side. One block child puts it back in normal
+          flow - a block, not a column, since most hosts pass bare text - and gives
+          paragraphs a gap where a host passes more than one. */}
       <TooltipContent
         side="bottom"
         sideOffset={6}
         className={`max-w-[46ch] text-base font-normal leading-snug ${className ?? ''}`}
       >
-        {children}
+        <div className="py-1 text-left [&>p+p]:mt-2">{children}</div>
       </TooltipContent>
     </Tooltip>
   );
