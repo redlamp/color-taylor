@@ -81,7 +81,7 @@ describe('the TypeScript placement lands where the geometry says', () => {
   const near = (a: readonly number[], b: readonly number[], digits = 9) =>
     a.forEach((v, i) => expect(v).toBeCloseTo(b[i], digits));
 
-  test('greys stack on the neutral axis: black at the origin, white at the far corner', () => {
+  test('grays stack on the neutral axis: black at the origin, white at the far corner', () => {
     near(xyYToWorld(D65_WHITE.x, D65_WHITE.y, 0), [0, 0, 0]);
     near(xyYToWorld(D65_WHITE.x, D65_WHITE.y, 1), [1, 1, 1], 4);
     // and halfway up is halfway along the diagonal
@@ -117,7 +117,7 @@ describe('the TypeScript placement lands where the geometry says', () => {
   });
 
   test('the scale puts the triangle over the hexagon it is being compared with', () => {
-    // The hexagon's red vertex is sqrt(6)/3 from its centre.
+    // The hexagon's red vertex is sqrt(6)/3 from its center.
     const HEX_RED = Math.sqrt(6) / 3;
     const w = xyYToWorld(SRGB_R.x, SRGB_R.y, 0);
     const radius = Math.hypot(w[0], w[1], w[2]);
@@ -131,7 +131,7 @@ describe('the TypeScript placement lands where the geometry says', () => {
  * The solid's `top` view claims to be the flat diagram. A claim like that is
  * either exact
  * or it is a lie the eye cannot catch: the sRGB triangle is close enough to
- * symmetric, and its three corners close enough in colour, that a mirror or a
+ * symmetric, and its three corners close enough in color, that a mirror or a
  * quarter turn reads as "about right" at a glance. So it is checked by
  * arithmetic, on the renderer's own camera rather than on a copy of it.
  *

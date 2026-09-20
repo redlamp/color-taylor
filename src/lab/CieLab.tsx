@@ -1,5 +1,5 @@
 /**
- * CIE lab: one colour, three projections of one solid.
+ * CIE lab: one color, three projections of one solid.
  *
  * The three panels are not a gallery. They are the RGB cube seen three ways,
  * and the page exists to make the difference between the ways legible:
@@ -14,7 +14,7 @@
  *   floor is the diagram; its height is the luminance the divide cancelled.
  *
  * Two things separate the hexagon from the diagram, and each is separately
- * visible here. Parallel keeps the scale of a colour and central does not, so
+ * visible here. Parallel keeps the scale of a color and central does not, so
  * brightness has a bar on one and nowhere to go on the other. And the
  * hexagon's geometry is computed on gamma-encoded channels while chromaticity
  * is linear, which is why a constant-saturation ring is not a shrunken
@@ -90,7 +90,7 @@ const CIRCLE_OUT = circleFractionOutsideGamut(CIRCLE_R);
  * space and the prose has to follow. Measured by src/utils/gamutMorph.ts and
  * asserted in gamutMorph.test.ts; nothing below is a quoted number.
  *
- * Memoised per gamut because `rimShape` traces 1,440 colours through the
+ * Memoised per gamut because `rimShape` traces 1,440 colors through the
  * whole transform twice, which is not a thing to do on every render.
  */
 interface GamutFigures {
@@ -314,7 +314,7 @@ function gamutNote(name: string, kind: GamutNote): ReactNode {
   if (kind === 'same') {
     return (
       <>
-        Left sRGB, right {name} &mdash; the same space, so the same colour. Pick
+        Left sRGB, right {name} &mdash; the same space, so the same color. Pick
         a wider one and the two squares part company exactly as far as this
         screen allows.
       </>
@@ -436,18 +436,18 @@ export default function CieLab() {
    * While an edit moves brightness and leaves hue and saturation alone, a
    * ghost ring stays where the dot was when the run started and the
    * chromaticity panel says
-   * so out loud. Central projection has no room for the scale of a colour, so
+   * so out loud. Central projection has no room for the scale of a color, so
    * the dot has nothing to do - and a non-event has to be pointed at, or it
    * reads as the diagram being broken.
    *
-   * Hung off the colour hook's `onEdit`, which fires on every user-driven
+   * Hung off the color hook's `onEdit`, which fires on every user-driven
    * write before the state updates - so `lastHsb` and `lastXy` are still the
    * values on screen, which is exactly what the ghost wants. An effect
    * comparing renders would do the same job and cascade a render per frame of
    * a drag.
    *
    * The residual is reported rather than hidden. It is never quite zero,
-   * because an 8-bit colour is a *quantised* scale: at b = 100 the channels
+   * because an 8-bit color is a *quantised* scale: at b = 100 the channels
    * are exact and the dot is still to the last decimal, and by b = 20 rounding
    * has moved it a few thousandths. That is the limit
    * decision-hsb-canonical-rgb-override exists for, shown on a diagram.
@@ -511,7 +511,7 @@ export default function CieLab() {
   /*
    * The two numbers the active choice actually buys, both computed against its
    * own triangle rather than sRGB's. The circle figure is the page's oldest
-   * claim - the shape a colour wheel implies - and it is a different number
+   * claim - the shape a color wheel implies - and it is a different number
    * for every gamut, which is the most direct way of saying that "the wheel is
    * not the gamut" was never a fact about sRGB in particular.
    */
@@ -525,8 +525,8 @@ export default function CieLab() {
   const lum = useMemo(() => gamutLuminance(activeGamut), [activeGamut]);
 
   /*
-   * The picker's three numbers, read as a colour in the gamut the panels are
-   * reading from. With Display P3 active, #FF0000 means P3's red - a colour
+   * The picker's three numbers, read as a color in the gamut the panels are
+   * reading from. With Display P3 active, #FF0000 means P3's red - a color
    * outside the sRGB triangle - and every readout on this page says so.
    */
   const here = gamutRgbToXyY(activeGamut, rgb.r, rgb.g, rgb.b);
@@ -541,11 +541,11 @@ export default function CieLab() {
   const drift = run && here ? Math.hypot(here.x - run.from.x, here.y - run.from.y) : 0;
 
   /*
-   * ALL FOUR PANELS READ THE LIVE COLOUR.
+   * ALL FOUR PANELS READ THE LIVE COLOR.
    *
-   * Panels 3 and 4 used to get a `useDeferredValue` copy, from when a colour
+   * Panels 3 and 4 used to get a `useDeferredValue` copy, from when a color
    * change redrew a solid of up to 16.7 million points and a pointer move cost
-   * 2.2s. That cost is gone - a colour change now moves the solid's marker in
+   * 2.2s. That cost is gone - a color change now moves the solid's marker in
    * about 0.2ms - and what the deferral left behind was worse than what it
    * fixed: under a real mouse every move is urgent, React only reached the
    * deferred render in a gap, and the figures froze for up to half a second
@@ -556,7 +556,7 @@ export default function CieLab() {
    *
    * Memoised through a *key* rather than the object: `rgb` and `hsb` are
    * rebuilt every render, and handing them straight to a memo'd figure would
-   * defeat the memo on the renders where the colour did not change.
+   * defeat the memo on the renders where the color did not change.
    */
   const rgbKey = (rgb.r << 16) | (rgb.g << 8) | rgb.b;
   const hsbKey = `${hsb.h}|${hsb.s}|${hsb.b}`;
@@ -597,7 +597,7 @@ export default function CieLab() {
         >
           <header className="flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2">
             <h1 className="flex items-center gap-2 text-2xl font-semibold">
-              One colour, three projections
+              One color, three projections
               <HelpTip label="What this page is" className="max-w-[56ch]">
                 All four figures show the same RGB cube. The hexagon is the cube
                 in <strong className="font-semibold">parallel</strong> projection,
@@ -606,11 +606,11 @@ export default function CieLab() {
                 in <strong className="font-semibold">central</strong> projection,
                 from a point &mdash; and the point is black. Dividing XYZ by
                 X+Y+Z <em>is</em> that projection: it drops every ray out of the
-                origin onto one plane, and a ray out of the origin is a colour
+                origin onto one plane, and a ray out of the origin is a color
                 together with all its dimmer copies. So the difference between
                 the hexagon and the chromaticity diagram is the difference
                 between the two kinds of projection: parallel keeps the scale of
-                a colour, central divides it out. That is why the hexagon needs
+                a color, central divides it out. That is why the hexagon needs
                 a brightness bar and the diagram has nowhere to put one. The
                 morph bends one into the other, and the solid puts the scale
                 back as a third dimension, which is what xyY is.
@@ -694,10 +694,10 @@ export default function CieLab() {
                     title="CIE 1931 chromaticity"
                     caption={`x ${here ? here.x.toFixed(4) : '-'}  y ${here ? here.y.toFixed(4) : '-'}`}
                     help={<><p>The horseshoe is the spectral locus, drawn from the CIE 1931
-                      2&deg; colour-matching functions at 5&nbsp;nm &mdash; measured data,
+                      2&deg; color-matching functions at 5&nbsp;nm &mdash; measured data,
                       not a curve fitted here.</p><p>Inside the sRGB triangle each point is
-                      painted the brightest sRGB colour of that chromaticity. Outside it
-                      there is no such colour, so it is a flat wash rather than a clamped
+                      painted the brightest sRGB color of that chromaticity. Outside it
+                      there is no such color, so it is a flat wash rather than a clamped
                       rainbow &mdash; and that stays true whichever gamut is outlined,
                       because the paint is made of pixels on this screen.</p></>}
                     aside={
@@ -747,7 +747,7 @@ export default function CieLab() {
                             : `\u2014 \u00b7 the triangle is ${fig.side.toFixed(3)} on a side`}
                         </dd>
                         <dd className="col-span-2 truncate">
-                          Scaling a colour does not move it off its ray.
+                          Scaling a color does not move it off its ray.
                         </dd>
                       </dl>
                     </Reserved>
@@ -757,12 +757,12 @@ export default function CieLab() {
                     n={3}
                     helpWide
                     title="The hexagon, told the truth"
-                    caption="Nothing is recoloured; every pixel moves to where the space puts it."
-                    help={<><p>Nothing is recoloured &mdash; every pixel keeps the colour it had
+                    caption="Nothing is recolored; every pixel moves to where the space puts it."
+                    help={<><p>Nothing is recolored &mdash; every pixel keeps the color it had
                       and moves to where the space puts it, so every difference between the
                       two ends is a claim the hexagon makes that is not true.</p>
                       <p>Two points are
-                      pinned and no more: white at the centre, which both spaces put there
+                      pinned and no more: white at the center, which both spaces put there
                       anyway, and red at its corner, which fixes the rotation and the scale.
                       Two points is exactly what a rotation-and-scale has room for.</p>
                       <p>In the <strong className="font-semibold">CIE</strong> frame the same morph
@@ -771,11 +771,11 @@ export default function CieLab() {
                       has to do to let it.</p>
                       <p><strong className="font-semibold">The horseshoe
                       outside the triangle is an extrapolation, not a measurement:</strong> a
-                      monochromatic stimulus is not a colour this gamut holds, so it has no
+                      monochromatic stimulus is not a color this gamut holds, so it has no
                       place on the hexagon at all. It is carried along its own ray by the
                       same angle and the same ratio the gamut boundary takes in that
                       direction &mdash; continuous, and exact on the boundary, but a
-                      consequence of that rule rather than a fact about colour.</p>
+                      consequence of that rule rather than a fact about color.</p>
                       <p>The frame is
                       offered for CIE&nbsp;xy only: Oklab&rsquo;s a/b shrink with luminance,
                       so a chromaticity is a line there rather than a point and there is no
@@ -885,7 +885,7 @@ export default function CieLab() {
                       <span className="truncate">{active.name}</span>
                       <HelpTip label="What the reading gamut decides">
                         A gamut is three chromaticities and a white point, and
-                        nothing else about a colour space changes the triangle.
+                        nothing else about a color space changes the triangle.
                         Ticking one draws it; reading from it moves the solid
                         outline, the corner letters and the two figures here.
                         The paint inside does not follow: it is made of pixels
@@ -926,7 +926,7 @@ export default function CieLab() {
                     * saturated of the two; on an sRGB screen they are
                     * identical, because the second one is clamped back to the
                     * first. With sRGB itself selected they are the same
-                    * colour by definition, and the line below says so.
+                    * color by definition, and the line below says so.
                     *
                     * Two squares against each other, rather than a claim in
                     * prose, because this is the one thing on the page that
@@ -976,15 +976,15 @@ export default function CieLab() {
                             <><strong className="font-semibold">Imaginary primaries.</strong>{' '}
                               Two of this gamut&rsquo;s corners are outside the horseshoe &mdash; no
                               light of any spectrum has that chromaticity. By design, not by
-                              mistake: an encoding big enough for every real surface colour has
-                              to spend part of itself on colours that do not exist.</>
+                              mistake: an encoding big enough for every real surface color has
+                              to spend part of itself on colors that do not exist.</>
                           ),
                         },
                         {
                           key: 'real',
                           node: (
                             <><strong className="font-semibold">Real primaries.</strong>{' '}
-                              Every corner is a colour some light really has, so the whole
+                              Every corner is a color some light really has, so the whole
                               triangle sits inside the horseshoe.</>
                           ),
                         },
@@ -994,10 +994,23 @@ export default function CieLab() {
                 </div>
 
                 <div className="flex flex-col gap-2 border-t border-border pt-3">
-                  <label className="flex items-center gap-2.5 text-base">
-                    <Checkbox checked={showCircle} onCheckedChange={() => setShowCircle((v) => !v)} />
-                    <span>Circle of radius {CIRCLE_R.toFixed(2)} about white</span>
-                  </label>
+                  <div className="flex items-center gap-1.5">
+                    <label className="flex items-center gap-2.5 text-base">
+                      <Checkbox checked={showCircle} onCheckedChange={() => setShowCircle((v) => !v)} />
+                      <span>Show a color-wheel circle on panel 2</span>
+                    </label>
+                    <HelpTip label="What the circle is for">
+                      <p>A color wheel draws every hue at the same distance from
+                      white, which implies the gamut is a circle. This draws that
+                      circle on the chromaticity diagram &mdash; radius {CIRCLE_R.toFixed(2)} around
+                      the white point &mdash; so you can see how badly it fits the
+                      triangle.</p>
+                      <p>For {active.name}, {(activeCircleOut * 100).toFixed(1)}% of the circle falls
+                      outside the gamut: it overshoots toward cyan and magenta while
+                      red, green and blue reach well past it. That is the
+                      &ldquo;Wheel outside&rdquo; figure above.</p>
+                    </HelpTip>
+                  </div>
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-base text-muted-foreground">Solid detail</span>
                     <Tabs value={String(step)} onValueChange={(v) => setStep(Number(v) as CubeStep)}>
@@ -1032,7 +1045,7 @@ export default function CieLab() {
                   <div className="flex flex-col gap-1.5">
                     <h3 className="font-semibold">Parallel against central</h3>
                     <p className="text-muted-foreground">
-                      Under central projection, scaling a colour does not move it, so
+                      Under central projection, scaling a color does not move it, so
                       brightness vanishes: HSB(240,&nbsp;100,&nbsp;100) and
                       HSB(240,&nbsp;100,&nbsp;10) both land at exactly x&nbsp;0.1500,
                       y&nbsp;0.0600. The hexagon keeps the scale, which is the only
@@ -1053,7 +1066,7 @@ export default function CieLab() {
                     <h3 className="font-semibold">What both agree about</h3>
                     <p className="text-muted-foreground">
                       The fully saturated rim <em>is</em> the triangle&rsquo;s perimeter,
-                      exactly. A colour with min(R,G,B)&nbsp;=&nbsp;0 is a mix of two
+                      exactly. A color with min(R,G,B)&nbsp;=&nbsp;0 is a mix of two
                       primaries, and a mix of two primaries lies on the line between
                       them. Traced every half-degree, the distance to the nearest edge
                       is floating-point zero.
@@ -1065,7 +1078,7 @@ export default function CieLab() {
                       Reach from white varies 3.72&times; over the six corners: red
                       0.327, blue 0.314, green 0.271, yellow 0.206, magenta 0.175,
                       cyan 0.088. A circle of radius {CIRCLE_R.toFixed(2)} about white &mdash;
-                      the shape a colour wheel implies &mdash; has {(CIRCLE_OUT * 100).toFixed(1)}%
+                      the shape a color wheel implies &mdash; has {(CIRCLE_OUT * 100).toFixed(1)}%
                       of its circumference outside sRGB{activeGamut === 'srgb' ? '' : `, and ${(activeCircleOut * 100).toFixed(1)}% outside ${active.name}`}.
                       Turn it on and look. Those six reaches are sRGB&rsquo;s; the reading
                       gamut changes every one of them, which is the point of being able to
@@ -1086,7 +1099,7 @@ export default function CieLab() {
                   <div className="flex flex-col gap-1.5">
                     <h3 className="font-semibold">Y is not lightness</h3>
                     <p className="text-muted-foreground">
-                      The solid&rsquo;s vertical axis is <em>linear luminance</em>. A colour
+                      The solid&rsquo;s vertical axis is <em>linear luminance</em>. A color
                       at Y&nbsp;=&nbsp;0.5 does not look half as light as one at
                       Y&nbsp;=&nbsp;1.0 &mdash; perceptual lightness is roughly a cube root of
                       it, which is what Oklab&rsquo;s L is. So the solid looks bottom-heavy
@@ -1107,9 +1120,9 @@ export default function CieLab() {
                     <div className="flex flex-col gap-1.5">
                       <h3 className="font-semibold">Six spokes become three</h3>
                       <p className="text-base text-muted-foreground">
-                        In xy the gaps between neighbouring corners run {fig.xyGaps[0].toFixed(1)}&deg;,
+                        In xy the gaps between neighboring corners run {fig.xyGaps[0].toFixed(1)}&deg;,
                         {' '}{fig.xyGaps[1].toFixed(1)}&deg;, {fig.xyGaps[2].toFixed(1)}&deg; and then repeat
-                        &mdash; exactly, to better than a billionth of a degree. A colour and its
+                        &mdash; exactly, to better than a billionth of a degree. A color and its
                         complement sum to white in linear RGB, so white lies on the segment between
                         them and the two are precisely opposite: cyan is at {fig.xyCyan.toFixed(1)}&deg;
                         from red. Three corners and three points stranded on the edges between them,
@@ -1121,7 +1134,7 @@ export default function CieLab() {
                       <p className="text-base text-muted-foreground">
                         That repeat is a fact about a <em>linear</em> map, and Oklab is not one: the
                         cube root between LMS and Oklab does not carry a straight line to a straight
-                        line, so white stops lying between a colour and its complement. Cyan lands at
+                        line, so white stops lying between a color and its complement. Cyan lands at
                         {' '}{fig.okCyan.toFixed(1)}&deg; from red rather than 180&deg;, and the six gaps
                         are six different numbers from {Math.min(...fig.okGaps).toFixed(1)}&deg; to
                         {' '}{Math.max(...fig.okGaps).toFixed(1)}&deg;. Neither space agrees with the
@@ -1131,7 +1144,7 @@ export default function CieLab() {
                     <div className="flex flex-col gap-1.5">
                       <h3 className="font-semibold">White slides out from under it</h3>
                       <p className="text-base text-muted-foreground">
-                        The hexagon pins white dead centre by construction. Take the rim&rsquo;s own
+                        The hexagon pins white dead center by construction. Take the rim&rsquo;s own
                         area centroid and it is {(100 * Math.hypot(fig.xyRim.centroid.x, fig.xyRim.centroid.y)).toFixed(0)}% of
                         a radius away in xy and {(100 * Math.hypot(fig.okRim.centroid.x, fig.okRim.centroid.y)).toFixed(0)}% away
                         in Oklab, in different directions. Reach from white varies
@@ -1147,7 +1160,7 @@ export default function CieLab() {
                         The morph panel&rsquo;s <strong className="font-semibold text-foreground">CIE</strong> frame
                         pulls the camera back until the spectral locus is in shot. The horseshoe
                         does not move, and that is not a shortcut: the remap is a map of sRGB
-                        colours, and monochromatic light is not an sRGB colour, so it has nothing
+                        colors, and monochromatic light is not an sRGB color, so it has nothing
                         to say about the curve. What it has something to say about is the wheel,
                         which at t&nbsp;=&nbsp;1 sits exactly on the {active.name} triangle
                         &mdash; {(activeShare * 100).toFixed(1)}% of the horseshoe&rsquo;s xy area,
@@ -1159,7 +1172,7 @@ export default function CieLab() {
               </section>
 
               <p className="rounded-lg border border-border bg-card p-4 text-base text-muted-foreground">
-                Colour-matching functions from CVRL (CIE 1931 2&deg;, 5&nbsp;nm),
+                Color-matching functions from CVRL (CIE 1931 2&deg;, 5&nbsp;nm),
                 committed as <code className="font-mono">src/utils/cieCmf1931.ts</code> with
                 the source URL. Gamut primaries are typed from their standards
                 in <code className="font-mono">src/utils/gamuts.ts</code>, each with

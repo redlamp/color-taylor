@@ -1,8 +1,8 @@
 /**
- * Whether this screen can actually show the colours outside the sRGB triangle.
+ * Whether this screen can actually show the colors outside the sRGB triangle.
  *
  * The lab pages draw gamuts wider than sRGB, and until now everything painted
- * inside them was still an sRGB pixel - so a P3 outline enclosed colours the
+ * inside them was still an sRGB pixel - so a P3 outline enclosed colors the
  * screen could not reach and the picture quietly implied otherwise. Chromium
  * and Safari can do better, on hardware that can: a 2D canvas opened with
  * `{ colorSpace: 'display-p3' }` and a WebGL context with
@@ -34,7 +34,7 @@ export const DISPLAY_IS_P3: boolean = (() => {
   }
 })();
 
-/** The colour space to open a canvas or a drawing buffer in. */
+/** The color space to open a canvas or a drawing buffer in. */
 export const CANVAS_SPACE: 'srgb' | 'display-p3' = DISPLAY_IS_P3 ? 'display-p3' : 'srgb';
 
 /**

@@ -1,9 +1,9 @@
 /**
  * The hexagon, told the truth: the picker's own field, bent into the shape the
- * colours are really in.
+ * colors are really in.
  *
- * Drag the morph slider and nothing is recoloured - every pixel keeps the
- * colour it had and moves to where the target space puts it. So every
+ * Drag the morph slider and nothing is recolored - every pixel keeps the
+ * color it had and moves to where the target space puts it. So every
  * difference you can see between the two ends is a claim the hexagon makes
  * that is not true.
  *
@@ -11,7 +11,7 @@
  *
  * - **The field**, in WebGL, because it is the thing being claimed about. See
  *   hexMorphRenderer.ts for why both ends live in the vertex buffer.
- * - **Your own colour's marker**, because watching the colour you chose move
+ * - **Your own color's marker**, because watching the color you chose move
  *   is a stronger argument than watching a field move.
  * - **The six corners**, labelled, because the collapse from six-fold to
  *   three-fold is the single best thing the figure shows and it is only
@@ -22,7 +22,7 @@
  *   else does.
  *
  * The arithmetic is in src/utils/gamutMorph.ts and asserted against culori in
- * gamutMorph.test.ts. Nothing here computes a colour position itself.
+ * gamutMorph.test.ts. Nothing here computes a color position itself.
  */
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { rgbToHex, type HSB, type RGB } from '@/utils/colorConversions';
@@ -85,7 +85,7 @@ const points = (track: Track, t: number) => track.a
  * `hex` is the hexagon's own box, and the figure fills it. `cie` pulls the
  * camera back far enough to take in the CIE 1931 spectral locus and draws it,
  * with the gamut triangles, round the outside - so the same morph answers a
- * second question: not only "where do these colours really go", but "where
+ * second question: not only "where do these colors really go", but "where
  * does the whole wheel sit inside everything the eye can see".
  */
 export type MorphFrame = 'hex' | 'cie';
@@ -110,7 +110,7 @@ const xyToField = (p: Xy, gamut: GamutId): FieldPoint => {
  * a fifth of a degree in sRGB, more in some of the others - so the mapped
  * window is a rectangle slightly off square with the field axes. Its bounding
  * box is what has to fit. The figure is square, so the shorter side is grown
- * to match the longer and the result is centred on the window.
+ * to match the longer and the result is centerd on the window.
  *
  * Per gamut, because the plane is anchored on that space's own white and red:
  * a wider space puts one hexagon radius further out in chromaticity, so the
@@ -131,12 +131,12 @@ const cieFrameWindow = (gamut: GamutId): MorphWindow => {
 /**
  * THE MORPH, EXTENDED PAST THE GAMUT - AND IT IS AN EXTRAPOLATION.
  *
- * Inside the gamut the morph is a fact. Every point of the field is a colour,
- * that colour has a place on the hexagon and a place in the target space, and
+ * Inside the gamut the morph is a fact. Every point of the field is a color,
+ * that color has a place on the hexagon and a place in the target space, and
  * the figure moves it from one to the other. Nothing is invented.
  *
  * The spectral locus is not inside the gamut. Those chromaticities are not
- * sRGB colours - no light of that purity is - so they have no HSB
+ * sRGB colors - no light of that purity is - so they have no HSB
  * coordinates, no place on the hexagon, and the morph simply does not say
  * where they go. Leaving them still while everything else moves is one answer
  * and it is a poor one: it draws the horseshoe as though the hexagon had a
@@ -154,7 +154,7 @@ const cieFrameWindow = (gamut: GamutId): MorphWindow => {
  *
  * That is continuous, it agrees with the real morph exactly on the boundary,
  * and it is defined everywhere but at white itself. What it is not is a fact
- * about colour: the horseshoe's shape at t = 0 is a consequence of this rule,
+ * about color: the horseshoe's shape at t = 0 is a consequence of this rule,
  * and a different rule would draw a different curve. The panel's tooltip says
  * so, because a figure that does not admit its extrapolations is worse than
  * no figure.
@@ -184,7 +184,7 @@ const lerpAngle = (a: number, b: number, t: number) => {
   return a + d * t;
 };
 
-/** Polar about the figure's centre, with y up the way the morph plane counts. */
+/** Polar about the figure's center, with y up the way the morph plane counts. */
 const polar = (p: FieldPoint) => {
   const dx = p.x - CENTER_X, dy = CENTER_Y - p.y;
   return { angle: wrap(Math.atan2(dy, dx)), r: Math.hypot(dx, dy) };
@@ -266,7 +266,7 @@ function baseRotation(frame: MorphFrame, gamut: GamutId): number {
 interface Lens {
   /** 1 is the frame's own window; above 1 is closer in. */
   zoom: number;
-  /** Where the centre has been dragged to, in field units. */
+  /** Where the center has been dragged to, in field units. */
   panX: number;
   panY: number;
   /** Degrees clockwise, on top of the frame's base rotation. */
@@ -332,7 +332,7 @@ function HexMorph({ rgb, hsb, target, frame, gamuts, activeId, compact = false }
       y: cy - size / 2,
       size,
       rotate: baseRotation(frame, gamut) + lens.turn,
-      // Turned about the figure's own centre - white - rather than about the
+      // Turned about the figure's own center - white - rather than about the
       // window's, so panning and turning stay independent of each other.
       rotateAbout: { x: CENTER_X, y: CENTER_Y },
     };
@@ -363,7 +363,7 @@ function HexMorph({ rgb, hsb, target, frame, gamuts, activeId, compact = false }
         const f = i / (RAY_SAMPLES - 1);
         const p = hexPointAt(hueDeg, f);
         a.push(p);
-        // The colour the picker paints there, read straight off the field's
+        // The color the picker paints there, read straight off the field's
         // own rule, so a ray is made of the pixels it runs over rather than of
         // an idealised HSB ramp.
         const c = colorAtPoint(p.x, p.y, hsb.b);
@@ -404,7 +404,7 @@ function HexMorph({ rgb, hsb, target, frame, gamuts, activeId, compact = false }
   }, [hsb.b, target, gamut]);
 
   /*
-   * The marker. `pointForColor` is what the picker uses to place a colour on
+   * The marker. `pointForColor` is what the picker uses to place a color on
    * its own field, so at t = 0 this sits exactly where the picker's handle
    * would - not near it.
    */
@@ -509,7 +509,7 @@ function HexMorph({ rgb, hsb, target, frame, gamuts, activeId, compact = false }
       {/* Capped rather than free: the figure is square, so a full-width column
           on a wide page makes it a thousand pixels tall and pushes the reading
           matter beside it off the screen. In a compact host the cell's own
-          height is the cap instead, and the figure is centred in what is left. */}
+          height is the cap instead, and the figure is centerd in what is left. */}
       <div className={compact
         ? 'flex min-h-0 min-w-0 flex-1 flex-col items-center gap-2'
         : 'mx-auto flex w-full min-w-0 max-w-[560px] flex-col gap-3'}>
@@ -549,12 +549,12 @@ function HexMorph({ rgb, hsb, target, frame, gamuts, activeId, compact = false }
                 ? `, with the CIE 1931 spectral locus and the gamut outlines carried by the same warp - `
                   + `its shape at ${(t * 100).toFixed(0)} per cent is an extrapolation outside the gamut, not a measurement`
                 : ''}. `
-              + `The colour ${hex.toUpperCase()} sits at ${here.angle.toFixed(1)} degrees from red, `
+              + `The color ${hex.toUpperCase()} sits at ${here.angle.toFixed(1)} degrees from red, `
               + `${here.reach.toFixed(2)} of red's distance from white.`
             }
           >
             {/* Everything the figure draws turns together with the field the
-                shader draws underneath it - same angle, same centre, same
+                shader draws underneath it - same angle, same center, same
                 sense - or the outline slides off its own paint. */}
             <g transform={`rotate(${(view.rotate ?? 0).toFixed(4)} ${CENTER_X} ${CENTER_Y})`}>
             {/* ── the CIE 1931 shape, carried by the same warp ───────────
@@ -564,7 +564,7 @@ function HexMorph({ rgb, hsb, target, frame, gamuts, activeId, compact = false }
                 diagram draws it and the field's rim sits exactly on the
                 *selected* gamut's triangle - a theorem this page proves
                 elsewhere, and true of whichever gamut is being read from,
-                because a fully saturated colour is a mix of two of that
+                because a fully saturated color is a mix of two of that
                 space's primaries. At t = 0 the field is a regular hexagon and
                 the horseshoe has been dragged out of shape to allow it.
 
@@ -661,7 +661,7 @@ function HexMorph({ rgb, hsb, target, frame, gamuts, activeId, compact = false }
               })}
             </g>
 
-            {/* Your colour. The trail is where it came from, so the move reads
+            {/* Your color. The trail is where it came from, so the move reads
                 as a move even when the slider is parked at one end. */}
             <line
               x1={marker.a.x} y1={marker.a.y} x2={markerAt.x} y2={markerAt.y}
@@ -716,7 +716,7 @@ function HexMorph({ rgb, hsb, target, frame, gamuts, activeId, compact = false }
 }
 
 /**
- * The numbers beside the figure: where this colour went, where the six corners
+ * The numbers beside the figure: where this color went, where the six corners
  * went, and what one hexagon radius is worth in the target's own units.
  *
  * Split out because the 2x2 grid has no room for a table beside a square
@@ -740,7 +740,7 @@ export function MorphReadings({ rgb, hsb, target, gamut = 'srgb' }: {
   return (
       <div className="flex min-w-0 flex-col gap-3">
         <div className="rounded-md border border-border p-3">
-          <h3 className="mb-1 font-semibold">This colour</h3>
+          <h3 className="mb-1 font-semibold">This color</h3>
           <p className="text-base text-muted-foreground">
             The hexagon puts <code className="font-mono">{hex.toUpperCase()}</code> at
             hue <span className="tabular-nums text-foreground">{hsb.h.toFixed(0)}&deg;</span> and

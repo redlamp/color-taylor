@@ -20,7 +20,7 @@
  *   `display: none` is the whole mechanism: a hidden element still takes its
  *   space, which is exactly what is wanted.
  * - `Reserved` is the bordered box those readouts usually sit in, which also
- *   changes its border and its text colour when it has something to say. It
+ *   changes its border and its text color when it has something to say. It
  *   never changes its size doing so.
  *
  * Where the *values* inside one wording vary, `tabular-nums` and a fixed

@@ -1,7 +1,7 @@
 /**
  * Where a frame went, printed to the console, behind `?perf`.
  *
- * The lab draws four figures off one colour, and three of them are expensive:
+ * The lab draws four figures off one color, and three of them are expensive:
  * a per-pixel canvas, a 7,380-vertex mesh and a WebGL solid of up to 16.7
  * million points. When a drag on the hexagon feels wrong, the question is
  * always the same one - which of them is on the input path and what is it

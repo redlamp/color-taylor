@@ -13,8 +13,12 @@ import type { ReactNode } from 'react';
 import HelpTip from './HelpTip';
 
 export interface LabPanelProps {
+  /** The panel's number in a grid of figures, as on the CIE page. */
+  n?: number;
   title: string;
   help: ReactNode;
+  /** A long explanation gets a wider card rather than a taller one. */
+  helpWide?: boolean;
   /** The one line that stays visible. */
   caption?: ReactNode;
   /** A control for the header's right-hand end. */
@@ -23,14 +27,15 @@ export interface LabPanelProps {
   children: ReactNode;
 }
 
-export default function LabPanel({ title, help, caption, aside, className, children }: LabPanelProps) {
+export default function LabPanel({ n, title, help, helpWide = false, caption, aside, className, children }: LabPanelProps) {
   return (
     <section className={`flex min-w-0 flex-col gap-3 rounded-lg border border-border bg-card p-3 ${className ?? ''}`}>
       <header className="flex shrink-0 flex-nowrap items-start justify-between gap-3">
         <div className="flex min-w-0 flex-col">
           <h2 className="flex items-center gap-1.5 text-lg font-semibold text-foreground">
+            {n !== undefined && <span className="tabular-nums text-muted-foreground">{n}</span>}
             <span className="truncate">{title}</span>
-            <HelpTip label={`About ${title}`}>{help}</HelpTip>
+            <HelpTip label={`About ${title}`} className={helpWide ? 'max-w-[72ch]' : undefined}>{help}</HelpTip>
           </h2>
           {caption && <p className="truncate leading-snug text-muted-foreground">{caption}</p>}
         </div>

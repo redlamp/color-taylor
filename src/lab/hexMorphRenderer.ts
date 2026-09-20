@@ -1,10 +1,10 @@
 /**
  * The morph's field: the picker's hexagon, as a mesh that can be bent.
  *
- * WHAT IS BEING DRAWN. The same colours the picker's shader paints, in the
+ * WHAT IS BEING DRAWN. The same colors the picker's shader paints, in the
  * same places, at t = 0 - `colorAtPoint` is the CPU twin of that shader and it
  * is what fills this mesh. At t = 1 every vertex has moved to where the target
- * space puts its colour. Nothing is recoloured; only the positions change, and
+ * space puts its color. Nothing is recolored; only the positions change, and
  * the whole claim of the figure rests on that being true.
  *
  * WHY A MESH AND NOT A REPAINT. Each vertex carries *both* of its positions -
@@ -33,7 +33,7 @@ import type { GamutId } from '@/utils/gamuts';
  * Angular and radial resolution of the field.
  *
  * 180 by 40 is 7,380 vertices and 14,400 triangles: a 2-degree wedge is about
- * 7 units across at the rim of a 540-unit figure, and the fragment colour is
+ * 7 units across at the rim of a 540-unit figure, and the fragment color is
  * interpolated across each triangle rather than flat, so the facets are not
  * visible even where the morph stretches a cell to several times its size.
  * Doubling either costs a rebuild that is felt on a brightness drag and buys
@@ -57,7 +57,7 @@ export interface FieldPoint {
   y: number;
 }
 
-/** Where the target puts a colour, in field units, anchored on the hexagon. */
+/** Where the target puts a color, in field units, anchored on the hexagon. */
 export function fieldPointFor(r: number, g: number, b: number, target: MorphTarget, gamut: GamutId = 'srgb'): FieldPoint {
   const m = morphPoint(r, g, b, target, gamut);
   return { x: CENTER_X + RADIUS * m.x, y: CENTER_Y - RADIUS * m.y };
@@ -71,12 +71,12 @@ export function hexPointAt(hueDeg: number, fraction: number): FieldPoint {
 }
 
 /**
- * Both ends of the morph for every vertex of the field, plus its colour.
+ * Both ends of the morph for every vertex of the field, plus its color.
  *
- * The field is the picker's own: a polar grid over the hexagon, coloured by
+ * The field is the picker's own: a polar grid over the hexagon, colored by
  * `colorAtPoint` at the brightness the bar is on. That includes the region
  * past the cross-section, where the picker previews what raising brightness
- * would reach - those are real colours with real places in the target, so they
+ * would reach - those are real colors with real places in the target, so they
  * morph like everything else, and it is why the rim lands on the same six
  * corners whatever the brightness bar says.
  */
@@ -160,7 +160,7 @@ export interface MorphWindow {
   size: number;
   /** Degrees clockwise about `rotateAbout`. 0 if omitted. */
   rotate?: number;
-  /** What the rotation turns about, in field units. The centre if omitted. */
+  /** What the rotation turns about, in field units. The center if omitted. */
   rotateAbout?: { x: number; y: number };
 }
 

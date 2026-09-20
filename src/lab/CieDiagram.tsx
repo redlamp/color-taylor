@@ -1,17 +1,17 @@
 /**
- * The CIE 1931 chromaticity diagram, with one colour's chromaticity on it.
+ * The CIE 1931 chromaticity diagram, with one color's chromaticity on it.
  *
  * Two layers over the same coordinates: a canvas that paints the gamut, and an
  * SVG that draws everything with a name. They share `sx` / `sy` and one aspect
  * ratio, so the outline on the SVG lands on the edge of the paint underneath.
  *
- * The horseshoe is the spectral locus from real colour-matching functions -
+ * The horseshoe is the spectral locus from real color-matching functions -
  * see src/utils/cieCmf1931.ts. It is 65 straight chords at 5 nm, which is the
  * data, not a smoothing of it.
  *
  * What is painted, and why not more: inside the sRGB triangle every point has
- * a colour and the brightest one is painted. Outside it, no screen can show
- * the colour, so the region is a flat wash. Filling it with clamped rainbow -
+ * a color and the brightest one is painted. Outside it, no screen can show
+ * the color, so the region is a flat wash. Filling it with clamped rainbow -
  * which most published versions of this diagram do - would be a lie about
  * precisely the region the diagram exists to talk about.
  *
@@ -20,7 +20,7 @@
  * sRGB whichever that is - because the fill is made of pixels on this screen,
  * and this screen is sRGB. Painting P3's interior would mean clamping, which
  * is the one thing this file refuses to do. So an outline is a boundary and
- * the wash inside it means exactly what it meant before: no colour here.
+ * the wash inside it means exactly what it meant before: no color here.
  */
 import { memo, useEffect, useRef } from 'react';
 import { rgbToHex, type RGB } from '@/utils/colorConversions';
@@ -61,9 +61,9 @@ const TICKS = [460, 480, 500, 520, 540, 560, 580, 600, 620, 700];
  * on the solid's floor next door, which imports this table rather than picking
  * its own. Presentation, which is why it lives with the drawing and not in
  * src/utils/gamuts.ts: a gamut is three chromaticities, and none of them is a
- * colour to draw the outline in.
+ * color to draw the outline in.
  *
- * Deliberately not each gamut's own primaries: an outline coloured like the
+ * Deliberately not each gamut's own primaries: an outline colored like the
  * region it encloses reads as a fill, and the fill here means something else.
  */
 export const GAMUT_TINT: Record<GamutId, [number, number, number]> = {
@@ -81,11 +81,11 @@ const path = (pts: readonly Xy[], close: boolean) =>
   pts.map((p, i) => `${i ? 'L' : 'M'}${sx(p.x).toFixed(2)},${sy(p.y).toFixed(2)}`).join('') + (close ? 'Z' : '');
 
 export interface CieDiagramProps {
-  /** The colour whose chromaticity is marked. */
+  /** The color whose chromaticity is marked. */
   rgb: RGB;
   /**
    * Every gamut to outline, in the order they should be drawn. Boundaries,
-   * never modes: the paint underneath is always the sRGB colours the screen
+   * never modes: the paint underneath is always the sRGB colors the screen
    * can actually show, whichever outline is on top of it.
    */
   gamuts: readonly Gamut[];
@@ -96,7 +96,7 @@ export interface CieDiagramProps {
    */
   activeId: GamutId;
   /**
-   * A circle of fixed radius about white: the shape a colour wheel implies.
+   * A circle of fixed radius about white: the shape a color wheel implies.
    * 57.3% of its circumference at r = 0.20 is outside sRGB.
    */
   showCircle: boolean;
@@ -113,15 +113,15 @@ function CieDiagram({ rgb, gamuts, activeId, showCircle, circleRadius = 0.20, gh
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   /*
-   * Painted once. It does not depend on the colour, and it does not depend on
+   * Painted once. It does not depend on the color, and it does not depend on
    * which gamut is being read from either - it depends on *this screen*.
    *
-   * The rule has not changed: paint the brightest colour of each chromaticity
+   * The rule has not changed: paint the brightest color of each chromaticity
    * the buffer can actually hold, and leave a flat wash where it cannot. What
    * has changed is how much the buffer can hold. On a display that reports
    * Display P3 the canvas is opened in it, and the fill then reaches every
    * chromaticity inside the P3 triangle rather than stopping at sRGB's - so
-   * the wash is smaller, and it still means exactly what it meant: no colour
+   * the wash is smaller, and it still means exactly what it meant: no color
    * here, on this screen.
    *
    * So the fill and the outlines answer two different questions, on purpose.
@@ -152,7 +152,7 @@ function CieDiagram({ rgb, gamuts, activeId, showCircle, circleRadius = 0.20, gh
         if (c) {
           d[i] = c.r; d[i + 1] = c.g; d[i + 2] = c.b; d[i + 3] = 255;
         } else if (insidePolygon({ x, y }, SPECTRAL_LOCUS)) {
-          // Flat, and deliberately not a colour: nothing here is showable.
+          // Flat, and deliberately not a color: nothing here is showable.
           d[i] = 140; d[i + 1] = 140; d[i + 2] = 140; d[i + 3] = 76;
         }
       }
@@ -161,7 +161,7 @@ function CieDiagram({ rgb, gamuts, activeId, showCircle, circleRadius = 0.20, gh
   }, []);
 
   /*
-   * Where the colour sits depends on which space its three numbers are read
+   * Where the color sits depends on which space its three numbers are read
    * as - that is the page's whole claim about the picker, and this dot is
    * where it is cashed. With Display P3 active, #FF0000 is P3's red and lands
    * outside the sRGB triangle, because it *is* outside it.
@@ -190,7 +190,7 @@ function CieDiagram({ rgb, gamuts, activeId, showCircle, circleRadius = 0.20, gh
         role="img"
         aria-label={
           here
-            ? `CIE 1931 chromaticity diagram. The colour ${hex.toUpperCase()} sits at x ${here.x.toFixed(4)}, y ${here.y.toFixed(4)}.`
+            ? `CIE 1931 chromaticity diagram. The color ${hex.toUpperCase()} sits at x ${here.x.toFixed(4)}, y ${here.y.toFixed(4)}.`
             : 'CIE 1931 chromaticity diagram. Black has no chromaticity, so nothing is marked.'
         }
       >
@@ -277,7 +277,7 @@ function CieDiagram({ rgb, gamuts, activeId, showCircle, circleRadius = 0.20, gh
           ))}
         </g>
 
-        {/* White, and the reach from it to the colour - the distance that varies 3.7x. */}
+        {/* White, and the reach from it to the color - the distance that varies 3.7x. */}
         {here && (
           <line
             x1={sx(white.x)} y1={sy(white.y)} x2={sx(here.x)} y2={sy(here.y)}
@@ -305,7 +305,7 @@ function CieDiagram({ rgb, gamuts, activeId, showCircle, circleRadius = 0.20, gh
           />
         )}
 
-        {/* The colour itself. The app's handle look: a core inside a ring. */}
+        {/* The color itself. The app's handle look: a core inside a ring. */}
         {here && (
           <g data-testid="cie-dot" data-x={here.x.toFixed(5)} data-y={here.y.toFixed(5)}>
             <circle cx={sx(here.x)} cy={sy(here.y)} r={12} fill="none" stroke="#000000" strokeOpacity={0.5} strokeWidth={7} />

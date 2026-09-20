@@ -24,14 +24,14 @@ export const CHROMA_MAX = 0.4;
  */
 export const OUT_OF_GAMUT_WASH = 'color-mix(in oklab, var(--background) 72%, transparent)';
 
-/** One sampled stop, as the clamped 8-bit colour the screen would actually show. */
+/** One sampled stop, as the clamped 8-bit color the screen would actually show. */
 function stop(l: number, c: number, h: number): string {
   const { rgb } = oklchToRgb(l, c, h);
   return `rgb(${rgb.r},${rgb.g},${rgb.b})`;
 }
 
 /**
- * A left-to-right ramp of `steps + 1` sampled colours. Oklch is not linear in
+ * A left-to-right ramp of `steps + 1` sampled colors. Oklch is not linear in
  * sRGB, so a two-stop gradient would be wrong everywhere between its ends; the
  * browser interpolates straight lines between whatever it is given, and enough
  * samples make those lines short enough not to lie.
@@ -56,7 +56,7 @@ export function hueRamp(l: number, c: number): string {
 }
 
 /**
- * C 0..CHROMA_MAX at the current L and H, drawn honestly: the colour ramp
+ * C 0..CHROMA_MAX at the current L and H, drawn honestly: the color ramp
  * underneath, a wash over the span sRGB cannot reach, and a hairline exactly
  * where the gamut ends.
  *
@@ -65,7 +65,7 @@ export function hueRamp(l: number, c: number): string {
  * a hatch is a repeating gradient, and limiting one to start at a percentage
  * needs a mask, which needs an element of its own.
  *
- * Past the limit the ramp is flat anyway - every colour out there clamps to
+ * Past the limit the ramp is flat anyway - every color out there clamps to
  * the same 8-bit value - so without the wash the track simply looks like it
  * has stopped meaning anything, which is true but says nothing about why.
  */
@@ -78,7 +78,7 @@ export function chromaRamp(l: number, h: number, limit: number): string {
 }
 
 /**
- * S 0..100 at the current L and H: the same colour ramp as the C track, but
+ * S 0..100 at the current L and H: the same color ramp as the C track, but
  * ending where the gamut does rather than where the number does.
  *
  * One layer, not three. There is no wash and no hairline because there is
@@ -88,7 +88,7 @@ export function chromaRamp(l: number, h: number, limit: number): string {
  * That also puts the relative model's price in the track itself, before any
  * readout says it: the two tracks are the same width, but at cyan the right end
  * is a flat teal and at magenta it is a vivid pink. Same 100%, different
- * amounts of colour.
+ * amounts of color.
  */
 export function saturationRamp(l: number, h: number, limit: number): string {
   return ramp(32, (t) => stop(l, t * limit, h));

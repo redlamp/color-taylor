@@ -1,13 +1,13 @@
 /**
- * Oklch lab: one colour, held as Oklch, shown every way at once.
+ * Oklch lab: one color, held as Oklch, shown every way at once.
  *
  * The question the page exists to answer is what an Oklch bank should do at
- * the edge of sRGB. Unlike RGB, HSB and HSL, Oklch can name colours the screen
+ * the edge of sRGB. Unlike RGB, HSB and HSL, Oklch can name colors the screen
  * cannot show - and the C channel is where that bites, because how far C may
  * go depends on the L and H beside it. The "Stop chroma at the gamut edge"
  * switch puts the two candidate answers side by side: a handle that stops at
  * the cusp, or a handle that runs the whole track while the page says plainly
- * that the colour is out of reach.
+ * that the color is out of reach.
  *
  * The Absolute/Relative switch asks a harder version of the same question:
  * whether C should be a number the user sets at all. Relative spends the track
@@ -56,10 +56,10 @@ const HUE_STEP = 0.1;
  * the analytic cusp, floored to the slider's own step.
  *
  * Not the cusp itself, for two reasons. The handle can only land on a step, so
- * a value between two of them is not reachable by any gesture. And a colour
+ * a value between two of them is not reachable by any gesture. And a color
  * sitting exactly on the boundary reads as outside sRGB - `oklchToRgb` finds a
  * linear channel a float hair past 1 and says so, correctly - so clamping to
- * the cusp would leave the page announcing that the colour it had just forced
+ * the cusp would leave the page announcing that the color it had just forced
  * into gamut was out of it. One step in is both reachable and true.
  *
  * The track's marker still sits on the cusp: that is where the gamut ends,
@@ -81,10 +81,10 @@ type ChromaMode = 'absolute' | 'relative';
  * the far half of those presses is usually spent outside the gamut, which is
  * how a stepper button becomes a control nobody uses. Relative S runs 0..100 in
  * ones: 100 presses to cross the whole *reachable* range, 10 with Shift held,
- * and every one of them lands on a colour.
+ * and every one of them lands on a color.
  *
  * A finer step would buy little. Measured over (L, h) on a 0.01 x 2deg grid,
- * one percent of S moves the rendered colour by 2 bytes or less in 61% of
+ * one percent of S moves the rendered color by 2 bytes or less in 61% of
  * places and by 4 or less in 74%; the worst 5% - the steep run into a cusp at
  * high L, where absolute C moves up to 14 bytes per thousandth anyway - reach
  * 20. Halves would double the press count to buy resolution in a twentieth of
@@ -124,7 +124,7 @@ const satFromChroma = (c: number, l: number, h: number): number | null => {
  * way a person names them. They are where the gamut is widest and narrowest in
  * turn, so a single S read across them is the honest cost of the relative
  * model: at L 0.70 the cusp is C 0.120 at cyan and C 0.322 at magenta, so the
- * same 70% is C 0.083 there and C 0.225 here - nearly three times the colour
+ * same 70% is C 0.083 there and C 0.225 here - nearly three times the color
  * for one number.
  */
 const LANDMARKS: ReadonlyArray<{ name: string; h: number }> = [
@@ -136,7 +136,7 @@ const LANDMARKS: ReadonlyArray<{ name: string; h: number }> = [
   { name: 'Magenta', h: rgbToOklch(255, 0, 255).h },
 ];
 
-/** Where the page opens: Tailwind's Blue 500, an ordinary colour to arrive on. */
+/** Where the page opens: Tailwind's Blue 500, an ordinary color to arrive on. */
 const START: Oklch = rgbToOklch(59, 130, 246);
 
 /**
@@ -147,12 +147,12 @@ const START: Oklch = rgbToOklch(59, 130, 246);
 const PRESETS: ReadonlyArray<{ name: string; oklch: Oklch }> = [
   { name: 'sRGB blue', oklch: rgbToOklch(0, 0, 255) },
   { name: 'Blue 500', oklch: START },
-  { name: 'Mid grey', oklch: { l: 0.6, c: 0, h: 0 } },
+  { name: 'Mid gray', oklch: { l: 0.6, c: 0, h: 0 } },
   { name: 'Past the edge', oklch: { l: 0.65, c: 0.32, h: 150 } },
 ];
 
 /**
- * A result worn as a chip of the colour itself, the way the Equations panel's
+ * A result worn as a chip of the color itself, the way the Equations panel's
  * `equations-hex` cell wears its hex. Both spellings sit in the same grid
  * cell, so the chip is always as wide as the wider of the two and the swap to
  * "Copied" moves nothing beside it.
@@ -225,8 +225,8 @@ function Readout({ letter, name, value, max, suffix = '', tint }: {
  * This is the page's counterweight, and it earns its space in either mode
  * because each mode pays for what it holds fixed. Relative holds the
  * percentage: every swatch exists, and no two of them carry the same amount of
- * colour. Absolute holds the number: the swatches that exist are strictly
- * comparable, and the rest are washed out because there is no such colour at
+ * color. Absolute holds the number: the swatches that exist are strictly
+ * comparable, and the rest are washed out because there is no such color at
  * that hue. Neither is free, and the row is where you see which price you are
  * paying.
  *
@@ -261,7 +261,7 @@ function LandmarkRow({ l, chromaAt, onPick }: {
               style={{ background: inGamut ? swatch : `linear-gradient(${OUT_OF_GAMUT_WASH}, ${OUT_OF_GAMUT_WASH}), ${swatch}` }}
             />
             <span className="truncate">{name}</span>
-            {/* Where the colour exists, its C. Where it does not, the number
+            {/* Where the color exists, its C. Where it does not, the number
                 that matters instead: where this hue actually stops. */}
             <span className={`font-mono tabular-nums ${inGamut ? 'text-muted-foreground' : 'text-destructive'}`}>
               {inGamut ? c.toFixed(3) : `max ${maxChromaForLH(l, h).toFixed(3)}`}
@@ -275,7 +275,7 @@ function LandmarkRow({ l, chromaAt, onPick }: {
 
 export default function OklchLab() {
   /**
-   * The page's colour, held as Oklch and as nothing else.
+   * The page's color, held as Oklch and as nothing else.
    *
    * The app's `useColorState` is deliberately not used here. It keeps HSB
    * canonical with an exact-RGB override ref, and routes HSL writes through a
@@ -315,7 +315,7 @@ export default function OklchLab() {
    * between the two modes:
    *
    *   relative - C is re-derived from the percentage, so the handle keeps its
-   *              *share* and the colour stays inside the gamut by construction.
+   *              *share* and the color stays inside the gamut by construction.
    *   absolute - C is a number the user set, so it either gets dragged back to
    *              the edge or is left stranded past it, as the switch says.
    */
@@ -348,7 +348,7 @@ export default function OklchLab() {
   }, []);
 
   /**
-   * The mode switch changes how C is addressed and never what colour is on
+   * The mode switch changes how C is addressed and never what color is on
    * screen. Neither direction writes to `oklch`, so the swatch and the hex are
    * bit-identical across the switch and across a round trip through it.
    *
@@ -357,9 +357,9 @@ export default function OklchLab() {
    * was the state the whole time and S was only ever a way of setting it.
    *
    * The one case worth knowing: arriving in relative mode with a C already past
-   * the cusp parks the handle at 100% while the colour stays where it was and
+   * the cusp parks the handle at 100% while the color stays where it was and
    * the page goes on saying it is out of gamut. The alternative is to snap the
-   * colour on a switch nobody asked a colour change of. The next touch of any
+   * color on a switch nobody asked a color change of. The next touch of any
    * track resolves it - inward, which is the mode's point.
    */
   const switchMode = useCallback((next: ChromaMode) => {
@@ -370,7 +370,7 @@ export default function OklchLab() {
   }, [oklch]);
 
   /**
-   * A colour arriving whole, from a preset or from sRGB. It is taken as given
+   * A color arriving whole, from a preset or from sRGB. It is taken as given
    * and S is re-read from it, so in relative mode the percentage follows the
    * hexagon rather than fighting it - drag the wheel and watch the S handle
    * move with it.
@@ -391,14 +391,14 @@ export default function OklchLab() {
   const hex = rgbToHex(rgb.r, rgb.g, rgb.b);
   const hsb = rgbToHsb(rgb.r, rgb.g, rgb.b);
   const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
-  /** Where the clamped colour actually landed - the evidence the clamp destroys. */
+  /** Where the clamped color actually landed - the evidence the clamp destroys. */
   const landed = rgbToOklch(rgb.r, rgb.g, rgb.b);
 
   /**
-   * The other direction: a colour arriving as sRGB - from the hexagon, or
+   * The other direction: a color arriving as sRGB - from the hexagon, or
    * typed into the hex field - measured back into Oklch.
    *
-   * `rgbToOklch` is exact in this direction; every sRGB colour has an Oklch
+   * `rgbToOklch` is exact in this direction; every sRGB color has an Oklch
    * address, and `oklchToRgb` returns the same bytes. So a hex typed in comes
    * back out of the readouts unchanged. That is deliberately *not* how #117
    * fails in the app: nothing here routes an RGB edit through HSB, whose
@@ -420,7 +420,7 @@ export default function OklchLab() {
 
   const spell = (v: Oklch) => `oklch(${v.l.toFixed(3)} ${v.c.toFixed(3)} ${v.h.toFixed(1)})`;
   const asked = spell(oklch);
-  // The chip wears the colour, so its text has to clear it. Oklch says which
+  // The chip wears the color, so its text has to clear it. Oklch says which
   // way round: light text under L 0.6, dark text over it.
   const chipInk = landed.l > 0.6 ? '#000' : '#fff';
 
@@ -438,17 +438,20 @@ export default function OklchLab() {
         <header className="flex shrink-0 items-center gap-2 pb-2">
           <h1 className="text-2xl font-semibold">Oklch Lab</h1>
           <HelpTip label="What this page is" className="max-w-[56ch]">
-            <p>One colour, held as Oklch. L, C and H drive everything else on
+            <p>One color, held as Oklch. L, C and H drive everything else on
             the page; RGB and HSB are read back out of the result.</p>
             <p>Oklch is bigger than sRGB, so some of what you can name here has
-            no colour on this screen &mdash; the C track shows where that
+            no color on this screen &mdash; the C track shows where that
             starts. The <strong className="font-semibold">Absolute C / Relative
             S</strong> switch is the other answer to that: a track that spends
-            all of itself on the colours that do exist here.</p>
+            all of itself on the colors that do exist here.</p>
           </HelpTip>
         </header>
 
-        <div className="grid min-h-0 flex-1 grid-cols-1 items-start gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)_380px]">
+        {/* The CIE lab's shape: a 2x2 of numbered panels, and one column of
+            details about the color beside it. */}
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2 xl:[grid-template-rows:auto_minmax(0,1fr)]">
           {/*
            * The app's real hexagon, not a copy of it - the same component
            * the picker and the plugin render. It speaks sRGB, so every
@@ -456,8 +459,8 @@ export default function OklchLab() {
            * Oklch, and the bank beside it moves with it.
            */}
           <LabPanel
+            n={1}
             title="Hexagon"
-            className="md:col-span-2 xl:col-span-1"
             help={<><p>The app&rsquo;s own hexagon. It speaks sRGB, so every gesture
               on it arrives as bytes and is measured back into Oklch &mdash; the
               sliders beside it move with it.</p>
@@ -465,7 +468,7 @@ export default function OklchLab() {
               inside the gamut, so the handle never leaves the in-gamut part of
               its track.</p></>}
           >
-            <div className="mx-auto w-full max-w-[620px]">
+            <div className="mx-auto w-full max-w-[500px]">
               <ColorHexagon
                 rgb={rgb}
                 hue={hsb.h}
@@ -493,24 +496,32 @@ export default function OklchLab() {
             </div>
           </LabPanel>
 
-          <div className="flex min-w-0 flex-col gap-3">
             <LabPanel
+              n={2}
               title="Oklch"
               help={<><p><strong className="font-semibold">Absolute C</strong> is the
                 number CSS takes. The track runs to {CHROMA_MAX} at every L and H, and
-                the part of it past the gamut edge names colours this screen
+                the part of it past the gamut edge names colors this screen
                 does not have.</p>
                 <p><strong className="font-semibold">Relative S</strong> is a share
                 of what fits: 100% is the gamut edge at this L and H, so every
-                position is a real colour &mdash; and the same percentage is a
-                different amount of colour at every hue.</p>
+                position is a real color &mdash; and the same percentage is a
+                different amount of color at every hue.</p>
                 <p><strong className="font-semibold">Stop chroma at the gamut
                 edge</strong> is an Absolute-mode question. On, C cannot leave
-                sRGB: moving L or H pulls it back to the line, so the colour is
+                sRGB: moving L or H pulls it back to the line, so the color is
                 always real and the value you set changes under you. Off, C runs
-                the whole track; past the line the colour stops changing and the
+                the whole track; past the line the color stops changing and the
                 page says so. In Relative mode there is nothing to stop &mdash;
-                the edge is 100% and the track ends there.</p></>}
+                the edge is 100% and the track ends there.</p>
+                <p><strong className="font-semibold">Asked for / got back:</strong> inside
+                sRGB the swatch is the color named, to the nearest 8-bit step,
+                and the two lines say the same thing twice on purpose. Outside,
+                no color on this screen has that address, and the swatch is
+                what the clamp gives instead &mdash; a different color, and
+                above all a duller one. <strong className="font-semibold">C stops
+                at</strong> is the most chroma sRGB holds at this L and H.</p></>}
+              helpWide
               aside={
                 <Tabs value={mode} onValueChange={(v) => switchMode(v as ChromaMode)}>
                   <TabsList>
@@ -566,7 +577,7 @@ export default function OklchLab() {
                 * One row in both modes, so the switch cannot change the
                 * panel's height. In Relative the question has no meaning -
                 * 100% is the cusp - and the row says that in the space the
-                * switch held, rather than leaving a greyed control that still
+                * switch held, rather than leaving a grayed control that still
                 * puts the question.
                 */}
               <div className="flex min-h-10 items-center border-t border-border pt-2">
@@ -586,65 +597,6 @@ export default function OklchLab() {
                   </div>
                 )}
               </div>
-            </LabPanel>
-
-            <LabPanel
-              title="One setting, six hues"
-              caption={relative
-                ? <>Every swatch is <span className="font-mono tabular-nums text-foreground">{sat}%</span> at this L.</>
-                : <>Every swatch is <span className="font-mono tabular-nums text-foreground">C {oklch.c.toFixed(3)}</span> at this L.</>}
-              help={<><p>The current chroma setting, read across six landmark hues
-                at the current L. Click a swatch to go to that hue.</p>
-                <p><strong className="font-semibold">Relative</strong> holds the
-                percentage: every swatch exists, and no two carry the same
-                amount of colour. That is what the relative track costs, and it
-                does not go away by not being shown.</p>
-                <p><strong className="font-semibold">Absolute</strong> holds the
-                number: the swatches that exist are strictly comparable, and at
-                some hues there is no colour at all.</p></>}
-            >
-              <LandmarkRow
-                l={oklch.l}
-                chromaAt={(h) => (relative ? chromaFromSat(sat, oklch.l, h) : oklch.c)}
-                onPick={setH}
-              />
-            </LabPanel>
-          </div>
-
-          <div className="flex min-w-0 flex-col gap-3">
-            {/* The colour, and the three ways to take it away with you. */}
-            <LabPanel
-              title="The colour"
-              help={<><p>The CSS chip always spells C as a number, never as a
-                percentage. CSS Color 4 has a percentage for chroma too and it
-                is not the Relative S on this page: the spec fixes 100% at 0.4
-                flat, so <span className="font-mono">oklch(0.7 50% 264)</span> means
-                C 0.200 whether or not 0.2 fits there.</p>
-                <p><strong className="font-semibold">Inside sRGB</strong>, the
-                swatch is the colour named, to the nearest 8-bit step, and
-                &ldquo;asked for&rdquo; and &ldquo;got back&rdquo; say the same
-                thing twice on purpose.</p>
-                <p><strong className="font-semibold">Outside sRGB</strong>, no
-                colour on this screen has that address. The swatch is what the
-                clamp gives instead &mdash; a different colour, and above all a
-                duller one.</p></>}
-            >
-              <div className="flex items-stretch gap-3">
-                <PreviewSwatch hex={hex} className="w-[72px] min-h-20" />
-                <div className="flex min-w-0 flex-1 flex-col justify-center gap-2">
-                  <CopyChip text={asked} color={hex} textColor={chipInk} />
-                  <div className="flex items-center gap-2">
-                    <CopyChip text={hex.toUpperCase()} color={hex} textColor={chipInk} />
-                    {/* The app's own field, typed as well as read. Its bytes
-                        reach the state through rgbToOklch and come back out
-                        unchanged - see setFromRgb. */}
-                    <div className="w-[104px]">
-                      <HexInput hex={hex} onChange={setFromRgb} />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
               {/*
                * The page's most interesting state, said in the same shape
                * either way. The rows are always drawn, so crossing the
@@ -677,32 +629,105 @@ export default function OklchLab() {
             </LabPanel>
 
             <LabPanel
-              title="Derived"
-              help={<p>RGB and HSB, read back out of the clamped 8-bit colour. Out
-                of gamut they describe the swatch rather than the Oklch that was
-                asked for. The buttons jump to a few colours worth trying.</p>}
+              n={3}
+              title="One setting, six hues"
+              caption={relative
+                ? <>Every swatch is <span className="font-mono tabular-nums text-foreground">{sat}%</span> at this L.</>
+                : <>Every swatch is <span className="font-mono tabular-nums text-foreground">C {oklch.c.toFixed(3)}</span> at this L.</>}
+              help={<><p>The current chroma setting, read across six landmark hues
+                at the current L. Click a swatch to go to that hue.</p>
+                <p><strong className="font-semibold">Relative</strong> holds the
+                percentage: every swatch exists, and no two carry the same
+                amount of color. That is what the relative track costs, and it
+                does not go away by not being shown.</p>
+                <p><strong className="font-semibold">Absolute</strong> holds the
+                number: the swatches that exist are strictly comparable, and at
+                some hues there is no color at all.</p></>}
             >
-              <div className="flex flex-col gap-2">
-                <Readout letter="R" name="Red" value={rgb.r} max={255} tint="#e74c4c" />
-                <Readout letter="G" name="Green" value={rgb.g} max={255} tint="#2e9e2e" />
-                <Readout letter="B" name="Blue" value={rgb.b} max={255} tint="#3385ff" />
-              </div>
-              <hr className="border-border" />
-              <div className="flex flex-col gap-2">
-                <Readout letter="H" name="Hue" value={hsb.h} max={360} suffix="°" tint="var(--foreground)" />
-                <Readout letter="S" name="Saturation" value={hsb.s} max={100} suffix="%" tint="var(--foreground)" />
-                <Readout letter="B" name="Brightness" value={hsb.b} max={100} suffix="%" tint="var(--foreground)" />
-              </div>
-              <hr className="border-border" />
-              <div className="flex flex-wrap gap-1.5">
-                {PRESETS.map((p) => (
-                  <Button key={p.name} size="sm" variant="outline" className="text-base" onClick={() => jumpTo(p.oklch)}>
-                    {p.name}
-                  </Button>
-                ))}
+              <LandmarkRow
+                l={oklch.l}
+                chromaAt={(h) => (relative ? chromaFromSat(sat, oklch.l, h) : oklch.c)}
+                onPick={setH}
+              />
+            </LabPanel>
+
+            <LabPanel
+              n={4}
+              title="Read back as RGB and HSB"
+              caption="What the clamped 8-bit color measures as."
+              help={<p>RGB and HSB are read back out of the clamped 8-bit color,
+                so out of gamut they describe the swatch rather than the Oklch
+                that was asked for. Inside the gamut they are the same color in
+                two other coordinate systems.</p>}
+            >
+              <div className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
+                <div className="flex flex-col gap-2">
+                  <Readout letter="R" name="Red" value={rgb.r} max={255} tint="#e74c4c" />
+                  <Readout letter="G" name="Green" value={rgb.g} max={255} tint="#2e9e2e" />
+                  <Readout letter="B" name="Blue" value={rgb.b} max={255} tint="#3385ff" />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Readout letter="H" name="Hue" value={hsb.h} max={360} suffix="°" tint="var(--foreground)" />
+                  <Readout letter="S" name="Saturation" value={hsb.s} max={100} suffix="%" tint="var(--foreground)" />
+                  <Readout letter="B" name="Brightness" value={hsb.b} max={100} suffix="%" tint="var(--foreground)" />
+                </div>
               </div>
             </LabPanel>
-          </div>
+        </div>
+
+          <LabPanel
+            title="Color details"
+            help={<><p>The swatch, and two ways to take the color away: click a
+              chip to copy it, or type a hex into the field.</p>
+              <p>The CSS chip always spells C as a number, never as a
+              percentage. CSS Color 4 has a percentage for chroma too and it
+              is not the Relative S on this page: the spec fixes 100% at 0.4
+              flat, so <span className="font-mono">oklch(0.7 50% 264)</span> means
+              C 0.200 whether or not 0.2 fits there.</p></>}
+          >
+              <div className="flex items-stretch gap-3">
+              <PreviewSwatch hex={hex} className="w-[72px] min-h-20" />
+              <div className="flex min-w-0 flex-1 flex-col justify-center gap-2">
+                <CopyChip text={asked} color={hex} textColor={chipInk} />
+                <div className="flex items-center gap-2">
+                  <CopyChip text={hex.toUpperCase()} color={hex} textColor={chipInk} />
+                  {/* The app's own field, typed as well as read. Its bytes
+                      reach the state through rgbToOklch and come back out
+                      unchanged - see setFromRgb. */}
+                  <div className="w-[104px]">
+                    <HexInput hex={hex} onChange={setFromRgb} />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Every row one line at fixed decimals, so a drag changes digits
+                and never the panel's height. */}
+            <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 border-t border-border pt-3">
+              <dt className="text-muted-foreground">Lightness</dt>
+              <dd className="truncate font-mono tabular-nums">{oklch.l.toFixed(3)}</dd>
+              <dt className="text-muted-foreground">Chroma</dt>
+              <dd className="truncate font-mono tabular-nums">{oklch.c.toFixed(3)} of {limit.toFixed(3)}</dd>
+              <dt className="text-muted-foreground">Relative S</dt>
+              <dd className="truncate font-mono tabular-nums">{limit > 0 ? Math.round((oklch.c / limit) * 100) : 0}%</dd>
+              <dt className="text-muted-foreground">Hue</dt>
+              <dd className="truncate font-mono tabular-nums">{oklch.h.toFixed(1)}°</dd>
+              <dt className="text-muted-foreground">Gamut</dt>
+              <dd className="truncate" style={inGamut ? undefined : { color: 'var(--destructive)' }}>{inGamut ? 'Inside sRGB' : 'Outside sRGB'}</dd>
+              <dt className="text-muted-foreground">RGB</dt>
+              <dd className="truncate font-mono tabular-nums">{rgb.r}, {rgb.g}, {rgb.b}</dd>
+              <dt className="text-muted-foreground">HSB</dt>
+              <dd className="truncate font-mono tabular-nums">{hsb.h}°, {hsb.s}%, {hsb.b}%</dd>
+            </dl>
+            <hr className="border-border" />
+            <div className="flex flex-wrap gap-1.5">
+              {PRESETS.map((p) => (
+                <Button key={p.name} size="sm" variant="outline" className="text-base" onClick={() => jumpTo(p.oklch)}>
+                  {p.name}
+                </Button>
+              ))}
+            </div>
+          </LabPanel>
         </div>
       </div>
       <Toaster position="top-center" />

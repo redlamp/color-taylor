@@ -2,7 +2,7 @@
  * The sRGB gamut as a solid in CIE xyY: chromaticity on the floor, relative
  * luminance up the vertical axis.
  *
- * It is the same cloud of colours the RGB cube is made of, positioned by the
+ * It is the same cloud of colors the RGB cube is made of, positioned by the
  * xyY arm of `cubeRenderer`'s vertex shader - not a second renderer. So the
  * `Cube` toggle is a morph rather than a cut, and the two pictures are
  * demonstrably the same solid.
@@ -40,7 +40,7 @@ import {
 const ring = (pts: readonly { x: number; y: number }[]) => pts.map((p) => [p.x, p.y] as const);
 
 /** The locus never changes, so it is built once. */
-const LOCUS_PATH: FloorPath = { points: ring(SPECTRAL_LOCUS), colour: [0.62, 0.64, 0.70], closed: true, widthPx: 2 };
+const LOCUS_PATH: FloorPath = { points: ring(SPECTRAL_LOCUS), color: [0.62, 0.64, 0.70], closed: true, widthPx: 2 };
 
 /** The order the toggles appear in. `camera` last: it is the odd one out. */
 const VIEW_ORDER: readonly CieView[] = ['front', 'right', 'top', 'iso', 'camera'];
@@ -67,31 +67,31 @@ function CieSolid({ rgb, shape, gamuts, activeId, step }: CieSolidProps) {
   const freeCam = useRef(VIEW_ANGLES.iso);
 
   // The drop line is the panel's whole argument about brightness: it runs from
-  // the colour down to the chromaticity the flat diagram puts it at. Drag
+  // the color down to the chromaticity the flat diagram puts it at. Drag
   // brightness and this line is what changes length while the foot stays put.
   const floor = useMemo<FloorPath[]>(() => {
     const paths: FloorPath[] = [LOCUS_PATH];
     // Non-active first, so the active outline is never drawn under a dim one.
     for (const g of gamuts) {
       if (g.id === activeId) continue;
-      paths.push({ points: ring(g.primaries), colour: GAMUT_TINT[g.id], closed: true, widthPx: 2 });
+      paths.push({ points: ring(g.primaries), color: GAMUT_TINT[g.id], closed: true, widthPx: 2 });
     }
     const active = gamuts.find((g) => g.id === activeId);
-    if (active) paths.push({ points: ring(active.primaries), colour: [1, 1, 1], closed: true, widthPx: 3 });
+    if (active) paths.push({ points: ring(active.primaries), color: [1, 1, 1], closed: true, widthPx: 3 });
     const here = rgbToXyY(rgb.r, rgb.g, rgb.b);
     if (here) {
       paths.push({
         points: [[here.x, here.y], [here.x, here.y]],
         heights: [0, here.Y],
-        colour: [1, 1, 1],
+        color: [1, 1, 1],
         widthPx: 2,
         onTop: true,
       });
       // a crosshair on the floor, so the foot of the drop is findable. On top
       // too: the solid stands over its own floor everywhere it is in gamut.
       const d = 0.02;
-      paths.push({ points: [[here.x - d, here.y], [here.x + d, here.y]], colour: [1, 1, 1], widthPx: 2, onTop: true });
-      paths.push({ points: [[here.x, here.y - d], [here.x, here.y + d]], colour: [1, 1, 1], widthPx: 2, onTop: true });
+      paths.push({ points: [[here.x - d, here.y], [here.x + d, here.y]], color: [1, 1, 1], widthPx: 2, onTop: true });
+      paths.push({ points: [[here.x, here.y - d], [here.x, here.y + d]], color: [1, 1, 1], widthPx: 2, onTop: true });
     }
     return paths;
   }, [rgb.r, rgb.g, rgb.b, gamuts, activeId]);
@@ -130,7 +130,7 @@ function CieSolid({ rgb, shape, gamuts, activeId, step }: CieSolidProps) {
      * The dots are drawn in the values they stand for, so a P3 buffer shows
      * P3 values correctly and an sRGB buffer clamps them. Adobe RGB, Rec. 2020
      * and ProPhoto have no buffer of their own here: their *positions* are
-     * exact - that is what the matrix above buys - but the colours are shown
+     * exact - that is what the matrix above buys - but the colors are shown
      * as the nearest thing the buffer can say, and the page says so.
      */
     bufferColorSpace: DISPLAY_IS_P3 && activeId === 'p3' ? 'display-p3' : 'srgb',
@@ -158,7 +158,7 @@ function CieSolid({ rgb, shape, gamuts, activeId, step }: CieSolidProps) {
   /*
    * Coalesced to one draw per animation frame.
    *
-   * Every colour change rebuilds `params`, and a drag on the hexagon two
+   * Every color change rebuilds `params`, and a drag on the hexagon two
    * panels away produces one of those per pointer move - so without this the
    * solid redraws as fast as the pointer reports, which on a solid of up to
    * 16.7 million points is the single most expensive thing on the page and it
