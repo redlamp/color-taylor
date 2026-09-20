@@ -43,15 +43,34 @@ import ColorSlider from '@/components/ColorSlider';
 import ColorHexagon from '@/components/ColorHexagon';
 import PreviewSwatch from '@/components/PreviewSwatch';
 import HexInput from '@/components/HexInput';
+import { cornerGaps, cornerReadings, rimShape, type MorphTarget } from '@/utils/gamutMorph';
 import type { CubeStep } from './cubeRenderer';
 import CieDiagram from './CieDiagram';
 import CieSolid from './CieSolid';
+import HexMorph from './HexMorph';
 
 const CIRCLE_R = 0.20;
 /** The red-to-green side, the yardstick the standstill readout measures against. */
 const SIDE = Math.hypot(SRGB_TRIANGLE[0].x - SRGB_TRIANGLE[1].x, SRGB_TRIANGLE[0].y - SRGB_TRIANGLE[1].y);
 /** 57.3%, computed rather than quoted - see circleFractionOutsideGamut. */
 const CIRCLE_OUT = circleFractionOutsideGamut(CIRCLE_R);
+
+/*
+ * Panel 4's figures, measured once at module load by src/utils/gamutMorph.ts
+ * and asserted in gamutMorph.test.ts. Nothing below is a quoted number.
+ */
+const XY_GAPS = cornerGaps('xy');
+const OK_GAPS = cornerGaps('oklab');
+const XY_RIM = rimShape('xy');
+const OK_RIM = rimShape('oklab');
+const spread = (t: MorphTarget) => {
+  const reaches = cornerReadings(t).map((c) => c.reach);
+  return Math.max(...reaches) / Math.min(...reaches);
+};
+const XY_SPREAD = spread('xy');
+const OK_SPREAD = spread('oklab');
+/** Cyan's angle from red: exactly 180 in xy, and nothing like it in Oklab. */
+const OK_CYAN = cornerReadings('oklab')[3].angle;
 
 /** A panel: a titled card with a caption under it. One shape for all three. */
 function Panel({ n, title, caption, children, aside }: {
@@ -126,6 +145,13 @@ export default function CieLab() {
   const [showCircle, setShowCircle] = useState(false);
   const [shape, setShape] = useState<'xyY' | 'cube'>('xyY');
   const [step, setStep] = useState<CubeStep>(1);
+  /*
+   * Panel 4 opens on xy rather than on Oklab, although Oklab is the one the
+   * rest of the work is about: the shape the hexagon bends into at t = 1 is
+   * the triangle drawn two panels up, so the first reading of the figure has
+   * somewhere to land. Oklab is one click away and is where it ends up.
+   */
+  const [morphTarget, setMorphTarget] = useState<MorphTarget>('xy');
 
   const here = rgbToXyY(rgb.r, rgb.g, rgb.b);
   const hx = here?.x ?? null, hy = here?.y ?? null;
@@ -272,6 +298,69 @@ export default function CieLab() {
           >
             <div className="min-h-[420px] flex-1 overflow-hidden rounded-md" style={{ aspectRatio: '1 / 1' }}>
               <CieSolid rgb={rgb} shape={shape} showP3={showP3} step={step} />
+            </div>
+          </Panel>
+        </div>
+
+        {/* ── panel 4: the same hexagon, moved to where its colours are ── */}
+        <div className="mt-4">
+          <Panel
+            n={4}
+            title="The hexagon, told the truth"
+            caption={<>Nothing is recoloured &mdash; every pixel keeps the colour it had and
+              moves to where the space puts it, so every difference between the two ends is a
+              claim the hexagon makes that is not true. Two points are pinned and no more: white
+              at the centre, which both spaces put there anyway, and red at its corner, which
+              fixes the rotation and the scale. Two points is exactly what a
+              rotation-and-scale has room for.</>}
+            aside={
+              <Tabs value={morphTarget} onValueChange={(v) => setMorphTarget(v as MorphTarget)}>
+                <TabsList>
+                  <TabsTrigger value="xy">CIE xy</TabsTrigger>
+                  <TabsTrigger value="oklab">Oklab a/b</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            }
+          >
+            <HexMorph rgb={rgb} hsb={hsb} target={morphTarget} />
+            <div className="grid grid-cols-1 gap-4 border-t border-border pt-3 md:grid-cols-3">
+              <div className="flex flex-col gap-1.5">
+                <h3 className="font-semibold">Six spokes become three</h3>
+                <p className="text-base text-muted-foreground">
+                  In xy the gaps between neighbouring corners run {XY_GAPS[0].toFixed(1)}&deg;,
+                  {' '}{XY_GAPS[1].toFixed(1)}&deg;, {XY_GAPS[2].toFixed(1)}&deg; and then repeat
+                  &mdash; exactly, to better than a billionth of a degree. A colour and its
+                  complement sum to white in linear RGB, so white lies on the segment between
+                  them and the two are precisely opposite: cyan is at {cornerReadings('xy')[3].angle.toFixed(1)}&deg;
+                  from red. Three corners and three points stranded on the edges between them,
+                  where the hexagon promised six of one kind.
+                </p>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <h3 className="font-semibold">Oklab is not three-fold either</h3>
+                <p className="text-base text-muted-foreground">
+                  That repeat is a fact about a <em>linear</em> map, and Oklab is not one: the
+                  cube root between LMS and Oklab does not carry a straight line to a straight
+                  line, so white stops lying between a colour and its complement. Cyan lands at
+                  {' '}{OK_CYAN.toFixed(1)}&deg; from red rather than 180&deg;, and the six gaps
+                  are six different numbers from {Math.min(...OK_GAPS).toFixed(1)}&deg; to
+                  {' '}{Math.max(...OK_GAPS).toFixed(1)}&deg;. Neither space agrees with the
+                  hexagon, and they do not agree with each other.
+                </p>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <h3 className="font-semibold">White slides out from under it</h3>
+                <p className="text-base text-muted-foreground">
+                  The hexagon pins white dead centre by construction. Take the rim&rsquo;s own
+                  area centroid and it is {(100 * Math.hypot(XY_RIM.centroid.x, XY_RIM.centroid.y)).toFixed(0)}% of
+                  a radius away in xy and {(100 * Math.hypot(OK_RIM.centroid.x, OK_RIM.centroid.y)).toFixed(0)}% away
+                  in Oklab, in different directions. Reach from white varies
+                  {' '}{XY_SPREAD.toFixed(2)}&times; over the six in xy and {OK_SPREAD.toFixed(2)}&times; in
+                  Oklab. The Oklab shape keeps {(OK_RIM.area * 100).toFixed(0)}% of the
+                  hexagon&rsquo;s area while doing it, which is why it reads as a distortion
+                  rather than a resize; the xy triangle keeps {(XY_RIM.area * 100).toFixed(0)}%.
+                </p>
+              </div>
             </div>
           </Panel>
         </div>
