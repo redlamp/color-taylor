@@ -23,7 +23,7 @@
  * `camera` is not a position. It is where a drag left the camera, which is why
  * dragging switches to it rather than fighting it.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type RGB } from '@/utils/colorConversions';
 import { SPECTRAL_LOCUS, rgbToXyY, D65_WHITE } from '@/utils/cie';
 import { gamutMaths, type Gamut, type GamutId } from '@/utils/gamuts';
@@ -56,7 +56,7 @@ export interface CieSolidProps {
   step: CubeStep;
 }
 
-export default function CieSolid({ rgb, shape, gamuts, activeId, step }: CieSolidProps) {
+function CieSolid({ rgb, shape, gamuts, activeId, step }: CieSolidProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const rendererRef = useRef<CubeRenderer | null>(null);
   const [unsupported, setUnsupported] = useState(false);
@@ -276,3 +276,7 @@ export default function CieSolid({ rgb, shape, gamuts, activeId, step }: CieSoli
     </div>
   );
 }
+
+// memo: the host re-renders on every pointer move, and this figure only has
+// to when its own props change.
+export default memo(CieSolid);

@@ -22,7 +22,7 @@
  * is the one thing this file refuses to do. So an outline is a boundary and
  * the wash inside it means exactly what it meant before: no colour here.
  */
-import { useEffect, useRef } from 'react';
+import { memo, useEffect, useRef } from 'react';
 import { rgbToHex, type RGB } from '@/utils/colorConversions';
 import {
   SPECTRAL_LOCUS, D65_WHITE,
@@ -109,7 +109,7 @@ export interface CieDiagramProps {
   ghost?: Xy | null;
 }
 
-export default function CieDiagram({ rgb, gamuts, activeId, showCircle, circleRadius = 0.20, ghost = null }: CieDiagramProps) {
+function CieDiagram({ rgb, gamuts, activeId, showCircle, circleRadius = 0.20, ghost = null }: CieDiagramProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   /*
@@ -316,3 +316,7 @@ export default function CieDiagram({ rgb, gamuts, activeId, showCircle, circleRa
     </div>
   );
 }
+
+// memo: the host re-renders on every pointer move, and this figure only has
+// to when its own props change.
+export default memo(CieDiagram);

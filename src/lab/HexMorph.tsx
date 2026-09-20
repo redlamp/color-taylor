@@ -24,7 +24,7 @@
  * The arithmetic is in src/utils/gamutMorph.ts and asserted against culori in
  * gamutMorph.test.ts. Nothing here computes a colour position itself.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { rgbToHex, type HSB, type RGB } from '@/utils/colorConversions';
 import {
   cornerReadings, rimShape, anchorReach, xyToMorphPoint, CORNERS, type MorphTarget,
@@ -287,7 +287,7 @@ export interface HexMorphProps {
   compact?: boolean;
 }
 
-export default function HexMorph({ rgb, hsb, target, frame, gamuts, activeId, compact = false }: HexMorphProps) {
+function HexMorph({ rgb, hsb, target, frame, gamuts, activeId, compact = false }: HexMorphProps) {
   /*
    * The picker's three numbers are read as values in the gamut the
    * chromaticity panel is reading from, and everything below follows: the
@@ -793,3 +793,7 @@ export function MorphReadings({ rgb, hsb, target, gamut = 'srgb' }: {
       </div>
   );
 }
+
+// memo: the host re-renders on every pointer move, and this figure only has
+// to when its own props change.
+export default memo(HexMorph);

@@ -39,7 +39,7 @@
  * src/utils/gamuts.test.ts and src/utils/gamutMorph.test.ts.
  */
 import {
-  useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode,
+  memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode,
 } from 'react';
 import {
   rgbToHsb, rgbToHex, type HSB, type RGB,
@@ -354,7 +354,7 @@ const GAMUT_NOTE_SIZERS = (['same', 'wide', 'narrow'] as const).map((kind) => ({
 const INITIAL: HSB = { h: 212, s: 78, b: 92 };
 
 /** The dropdown: which gamuts are drawn, and which one the readings are about. */
-function GamutPicker({ visible, active, onToggle, onActivate }: {
+const GamutPicker = memo(function GamutPicker({ visible, active, onToggle, onActivate }: {
   visible: ReadonlySet<GamutId>;
   active: GamutId;
   onToggle: (id: GamutId) => void;
@@ -425,7 +425,7 @@ function GamutPicker({ visible, active, onToggle, onActivate }: {
       </PopoverContent>
     </Popover>
   );
-}
+});
 
 export default function CieLab() {
   /*
@@ -539,40 +539,33 @@ export default function CieLab() {
   const drift = run && here ? Math.hypot(here.x - run.from.x, here.y - run.from.y) : 0;
 
   /*
-   * PANEL 1 TRACKS THE POINTER. THE OTHER THREE ARE ALLOWED TO LAG.
+   * ALL FOUR PANELS READ THE LIVE COLOUR.
    *
-   * The hexagon is a control and the other three are read-outs of it, so they
-   * have different deadlines. A pointer move has to move the handle now; the
-   * chromaticity dot, the morph and the solid can arrive late, and nobody can
-   * tell the difference between a solid that is current and one that is two
-   * frames behind. Bisecting the page showed what happens when they share a
-   * deadline: mounting the xyY solid took a pointer move from 48ms to 2.2s,
-   * because a drag redrew a solid of up to 16.7 million points once per
-   * reported move.
+   * Panels 3 and 4 used to get a `useDeferredValue` copy, from when a colour
+   * change redrew a solid of up to 16.7 million points and a pointer move cost
+   * 2.2s. That cost is gone - a colour change now moves the solid's marker in
+   * about 0.2ms - and what the deferral left behind was worse than what it
+   * fixed: under a real mouse every move is urgent, React only reached the
+   * deferred render in a gap, and the figures froze for up to half a second
+   * mid-drag. So they are live again. What keeps them off panel 1's bill now
+   * is that each figure is `memo`'d and coalesces its own draw to one per
+   * animation frame. If a figure ever gets expensive again, throttle *its*
+   * draw; do not starve its props.
    *
-   * `useDeferredValue` gives them the later deadline. React renders panel 1
-   * with the live colour at once, then re-renders the rest at low priority and
-   * abandons that work if another move arrives first - so under a drag the
-   * heavy panels simply skip the frames they cannot keep up with, and land on
-   * the colour the gesture ended at.
-   *
-   * Deferred through a *key* rather than the object: `rgb` and `hsb` are
-   * rebuilt every render, so deferring them directly would never settle - the
-   * value would differ from the previous one forever and React would keep a
-   * low-priority render permanently in flight.
+   * Memoised through a *key* rather than the object: `rgb` and `hsb` are
+   * rebuilt every render, and handing them straight to a memo'd figure would
+   * defeat the memo on the renders where the colour did not change.
    */
   const rgbKey = (rgb.r << 16) | (rgb.g << 8) | rgb.b;
   const hsbKey = `${hsb.h}|${hsb.s}|${hsb.b}`;
-  const lateRgbKey = useDeferredValue(rgbKey);
-  const lateHsbKey = useDeferredValue(hsbKey);
-  const lateRgb = useMemo<RGB>(
-    () => ({ r: (lateRgbKey >> 16) & 255, g: (lateRgbKey >> 8) & 255, b: lateRgbKey & 255 }),
-    [lateRgbKey],
+  const figRgb = useMemo<RGB>(
+    () => ({ r: (rgbKey >> 16) & 255, g: (rgbKey >> 8) & 255, b: rgbKey & 255 }),
+    [rgbKey],
   );
-  const lateHsb = useMemo<HSB>(() => {
-    const [h, sat, b] = lateHsbKey.split('|').map(Number);
+  const figHsb = useMemo<HSB>(() => {
+    const [h, sat, b] = hsbKey.split('|').map(Number);
     return { h, s: sat, b };
-  }, [lateHsbKey]);
+  }, [hsbKey]);
 
   // The picker's own handlers, wired exactly as ColorPicker wires them.
   const handleH = useCallback((v: number) => setHsbClear((p) => ({ ...p, h: v })), [setHsbClear]);
@@ -818,8 +811,8 @@ export default function CieLab() {
                     }
                   >
                     <HexMorph
-                      rgb={lateRgb}
-                      hsb={lateHsb}
+                      rgb={figRgb}
+                      hsb={figHsb}
                       target={morphTarget}
                       frame={morphTarget === 'xy' ? morphFrame : 'hex'}
                       gamuts={drawn}
@@ -852,7 +845,7 @@ export default function CieLab() {
                   >
                     <Fit width={fitRatio(FIT_SQUARE)}>
                       <div className="aspect-square overflow-hidden rounded-md">
-                        <CieSolid rgb={lateRgb} shape={shape} gamuts={drawn} activeId={activeGamut} step={step} />
+                        <CieSolid rgb={figRgb} shape={shape} gamuts={drawn} activeId={activeGamut} step={step} />
                       </div>
                     </Fit>
                   </Panel>
