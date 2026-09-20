@@ -44,6 +44,9 @@ largest cluster in the wiki.
 - [[out-of-gamut-must-be-returned-not-inferred]] — the clamped 8-bit colour is
   the same on both sides of the boundary, so an Ok conversion has to hand back
   whether the input was real rather than leave it to be inferred
+- [[antipodal-only-at-the-corners]] — in CIE xy the six landmarks are exactly
+  180° from their complements, which is what makes the hue gaps repeat every
+  120°; between them it fails, and in Oklab it fails everywhere
 - [[plan-perceptual-color-in-color-taylor]] — what to actually build, where the
   complexity cliff is, and the deck slide that does not exist yet
 
