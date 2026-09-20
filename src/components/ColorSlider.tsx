@@ -1,4 +1,4 @@
-import { useRef, useCallback, useEffect, memo } from 'react';
+import { useRef, useState, useCallback, useEffect, memo } from 'react';
 import type React from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,7 +12,9 @@ import { HIGHLIGHT_IN, HIGHLIGHT_OUT, CALLOUT_BOX_SHADOW } from '../utils/highli
  *
  * The single letter on the track is not enough on its own: B is Blue under RGB
  * and Brightness under HSB, and a screen reader reading both as "B channel"
- * gives no way to tell them apart.
+ * gives no way to tell them apart. Oklch makes that worse rather than better -
+ * its L is Lightness in a third sense, neither HSB's B nor HSL's L - so its
+ * three names are spelled out here with the rest.
  */
 const CHANNEL_NAMES: Record<string, string> = {
   'rgb-r': 'Red',
@@ -24,8 +26,26 @@ const CHANNEL_NAMES: Record<string, string> = {
   'hsl-h': 'Hue',
   'hsl-s': 'Saturation',
   'hsl-l': 'Lightness',
+  'oklch-l': 'Lightness',
+  'oklch-c': 'Chroma',
+  // The Oklch lab's relative track: chroma as a share of what the gamut holds
+  // at this L and H, which is the thing people mean by saturation. Without the
+  // entry the lookup falls through to the letter and it reads as "S channel".
+  'oklch-s': 'Saturation',
+  'oklch-h': 'Hue',
   'alpha-a': 'Alpha',
 };
+
+/**
+ * Digits after the point in a step, so a caller giving `step={0.001}` normally
+ * does not also have to give `decimals`. A step written in exponent notation
+ * (1e-3) reads as 0 here and should pass `decimals` itself.
+ */
+function decimalsOf(step: number): number {
+  const s = String(step);
+  const dot = s.indexOf('.');
+  return dot === -1 ? 0 : s.length - dot - 1;
+}
 
 interface ColorSliderProps {
   label: string;
@@ -35,9 +55,25 @@ interface ColorSliderProps {
    * `slider-b`, which is invalid HTML the moment both groups are on screen (in
    * the app, that is always).
    */
-  group: 'rgb' | 'hsb' | 'hsl' | 'alpha';
+  group: 'rgb' | 'hsb' | 'hsl' | 'oklch' | 'alpha';
   value: number;
   max: number;
+  /**
+   * Quantisation of the value, in the value's own units. Defaults to 1 - the
+   * integer domain every channel but Oklch's lives in - and while it is 1 with
+   * no `decimals` beside it, every path below takes the exact integer
+   * arithmetic it always took, so RGB, HSB, HSL and alpha are untouched.
+   *
+   * Oklch is the reason this exists: L runs 0..1 and C about 0..0.4, so a
+   * whole number is the entire channel. Both want `step={0.001}`.
+   */
+  step?: number;
+  /**
+   * Digits the stepper shows, and the precision a value is rounded to.
+   * Defaults to however many `step` carries - 0.001 gives 3 - so a caller
+   * normally names only the step.
+   */
+  decimals?: number;
   gradient: string;
   suffix?: string;
   /**
@@ -73,8 +109,16 @@ interface ColorSliderProps {
   lit?: boolean;
 }
 
-function ColorSlider({ label, group, value, max, gradient, suffix, wrap, onChange, hideStepper, handle = 'triangle', handleFill, round, stepper, lit = false }: ColorSliderProps) {
+function ColorSlider({ label, group, value, max, step = 1, decimals, gradient, suffix, wrap, onChange, hideStepper, handle = 'triangle', handleFill, round, stepper, lit = false }: ColorSliderProps) {
   const stepperMode = stepper ?? (hideStepper ? 'none' : 'full');
+  const places = decimals ?? decimalsOf(step);
+  /**
+   * Is this anything other than the integer slider every caller before Oklch
+   * asked for? Each arithmetic site below branches on this and takes its
+   * original expression when it is false, so the existing sliders behave
+   * identically rather than merely equivalently.
+   */
+  const stepped = step !== 1 || places !== 0;
   const trackRef = useRef<HTMLDivElement | null>(null);
 
   // Figma keeps its thumb within the track rather than letting it hang off each
@@ -85,6 +129,17 @@ function ColorSlider({ label, group, value, max, gradient, suffix, wrap, onChang
 
 
   const clamp = (v: number) => Math.max(0, Math.min(max, v));
+
+  /**
+   * Round to the step. On the integer default this *is* `Math.round`, which is
+   * what stood at each of these sites before. The `toFixed` is only there to
+   * cut the float dust a fractional step leaves - 0.123 - 0.001 is
+   * 0.12200000000000001 otherwise, and that reaches the stepper's field.
+   */
+  const quantise = useCallback(
+    (v: number) => (stepped ? Number((Math.round(v / step) * step).toFixed(places)) : Math.round(v)),
+    [stepped, step, places],
+  );
 
   /**
    * Unrounded value carried across a wrapping drag, plus the last pointer x.
@@ -104,11 +159,11 @@ function ColorSlider({ label, group, value, max, gradient, suffix, wrap, onChang
     const rect = trackRef.current.getBoundingClientRect();
     const span = Math.max(1, rect.width - inset * 2);
     const x = Math.max(0, Math.min(clientX - rect.left - inset, span));
-    const newValue = Math.round((x / span) * max);
+    const newValue = quantise((x / span) * max);
     onChange(Math.min(newValue, max));
     accum.current = newValue;
     lastX.current = clientX;
-  }, [max, onChange, inset]);
+  }, [max, onChange, inset, quantise]);
 
   /**
    * Relative mapping, for cyclic channels: the value follows how far the
@@ -130,8 +185,8 @@ function ColorSlider({ label, group, value, max, gradient, suffix, wrap, onChang
     // max, not max+1: hue's 0 and 360 are the same color, so the cycle is
     // max wide and landing on either end is landing on the same place.
     accum.current = ((next % max) + max) % max;
-    onChange(Math.round(accum.current) % max);
-  }, [max, onChange, inset]);
+    onChange(quantise(accum.current) % max);
+  }, [max, onChange, inset, quantise]);
 
   const { startDrag } = useDrag(useCallback((e: PointerEvent) => {
     if (wrap) advance(e);
@@ -183,19 +238,37 @@ function ColorSlider({ label, group, value, max, gradient, suffix, wrap, onChang
     if (!stepperDragStart.current) return;
     const dx = e.clientX - stepperDragStart.current.x;
     const dy = stepperDragStart.current.y - e.clientY;
-    const delta = Math.round((dx + dy) / 2);
-    const newVal = Math.max(0, Math.min(max, stepperDragStart.current.value + delta));
+    // One pixel of drag is one step, whatever a step is worth.
+    const delta = Math.round((dx + dy) / 2) * step;
+    const next = stepperDragStart.current.value + delta;
+    const newVal = Math.max(0, Math.min(max, stepped ? quantise(next) : next));
     onChange(newVal);
-  }, [max, onChange]));
+  }, [max, onChange, step, stepped, quantise]));
+
+  /**
+   * What a fractional field is showing mid-edit, or null when it is not being
+   * typed into. "0." and "0.10" are both on the way to a value, and echoing
+   * `value.toFixed(3)` back on every keystroke would rewrite them under the
+   * cursor. An integer slider never sets this and takes the controlled path
+   * it always had.
+   */
+  const [draft, setDraft] = useState<string | null>(null);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value;
+    if (stepped) setDraft(raw);
     if (raw === '') {
       onChange(0);
       return;
     }
-    const num = parseInt(raw, 10);
+    const num = stepped ? parseFloat(raw) : parseInt(raw, 10);
     if (!isNaN(num)) onChange(clamp(num));
+  };
+
+  /** One press of -/+, and the arrow keys' nudge. `steps`, not units. */
+  const nudge = (steps: number) => {
+    const next = value + steps * step;
+    onChange(clamp(stepped ? quantise(next) : next));
   };
 
   const pct = (value / max) * 100;
@@ -234,7 +307,12 @@ function ColorSlider({ label, group, value, max, gradient, suffix, wrap, onChang
           aria-label={`${channelName} channel`}
           aria-valuemin={0}
           aria-valuemax={max}
-          aria-valuenow={value}
+          aria-valuenow={stepped ? Number(value.toFixed(places)) : value}
+          // Only on a fractional track. A screen reader reading "0.123" off
+          // valuenow alone is fine; reading a raw 0.12299999999999999 is not.
+          // Undefined on an integer slider, so the attribute is absent as
+          // before.
+          aria-valuetext={stepped ? value.toFixed(places) : undefined}
           data-hold={`sl:${channel}`}
           className={`h-4 w-full cursor-pointer select-none touch-none ${round ? 'rounded-full' : 'rounded'}`}
           style={{ background: gradient, boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.1)' }}
@@ -314,14 +392,19 @@ function ColorSlider({ label, group, value, max, gradient, suffix, wrap, onChang
           the presentation, which renders ColorSlider outside any such
           container, is untouched. */}
       {stepperMode !== 'none' && <div id={`${sliderId}-stepper`} data-hold={`sl:${channel}`} className="flex items-center h-8 shrink-0 @max-[230px]/editor:hidden">
-        <div className={`flex items-center border border-input rounded-md overflow-hidden h-8 ${stepperMode === 'value' ? 'w-[52px]' : 'w-[92px]'}`}>
+        {/* A fractional channel needs room for "0.623" where an integer one
+            needed room for "255", and 92px leaves the field about 42: enough
+            for three digits in this face, not for five. The wider pair is
+            reached only through `step`/`decimals`, so every existing caller
+            keeps the width it had. */}
+        <div className={`flex items-center border border-input rounded-md overflow-hidden h-8 ${stepperMode === 'value' ? (stepped ? 'w-[68px]' : 'w-[52px]') : (stepped ? 'w-[108px]' : 'w-[92px]')}`}>
           {stepperMode === 'full' && (
             <Button
               variant="ghost"
               size="icon-xs"
               className="h-8 w-6 rounded-none border-none"
               tabIndex={-1}
-              onClick={() => onChange(clamp(value - 1))}
+              onClick={() => nudge(-1)}
               aria-label={`Decrease ${channelName}`}
             >
               <Minus className="!size-3" />
@@ -329,19 +412,20 @@ function ColorSlider({ label, group, value, max, gradient, suffix, wrap, onChang
           )}
           <Input
             type="text"
-            inputMode="numeric"
+            inputMode={stepped ? 'decimal' : 'numeric'}
             aria-label={channelName}
-            value={value}
+            value={stepped ? (draft ?? value.toFixed(places)) : value}
             onChange={handleInputChange}
-            onFocus={(e) => e.target.select()}
+            onFocus={(e) => { if (stepped) setDraft(null); e.target.select(); }}
+            onBlur={() => { if (stepped) setDraft(null); }}
             onKeyDown={(e) => {
-              const step = e.shiftKey ? 10 : 1;
+              const steps = e.shiftKey ? 10 : 1;
               if (e.key === 'ArrowUp' || e.key === 'ArrowRight') {
                 e.preventDefault();
-                onChange(clamp(value + step));
+                nudge(steps);
               } else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') {
                 e.preventDefault();
-                onChange(clamp(value - step));
+                nudge(-steps);
               }
             }}
             onMouseDown={(e) => {
@@ -356,7 +440,7 @@ function ColorSlider({ label, group, value, max, gradient, suffix, wrap, onChang
               size="icon-xs"
               className="h-8 w-6 rounded-none border-none"
               tabIndex={-1}
-              onClick={() => onChange(clamp(value + 1))}
+              onClick={() => nudge(1)}
               aria-label={`Increase ${channelName}`}
             >
               <Plus className="!size-3" />

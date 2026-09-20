@@ -2,8 +2,8 @@ import { describe, expect, test } from 'bun:test';
 import { hsbToRgb, hslToRgb, rgbToHsb, rgbToHsl } from '../utils/colorConversions';
 import { channelWeight, exactHue, rails, rgbAtHue } from './rgbWaves';
 
-/** Deterministic colours, spread over the cube. */
-function* colours(n: number) {
+/** Deterministic colors, spread over the cube. */
+function* colors(n: number) {
   let x = 12345;
   const next = () => { x = (x * 1103515245 + 12345) & 0x7fffffff; return x % 256; };
   for (let i = 0; i < n; i++) yield { r: next(), g: next(), b: next() };
@@ -65,8 +65,8 @@ describe('rgbAtHue', () => {
     }
   });
 
-  test('passes exactly through the colour at its own hue', () => {
-    for (const c of colours(500)) {
+  test('passes exactly through the color at its own hue', () => {
+    for (const c of colors(500)) {
       const h = exactHue(c);
       const { max, min } = rails(c);
       if (h === null) {
@@ -83,7 +83,7 @@ describe('rgbAtHue', () => {
 
 describe('exactHue', () => {
   test('agrees with rgbToHsb before rounding', () => {
-    for (const c of colours(500)) {
+    for (const c of colors(500)) {
       const h = exactHue(c);
       if (h === null) continue;
       const want = rgbToHsb(c.r, c.g, c.b).h;
@@ -93,7 +93,7 @@ describe('exactHue', () => {
     }
   });
 
-  test('a grey has no hue', () => {
+  test('a gray has no hue', () => {
     expect(exactHue({ r: 0, g: 0, b: 0 })).toBeNull();
     expect(exactHue({ r: 128, g: 128, b: 128 })).toBeNull();
     expect(exactHue({ r: 255, g: 255, b: 255 })).toBeNull();
@@ -102,7 +102,7 @@ describe('exactHue', () => {
 
 describe('rails', () => {
   test('reads the four values the sliders show', () => {
-    for (const c of colours(500)) {
+    for (const c of colors(500)) {
       const r = rails(c);
       const hsb = rgbToHsb(c.r, c.g, c.b);
       const hsl = rgbToHsl(c.r, c.g, c.b);

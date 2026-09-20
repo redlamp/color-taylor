@@ -2,8 +2,8 @@
  * Spectrum bench: red, green and blue drawn across the hue circle, over
  * Channel Surfer's linear rainbow, beside the app's own Color Editor.
  *
- * Sweep a colour's hue round and its three channels trace one wave, 120
- * degrees apart. Its top is the colour's largest channel, its bottom the
+ * Sweep a color's hue round and its three channels trace one wave, 120
+ * degrees apart. Its top is the color's largest channel, its bottom the
  * smallest, and nothing else shapes it - which is the whole of HSB and HSL
  * (rgbWaves.ts):
  *
@@ -18,7 +18,7 @@
  * right, white above the pure hue, black below.
  *
  * The editor is the picker's, assembled from the same primitives on the same
- * colour-state hook as the cube bench. Nothing in src/components is changed.
+ * color-state hook as the cube bench. Nothing in src/components is changed.
  */
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { hsbToRgb, hslToRgb, rgbToHsb, rgbToHex, rgbToHsl, type RGB } from '../utils/colorConversions';
@@ -164,7 +164,7 @@ type Grab = 'hue' | 'max' | 'min';
 
 interface StageProps {
   rgb: RGB;
-  /** The hue to mark: the colour's own when it has one, else the slider's. */
+  /** The hue to mark: the color's own when it has one, else the slider's. */
   hue: number;
   model: Model;
   /** Which channels draw. A hidden one loses its wave and its dot; the rails stay. */
@@ -207,10 +207,10 @@ function WaveStage({ rgb, hue, model, shown, showSpectrum, showGuides, onHue, on
   // The columns' bars, in the sliders' order, all three whichever model the
   // editor shows. Each is a span on the 0-255 scale: S from min to max, B
   // and L from 0 up to the rail they read.
-  // Brightness and lightness are greyscale, black up the scale to the grey at
-  // their rail; saturation is that same grey pulled out to the colour. So the
+  // Brightness and lightness are grayscale, black up the scale to the gray at
+  // their rail; saturation is that same gray pulled out to the color. So the
   // top of the B bar is the bottom of the S bar: brightness gets you to a
-  // grey, saturation takes it from there.
+  // gray, saturation takes it from there.
   // Each bar carries its own reading as a heading above it; the raw max,
   // min and midline sit on the axis at their rails. In Both, S reads twice,
   // HSB then HSL, kept short so the angled heading stays inside the band.
@@ -220,8 +220,8 @@ function WaveStage({ rgb, hue, model, shown, showSpectrum, showGuides, onHue, on
       : `${pct(R.hsbS)}·${pct(R.hslS)}`;
     const all = {
       S: { top: R.max, bottom: R.min, fill: 'url(#bar-saturation)', reading: sReading },
-      B: { top: R.max, bottom: 0, fill: 'url(#bar-grey)', reading: pct(R.hsbB) },
-      L: { top: R.mid, bottom: 0, fill: 'url(#bar-grey)', reading: pct(R.hslL) },
+      B: { top: R.max, bottom: 0, fill: 'url(#bar-gray)', reading: pct(R.hsbB) },
+      L: { top: R.mid, bottom: 0, fill: 'url(#bar-gray)', reading: pct(R.hslL) },
     } as const;
     return (['S', 'B', 'L'] as const).map((k) => ({ key: k, ...all[k] }));
   }, [model, R.max, R.min, R.mid, R.hsbS, R.hslS, R.hsbB, R.hslL]);
@@ -280,7 +280,7 @@ function WaveStage({ rgb, hue, model, shown, showSpectrum, showGuides, onHue, on
     else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') { e.preventDefault(); set(Math.max(0, value - step)); }
   };
 
-  // The axis numbers sit centred on their rails until the rails close up,
+  // The axis numbers sit centerd on their rails until the rails close up,
   // then max steps above its rail and min below; the midline's goes when
   // there is no room for it between them.
   const spanPx = yAt(R.min) - yAt(R.max);
@@ -318,12 +318,12 @@ function WaveStage({ rgb, hue, model, shown, showSpectrum, showGuides, onHue, on
       {ready && (
         <svg className="pointer-events-none absolute inset-0" width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden="true">
           <defs>
-            {/* Pinned to the scale, so a bar clipped at its rail ends on that rail's grey. */}
-            <linearGradient id="bar-grey" gradientUnits="userSpaceOnUse" x1={0} y1={yAt(0)} x2={0} y2={yAt(255)}>
+            {/* Pinned to the scale, so a bar clipped at its rail ends on that rail's gray. */}
+            <linearGradient id="bar-gray" gradientUnits="userSpaceOnUse" x1={0} y1={yAt(0)} x2={0} y2={yAt(255)}>
               <stop offset={0} stopColor="#000" />
               <stop offset={1} stopColor="#fff" />
             </linearGradient>
-            {/* The grey a colour of this brightness has with no saturation, out to the colour. */}
+            {/* The gray a color of this brightness has with no saturation, out to the color. */}
             <linearGradient id="bar-saturation" x1={0} y1={1} x2={0} y2={0}>
               <stop offset={0} stopColor={`rgb(${R.max},${R.max},${R.max})`} />
               <stop offset={1} stopColor={hex} />
@@ -399,7 +399,7 @@ function WaveStage({ rgb, hue, model, shown, showSpectrum, showGuides, onHue, on
       )}
 
       {/* The rails are handles. min first, max on top: when they meet on a
-          grey, the one you can take hold of is brightness. */}
+          gray, the one you can take hold of is brightness. */}
       {ready && showGuides && (
         <>
           <div
@@ -510,7 +510,7 @@ export default function SpectrumBench() {
     return { ...prev, s: Math.round((1 - Math.min(v, max) / max) * 100) };
   }), [setHsbClear]);
 
-  // ── Colour editor handlers, as the picker wires them ──────────────
+  // ── Color editor handlers, as the picker wires them ──────────────
   const handleR = useCallback((v: number) => { stopSweep(); setRgbChannel('r', v); }, [stopSweep, setRgbChannel]);
   const handleG = useCallback((v: number) => { stopSweep(); setRgbChannel('g', v); }, [stopSweep, setRgbChannel]);
   const handleB = useCallback((v: number) => { stopSweep(); setRgbChannel('b', v); }, [stopSweep, setRgbChannel]);
@@ -519,7 +519,7 @@ export default function SpectrumBench() {
   const handleBr = useCallback((v: number) => setHsbClear((prev) => ({ ...prev, b: v })), [setHsbClear]);
   const handleSb = useCallback((s: number, b: number) => setHsbClear((prev) => ({ ...prev, s, b })), [setHsbClear]);
   const handleHslH = useCallback((v: number) => { stopSweep(); setHslChannel('h', v); }, [stopSweep, setHslChannel]);
-  // An HSL write rebuilds the colour from a hue frozen at the start of the
+  // An HSL write rebuilds the color from a hue frozen at the start of the
   // gesture (decision-hsl-gesture-origin), which under a sweep would drag
   // hue back to that origin every move. While the sweep runs, S and L are
   // set through the hue of the moment instead, and only s and b change.
@@ -535,16 +535,16 @@ export default function SpectrumBench() {
   const handleHex = useCallback((parsed: RGB) => { stopSweep(); clearOverride(); setHsb(rgbToHsb(parsed.r, parsed.g, parsed.b)); }, [stopSweep, clearOverride, setHsb]);
 
   // While the sweep runs the state's hue is the smooth one: the hue read
-  // back off the 8-bit colour steps, coarsely at low saturation. Otherwise
-  // the colour's own hue, so the dots sit exactly on the wave after an RGB
-  // edit, and the slider's when the colour is a grey and has none.
+  // back off the 8-bit color steps, coarsely at low saturation. Otherwise
+  // the color's own hue, so the dots sit exactly on the wave after an RGB
+  // edit, and the slider's when the color is a gray and has none.
   const hue = sweep ? hsb.h : (exactHue(rgb) ?? hsb.h);
   const padTop = padTopFor(model);
 
   return (
     // No fixed height: the row is as tall as the editor and the Graph panel,
     // and the stage fills it, so the graph sits level with the two cards.
-    // Capped and centred, so the spectrum stops growing with the window: at
+    // Capped and centerd, so the spectrum stops growing with the window: at
     // the cap the plot is about 770 wide, a little over two pixels a degree.
     <div className="mx-auto grid max-w-[1440px] grid-cols-1 md:grid-cols-[1fr_420px] bg-background text-foreground">
       <div className="p-3">
@@ -565,7 +565,7 @@ export default function SpectrumBench() {
             <span style={{ color: TEXT_INK.r }}>Red</span>, <span style={{ color: TEXT_INK.g }}>Green</span>, and <span style={{ color: TEXT_INK.b }}>Blue</span> across the{' '}
             <span className="bg-clip-text text-transparent" style={{ backgroundImage: hueGradient(80, 100, 'srgb') }}>Hue spectrum</span>
           </div>
-          {/* The channel readouts over the plot, each centred on the hue
+          {/* The channel readouts over the plot, each centerd on the hue
               where its channel peaks - red at 0, green at 120, blue at 240 -
               so the label stands above its own band of the spectrum. Red's
               peak is the left edge, so it clamps to start there. Each value

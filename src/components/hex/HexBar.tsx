@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
+import { useCallback, useEffect, useEffectEvent, useRef, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
 import { HEX_HIGHLIGHT_COLOR, HIGHLIGHT_IN, HIGHLIGHT_OUT } from '../../utils/highlight';
 import {
   BAR_ARROW, BAR_LABEL_INSET_H, BAR_LABEL_SPACE, BAR_TICK, BAR_TITLE_LIFT, BAR_TRACK,
@@ -179,47 +179,78 @@ export default function HexBar({
    * owns is what that number means - HSB's b and HSL's l are not the same
    * axis, and only it can say which is live.
    */
-  useEffect(() => {
-    const onPointerMove = (e: PointerEvent) => {
-      const pd = press.current;
-      if (pd && !pd.isDragging) {
-        const dx = e.clientX - pd.clientX;
-        const dy = e.clientY - pd.clientY;
-        if (Math.sqrt(dx * dx + dy * dy) < DRAG_TRIGGER_DISTANCE) return;
-        pd.isDragging = true;
-        dragging.current = true;
-        onDragStart();
-      }
-      if (!dragging.current) return;
+  const onPointerMove = useEffectEvent((e: PointerEvent) => {
+    const pd = press.current;
+    if (pd && !pd.isDragging) {
+      const dx = e.clientX - pd.clientX;
+      const dy = e.clientY - pd.clientY;
+      if (Math.sqrt(dx * dx + dy * dy) < DRAG_TRIGGER_DISTANCE) return;
+      pd.isDragging = true;
+      dragging.current = true;
+      onDragStart();
+    }
+    if (!dragging.current) return;
+    const v = valueAt(e);
+    if (v !== null) onDrag(v);
+  });
+  const onPointerUp = useEffectEvent((e: PointerEvent) => {
+    const pd = press.current;
+    const held = pd !== null || dragging.current;
+    if (pd && !pd.isDragging && Date.now() - pd.time <= CLICK_MAX_DURATION) {
       const v = valueAt(e);
-      if (v !== null) onDrag(v);
-    };
-    const onPointerUp = (e: PointerEvent) => {
-      const pd = press.current;
-      const held = pd !== null || dragging.current;
-      if (pd && !pd.isDragging && Date.now() - pd.time <= CLICK_MAX_DURATION) {
-        const v = valueAt(e);
-        if (v !== null) onTap(v);
-      }
-      press.current = null;
-      dragging.current = false;
-      if (held) onRelease?.();
-    };
-    const onPointerLeave = () => {
-      const held = press.current !== null || dragging.current;
-      press.current = null;
-      dragging.current = false;
-      if (held) onRelease?.();
-    };
-    window.addEventListener('pointermove', onPointerMove);
-    window.addEventListener('pointerup', onPointerUp);
-    document.documentElement.addEventListener('pointerleave', onPointerLeave);
+      if (v !== null) onTap(v);
+    }
+    press.current = null;
+    dragging.current = false;
+    if (held) onRelease?.();
+  });
+  /*
+   * SUBSCRIBED ONCE, AND IT HAS TO BE.
+   *
+   * These used to be plain closures in the effect, which therefore listed the
+   * host's callbacks as dependencies - and the host passes `onDrag` inline, so
+   * every render took the listeners off the window and put fresh ones on. That
+   * is harmless between events and fatal during one. A pointerup listener
+   * earlier in the window's list (ColorHexagon's, which sets state) lets React
+   * render in the microtask after it returns - still inside the same dispatch
+   * - and the commit re-ran this effect. A listener removed mid-dispatch is
+   * skipped and one added mid-dispatch is not in the list being walked, so the
+   * release reached the window and never reached this bar: the handle kept
+   * following the pointer with no button down until a second press and
+   * release got through. Effect events read the latest props without being
+   * dependencies, so the listeners now stay put for the life of the bar.
+   */
+  const onAbandon = useEffectEvent(() => {
+    const held = press.current !== null || dragging.current;
+    press.current = null;
+    dragging.current = false;
+    if (held) onRelease?.();
+  });
+  useEffect(() => {
+    /*
+     * Every way a press can end without a pointerup. `pointercancel` fires when
+     * the browser takes the pointer away - a touch that becomes a scroll, a
+     * stylus leaving range, the OS claiming the gesture - and `blur` covers the
+     * drag still held when the window goes away, where the release lands in
+     * another application and never reaches us. Without both, the press stays
+     * latched and the handle keeps following the cursor with no button down.
+     */
+    const move = (e: PointerEvent) => onPointerMove(e);
+    const up = (e: PointerEvent) => onPointerUp(e);
+    const abandon = () => onAbandon();
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', abandon);
+    window.addEventListener('blur', abandon);
+    document.documentElement.addEventListener('pointerleave', abandon);
     return () => {
-      window.removeEventListener('pointermove', onPointerMove);
-      window.removeEventListener('pointerup', onPointerUp);
-      document.documentElement.removeEventListener('pointerleave', onPointerLeave);
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', abandon);
+      window.removeEventListener('blur', abandon);
+      document.documentElement.removeEventListener('pointerleave', abandon);
     };
-  }, [valueAt, onDragStart, onDrag, onTap, onRelease]);
+  }, []);
 
   /** Grabbing the arrow or the pill drags at once, with no threshold to clear. */
   const grab = (e: ReactPointerEvent, notify?: () => void) => {

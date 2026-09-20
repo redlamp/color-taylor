@@ -3,10 +3,10 @@ import type { RGB } from '../utils/colorConversions';
 /**
  * The three RGB channels across the hue circle.
  *
- * Sweep a colour's hue round and its red, green and blue each trace the same
+ * Sweep a color's hue round and its red, green and blue each trace the same
  * wave, 120 degrees apart: flat at the top for a third of the circle, a
  * straight fall over a sixth, flat at the bottom for a third, a straight rise
- * over the last sixth. The top of the wave is the colour's largest channel and
+ * over the last sixth. The top of the wave is the color's largest channel and
  * the bottom is its smallest, and those two numbers are the *only* thing the
  * shape depends on - not on which model the sliders are showing.
  *
@@ -18,7 +18,7 @@ import type { RGB } from '../utils/colorConversions';
 
 /**
  * How far from min toward max a channel sits at hue `h`, for a channel whose
- * peak is centred on `offset` degrees: red 0, green 120, blue 240. 1 across
+ * peak is centerd on `offset` degrees: red 0, green 120, blue 240. 1 across
  * the 120 degrees around the peak, 0 across the 120 opposite, linear between.
  */
 export function channelWeight(h: number, offset: number): number {
@@ -28,7 +28,7 @@ export function channelWeight(h: number, offset: number): number {
 
 export const CHANNEL_OFFSET = { r: 0, g: 120, b: 240 } as const;
 
-/** The colour at hue `h` with these two rails. Unrounded. */
+/** The color at hue `h` with these two rails. Unrounded. */
 export function rgbAtHue(h: number, max: number, min: number): RGB {
   const span = max - min;
   return {
@@ -39,8 +39,8 @@ export function rgbAtHue(h: number, max: number, min: number): RGB {
 }
 
 /**
- * The hue of a colour, unrounded, so a marker placed at it lands exactly on
- * the wave. `null` for a grey, which has no hue of its own.
+ * The hue of a color, unrounded, so a marker placed at it lands exactly on
+ * the wave. `null` for a gray, which has no hue of its own.
  */
 export function exactHue({ r, g, b }: RGB): number | null {
   const max = Math.max(r, g, b);
