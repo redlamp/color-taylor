@@ -904,10 +904,28 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     window.addEventListener('pointermove', onPointerMove);
     window.addEventListener('pointerup', onPointerUp);
     document.documentElement.addEventListener('pointerleave', onPointerLeave);
+    /*
+     * The other two ways a press ends without a pointerup, which HexBar and
+     * useDrag already listen for and this did not.
+     *
+     * `pointercancel` is the browser taking the pointer away - a touch that
+     * became a scroll, a stylus out of range, the OS claiming the gesture.
+     * `blur` is the drag still held when the window goes away, where the
+     * release lands in another application and never reaches us.
+     *
+     * Nothing here reads `draggingBL` on a move, so a latched bar drag did not
+     * keep changing the value - it left the bar *looking* held, with its
+     * highlight up and its tone still scheduled, until the next press. Which
+     * is a release that did not land, and reads as one.
+     */
+    window.addEventListener('pointercancel', onPointerLeave);
+    window.addEventListener('blur', onPointerLeave);
     return () => {
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerup', onPointerUp);
       document.documentElement.removeEventListener('pointerleave', onPointerLeave);
+      window.removeEventListener('pointercancel', onPointerLeave);
+      window.removeEventListener('blur', onPointerLeave);
     };
   }, [hueFromMouse, handleDotDrag, handleHexSurfaceDrag, getSvgCoords, getHsbFromPosition, onAnimateToHsb, onHsbChange, addToRecent, ensureToneStart, updateTone, endTone]);
 

@@ -1,10 +1,11 @@
 import { describe, test, expect } from 'bun:test';
 import { converter } from 'culori';
 import {
-  morphPoint, cornerReadings, cornerGaps, rimShape, anchorReach,
+  morphPoint, xyToMorphPoint, cornerReadings, cornerGaps, rimShape, anchorReach,
   CORNERS, UNIT_HEX_AREA, type MorphTarget,
 } from './gamutMorph';
-import { SRGB_TRIANGLE, D65_WHITE } from './cie';
+import { GAMUTS, gamutById, gamutRgbToXyY } from './gamuts';
+import { SRGB_TRIANGLE, D65_WHITE, rgbToXyY } from './cie';
 import { hsbToRgb } from './colorConversions';
 
 /*
@@ -253,6 +254,129 @@ describe('the landmarks are the colours the hexagons corners wear', () => {
       const p = morphPoint(rgb.r, rgb.g, rgb.b, target);
       expect(c.point.x).toBeCloseTo(p.x, 12);
       expect(c.point.y).toBeCloseTo(p.y, 12);
+    }
+  });
+});
+
+describe('a chromaticity can enter the morph plane without a colour', () => {
+  /*
+   * `xyToMorphPoint` exists so the spectral locus and the wide gamuts - none
+   * of which are sRGB colours - can be drawn in the plane the xy morph ends
+   * in. The only thing it has to get right is agreeing with `morphPoint`
+   * wherever both are defined.
+   */
+  test('it agrees with morphPoint on every colour morphPoint can place', () => {
+    for (let h = 0; h < 360; h += 7) {
+      for (const [s, b] of [[100, 100], [60, 80], [25, 45]] as const) {
+        const c = hsbToRgb(h, s, b);
+        const viaColour = morphPoint(c.r, c.g, c.b, 'xy');
+        const xyY = rgbToXyY(c.r, c.g, c.b)!;
+        const viaChromaticity = xyToMorphPoint(xyY.x, xyY.y);
+        expect(viaChromaticity.x).toBeCloseTo(viaColour.x, 12);
+        expect(viaChromaticity.y).toBeCloseTo(viaColour.y, 12);
+      }
+    }
+  });
+
+  test('the two anchors land where the morph pins them', () => {
+    const white = xyToMorphPoint(D65_WHITE.x, D65_WHITE.y);
+    expect(white.x).toBeCloseTo(0, 12);
+    expect(white.y).toBeCloseTo(0, 12);
+    const red = xyToMorphPoint(SRGB_TRIANGLE[0].x, SRGB_TRIANGLE[0].y);
+    expect(red.x).toBeCloseTo(1, 12);
+    expect(red.y).toBeCloseTo(0, 12);
+  });
+
+  test('it places points outside sRGB, which is the whole reason it exists', () => {
+    // Rec. 2020's red is monochromatic and no sRGB colour has its chromaticity.
+    const p = xyToMorphPoint(0.708, 0.292);
+    expect(Math.hypot(p.x, p.y)).toBeGreaterThan(1);
+  });
+});
+
+describe('the space the hexagon’s numbers belong to is a parameter', () => {
+  /*
+   * The page's sharpest claim, as arithmetic: the hexagon is the same picture
+   * in every RGB space, and where its colours land is not. If these came out
+   * equal the whole fourth panel would be decoration.
+   */
+  test('leaving it out is sRGB, to the last bit', () => {
+    for (const target of TARGETS) {
+      for (const c of [CORNERS[0].rgb, CORNERS[3].rgb, { r: 137, g: 42, b: 200 }]) {
+        const bare = morphPoint(c.r, c.g, c.b, target);
+        const said = morphPoint(c.r, c.g, c.b, target, 'srgb');
+        expect(bare.x).toBe(said.x);
+        expect(bare.y).toBe(said.y);
+      }
+      expect(anchorReach(target)).toBe(anchorReach(target, 'srgb'));
+      expect(cornerGaps(target)).toEqual(cornerGaps(target, 'srgb'));
+    }
+  });
+
+  test('red and white stay pinned in every space, because that is the anchoring', () => {
+    for (const g of GAMUTS) {
+      for (const target of TARGETS) {
+        const red = morphPoint(255, 0, 0, target, g.id);
+        expect(red.x).toBeCloseTo(1, 9);
+        expect(red.y).toBeCloseTo(0, 9);
+        // White lands at the centre in every space, which is what makes it a
+        // free anchor rather than a second chosen one. It is that space's own
+        // white: ProPhoto's is D50, and the plane is centred there.
+        const white = morphPoint(255, 255, 255, target, g.id);
+        expect(Math.hypot(white.x, white.y)).toBeLessThan(0.02);
+      }
+    }
+  });
+
+  test('a corner that is not an anchor goes somewhere else in each space', () => {
+    // Green: pinned by nothing, so it is free to disagree.
+    const seen = GAMUTS.map((g) => morphPoint(0, 255, 0, 'xy', g.id));
+    for (let i = 1; i < seen.length; i++) {
+      expect(Math.hypot(seen[i].x - seen[0].x, seen[i].y - seen[0].y)).toBeGreaterThan(0.01);
+    }
+  });
+
+  test('the xy morph really is that gamut’s chromaticity, anchored', () => {
+    for (const g of GAMUTS) {
+      const reach = anchorReach('xy', g.id);
+      for (const c of [{ r: 0, g: 255, b: 0 }, { r: 90, g: 30, b: 200 }]) {
+        const p = morphPoint(c.r, c.g, c.b, 'xy', g.id);
+        const xy = gamutRgbToXyY(g.id, c.r, c.g, c.b)!;
+        // distance from that space's own white, divided by red's: the
+        // normalisation, undone. ProPhoto's white is D50, and the plane is
+        // centred on it rather than on D65 - see whiteOf in gamutMorph.ts.
+        const w = gamutById(g.id).white;
+        expect(Math.hypot(p.x, p.y) * reach)
+          .toBeCloseTo(Math.hypot(xy.x - w.x, xy.y - w.y), 9);
+      }
+    }
+  });
+
+  test('a wider gamut reaches further, which is what wider means', () => {
+    // Green's reach from white, as a multiple of that space's own red.
+    const srgb = Math.hypot(...Object.values(morphPoint(0, 255, 0, 'xy', 'srgb')));
+    const rec = Math.hypot(...Object.values(morphPoint(0, 255, 0, 'xy', 'rec2020')));
+    expect(rec).toBeGreaterThan(srgb);
+  });
+
+  test('the rim and the corners follow the space too', () => {
+    for (const g of GAMUTS) {
+      const rim = rimShape('xy', 360, g.id);
+      const corners = cornerReadings('xy', g.id);
+      expect(rim.area).toBeGreaterThan(0);
+      expect(corners[0].angle).toBeCloseTo(0, 6);
+      expect(corners[0].reach).toBeCloseTo(1, 9);
+    }
+    // sRGB's xy rim is the triangle; a wider space keeps a different share.
+    expect(rimShape('xy', 360, 'rec2020').area).not.toBeCloseTo(rimShape('xy', 360, 'srgb').area, 3);
+  });
+
+  test('a chromaticity enters each space’s plane on that space’s terms', () => {
+    for (const g of GAMUTS) {
+      const red = gamutRgbToXyY(g.id, 255, 0, 0)!;
+      const p = xyToMorphPoint(red.x, red.y, g.id);
+      expect(p.x).toBeCloseTo(1, 9);
+      expect(p.y).toBeCloseTo(0, 9);
     }
   });
 });

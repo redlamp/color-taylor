@@ -36,6 +36,7 @@ import ColorHexagon from '@/components/ColorHexagon';
 import HexInput from '@/components/HexInput';
 import PreviewSwatch from '@/components/PreviewSwatch';
 import FlatSection from './FlatSection';
+import { Stack } from './Reserved';
 import {
   CHROMA_MAX, OUT_OF_GAMUT_WASH, lightnessRamp, chromaRamp, hueRamp, saturationRamp,
 } from './oklchRamps';
@@ -509,47 +510,86 @@ export default function OklchLab() {
                * without changing what it means, which is why the chip above
                * spells C in both modes.
                */}
-              {relative && (
-                <p className="text-muted-foreground">
-                  Copied as C, never as a percentage:{' '}
-                  <span className="font-mono">oklch(0.7 50% 264)</span> means C 0.200 in CSS,
-                  because the spec fixes 100% at 0.4 flat rather than at what fits.
-                </p>
-              )}
+              {/* Reserved rather than conditional: this note comes and goes
+                  with the mode switch, and everything under it is what the
+                  page is about. An empty twin holds the space, so the height
+                  is the note's real height at this width rather than a guess. */}
+              <Stack
+                show={relative ? 'note' : 'none'}
+                states={[
+                  {
+                    key: 'note',
+                    node: (
+                      <p className="text-muted-foreground">
+                        Copied as C, never as a percentage:{' '}
+                        <span className="font-mono">oklch(0.7 50% 264)</span> means C 0.200 in CSS,
+                        because the spec fixes 100% at 0.4 flat rather than at what fits.
+                      </p>
+                    ),
+                  },
+                  { key: 'none', node: null },
+                ]}
+              />
 
-              {/* The page's most interesting state, said plainly. */}
+              {/*
+               * The page's most interesting state, said plainly - and said in
+               * the same shape either way.
+               *
+               * The three rows used to appear only when the colour left the
+               * gamut, so crossing the boundary during a drag grew the panel
+               * by a third of its height and shoved the figure below it down
+               * the screen. They are always drawn now. In gamut that is not
+               * padding: "asked for" and "got back" being the same line is the
+               * fact, and the C limit is where the boundary is about to be.
+               */}
               <div
                 id="oklch-gamut"
-                className="rounded-md border border-border p-3"
+                className="flex flex-col gap-2 rounded-md border border-border p-3"
                 aria-live="polite"
                 style={inGamut ? undefined : { borderColor: 'var(--destructive)' }}
               >
-                {inGamut ? (
-                  <p className="text-muted-foreground">
-                    <span className="font-semibold text-foreground">Inside sRGB.</span>{' '}
-                    The swatch is the colour named above, to the nearest 8-bit step.
-                  </p>
-                ) : (
-                  <div className="flex flex-col gap-2">
-                    <p className="text-muted-foreground">
-                      <span className="font-semibold text-foreground">Outside sRGB.</span>{' '}
-                      No colour on this screen has that address. The swatch is
-                      what the clamp gives instead - a different colour, and
-                      above all a duller one.
-                    </p>
-                    <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 font-mono tabular-nums">
-                      <dt className="font-sans text-muted-foreground">Asked for</dt>
-                      <dd className="min-w-0 break-words">{asked}</dd>
-                      <dt className="font-sans text-muted-foreground">Got back</dt>
-                      <dd className="min-w-0 break-words">{spell(landed)} &nbsp;{hex.toUpperCase()}</dd>
-                      <dt className="font-sans text-muted-foreground">C stops at</dt>
-                      <dd className="min-w-0">
-                        {limit.toFixed(3)}{' '}
-                        <span className="font-sans text-muted-foreground">at this L and H</span>
-                      </dd>
-                    </dl>
-                  </div>
-                )}
+                <Stack
+                  className="text-muted-foreground"
+                  show={inGamut ? 'in' : 'out'}
+                  states={[
+                    {
+                      key: 'in',
+                      node: (
+                        <p>
+                          <span className="font-semibold text-foreground">Inside sRGB.</span>{' '}
+                          The swatch is the colour named above, to the nearest 8-bit step,
+                          and the two lines below say the same thing twice on purpose.
+                        </p>
+                      ),
+                    },
+                    {
+                      key: 'out',
+                      node: (
+                        <p>
+                          <span className="font-semibold text-foreground">Outside sRGB.</span>{' '}
+                          No colour on this screen has that address. The swatch is
+                          what the clamp gives instead - a different colour, and
+                          above all a duller one.
+                        </p>
+                      ),
+                    },
+                  ]}
+                />
+                <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 font-mono tabular-nums">
+                  {/* `spell` is a fixed format at fixed decimals and the hex
+                      is always seven characters, so these are one line each
+                      and truncate rather than wrap: a second line here would
+                      move the figure below. */}
+                  <dt className="font-sans text-muted-foreground">Asked for</dt>
+                  <dd className="min-w-0 truncate">{asked}</dd>
+                  <dt className="font-sans text-muted-foreground">Got back</dt>
+                  <dd className="min-w-0 truncate">{spell(landed)} &nbsp;{hex.toUpperCase()}</dd>
+                  <dt className="font-sans text-muted-foreground">C stops at</dt>
+                  <dd className="min-w-0">
+                    {limit.toFixed(3)}{' '}
+                    <span className="font-sans text-muted-foreground">at this L and H</span>
+                  </dd>
+                </dl>
               </div>
             </section>
 
@@ -586,17 +626,41 @@ export default function OklchLab() {
                     belonging to the track above it rather than a fourth row.
                     In relative mode this is the page's second promise: you set
                     a share, and the number you publish is always in view. */}
-                <p className="-mt-1 pl-5 text-muted-foreground">
-                  {relative && (
-                    <>
-                      <span className="font-mono tabular-nums text-foreground">{sat}%</span>
-                      {' resolves to '}
-                      <span className="font-mono tabular-nums text-foreground">C {oklch.c.toFixed(3)}</span>
-                      {' · '}
-                    </>
-                  )}
-                  max C <span className="font-mono tabular-nums">{limit.toFixed(3)}</span> at this L and H
-                </p>
+                {/*
+                  * A Stack, not a conditional: the relative wording is longer
+                  * than the absolute one and wraps to a second line before the
+                  * absolute one does, so switching modes - or simply dragging S
+                  * from 9% to 100% - used to move both sliders under it. Both
+                  * wordings are laid out and the taller decides the height, at
+                  * whatever width the column happens to be. The percentage is
+                  * boxed to a fixed 4ch so 9% and 100% are the same width.
+                  */}
+                <Stack
+                  className="-mt-1 pl-5 text-muted-foreground"
+                  show={relative ? 'relative' : 'absolute'}
+                  states={[
+                    {
+                      key: 'relative',
+                      node: (
+                        <p>
+                          <span className="inline-block w-[4ch] text-right font-mono tabular-nums text-foreground">{sat}%</span>
+                          {' resolves to '}
+                          <span className="font-mono tabular-nums text-foreground">C {oklch.c.toFixed(3)}</span>
+                          {' · max C '}
+                          <span className="font-mono tabular-nums">{limit.toFixed(3)}</span> at this L and H
+                        </p>
+                      ),
+                    },
+                    {
+                      key: 'absolute',
+                      node: (
+                        <p>
+                          max C <span className="font-mono tabular-nums">{limit.toFixed(3)}</span> at this L and H
+                        </p>
+                      ),
+                    },
+                  ]}
+                />
                 <ColorSlider
                   label="H" group="oklch" value={oklch.h} max={360} step={HUE_STEP} wrap suffix="°"
                   gradient={hueRamp(oklch.l, oklch.c)} onChange={setH}
