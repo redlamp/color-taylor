@@ -12,12 +12,15 @@ import { oklabToLinear, oklchToRgb } from './colorConversions';
  * takes a cube root of LMS, which is not affine, so convexity does not survive
  * the trip. The cube's corners stay sharp while its faces bow inward, and the
  * in-gamut chromas at a fixed lightness and hue can be two disjoint runs rather
- * than one interval. At pure blue's own lightness and hue they are
- * [0 .. 0.2658] and [0.3131 .. 0.3133]: the gap is 0.0006 deep in linear terms,
- * far below 8-bit quantisation and invisible, but a search that stops at the
- * first exit returns C = 0.288 instead of 0.313 and renders "pure blue" as
- * 0,55,255. The green 55 is not invisible. See
- * wiki/notes/srgb-gamut-is-not-star-shaped-in-oklab.md for the measurement.
+ * than one interval. At l = 0.45201, h = 264.052 - pure blue rounded the way
+ * anyone writes it by hand - they are [0 .. 0.2656051] and
+ * [0.3131966 .. 0.3132133]. The gap is 7.0e-4 deep in linear terms, far below
+ * 8-bit quantisation and invisible in itself, but a search that stops at the
+ * first exit returns C = 0.2656051 and renders "pure blue" as 0,49,229 instead
+ * of 0,0,255. The green 49 is not invisible. (Measured by bisecting on
+ * `oklchToRgb`'s flag; the far run exists only once the flag's 1e-6 of linear
+ * slack is allowed - see THE EPSILON below.) See
+ * wiki/notes/srgb-gamut-is-not-star-shaped-in-oklab.md for the geometry.
  *
  * WHAT WE DO INSTEAD. Bjorn Ottosson's analytic approach from his OkHSL/OkHSV
  * work, ported here. It never walks outward looking for an exit; it solves for
@@ -42,31 +45,96 @@ import { oklabToLinear, oklchToRgb } from './colorConversions';
  * `oklabToLinear` applies all at once, spelled out here because the boundary
  * equations need one channel at a time.
  *
- * THE ONE PLACE WE GO BEYOND HIM, AND WHY. That three-step model describes the
- * gamut as star-shaped about the neutral axis: one cusp per hue, a cone below
- * it, a bowed cap above. Everywhere but one neighbourhood that is exactly
- * right, to about 2e-12. The exception is the blue corner, and it bites twice,
- * both times because the real gamut is not star-shaped there:
+ * WHERE WE GO BEYOND HIM, AND WHY. That three-step model describes the gamut
+ * as star-shaped about the neutral axis: one cusp per hue, a cone below it, a
+ * bowed cap above. So `cuspForHue` and `maxChromaForLH` build a candidate from
+ * *each* of the three sector fits and return the largest one that `oklchToRgb`
+ * confirms is reachable, rather than trusting the sector the hue falls in. That
+ * is not the binary search the note warns against: the candidates are analytic,
+ * there are three of them, and each is checked once.
  *
- *   - Just *below* the corner's hue the sector test hands the problem to the
- *     red branch, which follows the smooth red = 0 surface and reports C =
- *     0.2655 at the corner's own lightness. Measured, the corner's needle
- *     actually reaches down to h = 264.0519, so for the 1.7e-4 degrees between
- *     there and the sector boundary at 264.05202 the smooth answer is 0.048 too
- *     small - and h = 264.052, the value anyone writing blue by hand rounds to,
- *     lands inside that band.
- *   - Just *above* the corner's lightness (l 0.454..0.488, h 264.06..264.2) the
- *     cap is bounded by red = 0 rather than by a channel reaching 1, which the
- *     cap's equation does not model, so it over-reports by up to 5.4e-4 of a
- *     linear channel.
+ * This is usually described as a blue-corner workaround. It is not - it earns
+ * its place right round the wheel. A faithful single-sector port is off by
+ * 2.890e-3 of chroma at l = 0.94, h = 101.2, a yellow-green 163 degrees from
+ * blue, where taking the best of three is exact to 4.2e-16. (Measured against
+ * an exact cubic root-finder: each linear channel expanded as a cubic in
+ * chroma, roots isolated by the derivative's critical points and bisected to
+ * double precision. Worst case over l 0.005..0.995 by h 0.1 degrees.) The
+ * sector fits are least-squares fits with no continuity imposed across the
+ * dispatch boundaries, so the branch the hue is assigned to is simply not
+ * always the branch that bounds it.
  *
- * So `cuspForHue` and `maxChromaForLH` build a candidate from *each* of the
- * three sector fits and return the largest one that `oklchToRgb` confirms is
- * actually reachable. This is not the binary search the note warns against: the
- * candidates are analytic and there are three of them, and each is checked
- * once. The check also makes over-reporting impossible by construction - an
- * answer only survives if it names a colour that exists - so the failure mode
- * left is under-reporting, which is measured in the tests rather than assumed.
+ * WHAT THE DISPATCH IS NOT GUILTY OF. Ottosson's sector test is accurate to
+ * sub-microdegree at the blue corner, and the file used to say otherwise.
+ * Measured on the true gamut (no slack at all): the corner's needle - the thin
+ * spike of gamut that at the corner's own lightness sits beyond a gap - begins
+ * at h = 264.0520201280, and the dispatch flips from the red to the blue sector
+ * at h = 264.0520205709. That is a band of 4.43e-7 degrees. Nobody rounds into
+ * it by hand.
+ *
+ * THE EPSILON. What makes the needle reachable at h = 264.052 at all is
+ * `oklchToRgb`'s GAMUT_EPSILON: 1e-6 of slack on a *linear* channel, which
+ * dilates the gamut slightly and pulls the needle's onset down to
+ * h = 264.0517837 at the corner's lightness - a band of 2.37e-4 degrees. That
+ * figure is a measurement of this project's own tolerance, not of Ottosson's
+ * algorithm, and the two must not be quoted interchangeably. Every number in
+ * this file says which of the two it is under.
+ *
+ * THE FOURTH CANDIDATE. Above the corner's lightness (l 0.45..0.49,
+ * h 264.05..264.21) the analytic candidate that is nearly right gets rejected
+ * by a hair: at l = 0.4715, h = 264.207 the green sector's cusp yields
+ * c = 0.3000038 with linear red at -2.2160e-6, missing the 1e-6 slack by
+ * 1.2e-6, so the check throws it away. The next candidate down is 0.2930434 -
+ * 6.6e-3 of chroma short, worth 5 byte levels, rendering 0,43,251 where
+ * 0,38,255 was available and `oklchToRgb` calls it in gamut. Across that wedge
+ * 7616 of 30250 cells rendered a colour that was not the most chromatic one on
+ * offer.
+ *
+ * So `maxChromaForLH` has a fourth candidate. When the surviving analytic
+ * answer is demonstrably not on the boundary - a probe a twentieth of an 8-bit
+ * step beyond it is still in gamut - it bisects on `oklchToRgb`'s flag between
+ * that answer and the rejected candidate above it. This does not contradict
+ * the no-search rule, and not because the gamut is contiguous here (in this
+ * wedge it often is not). It is because of the bracket: the low end is already
+ * confirmed in gamut and the high end already confirmed out, so the bisection
+ * can only move the answer *up*, and only to a chroma the flag accepts. It
+ * cannot reach past the rejected candidate, so it can never jump a gap - the
+ * three analytic candidates remain the only thing that reaches the far side of
+ * one, which is what recovers the needle. Search here is a floor-raiser with a
+ * proof, not a boundary-finder on trust.
+ *
+ * OVER-REPORTING IS NOT IMPOSSIBLE, and this file used to claim it was. The
+ * check bounds the answer's distance from the gamut *surface* by 1e-6 of a
+ * linear channel; it says nothing about its distance along the chroma ray, and
+ * where the boundary is nearly tangent to the ray those differ wildly. So the
+ * answer can name a colour well past the true boundary and still pass:
+ *
+ *   maxChromaForLH(0.215, 264.05) = 0.1489832, true maximum 0.1262594
+ *                                   -> 0,0,92 against 0,11,82, 11 byte levels
+ *   maxChromaForLH(0.07,  264.0 ) = 0.0485303, true maximum 0.0405933
+ *                                   -> 0,0,12 against 0,0,9,   3 byte levels
+ *
+ * It is rare: over 7,164,000 cells (l 0.005..0.995 by h 0.01 degrees) 293
+ * render a different colour than the exact boundary would, and 11 levels is the
+ * worst of them. Both answers above are the largest chroma the *flag* accepts,
+ * to within 6e-5, so they are exactly what the check promises - the promise is
+ * just weaker than the old comment claimed. The effect is concentrated at low
+ * lightness, where every linear channel in the gamut is itself only a few times
+ * 1e-6, and it is inherent to an absolute linear epsilon rather than to
+ * anything here. The tighter check available is a byte-level one - require the
+ * answer to survive `linearToSrgb` and come back - which would cost a rounding
+ * per candidate and is deliberately not done, because it would change what
+ * every caller gets in order to fix what only the darkest ones see.
+ *
+ * ONE ANSWER, THREE QUESTIONS - UNRESOLVED. A slider bound, a plotted gamut
+ * outline and a gamut-mapping clamp target all call this function and do not
+ * want the same number. The needle recovery that makes "pure blue" render
+ * 0,0,255 is right for a clamp target and arguably wrong as a slider bound: it
+ * puts a ~0.048 discontinuity in the returned chroma across a hue band a
+ * fraction of a degree wide, where the gamut's own smooth surface has none, so
+ * a slider's travel jumps as the hue crosses it. Nothing here resolves that.
+ * If a caller needs the smooth surface rather than the outer boundary it needs
+ * a second entry point, not a change to this one.
  */
 
 /** The most chromatic colour the sRGB gamut holds at one hue. */
@@ -84,10 +152,36 @@ const W_B = [-0.0041960863, -0.7034186147, +1.7076147010] as const;
  * Ottosson publishes one Halley step and notes it leaves an error under 1e-6
  * "except for some blue hues where dS/dh is close to infinite" - which is
  * exactly the hue this file exists for, so take the second step he offers.
- * Halley converges cubically: the extra step costs a handful of multiplies and
- * brings the cusp to within 2.5e-12 of the gamut surface, measured.
+ *
+ * Do not measure the second step by how far the cusp sits from the gamut
+ * surface. `cuspFromSector` sets l = cbrt(1/highest), which puts the brightest
+ * linear channel at exactly 1 whatever S it was handed, so that distance is
+ * ~4e-15 at one step and ~4e-15 at two - forced to zero by construction, and
+ * blind to the thing being decided. An earlier version of this comment cited
+ * exactly that quantity.
+ *
+ * Cusp *chroma* does distinguish them. Against the exactly-solved root of the
+ * sector's boundary equation, worst case over 36,000 hues, one step is off by
+ * 3.9e-3 of chroma and two by 5.1e-5 - and with the candidate check in play a
+ * one-step candidate can miss the gamut outright and be rejected, at which
+ * point the answer collapses by 0.30 of chroma at h = 266.48. The extra step
+ * costs a handful of multiplies.
  */
 const HALLEY_STEPS = 2;
+
+/**
+ * How far past the analytic answer `maxChromaForLH` probes before deciding that
+ * answer is not on the boundary. One 8-bit step is worth roughly 0.002 of
+ * chroma at mid lightness, so this is about a twentieth of one - small enough
+ * that no visible shortfall slips under it, large enough that the epsilon's own
+ * dilation of the boundary (a few times 1e-7 of chroma where the surface is
+ * well conditioned) never trips it.
+ */
+const TIGHTNESS_PROBE = 1e-4;
+
+/** Bisection steps for that rescue. The bracket is under 0.05 of chroma wide,
+ *  so 40 halvings take it below 1e-13 - far past where the answer is used. */
+const BISECTION_STEPS = 40;
 
 /** One hue sector: the fitted S = k0 + k1*a + k2*b + k3*a*a + k4*a*b, and the
  *  channel whose zero crossing bounds saturation there. */
@@ -155,16 +249,23 @@ function saturationFromSector(sector: Sector, a: number, b: number): number {
 
 /**
  * The largest saturation S = C/L the sRGB gamut holds at this hue, by
- * Ottosson's sector dispatch. `a` and `b` are a unit vector in the Oklab
- * chroma plane (a^2 + b^2 = 1) - cos and sin of the hue.
+ * Ottosson's sector dispatch. `a` and `b` point into the Oklab chroma plane;
+ * only their direction is read, so (cos h, sin h) and any positive multiple of
+ * it give the same answer. The zero vector names no hue and returns NaN rather
+ * than a number - unnormalised it used to fall through the dispatch to the blue
+ * sector's k0 and hand back 1.35733652, which looks like a saturation.
  *
  * Exported because it is the quantity OkHSL is built on, and because the
- * dispatch is worth being able to see on its own. `cuspForHue` does not use it:
- * within 2e-4 degrees of blue's hue the dispatch picks the branch on the wrong
- * side of the corner, which is the whole subject of this file's header.
+ * dispatch is worth being able to see on its own; the tests use it to hold that
+ * dispatch to account. `cuspForHue` does not use it - it takes the best of all
+ * three sectors instead, for the reasons in this file's header.
  */
 export function maxSaturationForHue(a: number, b: number): number {
-  return saturationFromSector(sectorForHue(a, b), a, b);
+  const len = Math.hypot(a, b);
+  if (!(len > 0)) return NaN;
+  const ua = a / len;
+  const ub = b / len;
+  return saturationFromSector(sectorForHue(ua, ub), ua, ub);
 }
 
 /** Ottosson's `find_cusp` for one sector's saturation, or null if it degenerates. */
@@ -184,10 +285,13 @@ function cuspFromSector(sector: Sector, a: number, b: number): Cusp | null {
 /**
  * This hue's cusp: the most chromatic colour the sRGB gamut holds at this hue.
  *
- * Each sector fit gives a candidate and the most chromatic *reachable* one
- * wins, so the answer is never a colour that does not exist. If every candidate
- * degenerates - which no hue in 360,000 sampled does - the hue's own sector is
- * returned unchecked rather than nothing.
+ * Each sector fit gives a candidate and the most chromatic one that passes the
+ * gamut check wins. The final `??` is a different thing: if *no* candidate
+ * passes, the hue's own sector is returned **unchecked**, so on that path the
+ * result is whatever the star-shaped model said and may name a colour outside
+ * the gamut. No hue in 360,000 sampled at 0.001 degrees takes it, which is why
+ * it stays a bare fallback rather than growing machinery - but it is a fallback,
+ * not a guarantee, and this comment no longer says otherwise.
  */
 export function cuspForHue(h: number): Cusp {
   const rad = (h * Math.PI) / 180;
@@ -292,10 +396,15 @@ export function gamutIntersection(
  * as does any l outside [0, 1] and any NaN - there is no colour out there to
  * bound. Everywhere else the result is the *outer* boundary, which at blue's
  * own lightness and hue means 0.3132, on the far side of the gap, and not the
- * 0.2655 the smooth surface through that point would give.
+ * 0.2656 the smooth surface through that point would give.
  *
- * The returned chroma always names a colour `oklchToRgb` calls in gamut. That
- * is a guarantee of the candidate check, not of the arithmetic.
+ * Unless the `??` fallback fires - see `cuspForHue`, and it is not known to
+ * fire - the returned chroma names a colour `oklchToRgb` calls in gamut. Note
+ * what that is and is not worth: it bounds the answer's distance from the gamut
+ * *surface*, not its distance along the chroma ray, so it does not rule out
+ * over-reporting. See OVER-REPORTING in this file's header for the measured
+ * cases, and ONE ANSWER, THREE QUESTIONS before treating this as a slider
+ * bound.
  */
 export function maxChromaForLH(l: number, h: number): number {
   if (!(l > 0) || l >= 1) return 0;
@@ -308,6 +417,7 @@ export function maxChromaForLH(l: number, h: number): number {
   // something.
   let best = 0;
   let fallback = 0;
+  let rejected = 0;
   for (const sector of SECTORS) {
     const cusp = cuspFromSector(sector, a, b);
     if (!cusp) continue;
@@ -315,8 +425,31 @@ export function maxChromaForLH(l: number, h: number): number {
     if (!Number.isFinite(c) || c <= 0) continue;
     if (sector === sectorForHue(a, b)) fallback = c;
     if (c <= best) continue;
-    if (!oklchToRgb(l, c, h).inGamut) continue;
+    if (!oklchToRgb(l, c, h).inGamut) {
+      if (c > rejected) rejected = c;
+      continue;
+    }
     best = c;
   }
+
+  // The fourth candidate. `best` is supposed to be on the boundary; if a probe
+  // a twentieth of an 8-bit step past it is still in gamut then it is not, and
+  // an analytic candidate that would have been better was thrown out by the
+  // check. Bisect between the two. Both ends of the bracket have already been
+  // through `oklchToRgb`, so this only ever raises the answer and only ever to
+  // a chroma the flag accepts; it cannot reach past `rejected`, so it cannot
+  // jump a gap. Header, THE FOURTH CANDIDATE, for why that is not the search
+  // the wiki note rules out.
+  if (rejected > best + TIGHTNESS_PROBE && oklchToRgb(l, best + TIGHTNESS_PROBE, h).inGamut) {
+    let lo = best;
+    let hi = rejected;
+    for (let step = 0; step < BISECTION_STEPS; step++) {
+      const mid = (lo + hi) / 2;
+      if (mid === lo || mid === hi) break;
+      if (oklchToRgb(l, mid, h).inGamut) lo = mid; else hi = mid;
+    }
+    if (lo > best) best = lo;
+  }
+
   return best > 0 ? best : fallback;
 }

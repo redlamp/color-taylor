@@ -128,19 +128,21 @@ describe('the blue corner', () => {
   /*
    * THE REGRESSION. This single test is why the file exists.
    *
-   * At pure blue's own lightness and hue the in-gamut chromas are two disjoint
-   * runs, [0 .. 0.2658] and [0.3131 .. 0.3133], separated by a gap 0.0006 deep
-   * in linear terms - measured in
-   * wiki/notes/srgb-gamut-is-not-star-shaped-in-oklab.md.
+   * At l = 0.45201, h = 264.052 the in-gamut chromas are two disjoint runs,
+   * [0 .. 0.2656051] and [0.3131966 .. 0.3132133], separated by a gap 7.0e-4
+   * deep in linear terms. Measured by isolating the roots of each linear
+   * channel as a cubic in chroma; the far run exists because oklchToRgb allows
+   * 1e-6 of linear slack, and on the undilated gamut this ray stops at
+   * 0.2655880.
    *
    * What the wrong answers look like, so a future failure is recognisable:
    *
-   *   0.2655  a chroma search that stops at the first exit, or Ottosson's
+   *   0.2656  a chroma search that stops at the first exit, or Ottosson's
    *           sector dispatch unassisted - it hands this hue to the red branch,
    *           which follows the smooth surface straight past the corner.
-   *           Renders 0,49,229.
-   *   0.2877  the cusp such a search finds, quoted in the wiki note.
-   *           Renders 0,55,255 - that green 55 is plainly visible.
+   *           Renders 0,49,229, and that green 49 is plainly visible.
+   *   0.2877  inside the gap. Not a colour at all: out of gamut, and the
+   *           clamped stand-in it renders is 0,35,241.
    *   0.3132  the far side of the gap. The corner itself. Renders 0,0,255.
    */
   test('maxChromaForLH reaches the far side of the gap, not the near one', () => {
@@ -174,14 +176,14 @@ describe('the blue corner', () => {
     expect(maxChromaForLH(corner.l, corner.h)).toBeCloseTo(corner.c, 6);
   });
 
-  test('the corner does not over-report just above its own lightness', () => {
+  test('every answer around the corner is a colour that exists', () => {
     /*
-     * The same defect from the other side, and the half a coarse grid misses.
-     * For l just above the corner (0.454..0.488) and hue just above it
-     * (264.06..264.2) the gamut is still bounded by red = 0, not by a channel
-     * reaching 1, so the star-shaped model's cap equation walks outside by up
-     * to 5.4e-4 of a linear channel. Stepped finely enough to sit inside that
-     * region rather than straddle it.
+     * Around the corner the analytic cap candidates land outside the gamut by
+     * between 1e-6 and 8.0e-4 of a linear channel, so the candidate check has
+     * real work to do here rather than rubber-stamping. Stepped finely enough
+     * to sit inside that region rather than straddle it. The other half of the
+     * claim - that what survives is also the *largest* such colour - is the
+     * wedge regression below.
      */
     const unreachable: string[] = [];
     for (let l = 0.44; l <= 0.5001; l += 0.002) {
@@ -195,12 +197,17 @@ describe('the blue corner', () => {
   });
 
   /*
-   * The departure from Ottosson, pinned to its actual extent. His sector test
-   * puts the red/green boundary at h = 264.05202, but the corner's needle
-   * reaches down to h = 264.0519, so between those two the unassisted dispatch
-   * is on the wrong side. 264.052 - what anyone writing blue by hand rounds to
-   * - is inside that 1.7e-4 degree band. Away from it the two agree, and this
-   * test is here so that "away from it" stays a measured claim.
+   * The departure from Ottosson, pinned to its actual extent - and his dispatch
+   * is far more accurate than this file once claimed. On the undilated gamut
+   * the corner's needle begins at h = 264.0520201280 and the dispatch flips at
+   * h = 264.0520205709: a band of 4.43e-7 degrees, not the 1.7e-4 an earlier
+   * comment here asserted. What widens it is oklchToRgb's own 1e-6 of linear
+   * slack, which pulls the needle's onset down to h = 264.0517837 at the
+   * corner's lightness - 2.37e-4 degrees, and that is a measurement of this
+   * project's tolerance rather than of Ottosson's algorithm. 264.052, what
+   * anyone writing blue by hand rounds to, is inside the dilated band and
+   * outside the true one. Away from it the two agree, and this test is here so
+   * that "away from it" stays a measured claim.
    */
   test('the unassisted sector dispatch agrees everywhere but blue', () => {
     const disagreed: string[] = [];
@@ -215,6 +222,90 @@ describe('the blue corner', () => {
     // A contiguous band just under the corner's hue, and nothing else.
     expect(disagreed.every((h) => Number(h) >= 264.05 && Number(h) <= 264.06)).toBe(true);
     expect(disagreed.length).toBeLessThan(5);
+  });
+});
+
+describe('the blue cap wedge', () => {
+  /*
+   * THE SECOND REGRESSION, and the one the grid below used to walk straight
+   * over. Its steps are l 0.025 by h 0.25 degrees; this wedge is 0.04 of
+   * lightness by 0.16 of a degree, so the grid put at most a couple of samples
+   * anywhere near it and its 0.002 tightness criterion was far too slack to
+   * notice what they said.
+   *
+   * What went wrong here: the analytic candidate that was nearly right missed
+   * the 1e-6 slack by 1.2e-6 and was thrown out, and the next candidate down
+   * was 6.6e-3 of chroma short - five 8-bit levels, on 7616 of 30250 cells
+   * swept at l 0.45..0.49 by h 264.05..264.21. maxChromaForLH now brackets the
+   * rejected candidate against the surviving one and bisects between them.
+   *
+   * These tests are stepped to land inside the wedge and their tightness
+   * criterion is 1e-5, two hundred times tighter than the grid's. Run against
+   * the code as it was, the sweep below fails on 2015 of its 3321 cells.
+   */
+  const WEDGE_TIGHTNESS = 1e-5;
+
+  test('every cell in the wedge is reachable and tight to 1e-5', () => {
+    const unreachable: string[] = [];
+    const notTight: string[] = [];
+    let cells = 0;
+    for (let h = 264.05; h <= 264.2101; h += 0.002) {
+      for (let l = 0.45; l <= 0.4901; l += 0.001) {
+        cells++;
+        const c = maxChromaForLH(l, h);
+        const where = `l=${l.toFixed(4)} h=${h.toFixed(4)} c=${c.toFixed(7)}`;
+        if (!oklchToRgb(l, c, h).inGamut) unreachable.push(where);
+        if (oklchToRgb(l, c + WEDGE_TIGHTNESS, h).inGamut) notTight.push(where);
+      }
+    }
+    expect(cells).toBeGreaterThan(3000);
+    expect(unreachable.slice(0, 5)).toEqual([]);
+    expect(notTight.slice(0, 5)).toEqual([]);
+  });
+
+  test('the worked example: l = 0.4715, h = 264.207 reaches 0,38,255', () => {
+    /*
+     * The cell the defect was found on. Ottosson's green-sector cusp gives
+     * c = 0.3000038 here with linear red at -2.2160e-6, so the check rejects
+     * it; the red sector's 0.2930434 survives and renders 0,43,251. The true
+     * boundary under oklchToRgb's own flag is 0.2996604, which renders
+     * 0,38,255 - a colour the repo already agreed exists.
+     */
+    const c = maxChromaForLH(0.4715, 264.207);
+    expect(c).toBeCloseTo(0.2996604, 6);
+    expect(c).toBeGreaterThan(0.2994);
+    expect(oklchToRgb(0.4715, c, 264.207).inGamut).toBe(true);
+    expect(oklchToRgb(0.4715, c, 264.207).rgb).toEqual({ r: 0, g: 38, b: 255 });
+    // The answer that used to come back, named so a regression is legible.
+    expect(oklchToRgb(0.4715, 0.2930434, 264.207).rgb).toEqual({ r: 0, g: 43, b: 251 });
+  });
+
+  /*
+   * The two cells below pin the *documented* over-report rather than a fix.
+   * oklchToRgb forgives 1e-6 on a linear channel, which bounds how far the
+   * answer sits from the gamut surface but not how far along the chroma ray it
+   * has gone; near a tangent boundary those differ wildly, and at low lightness
+   * - where every linear channel in the gamut is itself only a few times 1e-6 -
+   * the difference shows up in the rendered byte. It is a property of an
+   * absolute linear epsilon, not of the maths here, so these tests record the
+   * behaviour rather than forbid it. If a byte-level check is ever added these
+   * are the numbers that must change, deliberately.
+   */
+  test('over-reports at l = 0.215, h = 264.05, by 11 byte levels, knowingly', () => {
+    const c = maxChromaForLH(0.215, 264.05);
+    expect(c).toBeCloseTo(0.1489832, 6);
+    expect(oklchToRgb(0.215, c, 264.05).inGamut).toBe(true);
+    expect(oklchToRgb(0.215, c, 264.05).rgb).toEqual({ r: 0, g: 0, b: 92 });
+    // The exact boundary, from an independent cubic root-find, is 0.1262594.
+    expect(oklchToRgb(0.215, 0.1262594, 264.05).rgb).toEqual({ r: 0, g: 11, b: 82 });
+  });
+
+  test('over-reports at l = 0.07, h = 264, by 3 byte levels, knowingly', () => {
+    const c = maxChromaForLH(0.07, 264);
+    expect(c).toBeCloseTo(0.0485303, 6);
+    expect(oklchToRgb(0.07, c, 264).inGamut).toBe(true);
+    expect(oklchToRgb(0.07, c, 264).rgb).toEqual({ r: 0, g: 0, b: 12 });
+    expect(oklchToRgb(0.07, 0.0405933, 264).rgb).toEqual({ r: 0, g: 0, b: 9 });
   });
 });
 
@@ -298,6 +389,19 @@ describe('the degenerate ends', () => {
     expect(maxChromaForLH(NaN, 120)).toBe(0);
   });
 
+  test('maxSaturationForHue reads a direction, and refuses the zero vector', () => {
+    /*
+     * It used to take the zero vector straight through the dispatch into the
+     * blue sector and hand back that sector's k0, 1.35733652 - a number with
+     * the shape of an answer for an input that names no hue. Only the length is
+     * meaningless, so any positive multiple of a direction now agrees with it.
+     */
+    expect(maxSaturationForHue(0, 0)).toBeNaN();
+    expect(maxSaturationForHue(1, 0)).toBeCloseTo(maxSaturationForHue(7, 0), 12);
+    expect(maxSaturationForHue(0.6, 0.8)).toBeCloseTo(maxSaturationForHue(3, 4), 12);
+    expect(maxSaturationForHue(1, 0)).toBeGreaterThan(0);
+  });
+
   test('but every real lightness in between holds some', () => {
     for (let h = 0; h < 360; h += 7) {
       expect(maxChromaForLH(1e-4, h)).toBeGreaterThan(0);
@@ -336,8 +440,12 @@ describe('cross-checked against culori', () => {
      * *linear* channel, which near black is worth a good deal more once the
      * gamma curve has stretched it. So rather than assert culori calls every
      * point in gamut, measure how far out it thinks we are. The worst case over
-     * this grid is 1.1e-5 of an encoded channel - under a hundredth of one
+     * this grid is 1.293e-5 of an encoded channel - under a hundredth of one
      * 8-bit step, and a disagreement about epsilon rather than about geometry.
+     * It was 4.171e-6 before maxChromaForLH grew its bisection rescue: the
+     * rescue answers with the largest chroma *our* flag accepts, which sits a
+     * little further out than the analytic boundary it replaced, and this is
+     * where that shows up.
      */
     let worstOutside = 0;
     let stillInside = 0;
