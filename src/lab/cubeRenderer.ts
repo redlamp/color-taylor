@@ -24,6 +24,31 @@ export type CubeStep = 51 | 17 | 1;
 export type UpAxis = 'neutral' | 'r' | 'g' | 'b';
 export type Shape = 'cube' | 'hsb' | 'hsl';
 
+/**
+ * A polyline in chromaticity coordinates, laid on the xyY solid's floor: the
+ * spectral locus and the gamut triangles. Given as (x, y) pairs because that
+ * is what the floor is - `xyYToWorld` puts them in the scene.
+ */
+export interface FloorPath {
+  points: ReadonlyArray<readonly [number, number]>;
+  colour: [number, number, number];
+  closed?: boolean;
+  /** Rod thickness in pixels. 3 if omitted. */
+  widthPx?: number;
+  /**
+   * A luminance per point, so a path can leave the floor. Two points and
+   * `heights: [0, Y]` is a drop line from a colour down to its chromaticity,
+   * which is the one thing the flat diagram cannot draw.
+   */
+  heights?: readonly number[];
+  /**
+   * Drawn with the depth test off, over everything. A drop line is inside the
+   * solid by construction - that is what it means - so depth-tested it is
+   * invisible in every case it exists for.
+   */
+  onTop?: boolean;
+}
+
 export interface CubeParams {
   /** 0..1 each */
   rgb: [number, number, number];
@@ -47,6 +72,13 @@ export interface CubeParams {
   outlineW: number;
   /** Point sprite size, as a multiple of the step. */
   pointScale: number;
+  /**
+   * The selected colour's marker, as a multiple of the size the grid step
+   * gives it. 1 - the default - is the grid's own size, which is what a cube
+   * you can count the cells of wants. A solid drawn at 256 steps needs more:
+   * one step is a pixel there, and the marker is the whole point.
+   */
+  markerScale: number;
 
   /** Orthographic only: the hexagon is a property of a parallel projection. */
   up: UpAxis;
@@ -54,6 +86,26 @@ export interface CubeParams {
   axes: boolean;
   /** Weights on the cube, HSB cone and HSL bicone positions; sum to 1. */
   shapeW: [number, number, number];
+  /**
+   * A fourth arm, mixed over whatever `shapeW` produced: the CIE xyY solid.
+   * 0 leaves the three shapes above exactly as they were - the shader returns
+   * early rather than blending, so this is off, not off-by-a-float.
+   *
+   * It is the same cloud of colours under a *central* projection from black
+   * rather than a parallel one along the diagonal: chromaticity on the floor,
+   * relative luminance Y up the neutral axis. The chromaticity is scaled by
+   * XYY_SCALE so the sRGB triangle covers about the footprint the hexagon
+   * does, which is what makes the two comparable at a glance.
+   */
+  xyYMix: number;
+  /**
+   * Which cells to draw. `toColor` keeps the box from black to the selected
+   * colour - the cube's cutaway, and the default. `all` draws the whole gamut,
+   * which is what a solid has to show if its roof height is the point.
+   */
+  reveal: 'toColor' | 'all';
+  /** Drawn flat on the solid's floor while `xyYMix` is up. Null draws none. */
+  xyYFloor: FloorPath[] | null;
   /** Orbit: azimuth and elevation in radians, a zoom factor, and the point orbited. */
   theta: number;
   phi: number;
@@ -65,11 +117,49 @@ export interface CubeParams {
 
 export const DEFAULT_PARAMS: CubeParams = {
   rgb: [1, 0, 1],
-  cubes: true, cubeStyle: 'cubes', cubeStep: 17, stepTween: null, gap: 0.02, edge: 0.04, edgeDark: 0.1, outline: true, outlineW: 2, pointScale: 1,
-  up: 'neutral', axes: true, shapeW: [1, 0, 0],
+  cubes: true, cubeStyle: 'cubes', cubeStep: 17, stepTween: null, gap: 0.02, edge: 0.04, edgeDark: 0.1, outline: true, outlineW: 2, pointScale: 1, markerScale: 1,
+  up: 'neutral', axes: true, shapeW: [1, 0, 0], xyYMix: 0, reveal: 'toColor', xyYFloor: null,
   theta: Math.PI / 2, phi: Math.PI / 2, zoom: 0.75, focus: [0.5, 0.5, 0.5],
   ground: [0x20 / 255, 0x20 / 255, 0x20 / 255],   // #202020
 };
+
+/**
+ * The CIE xyY arm, shared verbatim by the cube shader and the point shader so
+ * the two can never disagree about where a colour stands.
+ *
+ * The matrix is `SRGB_TO_XYZ_D65` from src/utils/cie.ts, column-major as GLSL
+ * wants it, and the decode is the same piecewise sRGB transfer function
+ * src/components/hex/hexShader.ts encodes with, run backwards. Everything up
+ * to the divide is linear light; the divide by X+Y+Z is the central projection
+ * from black, and what it throws away - the scale of the colour - is exactly
+ * what Y is put back on the vertical axis to hold.
+ *
+ * The screen basis is the hexagon's: red east, so the two pictures are the
+ * same way round, with the neutral axis up.
+ */
+export const XYY_GLSL = `
+uniform float uXyY;          // 0 the RGB-shaped solids; 1 the CIE xyY solid
+const mat3 RGB_TO_XYZ = mat3(
+  0.41239080, 0.21263901, 0.01933082,
+  0.35758434, 0.71516868, 0.11919478,
+  0.18048079, 0.07219232, 0.95053215);
+const float XY_SCALE = 2.5;  // must match XYY_SCALE below
+vec3 placeXyY(vec3 v) {
+  vec3 c = clamp(v, 0.0, 1.0);
+  vec3 lin = mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(vec3(0.04045), c));
+  vec3 XYZ = RGB_TO_XYZ * lin;
+  float s = XYZ.x + XYZ.y + XYZ.z;
+  // Black is the one colour with no chromaticity - every ray meets at the
+  // origin - so it stands on the white point, at height zero.
+  vec2 xy = s > 1e-7 ? XYZ.xy / s : vec2(0.3127, 0.3290);
+  vec3 n  = vec3(0.57735027);
+  vec3 e1 = vec3(0.81649658, -0.40824829, -0.40824829);
+  vec3 e2 = vec3(0.0, 0.70710678, -0.70710678);
+  return e1 * ((xy.x - 0.3127) * XY_SCALE)
+       + e2 * ((xy.y - 0.3290) * XY_SCALE)
+       + n  * (XYZ.y * 1.73205081);
+}
+`;
 
 const VERT = `#version 300 es
 layout(location=0) in vec3 aPos;
@@ -83,6 +173,7 @@ uniform float uUnpack;      // 1 settled; below that, mixed toward the parent cu
 uniform float uCoarseStep;  // the coarser grid's step, 8-bit units
 uniform float uCoarseN;     // the coarser grid's cubes a side
 out vec3 vPos; out vec3 vNrm; flat out vec3 vCol;
+${XYY_GLSL}
 // Where a value sits in each model, mixed by the shape weights. The offset
 // from the diagonal is kept - hue and chroma, the hexagon - and only the
 // height changes: max for HSB (the hexcone), (max+min)/2 for HSL (the double
@@ -93,7 +184,11 @@ vec3 place(vec3 v, vec3 cube) {
   float hi = max(v.r, max(v.g, v.b)), lo = min(v.r, min(v.g, v.b));
   vec3 cHsb = q + hi * sqrt(3.0) * n;
   vec3 cHsl = q + (hi + lo) * 0.5 * sqrt(3.0) * n;
-  return uShapeW.x * cube + uShapeW.y * cHsb + uShapeW.z * cHsl;
+  vec3 base = uShapeW.x * cube + uShapeW.y * cHsb + uShapeW.z * cHsl;
+  // Returned early rather than blended through: with the arm off, the three
+  // shapes above come out bit for bit what they were before it existed.
+  if (uXyY <= 0.0) return base;
+  return mix(base, placeXyY(v), uXyY);
 }
 void main() {
   vec4 local = uModel * vec4(aPos, 1.0);
@@ -168,11 +263,14 @@ uniform float uPx;          // point size in pixels
 uniform float uThin;        // keep interior steps whose index is a multiple of this
 uniform float uUnpack, uCoarseStep, uCoarseN;   // as in the cube shader
 flat out vec3 vCol;
+${XYY_GLSL}
 vec3 place(vec3 v, vec3 cube) {
   vec3 n = normalize(vec3(1.0));
   vec3 q = v - dot(v, n) * n;
   float hi = max(v.r, max(v.g, v.b)), lo = min(v.r, min(v.g, v.b));
-  return uShapeW.x * cube + uShapeW.y * (q + hi * sqrt(3.0) * n) + uShapeW.z * (q + (hi + lo) * 0.5 * sqrt(3.0) * n);
+  vec3 base = uShapeW.x * cube + uShapeW.y * (q + hi * sqrt(3.0) * n) + uShapeW.z * (q + (hi + lo) * 0.5 * sqrt(3.0) * n);
+  if (uXyY <= 0.0) return base;
+  return mix(base, placeXyY(v), uXyY);
 }
 void main() {
   float id = float(gl_VertexID), n = uN;
@@ -228,6 +326,36 @@ const M = {
 
 const UPS: Record<UpAxis, V3> = { neutral: v3.norm([1, 1, 1]), r: [1, 0, 0], g: [0, 1, 0], b: [0, 0, 1] };
 
+/**
+ * How far the chromaticity plane is blown up to sit under the solid.
+ *
+ * The hexagon's red vertex is `sqrt(6)/3 = 0.8165` from its centre; red's
+ * chromaticity is 0.3273 from D65. 2.5 puts the triangle's red corner at
+ * 0.8183 - a quarter of a percent past the hexagon's - so the two pictures are
+ * drawn at one scale and the eye can compare them directly. A round number
+ * rather than the exact ratio, because the ratio is not a constant of
+ * anything: the other five corners land wherever they land, and that is the
+ * lesson.
+ */
+export const XYY_SCALE = 2.5;
+const N_AXIS: V3 = v3.norm([1, 1, 1]);
+/** Red east and the neutral up, the same screen basis the hexagon is built on. */
+const E1: V3 = v3.norm([2, -1, -1]);
+const E2: V3 = v3.cross(N_AXIS, E1);
+const D65: [number, number] = [0.3127, 0.3290];
+
+/**
+ * A chromaticity and a luminance, in the scene's world space. The TS twin of
+ * `placeXyY` in XYY_GLSL - the two have to agree, because this is what draws
+ * the floor the shader stands the solid on.
+ */
+export function xyYToWorld(x: number, y: number, Y: number): V3 {
+  return v3.add(
+    v3.add(v3.mul(E1, (x - D65[0]) * XYY_SCALE), v3.mul(E2, (y - D65[1]) * XYY_SCALE)),
+    v3.mul(N_AXIS, Y * Math.sqrt(3)),
+  );
+}
+
 interface Mesh { vao: WebGLVertexArrayObject; n: number; pb: WebGLBuffer; nb: WebGLBuffer; ib: WebGLBuffer }
 
 export interface CubeRenderer {
@@ -252,14 +380,14 @@ export function createCubeRenderer(canvas: HTMLCanvasElement): CubeRenderer | nu
   if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog) ?? 'link');
   gl.useProgram(prog);
   const U: Record<string, WebGLUniformLocation | null> = {};
-  for (const n of ['uProj', 'uView', 'uModel', 'uKind', 'uFlat', 'uQuant', 'uCellSz', 'uShapeW', 'uViewDir', 'uCell', 'uInset', 'uEdge', 'uEdgeDark', 'uUnpack', 'uCoarseStep', 'uCoarseN']) U[n] = gl.getUniformLocation(prog, n);
+  for (const n of ['uProj', 'uView', 'uModel', 'uKind', 'uFlat', 'uQuant', 'uCellSz', 'uShapeW', 'uXyY', 'uViewDir', 'uCell', 'uInset', 'uEdge', 'uEdgeDark', 'uUnpack', 'uCoarseStep', 'uCoarseN']) U[n] = gl.getUniformLocation(prog, n);
   const pprog = gl.createProgram()!;
   gl.attachShader(pprog, compile(gl.VERTEX_SHADER, PVERT));
   gl.attachShader(pprog, compile(gl.FRAGMENT_SHADER, PFRAG));
   gl.linkProgram(pprog);
   if (!gl.getProgramParameter(pprog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(pprog) ?? 'link');
   const PU: Record<string, WebGLUniformLocation | null> = {};
-  for (const n of ['uProj', 'uView', 'uN', 'uIdx', 'uShapeW', 'uPx', 'uThin', 'uEdgeDark', 'uUnpack', 'uCoarseStep', 'uCoarseN']) PU[n] = gl.getUniformLocation(pprog, n);
+  for (const n of ['uProj', 'uView', 'uN', 'uIdx', 'uShapeW', 'uXyY', 'uPx', 'uThin', 'uEdgeDark', 'uUnpack', 'uCoarseStep', 'uCoarseN']) PU[n] = gl.getUniformLocation(pprog, n);
   const emptyVao = gl.createVertexArray()!;
 
   function mesh(pos: number[], nrm: number[], idx: number[]): Mesh {
@@ -405,7 +533,12 @@ export function createCubeRenderer(canvas: HTMLCanvasElement): CubeRenderer | nu
       const g = sz * pxPerUnit < 6 || p.gap <= 0 ? 0 : Math.max(p.gap, wpp / sz);
       const edge = sz * pxPerUnit < 3 || p.edge <= 0 ? 0 : Math.max(p.edge * sz, wpp);
       const idx = c.map((x) => Math.floor(Math.round(x * 255) / step));
-      const hidden = (a: number, b: number, d: number) => a > idx[0] || b > idx[1] || d > idx[2];
+      // `all` draws the whole gamut; the marker still stands on `idx`.
+      const all = p.reveal === 'all';
+      const visIdx = all ? [N - 1, N - 1, N - 1] : idx;
+      const hidden = all
+        ? () => false
+        : (a: number, b: number, d: number) => a > idx[0] || b > idx[1] || d > idx[2];
       const fs = sz * (1 - g), fo = sz * g / 2;
       const wc = p.shapeW[0];
       const pointW = N > 16 || p.cubeStyle === 'dots' ? 1 : 1 - wc;
@@ -417,7 +550,8 @@ export function createCubeRenderer(canvas: HTMLCanvasElement): CubeRenderer | nu
         // Point sprites, one per step, decoded from the vertex number.
         gl!.useProgram(pprog);
         gl!.uniformMatrix4fv(PU.uProj, false, proj); gl!.uniformMatrix4fv(PU.uView, false, view);
-        gl!.uniform1f(PU.uN, N); gl!.uniform3fv(PU.uIdx, idx); gl!.uniform3fv(PU.uShapeW, p.shapeW);
+        gl!.uniform1f(PU.uN, N); gl!.uniform3fv(PU.uIdx, visIdx); gl!.uniform3fv(PU.uShapeW, p.shapeW);
+        gl!.uniform1f(PU.uXyY, p.xyYMix);
         gl!.uniform1f(PU.uPx, Math.max(1.5, pointPx)); gl!.uniform1f(PU.uThin, N > 16 ? 4 : 1); gl!.uniform1f(PU.uEdgeDark, p.edgeDark);
         gl!.uniform1f(PU.uUnpack, unpack); gl!.uniform1f(PU.uCoarseStep, coarseStep); gl!.uniform1f(PU.uCoarseN, coarseN);
         gl!.bindVertexArray(emptyVao);
@@ -425,7 +559,7 @@ export function createCubeRenderer(canvas: HTMLCanvasElement): CubeRenderer | nu
         gl!.useProgram(prog);
       }
       if (N <= 16 && p.cubeStyle === 'cubes' && wc > 0.01 && shrink > 0.01) {
-        const key = `${step}|${idx.join()}`;
+        const key = `${step}|${all ? 'all' : idx.join()}`;
         if (key !== INST.key) {
           // Every cell. In the cube the interior is never seen, but in the
           // cones the greys along the axis are interior cells of the box.
@@ -438,7 +572,7 @@ export function createCubeRenderer(canvas: HTMLCanvasElement): CubeRenderer | nu
           INST.n = offs.length / 3; INST.key = key;
         }
         gl!.uniform1f(U.uQuant, N); gl!.uniform1f(U.uCellSz, sz); gl!.uniform3fv(U.uShapeW, p.shapeW);
-        gl!.uniform1f(U.uEdgeDark, p.edgeDark);
+        gl!.uniform1f(U.uXyY, p.xyYMix); gl!.uniform1f(U.uEdgeDark, p.edgeDark);
         gl!.uniform1f(U.uUnpack, unpack); gl!.uniform1f(U.uCoarseStep, coarseStep); gl!.uniform1f(U.uCoarseN, coarseN);
         const cs = fs * wc * shrink, co = fo + (fs - cs) / 2;
         gl!.uniform1i(U.uKind, 0);
@@ -468,6 +602,7 @@ export function createCubeRenderer(canvas: HTMLCanvasElement): CubeRenderer | nu
       const { N, sz, idx, fs, fo, wc, pointW, edge } = G;
       // the outline path below needs these on the main program whichever drew the grid
       gl!.uniform1f(U.uQuant, N); gl!.uniform1f(U.uCellSz, sz); gl!.uniform3fv(U.uShapeW, p.shapeW);
+      gl!.uniform1f(U.uXyY, p.xyYMix);
       gl!.uniform1f(U.uEdgeDark, p.edgeDark); gl!.uniform1f(U.uUnpack, 1);
 
       if (p.outline && p.outlineW > 0) {
@@ -485,7 +620,7 @@ export function createCubeRenderer(canvas: HTMLCanvasElement): CubeRenderer | nu
         gl!.disable(gl!.DEPTH_TEST);
         const cubeW = N > 16 || p.cubeStyle === 'dots' ? 0 : wc;
         const cs = fs * cubeW, co = fo + (fs - cs) / 2;
-        const r = Math.max(0.75 * wpp, (sz * p.pointScale * pointW) / 2), h2 = sz / 2;
+        const r = Math.max(0.75 * wpp, (sz * p.pointScale * pointW) / 2) * p.markerScale, h2 = sz / 2;
         if (cubeW > 0.01) draw(CUBE, M.scaleTrans([cs + 2 * ow, cs + 2 * ow, cs + 2 * ow], [co - ow, co - ow, co - ow]), 1, ink);
         if (pointW > 0.01) draw(SPHERE, M.scaleTrans([r + ow, r + ow, r + ow], [h2, h2, h2]), 1, ink);
         if (cubeW > 0.01) {
@@ -506,7 +641,7 @@ export function createCubeRenderer(canvas: HTMLCanvasElement): CubeRenderer | nu
     // sit below the cubes rather than over them. The RGB axes belong to the
     // cube and fade out with it; the cones get a hue ring through the six
     // pure hues and a brightness / lightness axis up the middle.
-    if (p.axes) {
+    if (p.axes && p.xyYMix < 0.99) {
       const wc = p.shapeW[0];
       if (wc > 0.01) {
         const t = 4 * wpp * wc, h2 = t / 2;
@@ -535,6 +670,40 @@ export function createCubeRenderer(canvas: HTMLCanvasElement): CubeRenderer | nu
           const g0 = i / STEPS, g1 = (i + 1) / STEPS, g = (g0 + g1) / 2;
           rod([g0, g0, g0], [g1, g1, g1], t, [g, g, g]);
         }
+      }
+    }
+
+    // ── the xyY solid's floor and its luminance axis ─────────────
+    // The floor is the chromaticity plane: the spectral locus and whatever
+    // gamut outlines the host handed in, laid flat at Y = 0. The column is the
+    // greys, which all have D65's chromaticity and so all stand on the white
+    // point - it is both the axis the solid's height is measured on and a
+    // literal slice of the solid.
+    if (p.xyYMix > 0.001) {
+      const t = 3 * wpp * p.xyYMix;
+      gl!.uniform1f(U.uQuant, 0);
+      // Depth-tested paths first, then the ones that must be seen through the
+      // solid - which is every path that says something about the colour.
+      for (const onTop of [false, true]) {
+        if (onTop) gl!.disable(gl!.DEPTH_TEST);
+        for (const path of p.xyYFloor ?? []) {
+          if (!!path.onTop !== onTop) continue;
+          const w = (path.widthPx ?? 3) * wpp * p.xyYMix;
+          const pts = path.points, hs = path.heights;
+          const at = (i: number) => xyYToWorld(pts[i][0], pts[i][1], hs ? hs[i] : 0);
+          const last = path.closed ? pts.length : pts.length - 1;
+          for (let i = 0; i < last; i++) rod(at(i), at((i + 1) % pts.length), w, path.colour);
+        }
+        if (onTop) gl!.enable(gl!.DEPTH_TEST);
+      }
+      // Y is linear luminance, so the grey that *looks* halfway up is nowhere
+      // near Y = 0.5. Each step wears the encoded grey whose luminance it is,
+      // which is the caveat the page makes in words, drawn.
+      const STEPS = 24;
+      for (let i = 0; i < STEPS; i++) {
+        const y0 = i / STEPS, y1 = (i + 1) / STEPS, y = (y0 + y1) / 2;
+        const e = y <= 0.0031308 ? y * 12.92 : 1.055 * Math.pow(y, 1 / 2.4) - 0.055;
+        rod(xyYToWorld(D65[0], D65[1], y0), xyYToWorld(D65[0], D65[1], y1), t, [e, e, e]);
       }
     }
   }
