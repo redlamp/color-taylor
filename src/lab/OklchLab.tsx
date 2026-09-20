@@ -13,14 +13,18 @@
  */
 import { useCallback, useState } from 'react';
 import {
-  oklchToRgb, rgbToOklch, rgbToHex, rgbToHsb, type Oklch,
+  oklchToRgb, rgbToOklch, rgbToHex, rgbToHsb, rgbToHsl, hsbToRgb, hslToRgb,
+  type HSB, type Oklch, type RGB,
 } from '@/utils/colorConversions';
 import { maxChromaForLH } from '@/utils/oklchGamut';
+import type { ColorSpace } from '@/utils/sliderGradients';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import { Toaster } from '@/components/ui/sonner';
 import { SwitchRow } from '@/components/settings/SettingsSwitch';
 import ColorSlider from '@/components/ColorSlider';
+import ColorHexagon from '@/components/ColorHexagon';
+import HexInput from '@/components/HexInput';
 import PreviewSwatch from '@/components/PreviewSwatch';
 import FlatSection from './FlatSection';
 import { CHROMA_MAX, lightnessRamp, chromaRamp, hueRamp } from './oklchRamps';
@@ -34,6 +38,25 @@ const FINE = 0.001;
  * step at high chroma.
  */
 const HUE_STEP = 0.1;
+
+/**
+ * The largest chroma the bank can actually *hold* at this lightness and hue:
+ * the analytic cusp, floored to the slider's own step.
+ *
+ * Not the cusp itself, for two reasons. The handle can only land on a step, so
+ * a value between two of them is not reachable by any gesture. And a colour
+ * sitting exactly on the boundary reads as outside sRGB - `oklchToRgb` finds a
+ * linear channel a float hair past 1 and says so, correctly - so clamping to
+ * the cusp would leave the page announcing that the colour it had just forced
+ * into gamut was out of it. One step in is both reachable and true.
+ *
+ * The track's marker still sits on the cusp: that is where the gamut ends,
+ * whatever the bank can address, and the difference is a quarter of a pixel.
+ */
+const holdChroma = (c: number, l: number, h: number) => Math.min(
+  c,
+  Number((Math.floor(maxChromaForLH(l, h) / FINE) * FINE).toFixed(3)),
+);
 
 /**
  * Places to read Oklch from. Blue is the wiki note's own example - the sRGB
@@ -131,37 +154,65 @@ export default function OklchLab() {
   const [oklch, setOklch] = useState<Oklch>(() => rgbToOklch(59, 130, 246));
   /** The open design question, as a switch. See the file comment. */
   const [hold, setHold] = useState(false);
+  /** The hexagon's own two host settings, which it expects to be controlled. */
+  const [blMode, setBlMode] = useState<'brightness' | 'lightness'>('brightness');
+  const [colorSpace, setColorSpace] = useState<ColorSpace>('srgb');
 
   const limit = maxChromaForLH(oklch.l, oklch.h);
 
   // L and H move the cusp, so with the switch on they have to bring C with
   // them - otherwise the handle would be left sitting past its own marker.
   const setL = useCallback((l: number) => setOklch((p) => (
-    { ...p, l, c: hold ? Math.min(p.c, maxChromaForLH(l, p.h)) : p.c }
+    { ...p, l, c: hold ? holdChroma(p.c, l, p.h) : p.c }
   )), [hold]);
   const setC = useCallback((c: number) => setOklch((p) => (
-    { ...p, c: hold ? Math.min(c, maxChromaForLH(p.l, p.h)) : c }
+    { ...p, c: hold ? holdChroma(c, p.l, p.h) : c }
   )), [hold]);
   const setH = useCallback((h: number) => setOklch((p) => (
-    { ...p, h, c: hold ? Math.min(p.c, maxChromaForLH(p.l, h)) : p.c }
+    { ...p, h, c: hold ? holdChroma(p.c, p.l, h) : p.c }
   )), [hold]);
 
   const toggleHold = useCallback(() => {
     setHold((on) => !on);
     // Turning it on pulls a stranded C back to the cusp. Turning it off is a
     // no-op here, since C is already inside the limit.
-    setOklch((p) => ({ ...p, c: Math.min(p.c, maxChromaForLH(p.l, p.h)) }));
+    setOklch((p) => ({ ...p, c: holdChroma(p.c, p.l, p.h) }));
   }, []);
 
   const jumpTo = useCallback((target: Oklch) => setOklch(
-    hold ? { ...target, c: Math.min(target.c, maxChromaForLH(target.l, target.h)) } : target,
+    hold ? { ...target, c: holdChroma(target.c, target.l, target.h) } : target,
   ), [hold]);
 
   const { rgb, inGamut } = oklchToRgb(oklch.l, oklch.c, oklch.h);
   const hex = rgbToHex(rgb.r, rgb.g, rgb.b);
   const hsb = rgbToHsb(rgb.r, rgb.g, rgb.b);
+  const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
   /** Where the clamped colour actually landed - the evidence the clamp destroys. */
   const landed = rgbToOklch(rgb.r, rgb.g, rgb.b);
+
+  /**
+   * The other direction: a colour arriving as sRGB - from the hexagon, or
+   * typed into the hex field - measured back into Oklch.
+   *
+   * `rgbToOklch` is exact in this direction; every sRGB colour has an Oklch
+   * address, and `oklchToRgb` returns the same bytes. So a hex typed in comes
+   * back out of the readouts unchanged. That is deliberately *not* how #117
+   * fails in the app: nothing here routes an RGB edit through HSB, whose
+   * whole-number S and B cannot carry the byte you typed.
+   *
+   * Anything the hexagon sends is in gamut by construction, so the Oklch bank
+   * lands inside the limit whatever the switch says - which is itself worth
+   * watching: drive the hexagon and C snaps back into the reachable range.
+   */
+  const setFromRgb = (next: RGB) => setOklch(rgbToOklch(next.r, next.g, next.b));
+  const applyHsb = (patch: Partial<HSB>) => {
+    const n = { ...hsb, ...patch };
+    setFromRgb(hsbToRgb(n.h, n.s, n.b));
+  };
+  const applyHsl = (channel: 'h' | 's' | 'l', value: number) => {
+    const n = { ...hsl, [channel]: value };
+    setFromRgb(hslToRgb(n.h, n.s, n.l));
+  };
 
   const spell = (v: Oklch) => `oklch(${v.l.toFixed(3)} ${v.c.toFixed(3)} ${v.h.toFixed(1)})`;
   const asked = spell(oklch);
@@ -184,7 +235,44 @@ export default function OklchLab() {
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
           <div className="flex flex-col gap-6">
-            {/* The colour, and the two ways to take it away with you. */}
+            {/*
+             * The app's real hexagon, not a copy of it - the same component
+             * the picker and the plugin render. It speaks sRGB, so every
+             * gesture on it arrives here as bytes and is measured back into
+             * Oklch, and the bank below moves with it. Watch C while you drag
+             * it: everything the hexagon can reach is inside the gamut, so the
+             * handle never leaves the in-gamut half of its track.
+             */}
+            <FlatSection title="Hexagon">
+              <div className="rounded-lg border border-border p-4">
+                <ColorHexagon
+                  rgb={rgb}
+                  hue={hsb.h}
+                  brightness={hsb.b}
+                  saturation={hsb.s}
+                  hsl={hsl}
+                  onHueChange={(h) => applyHsb({ h })}
+                  onRgbChange={(channel, value) => setFromRgb({ ...rgb, [channel]: value })}
+                  onHsbChange={applyHsb}
+                  onHslChange={applyHsl}
+                  // Snap rather than tween. The picker's animateToHsb is a rAF
+                  // loop in ColorPicker tied to its undo bookkeeping, and none
+                  // of that is what this page is asking about; without the prop
+                  // the bar markers would simply not respond.
+                  onAnimateToHsb={applyHsb}
+                  blMode={blMode}
+                  onBlModeChange={setBlMode}
+                  colorSpace={colorSpace}
+                  onColorSpaceChange={setColorSpace}
+                  // The host frames it, and this host has no swatch library, so
+                  // `onRecordColor` is left out the way the prop says a host
+                  // without one should.
+                  bare
+                />
+              </div>
+            </FlatSection>
+
+            {/* The colour, and the three ways to take it away with you. */}
             <section className="flex flex-col gap-3 rounded-lg border border-border p-4">
               <div className="flex items-stretch gap-4">
                 <PreviewSwatch hex={hex} className="w-[120px] min-h-24" />
@@ -196,6 +284,12 @@ export default function OklchLab() {
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="w-12 shrink-0 text-muted-foreground">Hex</span>
                     <CopyChip text={hex.toUpperCase()} color={hex} textColor={chipInk} />
+                    {/* The app's own field, typed as well as read. Its bytes
+                        reach the state through rgbToOklch and come back out
+                        unchanged - see setFromRgb. */}
+                    <div className="w-[104px]">
+                      <HexInput hex={hex} onChange={setFromRgb} />
+                    </div>
                   </div>
                 </div>
               </div>
