@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback, useLayoutEffect, useState, useMemo, type ReactNode, type PointerEvent as ReactPointerEvent } from 'react';
+import { useRef, useEffect, useEffectEvent, useCallback, useLayoutEffect, useState, useMemo, type ReactNode, type PointerEvent as ReactPointerEvent } from 'react';
 import { hsbToRgb, rgbToHsb, rgbToHex, hexToRgb, rgbToHsl, hslToRgb, linearToSrgb, lighter, type RGB, type HSB, type HSL } from '../utils/colorConversions';
 import { type ColorSpace } from '../utils/sliderGradients';
 import { buildChain } from './hex/chain';
@@ -824,82 +824,87 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     return picked ?? null;
   }, [getSvgCoords, getHsbFromPosition, onHsbChange]);
 
-  // Global mouse listeners
-  useEffect(() => {
-    const clearAll = (at?: { clientX: number; clientY: number }) => {
-      draggingHue.current = false;
-      draggingDot.current = null;
-      draggingFree.current = false;
-      draggingBL.current = false;
-      draggingSat.current = false;
-      setIsBLDragging(false);
-      setIsSatDragging(false);
-      hexPointerDown.current = null;
-      dragOrigin.current = null;
-      // Hover is re-read from whatever is under the release point rather than
-      // cleared: pointerenter does not fire again for an element the pointer
-      // never left, so after a drag on a joint the tooltip would stay away
-      // until the pointer went out and came back. The tooltips are only
-      // suppressed for the drag itself.
-      const under = at ? document.elementFromPoint(at.clientX, at.clientY)?.closest<Element>('[data-stem],[data-joint]') : null;
-      const stem = under?.getAttribute('data-stem');
-      const joint = under?.getAttribute('data-joint');
-      setHoveredLeg(stem !== null && stem !== undefined ? Number(stem) : null);
-      setHoveredDot(joint !== null && joint !== undefined ? Number(joint) : null);
-      setDotDragging(false);
-      setIsHexDragging(false);
-      endTone();
-    };
-    const onPointerMove = (e: PointerEvent) => {
-      if (draggingHue.current) {
-        ensureToneStart();
-        const newH = hueFromMouse(e);
-        if (typeof newH === 'number') updateTone({ h: newH });
+  // Global mouse listeners. The three handlers are effect events so the effect
+  // below subscribes once: re-subscribing whenever a callback changed could
+  // land inside a pointerup dispatch, and a listener swapped mid-dispatch
+  // misses the event. See HexBar, where that latched a bar drag.
+  const clearAll = useEffectEvent((at?: { clientX: number; clientY: number }) => {
+    draggingHue.current = false;
+    draggingDot.current = null;
+    draggingFree.current = false;
+    draggingBL.current = false;
+    draggingSat.current = false;
+    setIsBLDragging(false);
+    setIsSatDragging(false);
+    hexPointerDown.current = null;
+    dragOrigin.current = null;
+    // Hover is re-read from whatever is under the release point rather than
+    // cleared: pointerenter does not fire again for an element the pointer
+    // never left, so after a drag on a joint the tooltip would stay away
+    // until the pointer went out and came back. The tooltips are only
+    // suppressed for the drag itself.
+    const under = at ? document.elementFromPoint(at.clientX, at.clientY)?.closest<Element>('[data-stem],[data-joint]') : null;
+    const stem = under?.getAttribute('data-stem');
+    const joint = under?.getAttribute('data-joint');
+    setHoveredLeg(stem !== null && stem !== undefined ? Number(stem) : null);
+    setHoveredDot(joint !== null && joint !== undefined ? Number(joint) : null);
+    setDotDragging(false);
+    setIsHexDragging(false);
+    endTone();
+  });
+  const handlePointerMove = useEffectEvent((e: PointerEvent) => {
+    if (draggingHue.current) {
+      ensureToneStart();
+      const newH = hueFromMouse(e);
+      if (typeof newH === 'number') updateTone({ h: newH });
+    }
+    if (draggingDot.current) {
+      ensureToneStart();
+      handleDotDrag(e);
+      updateTone({});
+    }
+    if (draggingFree.current) {
+      ensureToneStart();
+      const { x, y } = getSvgCoords(e);
+      const picked = getHsbFromPosition(x, y);
+      if (picked) { onHsbChange(picked); updateTone(picked); }
+    }
+    if (hexPointerDown.current) {
+      const pd = hexPointerDown.current;
+      if (!pd.isDragging) {
+        const dx = e.clientX - pd.clientX;
+        const dy = e.clientY - pd.clientY;
+        if (Math.sqrt(dx * dx + dy * dy) >= dragTriggerDistance) {
+          pd.isDragging = true;
+          setIsHexDragging(true);
+        }
       }
-      if (draggingDot.current) {
+      if (pd.isDragging) {
         ensureToneStart();
-        handleDotDrag(e);
-        updateTone({});
+        const picked = handleHexSurfaceDrag(e);
+        if (picked) updateTone(picked);
       }
-      if (draggingFree.current) {
-        ensureToneStart();
+    }
+  });
+  const handlePointerUp = useEffectEvent((e: PointerEvent) => {
+    if (hexPointerDown.current && !hexPointerDown.current.isDragging) {
+      const elapsed = Date.now() - hexPointerDown.current.time;
+      if (elapsed <= clickMaxDuration && onAnimateToHsb) {
         const { x, y } = getSvgCoords(e);
         const picked = getHsbFromPosition(x, y);
-        if (picked) { onHsbChange(picked); updateTone(picked); }
-      }
-      if (hexPointerDown.current) {
-        const pd = hexPointerDown.current;
-        if (!pd.isDragging) {
-          const dx = e.clientX - pd.clientX;
-          const dy = e.clientY - pd.clientY;
-          if (Math.sqrt(dx * dx + dy * dy) >= dragTriggerDistance) {
-            pd.isDragging = true;
-            setIsHexDragging(true);
-          }
-        }
-        if (pd.isDragging) {
-          ensureToneStart();
-          const picked = handleHexSurfaceDrag(e);
-          if (picked) updateTone(picked);
+        if (picked) {
+          const targetRgb = hsbToRgb(picked.h, picked.s, picked.b);
+          addToRecent(rgbToHex(targetRgb.r, targetRgb.g, targetRgb.b));
+          onAnimateToHsb(picked);
+          if (navigator.vibrate) navigator.vibrate(12);
         }
       }
-    };
-    const onPointerUp = (e: PointerEvent) => {
-      if (hexPointerDown.current && !hexPointerDown.current.isDragging) {
-        const elapsed = Date.now() - hexPointerDown.current.time;
-        if (elapsed <= clickMaxDuration && onAnimateToHsb) {
-          const { x, y } = getSvgCoords(e);
-          const picked = getHsbFromPosition(x, y);
-          if (picked) {
-            const targetRgb = hsbToRgb(picked.h, picked.s, picked.b);
-            addToRecent(rgbToHex(targetRgb.r, targetRgb.g, targetRgb.b));
-            onAnimateToHsb(picked);
-            if (navigator.vibrate) navigator.vibrate(12);
-          }
-        }
-      }
-      clearAll(e);
-    };
+    }
+    clearAll(e);
+  });
+  useEffect(() => {
+    const onPointerMove = (e: PointerEvent) => handlePointerMove(e);
+    const onPointerUp = (e: PointerEvent) => handlePointerUp(e);
     const onPointerLeave = () => clearAll();
     window.addEventListener('pointermove', onPointerMove);
     window.addEventListener('pointerup', onPointerUp);
@@ -927,7 +932,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
       window.removeEventListener('pointercancel', onPointerLeave);
       window.removeEventListener('blur', onPointerLeave);
     };
-  }, [hueFromMouse, handleDotDrag, handleHexSurfaceDrag, getSvgCoords, getHsbFromPosition, onAnimateToHsb, onHsbChange, addToRecent, ensureToneStart, updateTone, endTone]);
+  }, []);
 
   // Non-passive wheel listener to prevent page scroll. Not registered at all
   // when the host owns the wheel - a listener that conditionally declines to

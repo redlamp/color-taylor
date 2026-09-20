@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback } from 'react';
+import { useRef, useEffect, useEffectEvent, useCallback } from 'react';
 
 /**
  * Shared drag hook. Returns { dragging, startDrag } where:
@@ -14,9 +14,15 @@ export default function useDrag(onDrag: (e: PointerEvent) => void) {
     dragging.current = true;
   }, []);
 
+  // An effect event, so the listeners below subscribe once. Re-subscribing on
+  // every new `onDrag` could land inside a pointerup dispatch - a render
+  // flushed by an earlier listener - and a listener swapped mid-dispatch
+  // misses the event, leaving the drag latched. See HexBar.
+  const drag = useEffectEvent((e: PointerEvent) => onDrag(e));
+
   useEffect(() => {
     const onPointerMove = (e: PointerEvent) => {
-      if (dragging.current) onDrag(e);
+      if (dragging.current) drag(e);
     };
     const onPointerUp = () => {
       dragging.current = false;
@@ -44,7 +50,7 @@ export default function useDrag(onDrag: (e: PointerEvent) => void) {
       window.removeEventListener('blur', abandon);
       document.documentElement.removeEventListener('pointerleave', abandon);
     };
-  }, [onDrag]);
+  }, []);
 
   return { dragging, startDrag };
 }
