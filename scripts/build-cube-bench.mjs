@@ -4,6 +4,7 @@
  *
  *   node scripts/build-cube-bench.mjs            → dist-lab/cube-bench.html
  *   node scripts/build-cube-bench.mjs spectrum   → dist-lab/spectrum-bench.html
+ *   node scripts/build-cube-bench.mjs oklch      → dist-lab/oklch-bench.html
  *
  * The argument names the page in lab/. Each page builds in its own folder
  * under dist-lab, so building one leaves the other's file where it was.

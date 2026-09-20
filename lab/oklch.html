@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <!--
+      A Vite entry, not a standalone page - the module script below needs a dev
+      server or a bundled build, and a browser refuses to load an ES module over
+      file://. Opening this file straight from disk fails with a CORS error.
+
+      Run it: `bun dev`, then visit http://localhost:5173/lab/oklch.html - Vite
+      serves any .html file under the project root, this one included.
+
+      Share it as one file: `node scripts/build-cube-bench.mjs oklch` bundles
+      this page into a single self-contained dist-lab/oklch-bench.html, safe to
+      open from disk or drop into an artifact.
+    -->
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Oklch Lab</title>
+    <!-- Same theme bootstrap as index.html, so the first paint is already the right theme. -->
+    <script>
+      (function () {
+        try {
+          var saved = localStorage.getItem('color-taylor-theme');
+          var dark = saved !== null ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+          if (dark) document.documentElement.classList.add('dark');
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/lab/oklch-main.tsx"></script>
+  </body>
+</html>
