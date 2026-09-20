@@ -15,6 +15,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type RGB } from '@/utils/colorConversions';
 import { SPECTRAL_LOCUS, SRGB_TRIANGLE, P3_TRIANGLE, rgbToXyY, D65_WHITE } from '@/utils/cie';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   createCubeRenderer, DEFAULT_PARAMS,
   type CubeParams, type CubeRenderer, type CubeStep, type FloorPath,
@@ -42,6 +43,7 @@ export default function CieSolid({ rgb, shape, showP3, step }: CieSolidProps) {
   const [unsupported, setUnsupported] = useState(false);
   const [mix, setMix] = useState(1);
   const [cam, setCam] = useState({ theta: Math.PI / 2, phi: Math.PI / 7 });
+  const [view, setView] = useState<'raised' | 'plan'>('raised');
 
   // The drop line is the panel's whole argument about brightness: it runs from
   // the colour down to the chromaticity the flat diagram puts it at. Drag
@@ -137,22 +139,60 @@ export default function CieSolid({ rgb, shape, showP3, step }: CieSolidProps) {
     });
   }, []);
   const onPointerUp = useCallback(() => { drag.current = null; }, []);
-  const reset = useCallback(() => setCam({ theta: Math.PI / 2, phi: Math.PI / 7 }), []);
+
+  /*
+   * Straight down is the move that welds this panel to the flat diagram: from
+   * overhead the solid's silhouette is its floor, which is panel 2. Eased
+   * rather than cut, for the same reason the shape morphs - a cut would assert
+   * that they are the same picture, and a move shows it.
+   */
+  const viewRaf = useRef(0);
+  const goView = useCallback((phi: number) => {
+    cancelAnimationFrame(viewRaf.current);
+    const from = paramsRef.current.phi, theta = paramsRef.current.theta;
+    const start = performance.now(), ms = 550;
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / ms);
+      const e = 1 - (1 - t) * (1 - t) * (1 - t);
+      setCam({ theta, phi: from + (phi - from) * e });
+      if (t < 1) viewRaf.current = requestAnimationFrame(tick);
+    };
+    viewRaf.current = requestAnimationFrame(tick);
+  }, []);
+  useEffect(() => () => cancelAnimationFrame(viewRaf.current), []);
+  const goRaised = useCallback(() => { setView('raised'); setCam({ theta: Math.PI / 2, phi: Math.PI / 7 }); }, []);
 
   if (unsupported) {
     return <p className="p-6 text-base text-muted-foreground">WebGL2 is not available here, so the solid cannot be drawn.</p>;
   }
   return (
-    <canvas
-      ref={canvasRef}
-      data-testid="cie-solid"
-      className="block h-full w-full touch-none cursor-grab rounded-md active:cursor-grabbing"
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
-      onPointerCancel={onPointerUp}
-      onDoubleClick={reset}
-      aria-label={`The sRGB gamut as a solid in CIE xyY. Drag to orbit, double-click to reset. Showing ${D65_WHITE.x.toFixed(4)}, ${D65_WHITE.y.toFixed(4)} as the neutral axis.`}
-    />
+    <div className="relative h-full w-full">
+      <canvas
+        ref={canvasRef}
+        data-testid="cie-solid"
+        className="block h-full w-full touch-none cursor-grab rounded-md active:cursor-grabbing"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+        onDoubleClick={goRaised}
+        aria-label={`The sRGB gamut as a solid in CIE xyY. Drag to orbit, double-click to reset. The neutral axis stands on D65, ${D65_WHITE.x.toFixed(4)}, ${D65_WHITE.y.toFixed(4)}.`}
+      />
+      <div className="absolute bottom-3 left-3">
+        <Tabs
+          value={view}
+          onValueChange={(v) => {
+            const next = v as 'raised' | 'plan';
+            setView(next);
+            goView(next === 'plan' ? Math.PI / 2 : Math.PI / 7);
+          }}
+        >
+          <TabsList>
+            <TabsTrigger value="raised">Raised</TabsTrigger>
+            <TabsTrigger value="plan">Straight down</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
+    </div>
   );
 }

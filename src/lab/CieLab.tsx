@@ -259,7 +259,8 @@ export default function CieLab() {
               above it. The roof is the most luminance sRGB holds over each chromaticity,
               and it is wildly uneven - green reaches Y&nbsp;=&nbsp;{PRIMARY_LUMINANCE.g.toFixed(4)} and
               blue only Y&nbsp;=&nbsp;{PRIMARY_LUMINANCE.b.toFixed(4)}, {(PRIMARY_LUMINANCE.g / PRIMARY_LUMINANCE.b).toFixed(1)}&times; lower.
-              That is why blue is dark. Drag to orbit, double-click to reset.</>}
+              That is why blue is dark. Look straight down and the silhouette is
+              panel 2; drag to orbit, double-click to reset.</>}
             aside={
               <Tabs value={shape} onValueChange={(v) => setShape(v as 'xyY' | 'cube')}>
                 <TabsList>
