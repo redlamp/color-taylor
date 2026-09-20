@@ -38,7 +38,9 @@
  * Every number in the copy below is asserted in src/utils/cie.test.ts,
  * src/utils/gamuts.test.ts and src/utils/gamutMorph.test.ts.
  */
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode,
+} from 'react';
 import {
   rgbToHsb, rgbToHex, type HSB, type RGB,
 } from '@/utils/colorConversions';
@@ -163,18 +165,46 @@ function figuresFor(gamut: GamutId): GamutFigures {
  */
 const FIT_DIAGRAM = 0.885 / 0.95;
 const FIT_SQUARE = 1;
+
 /**
- * A hair over `HEX_STACKED_BARS_MAX`, which is the width at or below which
- * `ColorHexagon` lays its brightness bar down and drops the pills.
+ * THE THRESHOLD, AND WHY THERE IS A GAP EITHER SIDE OF IT.
+ *
+ * `HEX_STACKED_BARS_MAX` is 468: at or below that width `ColorHexagon` flips
+ * `stacked`, lays its brightness bar down and *unmounts the value pills*. The
+ * flip is a React state change driven by a ResizeObserver, so a card that
+ * crosses the line while a pill is being dragged destroys the element under
+ * the pointer - a drag with nothing left to release.
+ *
+ * The first version of this sizing put the card at 470, two pixels clear.
+ * Nothing observed actually crossed it, but two pixels is not a margin; it is
+ * a coincidence, and the next change to this panel would have spent it.
+ *
+ * So the widths are arranged so that nothing near the line is reachable:
+ *
+ * - Wide cells pin the card at `HEX_PILL_MIN` - 32px clear - and it can only
+ *   grow from there, because the only other term in that expression is a
+ *   height-derived width that makes the card *wider*.
+ * - Cells under `HEX_PILL_MIN` take the stacked expression instead, which
+ *   lands far below 468 rather than just under it.
+ *
+ * Between 468 and 500 no width is ever chosen. That is the structural part:
+ * the card cannot arrive near the threshold by any route, so it cannot cross
+ * it by jitter, by a scrollbar appearing, or by a reserved slot resolving to
+ * a different height. tests/cie-lab-hexagon.spec.ts holds it there.
  */
-const HEX_PILL_MIN = 470;
+const HEX_PILL_MIN = 500;
 /** Height per px of width in that layout, and the fixed part on top. */
 const HEX_PILL_SLOPE = 0.863;
 const HEX_PILL_FIXED = 73;
 
-/** Height per px of width in the *stacked* layout, and its fixed part. */
+/**
+ * Height per px of width in the *stacked* layout, and its fixed part. The
+ * fixed part carries 6px more than measured, as a cushion: this expression
+ * decides a height that has to fit, and being a little short costs slack
+ * while being a little long clips the saturation bar.
+ */
 const HEX_STACK_SLOPE = 0.917;
-const HEX_STACK_FIXED = 169;
+const HEX_STACK_FIXED = 175;
 
 /** A width expression for a figure whose height is a fixed multiple of it. */
 const fitRatio = (ratio: number) => `min(100%, calc(100cqh * ${ratio}))`;
@@ -205,11 +235,15 @@ const PANEL_CHROME = 80;
  * that is short and wide and a cell that is tall and narrow both end up with
  * the whole figure in them and neither ends up with a clipped one.
  *
- * `wideWidth` is a second expression for cells at least `wideAt` across - the
- * hexagon's case, where the layout itself changes at a threshold and one
- * expression cannot describe both sides of it. The container is named and
- * typed inline rather than through `@container/fig`, because that utility
- * sets `container-type: inline-size` and `100cqh` needs `size`.
+ * `wideWidth` is a second expression, used once the cell is at least 500px
+ * across - the hexagon's case, where the layout itself changes at a threshold
+ * and one expression cannot describe both sides of it. 500 is `HEX_PILL_MIN`
+ * and the two have to stay equal: the switch and the floor are the same line,
+ * which is what keeps every reachable width clear of `HEX_STACKED_BARS_MAX`.
+ *
+ * The container is named and typed inline rather than through
+ * `@container/fig`, because that utility sets `container-type: inline-size`
+ * and `100cqh` needs `size`.
  */
 function Fit({ width, wideWidth, children }: {
   width: string;
@@ -222,7 +256,7 @@ function Fit({ width, wideWidth, children }: {
       style={{ containerType: 'size', containerName: 'fig' }}
     >
       <div
-        className={wideWidth ? 'min-w-0 w-(--fit-narrow) @min-[470px]/fig:w-(--fit-wide)' : 'min-w-0 w-(--fit-narrow)'}
+        className={wideWidth ? 'min-w-0 w-(--fit-narrow) @min-[500px]/fig:w-(--fit-wide)' : 'min-w-0 w-(--fit-narrow)'}
         style={{ '--fit-narrow': width, '--fit-wide': wideWidth ?? width } as React.CSSProperties}
       >
         {children}
@@ -504,6 +538,42 @@ export default function CieLab() {
 
   const drift = run && here ? Math.hypot(here.x - run.from.x, here.y - run.from.y) : 0;
 
+  /*
+   * PANEL 1 TRACKS THE POINTER. THE OTHER THREE ARE ALLOWED TO LAG.
+   *
+   * The hexagon is a control and the other three are read-outs of it, so they
+   * have different deadlines. A pointer move has to move the handle now; the
+   * chromaticity dot, the morph and the solid can arrive late, and nobody can
+   * tell the difference between a solid that is current and one that is two
+   * frames behind. Bisecting the page showed what happens when they share a
+   * deadline: mounting the xyY solid took a pointer move from 48ms to 2.2s,
+   * because a drag redrew a solid of up to 16.7 million points once per
+   * reported move.
+   *
+   * `useDeferredValue` gives them the later deadline. React renders panel 1
+   * with the live colour at once, then re-renders the rest at low priority and
+   * abandons that work if another move arrives first - so under a drag the
+   * heavy panels simply skip the frames they cannot keep up with, and land on
+   * the colour the gesture ended at.
+   *
+   * Deferred through a *key* rather than the object: `rgb` and `hsb` are
+   * rebuilt every render, so deferring them directly would never settle - the
+   * value would differ from the previous one forever and React would keep a
+   * low-priority render permanently in flight.
+   */
+  const rgbKey = (rgb.r << 16) | (rgb.g << 8) | rgb.b;
+  const hsbKey = `${hsb.h}|${hsb.s}|${hsb.b}`;
+  const lateRgbKey = useDeferredValue(rgbKey);
+  const lateHsbKey = useDeferredValue(hsbKey);
+  const lateRgb = useMemo<RGB>(
+    () => ({ r: (lateRgbKey >> 16) & 255, g: (lateRgbKey >> 8) & 255, b: lateRgbKey & 255 }),
+    [lateRgbKey],
+  );
+  const lateHsb = useMemo<HSB>(() => {
+    const [h, sat, b] = lateHsbKey.split('|').map(Number);
+    return { h, s: sat, b };
+  }, [lateHsbKey]);
+
   // The picker's own handlers, wired exactly as ColorPicker wires them.
   const handleH = useCallback((v: number) => setHsbClear((p) => ({ ...p, h: v })), [setHsbClear]);
   const handleS = useCallback((v: number) => setHsbClear((p) => ({ ...p, s: v })), [setHsbClear]);
@@ -646,6 +716,12 @@ export default function CieLab() {
                   >
                     <Fit width={fitRatio(FIT_DIAGRAM)}>
                       <CieDiagram
+                        // Live, not deferred. The bisection put this panel's
+                        // cost at zero - mounting it moved a pointer move from
+                        // 36ms to 36ms - and it is the one panel whose whole
+                        // argument is what the dot does while you drag. A dot
+                        // that lagged would undercut the standstill it exists
+                        // to show.
                         rgb={rgb}
                         gamuts={drawn}
                         activeId={activeGamut}
@@ -742,8 +818,8 @@ export default function CieLab() {
                     }
                   >
                     <HexMorph
-                      rgb={rgb}
-                      hsb={hsb}
+                      rgb={lateRgb}
+                      hsb={lateHsb}
                       target={morphTarget}
                       frame={morphTarget === 'xy' ? morphFrame : 'hex'}
                       gamuts={drawn}
@@ -776,7 +852,7 @@ export default function CieLab() {
                   >
                     <Fit width={fitRatio(FIT_SQUARE)}>
                       <div className="aspect-square overflow-hidden rounded-md">
-                        <CieSolid rgb={rgb} shape={shape} gamuts={drawn} activeId={activeGamut} step={step} />
+                        <CieSolid rgb={lateRgb} shape={shape} gamuts={drawn} activeId={activeGamut} step={step} />
                       </div>
                     </Fit>
                   </Panel>

@@ -31,6 +31,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { GAMUT_TINT } from './CieDiagram';
 import { VIEW_ANGLES, VIEW_LABELS, type CieView } from './cieViews';
 import { DISPLAY_IS_P3 } from './wideGamut';
+import { perfTime } from './perf';
 import {
   createCubeRenderer, DEFAULT_PARAMS,
   type CubeParams, type CubeRenderer, type CubeStep, type FloorPath,
@@ -149,12 +150,29 @@ export default function CieSolid({ rgb, shape, gamuts, activeId, step }: CieSoli
     try { r = createCubeRenderer(canvas); } catch (e) { console.error(e); }
     if (!r) { queueMicrotask(() => setUnsupported(true)); return; }
     rendererRef.current = r;
-    const ro = new ResizeObserver(() => r.render(paramsRef.current));
+    const ro = new ResizeObserver(() => perfTime('solid resize', () => r.render(paramsRef.current)));
     ro.observe(canvas);
     return () => { ro.disconnect(); r.destroy(); rendererRef.current = null; };
   }, []);
 
-  useEffect(() => { rendererRef.current?.render(params); }, [params]);
+  /*
+   * Coalesced to one draw per animation frame.
+   *
+   * Every colour change rebuilds `params`, and a drag on the hexagon two
+   * panels away produces one of those per pointer move - so without this the
+   * solid redraws as fast as the pointer reports, which on a solid of up to
+   * 16.7 million points is the single most expensive thing on the page and it
+   * lands squarely on the input path. Drawing the newest params once a frame
+   * loses nothing: the intermediate states were never going to be seen.
+   */
+  const drawRaf = useRef(0);
+  useEffect(() => {
+    cancelAnimationFrame(drawRaf.current);
+    drawRaf.current = requestAnimationFrame(() => {
+      perfTime('solid', () => rendererRef.current?.render(paramsRef.current));
+    });
+    return () => cancelAnimationFrame(drawRaf.current);
+  }, [params]);
 
   // Morph rather than cut: the claim is that these are one solid, and a cut
   // would only assert it.

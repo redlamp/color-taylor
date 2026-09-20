@@ -38,6 +38,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { GAMUT_TINT } from './CieDiagram';
+import { perfTime } from './perf';
 import {
   buildMorphMesh, createHexMorphRenderer, fieldPointFor, hexPointAt,
   HEX_WINDOW, type FieldPoint, type HexMorphRenderer, type MorphWindow,
@@ -349,7 +350,10 @@ export default function HexMorph({ rgb, hsb, target, frame, gamuts, activeId, co
    * depend on brightness, because the field is the picker's field at whatever
    * the bar says - so a brightness drag rebuilds and a morph drag does not.
    */
-  const mesh = useMemo(() => buildMorphMesh(hsb.b, target, gamut), [hsb.b, target, gamut]);
+  const mesh = useMemo(
+    () => perfTime('morph mesh', () => buildMorphMesh(hsb.b, target, gamut)),
+    [hsb.b, target, gamut],
+  );
 
   /** The overlay's tracks, on the same terms: both ends once, mixed per frame. */
   const overlay = useMemo(() => {
@@ -453,8 +457,17 @@ export default function HexMorph({ rgb, hsb, target, frame, gamuts, activeId, co
     setLens((l) => ({ ...l, zoom: Math.max(0.25, Math.min(8, l.zoom * Math.exp(-e.deltaY * 0.0015))) }));
   }, [setLens]);
 
-  useEffect(() => { rendererRef.current?.setMesh(mesh); }, [mesh]);
-  useEffect(() => { rendererRef.current?.draw(t, view); }, [t, mesh, view]);
+  useEffect(() => { perfTime('morph upload', () => rendererRef.current?.setMesh(mesh)); }, [mesh]);
+  // One draw per frame, for the reason CieSolid coalesces its own: a drag on
+  // the hexagon drives this panel too, and the frames in between are not seen.
+  const drawRaf = useRef(0);
+  useEffect(() => {
+    cancelAnimationFrame(drawRaf.current);
+    drawRaf.current = requestAnimationFrame(() => {
+      perfTime('morph draw', () => rendererRef.current?.draw(tRef.current, viewRef.current));
+    });
+    return () => cancelAnimationFrame(drawRaf.current);
+  }, [t, mesh, view]);
 
   const shape = useMemo(() => rimShape(target, 1440, gamut), [target, gamut]);
   const here = useMemo(() => {
