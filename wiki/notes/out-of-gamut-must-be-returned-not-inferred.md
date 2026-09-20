@@ -45,13 +45,33 @@ instead of a new mode on an old function. Callers that do not care can ignore
 the flag. Callers that do care cannot get it wrong, which is the whole point of
 returning it rather than documenting it.
 
-## The epsilon is load-bearing
+## The epsilon is load-bearing, and the hazard runs the other way
 
-`1e-6` on the unclamped linear channels. That is not a round number picked for
-tidiness — it has to be *tighter* than the gap it is measuring. At `1e-4` the
-0.0002-wide window smears shut and the flag reports the blue corner as out of
-gamut, which is precisely the bug it exists to expose. Anyone loosening it
-should re-run the blue regression first.
+`1e-6` on the unclamped linear channels. **Corrected 2026-09-20**, after an
+adversarial review measured it properly: the first version of this note said the
+danger was *loosening* the epsilon, and that is backwards. Scanning chroma at
+blue’s own `L = 0.45201`, `h = 264.052`:
+
+| epsilon | in-gamut runs |
+|---|---|
+| `0` | `[0 .. 0.2655870]` — **one run** |
+| `1e-8` | `[0 .. 0.2655880]` — still one |
+| `1e-7` | `[0 .. 0.2655890]` `[0.3132120 .. 0.3132120]` |
+| `1e-6` | `[0 .. 0.2656050]` `[0.3131970 .. 0.3132130]` |
+| `1e-4` | `[0 .. 0.2673680]` `[0.3114620 .. 0.3132370]` — wider, not shut |
+
+Loosening widens the needle. **Tightening deletes it.** At this hue the exact
+gamut has a single run and the blue corner is not in it — the corner is reached
+exactly only at its own hue, `264.05202064`, and `264.052` is the rounding
+everyone writes. So the needle at the rounded hue is a thing the tolerance
+creates, not a thing the gamut has.
+
+That is not an argument against the tolerance. An 8-bit screen cannot tell a
+linear channel at `-8e-7` from one at `0`, so calling it in gamut is the honest
+answer. But it means anything downstream that recovers the blue corner does so
+*because* of the epsilon: set it to `1e-8` and a cusp finder at `(0.45201,
+264.052)` reverts from `0.3132` to `0.2656` with no code change and nothing to
+say why. Tighten it only with the blue regression in front of you.
 
 ## Related
 
