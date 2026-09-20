@@ -41,6 +41,9 @@ largest cluster in the wiki.
 - [[srgb-gamut-is-not-star-shaped-in-oklab]] — walking outward at fixed
   lightness, the gamut can go in, out, and back in. Invisible to a person, fatal
   to a naive search
+- [[out-of-gamut-must-be-returned-not-inferred]] — the clamped 8-bit colour is
+  the same on both sides of the boundary, so an Ok conversion has to hand back
+  whether the input was real rather than leave it to be inferred
 - [[plan-perceptual-color-in-color-taylor]] — what to actually build, where the
   complexity cliff is, and the deck slide that does not exist yet
 
