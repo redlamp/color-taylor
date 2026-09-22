@@ -10,6 +10,7 @@
  */
 import { oklchToRgb, oklabToOklch } from '@/utils/colorConversions';
 import { cuspForHue } from '@/utils/oklchGamut';
+import { okhslToRgb } from '@/utils/okhsl';
 
 /**
  * Top of the C axis. sRGB never reaches past about 0.37, so 0.4 leaves a
@@ -57,6 +58,33 @@ export function oklabAColors(l: number, b: number): string {
 }
 export function oklabBColors(l: number, a: number): string {
   return ramp(32, (t) => labStop(l, a, (t * 2 - 1) * OKLAB_MAX));
+}
+
+/** One OkHSL sample, as the clamped 8-bit color the screen would show. s and l in 0..1. */
+function okhslStop(h: number, s: number, l: number): string {
+  const { rgb } = okhslToRgb(h, s, l);
+  return `rgb(${rgb.r},${rgb.g},${rgb.b})`;
+}
+
+/** OkHSL h, s and l across their tracks at the other two. */
+export function okhslHueColors(s: number, l: number): string {
+  return ramp(36, (t) => okhslStop(t * 360, s, l));
+}
+export function okhslSatColors(h: number, l: number): string {
+  return ramp(32, (t) => okhslStop(h, t, l));
+}
+export function okhslLightColors(h: number, s: number): string {
+  return ramp(32, (t) => okhslStop(h, s, t));
+}
+/** The channels alone: hue at full saturation and a mid lightness, s at that lightness, l at full saturation. */
+export function okhslHueSourceColors(): string {
+  return okhslHueColors(1, 0.7);
+}
+export function okhslSatSourceColors(h: number): string {
+  return okhslSatColors(h, 0.7);
+}
+export function okhslLightSourceColors(h: number): string {
+  return okhslLightColors(h, 1);
 }
 
 /** The bare color ramps, for a readout that wants the colors and none of the marks. */

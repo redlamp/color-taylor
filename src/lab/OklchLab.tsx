@@ -34,6 +34,7 @@ import {
 import {
   maxChromaForLH, nearestInGamut, safeChromaAtL, lightnessBoundsAtC, lightnessRangeForCH, validHueSpans,
 } from '@/utils/oklchGamut';
+import { oklabToOkhsl, okhslToOklab, rgbToOkhsl, toe, type OkHSL } from '@/utils/okhsl';
 import { CENTER_X, CENTER_Y, RADIUS, FIELD_SIZE, hexPoints, hexEdgeDist, pointForColor } from '@/components/hex/hexConstants';
 import HexCanvas from '@/components/hex/HexCanvas';
 import {
@@ -58,6 +59,7 @@ import {
   lightnessColors, chromaColors, hueColors, lightnessSourceColors, chromaSourceColors, hueSourceColors,
   OKLAB_MAX, oklabAColors, oklabBColors, oklabASourceColors, oklabBSourceColors,
   hueWash, oklabAxisRange, oklabAxisMarks,
+  okhslHueColors, okhslSatColors, okhslLightColors, okhslHueSourceColors, okhslSatSourceColors, okhslLightSourceColors,
 } from './oklchRamps';
 
 /** Oklch's L and C both step by a thousandth; a whole number is the channel. */
@@ -97,7 +99,7 @@ const holdChroma = (c: number, l: number, h: number, limitAt: Limit) => Math.min
 );
 
 /** How the middle track counts. See `switchMode` for what moving between them means. */
-type ChromaMode = 'absolute' | 'relative';
+type ChromaMode = 'absolute' | 'relative' | 'okhsl';
 
 /**
  * S counts in whole percent, where C counts in thousandths.
@@ -129,6 +131,24 @@ const SAT_STEP = 1;
 const chromaFromSat = (s: number, l: number, h: number, limitAt: Limit) => Number(
   (Math.floor(((s / 100) * limitAt(l, h)) / FINE) * FINE).toFixed(3),
 );
+
+/**
+ * The OkHSL model's equation: C is what OkHSL saturation s (0..100) resolves
+ * to at this hue and at this L's OkHSL lightness. Floored to the thousandth
+ * grid for the same reasons as `chromaFromSat`. Unlike Relative S it is not a
+ * straight share of the cusp: it runs through Ottosson's fitted mid chroma,
+ * so the same s is nearer the same amount of color at every hue.
+ */
+const chromaFromOkS = (s: number, l: number, h: number) => {
+  const lab = okhslToOklab(h, s / 100, toe(l));
+  return Number((Math.floor(Math.hypot(lab.a, lab.b) / FINE) * FINE).toFixed(3));
+};
+
+/** What OkHSL saturation an absolute C already is, 0..100 in whole percent. */
+const okSFromChroma = (c: number, l: number, h: number): number => {
+  const lab = oklchToOklab(l, c, h);
+  return Math.round(oklabToOkhsl(lab.l, lab.a, lab.b).s * 100);
+};
 
 /**
  * The other direction: what percentage an absolute C already is. Null where
@@ -282,8 +302,8 @@ function LandmarkRow({ l, chromaAt, onPick }: {
 }
 
 /** The slider panel's groups, the app's Color Editor set plus the Oklch and Oklab banks. */
-type SliderGroup = 'RGB' | 'HSB' | 'HSL' | 'OKLCH' | 'OKLAB';
-const SLIDER_GROUPS: ReadonlyArray<SliderGroup> = ['RGB', 'HSB', 'HSL', 'OKLCH', 'OKLAB'];
+type SliderGroup = 'RGB' | 'HSB' | 'HSL' | 'OKLCH' | 'OKHSL' | 'OKLAB';
+const SLIDER_GROUPS: ReadonlyArray<SliderGroup> = ['RGB', 'HSB', 'HSL', 'OKLCH', 'OKHSL', 'OKLAB'];
 
 /**
  * oklch.com's Hue graph on the hexagon: hue as the field's own angle, L as
@@ -482,6 +502,8 @@ export default function OklchLab() {
    * absolute mode too, so the switch has nothing to work out on arrival.
    */
   const [sat, setSat] = useState<number>(() => satFromChroma(START.c, START.l, START.h, gamutLimit) ?? 0);
+  /** The OkHSL track's position, 0..100, the same way `sat` is the relative one's. */
+  const [okS, setOkS] = useState<number>(() => okSFromChroma(START.c, START.l, START.h));
   /** The open design question, as a switch. See the file comment. */
   const [hold, setHold] = useState(false);
   /**
@@ -543,6 +565,14 @@ export default function OklchLab() {
         bottom: (() => { const { rgb: r } = oklchToRgb(lRange.min, oklch.c, oklch.h); return rgbToHsl(r.r, r.g, r.b); })(),
       }
     : null;
+  const edgeOk = lRange
+    ? {
+        top: (() => { const { rgb: r } = oklchToRgb(lRange.max, oklch.c, oklch.h); return rgbToOkhsl(r.r, r.g, r.b); })(),
+        bottom: (() => { const { rgb: r } = oklchToRgb(lRange.min, oklch.c, oklch.h); return rgbToOkhsl(r.r, r.g, r.b); })(),
+      }
+    : null;
+  const okSatMarks = edgeOk ? [{ at: edgeOk.top.s * 100, ink: CEILING_INK }, { at: edgeOk.bottom.s * 100, ink: FLOOR_INK }] : [];
+  const okLightMarks = edgeOk ? [{ at: edgeOk.top.l * 100, ink: CEILING_INK }, { at: edgeOk.bottom.l * 100, ink: FLOOR_INK }] : [];
   const hslSatMarks = edgeHsl ? [{ at: edgeHsl.top.s, ink: CEILING_INK }, { at: edgeHsl.bottom.s, ink: FLOOR_INK }] : [];
   const hslLightMarks = edgeHsl ? [{ at: edgeHsl.top.l, ink: CEILING_INK }, { at: edgeHsl.bottom.l, ink: FLOOR_INK }] : [];
   /** Panel 4's L and C marks, for panel 2's OKLCH and OKLAB L rows: fractions of the track. */
@@ -562,6 +592,7 @@ export default function OklchLab() {
   const labA = oklabAxisRange(lab.l, lab.b, 'a');
   const labB = oklabAxisRange(lab.l, lab.a, 'b');
   const relative = mode === 'relative';
+  const okhslMode = mode === 'okhsl';
 
   /**
    * What C becomes when L or H moves the cusp out from under it. Every path
@@ -575,8 +606,13 @@ export default function OklchLab() {
    */
   const reChroma = useCallback((held: number, l: number, h: number) => {
     if (mode === 'relative') return chromaFromSat(sat, l, h, limitAt);
+    if (mode === 'okhsl') {
+      // In gamut by construction; Safe zone still caps it at the shared edge.
+      const c = chromaFromOkS(okS, l, h);
+      return safe ? holdChroma(c, l, h, limitAt) : c;
+    }
     return clamp ? holdChroma(held, l, h, limitAt) : held;
-  }, [mode, sat, clamp, limitAt]);
+  }, [mode, sat, okS, safe, clamp, limitAt]);
 
   const setL = useCallback((l: number) => setOklch((p) => (
     { ...p, l, c: reChroma(p.c, l, p.h) }
@@ -593,6 +629,15 @@ export default function OklchLab() {
     setSat(s);
     setOklch((p) => ({ ...p, c: chromaFromSat(s, p.l, p.h, limitAt) }));
   }, [limitAt]);
+
+  /** The OkHSL track. s is the state; C is what it resolves to, capped by Safe zone. */
+  const setOkSaturation = useCallback((s: number) => {
+    setOkS(s);
+    setOklch((p) => {
+      const c = chromaFromOkS(s, p.l, p.h);
+      return { ...p, c: safe ? holdChroma(c, p.l, p.h, limitAt) : c };
+    });
+  }, [safe, limitAt]);
 
   const toggleHold = useCallback(() => {
     setHold((on) => !on);
@@ -615,6 +660,7 @@ export default function OklchLab() {
       const c = next ? holdChroma(p.c, p.l, p.h, nextLimit) : p.c;
       const s = satFromChroma(c, p.l, p.h, nextLimit);
       if (s !== null) setSat(s);
+      setOkS(okSFromChroma(c, p.l, p.h));
       return { ...p, c };
     });
   }, [safe]);
@@ -636,6 +682,7 @@ export default function OklchLab() {
    */
   const switchMode = useCallback((next: ChromaMode) => {
     setMode(next);
+    if (next === 'okhsl') { setOkS(okSFromChroma(oklch.c, oklch.l, oklch.h)); return; }
     if (next !== 'relative') return;
     const s = satFromChroma(oklch.c, oklch.l, oklch.h, limitAt);
     if (s !== null) setSat(s);
@@ -651,6 +698,7 @@ export default function OklchLab() {
     setOklch(next);
     const s = satFromChroma(next.c, next.l, next.h, limitAt);
     if (s !== null) setSat(s);
+    setOkS(okSFromChroma(next.c, next.l, next.h));
   }, [limitAt]);
 
   const jumpTo = useCallback((target: Oklch) => applyOklch(
@@ -668,6 +716,12 @@ export default function OklchLab() {
    * door presets use, so hold and Safe zone apply to a and b as to anything.
    */
   const setFromOklab = (next: Oklab) => jumpTo(oklabToOklch(next.l, next.a, next.b));
+  /** The color as OkHSL, for the OKHSL sliders, written back through the same door. */
+  const okhsl = oklabToOkhsl(lab.l, lab.a, lab.b);
+  const setFromOkhsl = (next: OkHSL) => {
+    const nl = okhslToOklab(next.h, next.s, next.l);
+    jumpTo(oklabToOklch(nl.l, nl.a, nl.b));
+  };
   /** Where the clamped color actually landed - the evidence the clamp destroys. */
   const landed = rgbToOklch(rgb.r, rgb.g, rgb.b);
 
@@ -822,8 +876,10 @@ export default function OklchLab() {
             <LabPanel
               n={2}
               title="Sliders"
-              help={<><p>The app&rsquo;s slider banks, plus Oklch and Oklab; the
-                toggle picks which are shown. Oklab&rsquo;s a runs green to red
+              help={<><p>The app&rsquo;s slider banks, plus Oklch, OkHSL and Oklab;
+                the toggle picks which are shown. OkHSL is Ottosson&rsquo;s
+                picker model: hue is Oklch hue, lightness is Oklch L through a
+                toe, saturation is a share of the gamut that never leaves it. Oklab&rsquo;s a runs green to red
                 and b blue to yellow, either side of zero, and both write back
                 through the same door presets use, so the hold and Safe zone
                 switches apply to them. RGB, HSB and HSL are
@@ -840,7 +896,8 @@ export default function OklchLab() {
                 brightness; B and HSL&rsquo;s L with saturation at zero, so they
                 run black to white; Oklch L neutral, C at the hue&rsquo;s most
                 vivid lightness, and H every hue at its most vivid; a and b at
-                L 0.7 with the other axis at zero.</p></>}
+                L 0.7 with the other axis at zero; OkHSL H at full saturation
+                and lightness 70, S at lightness 70, L at full saturation.</p></>}
             >
               {/* One column, so the tracks share a width and the steppers a
                   column. The toggle above picks the groups, as the app's Color
@@ -951,6 +1008,25 @@ export default function OklchLab() {
                 </div>
                   </div>
                 )}
+                {groups.includes('OKHSL') && (
+                  <div className="flex flex-col gap-3 border-t border-foreground/20 pt-4 mt-1">
+                  <ColorSlider
+                    label="H" group="okhsl" value={okhsl.h} max={360} step={HUE_STEP} wrap
+                    gradient={blend ? okhslHueColors(okhsl.s, okhsl.l) : okhslHueSourceColors()}
+                    onChange={(v) => setFromOkhsl({ ...okhsl, h: v })}
+                  />
+                  <ColorSlider
+                    label="S" group="okhsl" value={Math.round(okhsl.s * 100)} max={100} step={SAT_STEP} wideStepper
+                    gradient={withMarks(blend ? okhslSatColors(okhsl.h, okhsl.l) : okhslSatSourceColors(okhsl.h), okSatMarks)}
+                    onChange={(v) => setFromOkhsl({ ...okhsl, s: v / 100 })}
+                  />
+                  <ColorSlider
+                    label="L" group="okhsl" value={Math.round(okhsl.l * 100)} max={100} step={SAT_STEP} wideStepper
+                    gradient={withMarks(blend ? okhslLightColors(okhsl.h, okhsl.s) : okhslLightSourceColors(okhsl.h), okLightMarks)}
+                    onChange={(v) => setFromOkhsl({ ...okhsl, l: v / 100 })}
+                  />
+                  </div>
+                )}
                 {groups.includes('OKLAB') && (
                   <div className="mt-1 flex flex-col gap-3 border-t border-foreground/20 pt-4">
                   <ColorSlider
@@ -978,13 +1054,20 @@ export default function OklchLab() {
               title="One setting, six hues"
               caption={relative
                 ? <>Every swatch is <span className="font-mono tabular-nums text-foreground">{sat}%</span> at this L.</>
-                : <>Every swatch is <span className="font-mono tabular-nums text-foreground">C {oklch.c.toFixed(3)}</span> at this L.</>}
+                : okhslMode
+                  ? <>Every swatch is OkHSL <span className="font-mono tabular-nums text-foreground">{okS}%</span> at this L.</>
+                  : <>Every swatch is <span className="font-mono tabular-nums text-foreground">C {oklch.c.toFixed(3)}</span> at this L.</>}
               help={<><p>The current chroma setting, read across six landmark hues
                 at the current L. Click a swatch to go to that hue.</p>
                 <p><strong className="font-semibold">Relative</strong> holds the
                 percentage: every swatch exists, and no two carry the same
                 amount of color. That is what the relative track costs, and it
                 does not go away by not being shown.</p>
+                <p><strong className="font-semibold">OkHSL</strong> holds
+                Ottosson&rsquo;s saturation, a share that runs through a fitted
+                mid chroma rather than straight to the cusp, so the same
+                percentage is nearer the same amount of color at every hue than
+                Relative is. Compare the two at 70%.</p>
                 <p><strong className="font-semibold">Absolute</strong> holds the
                 number: the swatches that exist are strictly comparable. Where
                 a hue has no color at this setting, the swatch is the nearest
@@ -1000,14 +1083,14 @@ export default function OklchLab() {
             >
               <LandmarkRow
                 l={oklch.l}
-                chromaAt={(h) => (relative ? chromaFromSat(sat, oklch.l, h, limitAt) : oklch.c)}
+                chromaAt={(h) => (relative ? chromaFromSat(sat, oklch.l, h, limitAt) : okhslMode ? chromaFromOkS(okS, oklch.l, h) : oklch.c)}
                 onPick={setH}
               />
               {/* Centered in whatever height the row leaves the panel. */}
               <div className="flex min-h-0 flex-1 items-center justify-center" style={{ containerType: 'size' }}>
                 <LandmarkMap
                   l={oklch.l}
-                  chromaAt={(h) => (relative ? chromaFromSat(sat, oklch.l, h, limitAt) : oklch.c)}
+                  chromaAt={(h) => (relative ? chromaFromSat(sat, oklch.l, h, limitAt) : okhslMode ? chromaFromOkS(okS, oklch.l, h) : oklch.c)}
                   rgb={rgb}
                   colorSpace={colorSpace}
                 />
@@ -1025,6 +1108,12 @@ export default function OklchLab() {
                 of what fits: 100% is the gamut edge at this L and H, so every
                 position is a real color &mdash; and the same percentage is a
                 different amount of color at every hue.</p>
+                <p><strong className="font-semibold">OkHSL (S)</strong> is
+                Ottosson&rsquo;s saturation: a share of what fits, like Relative,
+                but through a fitted mid chroma so 50% at cyan and 50% at magenta
+                are nearer the same amount of color. L stays Oklch L; OkHSL&rsquo;s
+                own lightness is that L through a toe, and the OKHSL group in
+                panel 2 shows it.</p>
                 <p>The <span style={{ color: CEILING_INK }} className="font-semibold">red</span> and{' '}
                 <span style={{ color: FLOOR_INK }} className="font-semibold">blue</span> hairlines
                 on the L track are the lowest of the per-hue maximums and the
@@ -1061,6 +1150,7 @@ export default function OklchLab() {
                         is right inside a dense panel and wrong out here. */}
                     <TabsTrigger value="absolute" className="px-3 text-base">Absolute (C)</TabsTrigger>
                     <TabsTrigger value="relative" className="px-3 text-base">Relative (S)</TabsTrigger>
+                    <TabsTrigger value="okhsl" className="px-3 text-base">OkHSL (S)</TabsTrigger>
                   </TabsList>
                 </Tabs>
               }
@@ -1107,6 +1197,12 @@ export default function OklchLab() {
                     label="S" group="oklch" value={sat} max={100} step={SAT_STEP} wideStepper
                     gradient={saturationRamp(oklch.l, oklch.h, limit)} onChange={setSaturation}
                   />
+                ) : okhslMode ? (
+                  <ColorSlider
+                    key="ok"
+                    label="S" group="oklch" value={okS} max={100} step={SAT_STEP} wideStepper
+                    gradient={okhslSatColors(oklch.h, toe(oklch.l))} onChange={setOkSaturation}
+                  />
                 ) : (
                   <ColorSlider
                     key="c"
@@ -1123,9 +1219,9 @@ export default function OklchLab() {
                   * fixed 4ch so 9% and 100% are the same width.
                   */}
                 <p className="-mt-1 truncate pl-5 text-muted-foreground">
-                  {relative && (
+                  {(relative || okhslMode) && (
                     <>
-                      <span className="inline-block w-[4ch] text-right font-mono tabular-nums text-foreground">{sat}%</span>
+                      <span className="inline-block w-[4ch] text-right font-mono tabular-nums text-foreground">{relative ? sat : okS}%</span>
                       {' = '}
                       <span className="font-mono tabular-nums text-foreground">C {oklch.c.toFixed(3)}</span>
                       {' · '}
@@ -1163,7 +1259,7 @@ export default function OklchLab() {
                     <span className="font-semibold text-foreground">Held.</span>{' '}
                     Safe zone stops C at the shared edge.
                   </p>
-                ) : relative ? (
+                ) : relative || okhslMode ? (
                   <p className="truncate text-muted-foreground">
                     <span className="font-semibold text-foreground">Nothing to stop.</span>{' '}
                     Here the edge is 100%.

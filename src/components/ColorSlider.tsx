@@ -41,6 +41,9 @@ const CHANNEL_NAMES: Record<string, string> = {
   'oklab-l': 'Lightness',
   'oklab-a': 'Green to red',
   'oklab-b': 'Blue to yellow',
+  'okhsl-h': 'Hue',
+  'okhsl-s': 'Saturation',
+  'okhsl-l': 'Lightness',
   'alpha-a': 'Alpha',
 };
 
@@ -63,7 +66,7 @@ interface ColorSliderProps {
    * `slider-b`, which is invalid HTML the moment both groups are on screen (in
    * the app, that is always).
    */
-  group: 'rgb' | 'hsb' | 'hsl' | 'oklch' | 'lch' | 'oklab' | 'alpha';
+  group: 'rgb' | 'hsb' | 'hsl' | 'oklch' | 'lch' | 'oklab' | 'okhsl' | 'alpha';
   value: number;
   max: number;
   /**
