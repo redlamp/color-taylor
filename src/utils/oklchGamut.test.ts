@@ -1,7 +1,7 @@
 import { describe, test, expect } from 'bun:test';
 import { clampChroma, converter, inGamut } from 'culori';
 import {
-  cuspForHue, maxChromaForLH, maxSaturationForHue, gamutIntersection, type Cusp,
+  cuspForHue, maxChromaForLH, maxSaturationForHue, gamutIntersection, nearestInGamut, safeChromaAtL, lightnessRangeForCH, lightnessBoundsAtC, validHueSpans, type Cusp,
 } from './oklchGamut';
 import {
   oklchToRgb, rgbToOklch, srgbToLinear, linearToOklab, oklabToOklch,
@@ -510,5 +510,124 @@ describe('gamutIntersection on its own', () => {
       expect(at(t * 0.999)).toBe(true);
       expect(at(t * 1.01)).toBe(false);
     }
+  });
+});
+
+describe('nearestInGamut', () => {
+  test('leaves an in-gamut colour alone', () => {
+    expect(nearestInGamut(0.5, 0.1, 30)).toEqual({ l: 0.5, c: 0.1 });
+  });
+
+  test('returns a colour oklchToRgb accepts, at the same hue', () => {
+    for (let h = 0; h < 360; h += 7) {
+      for (const l of [0.2, 0.5, 0.7, 0.9]) {
+        const { l: L, c: C } = nearestInGamut(l, 0.3, h);
+        expect(oklchToRgb(L, C, h).inGamut).toBe(true);
+        expect(L).toBeGreaterThanOrEqual(0);
+        expect(L).toBeLessThanOrEqual(1);
+      }
+    }
+  });
+
+  test('is at least as close as chroma reduction at the same L', () => {
+    for (let h = 0; h < 360; h += 5) {
+      for (const l of [0.3, 0.6, 0.8]) {
+        const c = 0.35;
+        const near = nearestInGamut(l, c, h);
+        const dNear = Math.hypot(near.l - l, near.c - c);
+        const dClamp = Math.abs(maxChromaForLH(l, h) - c);
+        expect(dNear).toBeLessThanOrEqual(dClamp + 1e-9);
+      }
+    }
+  });
+
+  test('moves lightness toward the cusp, not just chroma', () => {
+    // Cyan at L 0.70 stops at C 0.120, and its cusp sits higher, near L 0.90.
+    // Asked for 0.188 the nearest real colour is lighter and more chromatic
+    // than the flat clamp would be - it slides up the boundary toward the cusp.
+    const h = rgbToOklch(0, 255, 255).h;
+    const cusp = cuspForHue(h);
+    const near = nearestInGamut(0.7, 0.188, h);
+    expect(near.l).toBeGreaterThan(0.7);
+    expect(near.l).toBeLessThan(cusp.l);
+    expect(near.c).toBeGreaterThan(maxChromaForLH(0.7, h));
+  });
+});
+
+describe('safeChromaAtL', () => {
+  test('is zero at black and white', () => {
+    expect(safeChromaAtL(0)).toBe(0);
+    expect(safeChromaAtL(1)).toBe(0);
+  });
+
+  test('is a real color at every hue, and the tightest hue is on the line', () => {
+    for (const l of [0.3, 0.5, 0.7, 0.9]) {
+      const safe = safeChromaAtL(l);
+      expect(safe).toBeGreaterThan(0);
+      let tightest = Infinity;
+      for (let h = 0; h < 360; h += 1) {
+        // A hair under the line, so the interpolation cannot put a sample
+        // outside by a rounding error.
+        expect(oklchToRgb(l, safe - 1e-6, h).inGamut).toBe(true);
+        tightest = Math.min(tightest, maxChromaForLH(l, h));
+      }
+      expect(safe).toBeCloseTo(tightest, 4);
+    }
+  });
+});
+
+describe('lightnessRangeForCH', () => {
+  test('brackets the cusp and both ends sit on the gamut edge', () => {
+    for (const h of [30, 110, 200, 264, 330]) {
+      const cusp = cuspForHue(h);
+      const c = cusp.c * 0.6;
+      const range = lightnessRangeForCH(c, h);
+      expect(range).not.toBeNull();
+      const { min, max } = range!;
+      expect(min).toBeLessThan(cusp.l);
+      expect(max).toBeGreaterThan(cusp.l);
+      expect(oklchToRgb(min + 1e-4, c, h).inGamut).toBe(true);
+      expect(oklchToRgb(max - 1e-4, c, h).inGamut).toBe(true);
+      expect(oklchToRgb(min - 1e-3, c, h).inGamut).toBe(false);
+      expect(oklchToRgb(max + 1e-3, c, h).inGamut).toBe(false);
+    }
+  });
+
+  test('is null past the cusp', () => {
+    expect(lightnessRangeForCH(cuspForHue(200).c + 0.01, 200)).toBeNull();
+  });
+});
+
+describe('lightnessBoundsAtC', () => {
+  test('inside the band every hue is a real color', () => {
+    const { floor, ceiling } = lightnessBoundsAtC(0.08);
+    expect(floor).toBeLessThan(ceiling);
+    const mid = (floor + ceiling) / 2;
+    for (let h = 0; h < 360; h += 2) expect(oklchToRgb(mid, 0.08, h).inGamut).toBe(true);
+  });
+
+  test('is NaN once some hue cannot hold the chroma', () => {
+    const { floor, ceiling } = lightnessBoundsAtC(0.2);
+    expect(Number.isNaN(floor)).toBe(true);
+    expect(Number.isNaN(ceiling)).toBe(true);
+  });
+});
+
+describe('validHueSpans', () => {
+  test('is the whole circle at a chroma every hue holds', () => {
+    expect(validHueSpans(0.6, 0.05)).toEqual([[0, 360]]);
+  });
+
+  test('is empty when nothing holds', () => {
+    expect(validHueSpans(0.6, 0.4)).toEqual([]);
+  });
+
+  test('spans cover exactly the in-gamut degrees, including across 0', () => {
+    const l = 0.6;
+    const c = 0.2;
+    const spans = validHueSpans(l, c);
+    expect(spans.length).toBeGreaterThan(0);
+    const inSpan = (h: number) => spans.some(([a, b]) => (h >= a && h < b) || (h + 360 >= a && h + 360 < b));
+    for (let h = 0; h < 360; h++) expect(inSpan(h)).toBe(oklchToRgb(l, c, h).inGamut);
   });
 });

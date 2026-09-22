@@ -124,6 +124,12 @@ interface HexBarProps {
    * neither bound comes anywhere near biting.
    */
   pillGutter?: string;
+  /**
+   * Hairlines across the track at values 0-100, in an ink each. A host's way
+   * of marking a bound on the bar without the bar knowing what the bound is;
+   * the Oklch lab marks the lightest and darkest color a chroma allows.
+   */
+  marks?: ReadonlyArray<{ at: number; ink: string }>;
   /** The pill was grabbed - a hold that has not moved yet is still a hold. */
   onGrab?: () => void;
   /** A drag has begun, from the pill, the arrow, or the track past the threshold. */
@@ -147,7 +153,7 @@ interface HexBarProps {
  * also what lets the vertical one flip horizontal at narrow widths.
  */
 export default function HexBar({
-  orientation, axis, value, title, stops, swatch, swatchText, unit, style,
+  orientation, axis, value, title, stops, swatch, swatchText, unit, style, marks,
   lit = false, markers = true, readout = 'pill', pillGutter,
   onGrab, onDragStart, onDrag, onTap, onPick, onRelease,
 }: HexBarProps) {
@@ -310,6 +316,18 @@ export default function HexBar({
         press.current = { clientX: e.clientX, clientY: e.clientY, time: Date.now(), isDragging: false };
       }}
     >
+      {/* Host marks: a 2px hairline across the track, with a dark halo so it
+          reads on any part of the ramp. Under the arrow, over the paint. */}
+      {marks?.map((m, i) => (
+        <div
+          key={i}
+          aria-hidden="true"
+          className="pointer-events-none absolute"
+          style={vertical
+            ? { left: 0, right: 0, bottom: `calc(${m.at}% - 1px)`, height: 2, background: m.ink, boxShadow: '0 0 0 1px rgba(0,0,0,0.5)' }
+            : { top: 0, bottom: 0, left: `calc(${m.at}% - 1px)`, width: 2, background: m.ink, boxShadow: '0 0 0 1px rgba(0,0,0,0.5)' }}
+        />
+      ))}
       {/* The impact keyline, on the track's edge, always mounted for the fade. */}
       <div
         aria-hidden="true"

@@ -453,3 +453,165 @@ export function maxChromaForLH(l: number, h: number): number {
 
   return best > 0 ? best : fallback;
 }
+
+/**
+ * The nearest colour sRGB holds to (l, c, h), keeping the hue.
+ *
+ * Gamut mapping, in the sense a swatch needs: not "reduce C until it fits",
+ * which throws away everything the colour had past the edge at one lightness,
+ * but the closest point of the hue's slice in the (L, C) plane. L and C share
+ * Oklab's units, so Euclidean distance there is Oklab distance at fixed hue and
+ * the answer is the one CSS Color 4 calls "closest" before it settles for
+ * chroma reduction on cost grounds.
+ *
+ * The slice's boundary is `maxChromaForLH` read across L, so the search is one
+ * dimensional: a coarse scan of that curve to find the nearest sample, then a
+ * golden-section refinement between its neighbours. The scan is what makes it
+ * robust - the distance along the curve is not unimodal near the cusp, and a
+ * refinement started from the wrong side would settle on the wrong lobe.
+ *
+ * In gamut already, the input comes back untouched.
+ */
+export function nearestInGamut(l: number, c: number, h: number): Cusp {
+  if (oklchToRgb(l, c, h).inGamut) return { l, c };
+
+  const dist2 = (L: number) => {
+    const C = maxChromaForLH(L, h);
+    return (L - l) * (L - l) + (C - c) * (C - c);
+  };
+
+  const N = 128;
+  let bestI = 0;
+  let bestD = Infinity;
+  for (let i = 0; i <= N; i++) {
+    const d = dist2(i / N);
+    if (d < bestD) { bestD = d; bestI = i; }
+  }
+
+  let lo = Math.max(0, (bestI - 1) / N);
+  let hi = Math.min(1, (bestI + 1) / N);
+  const PHI = (Math.sqrt(5) - 1) / 2;
+  let x1 = hi - PHI * (hi - lo);
+  let x2 = lo + PHI * (hi - lo);
+  let d1 = dist2(x1);
+  let d2 = dist2(x2);
+  for (let i = 0; i < 40; i++) {
+    if (d1 < d2) {
+      hi = x2; x2 = x1; d2 = d1;
+      x1 = hi - PHI * (hi - lo); d1 = dist2(x1);
+    } else {
+      lo = x1; x1 = x2; d1 = d2;
+      x2 = lo + PHI * (hi - lo); d2 = dist2(x2);
+    }
+  }
+  const L = (lo + hi) / 2;
+  return { l: L, c: maxChromaForLH(L, h) };
+}
+
+/**
+ * The chroma every hue can hold at this L: the smallest of the 360 gamut
+ * edges, read once per whole degree and interpolated between them. On
+ * oklch.com's Chroma graph this is the floor of the lowest valley - a C at or
+ * below it is a real color at every hue, so a hue sweep at constant L and C
+ * never leaves sRGB. Above it some hues fall out.
+ *
+ * Tabulated on first use at 1/400 in L: 401 x 360 calls of `maxChromaForLH`,
+ * a few tens of milliseconds once, and then a lookup. The table is linear
+ * between samples, which is plenty for a line on a field.
+ */
+const SAFE_STEPS = 400;
+let safeTable: Float64Array | null = null;
+
+function buildSafeTable(): Float64Array {
+  const table = new Float64Array(SAFE_STEPS + 1);
+  for (let i = 0; i <= SAFE_STEPS; i++) {
+    const l = i / SAFE_STEPS;
+    let min = Infinity;
+    for (let h = 0; h < 360; h++) {
+      const c = maxChromaForLH(l, h);
+      if (c < min) min = c;
+    }
+    table[i] = Number.isFinite(min) ? min : 0;
+  }
+  return table;
+}
+
+export function safeChromaAtL(l: number): number {
+  if (!(l > 0) || l >= 1) return 0;
+  safeTable ??= buildSafeTable();
+  const x = l * SAFE_STEPS;
+  const i = Math.floor(x);
+  const t = x - i;
+  return safeTable[i] * (1 - t) + safeTable[Math.min(SAFE_STEPS, i + 1)] * t;
+}
+
+/**
+ * The L range that holds chroma `c` at hue `h`, or null when no L does (the
+ * chroma is past this hue's cusp). Read off `maxChromaForLH`, which rises from
+ * black to the cusp and falls from the cusp to white, so each side is one
+ * bisection. On oklch.com's Hue graph these are the colored band's bottom and
+ * top edges at one hue.
+ */
+export function lightnessRangeForCH(c: number, h: number): { min: number; max: number } | null {
+  const cusp = cuspForHue(h);
+  if (!(c > 0)) return { min: 0, max: 1 };
+  if (c > cusp.c) return null;
+  const solve = (lo: number, hi: number, rising: boolean) => {
+    for (let i = 0; i < 24; i++) {
+      const mid = (lo + hi) / 2;
+      const fits = maxChromaForLH(mid, h) >= c;
+      if (fits === rising) hi = mid; else lo = mid;
+    }
+    return (lo + hi) / 2;
+  };
+  return { min: solve(0, cusp.l, true), max: solve(cusp.l, 1, false) };
+}
+
+/**
+ * The L band every hue can hold at chroma `c`: `floor` is the highest of the
+ * per-hue minimums, `ceiling` the lowest of the per-hue maximums - the two
+ * lines a person draws across the Hue graph to find where a hue sweep is
+ * safe. Both NaN when some hue holds no L at all at this C. Sampled every 3
+ * degrees.
+ */
+export function lightnessBoundsAtC(c: number): { floor: number; ceiling: number } {
+  let floor = -Infinity;
+  let ceiling = Infinity;
+  for (let h = 0; h < 360; h += 3) {
+    const range = lightnessRangeForCH(c, h);
+    if (!range) return { floor: NaN, ceiling: NaN };
+    if (range.min > floor) floor = range.min;
+    if (range.max < ceiling) ceiling = range.max;
+  }
+  return { floor, ceiling };
+}
+
+/**
+ * The hues sRGB holds at this L and C, as [start, end) spans in degrees,
+ * sampled at whole degrees. A span may cross 0, in which case its end is
+ * above 360. Empty when no hue works; one span [0, 360] when every hue does.
+ */
+export function validHueSpans(l: number, c: number): Array<[number, number]> {
+  const ok: boolean[] = [];
+  let all = true;
+  for (let h = 0; h < 360; h++) {
+    ok[h] = oklchToRgb(l, c, h).inGamut;
+    if (!ok[h]) all = false;
+  }
+  if (all) return [[0, 360]];
+  // Start scanning just after a gap, so a span across 0 comes out whole.
+  let start = 0;
+  while (ok[start]) start++;
+  const spans: Array<[number, number]> = [];
+  let open: number | null = null;
+  for (let i = 1; i <= 360; i++) {
+    const h = (start + i) % 360;
+    if (ok[h] && open === null) open = start + i;
+    if (!ok[h] && open !== null) {
+      const a = open % 360;
+      spans.push([a, a + (start + i - open)]);
+      open = null;
+    }
+  }
+  return spans;
+}
