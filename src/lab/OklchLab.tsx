@@ -395,8 +395,16 @@ function LandmarkMap({ l, chromaAt, rgb, colorSpace }: {
       // follows from the aspect ratio. Capped at the width panel 1's hexagon
       // has at its stage's max width - 2 * RADIUS of the stage's EXTENT,
       // scaled to 500px - and floored so a short viewport still shows a map.
-      className="relative h-full min-h-[160px] w-auto max-w-[356px] overflow-hidden"
-      style={{ aspectRatio: `${win.w} / ${win.h}` }}
+      // Width from whichever is tightest - the cap, the column, or the row's
+      // height turned into a width by the ratio - and the height from the
+      // ratio, so the hexagon is never stretched on either axis. The height
+      // arrives as a container unit from the box below, which is sized by
+      // the row. Floored so a short viewport still shows a map.
+      className="relative overflow-hidden"
+      style={{
+        width: `max(180px, min(356px, 100cqw, calc(100cqh * ${(win.w / win.h).toFixed(4)})))`,
+        aspectRatio: `${win.w} / ${win.h}`,
+      }}
     >
       <div
         className="absolute"
@@ -996,7 +1004,7 @@ export default function OklchLab() {
                 onPick={setH}
               />
               {/* Centered in whatever height the row leaves the panel. */}
-              <div className="flex min-h-0 flex-1 items-center justify-center">
+              <div className="flex min-h-0 flex-1 items-center justify-center" style={{ containerType: 'size' }}>
                 <LandmarkMap
                   l={oklch.l}
                   chromaAt={(h) => (relative ? chromaFromSat(sat, oklch.l, h, limitAt) : oklch.c)}
