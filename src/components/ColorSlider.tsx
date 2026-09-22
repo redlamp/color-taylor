@@ -33,6 +33,14 @@ const CHANNEL_NAMES: Record<string, string> = {
   // entry the lookup falls through to the letter and it reads as "S channel".
   'oklch-s': 'Saturation',
   'oklch-h': 'Hue',
+  // A second Oklch bank on the same page - the Oklch lab's readback panel -
+  // needs its own ids; the letters and names are the same.
+  'lch-l': 'Lightness',
+  'lch-c': 'Chroma',
+  'lch-h': 'Hue',
+  'oklab-l': 'Lightness',
+  'oklab-a': 'Green to red',
+  'oklab-b': 'Blue to yellow',
   'alpha-a': 'Alpha',
 };
 
@@ -55,9 +63,15 @@ interface ColorSliderProps {
    * `slider-b`, which is invalid HTML the moment both groups are on screen (in
    * the app, that is always).
    */
-  group: 'rgb' | 'hsb' | 'hsl' | 'oklch' | 'alpha';
+  group: 'rgb' | 'hsb' | 'hsl' | 'oklch' | 'lch' | 'oklab' | 'alpha';
   value: number;
   max: number;
+  /**
+   * Bottom of the range. Defaults to 0, which every channel but Oklab's a and
+   * b lives at; those run about -0.4..0.4 and are the reason this exists. Not
+   * honoured by `wrap`, whose domain is 0..max by definition.
+   */
+  min?: number;
   /**
    * Quantisation of the value, in the value's own units. Defaults to 1 - the
    * integer domain every channel but Oklch's lives in - and while it is 1 with
@@ -102,6 +116,12 @@ interface ColorSliderProps {
    */
   stepper?: 'full' | 'value' | 'none';
   /**
+   * Use the fractional stepper's width whatever the step, so a column that
+   * mixes integer and decimal sliders keeps one stepper column. Off, an
+   * integer slider keeps the narrower pair it always had.
+   */
+  wideStepper?: boolean;
+  /**
    * Another control is moving this value. Draws the shared keyline on the
    * track edge; the host decides when from useImpact. The slider never lights
    * for its own drag - that is the pointer's job.
@@ -109,7 +129,7 @@ interface ColorSliderProps {
   lit?: boolean;
 }
 
-function ColorSlider({ label, group, value, max, step = 1, decimals, gradient, suffix, wrap, onChange, hideStepper, handle = 'triangle', handleFill, round, stepper, lit = false }: ColorSliderProps) {
+function ColorSlider({ label, group, value, max, min = 0, step = 1, decimals, gradient, suffix, wrap, onChange, hideStepper, handle = 'triangle', handleFill, round, stepper, wideStepper = false, lit = false }: ColorSliderProps) {
   const stepperMode = stepper ?? (hideStepper ? 'none' : 'full');
   const places = decimals ?? decimalsOf(step);
   /**
@@ -128,7 +148,8 @@ function ColorSlider({ label, group, value, max, step = 1, decimals, gradient, s
   const inset = handle === 'ring' ? HANDLE_SIZE / 2 : 0;
 
 
-  const clamp = (v: number) => Math.max(0, Math.min(max, v));
+  const clamp = useCallback((v: number) => Math.max(min, Math.min(max, v)), [min, max]);
+  const range = max - min;
 
   /**
    * Round to the step. On the integer default this *is* `Math.round`, which is
@@ -159,11 +180,11 @@ function ColorSlider({ label, group, value, max, step = 1, decimals, gradient, s
     const rect = trackRef.current.getBoundingClientRect();
     const span = Math.max(1, rect.width - inset * 2);
     const x = Math.max(0, Math.min(clientX - rect.left - inset, span));
-    const newValue = quantise((x / span) * max);
-    onChange(Math.min(newValue, max));
+    const newValue = clamp(quantise(min + (x / span) * range));
+    onChange(newValue);
     accum.current = newValue;
     lastX.current = clientX;
-  }, [max, onChange, inset, quantise]);
+  }, [min, range, onChange, inset, quantise, clamp]);
 
   /**
    * Relative mapping, for cyclic channels: the value follows how far the
@@ -241,9 +262,9 @@ function ColorSlider({ label, group, value, max, step = 1, decimals, gradient, s
     // One pixel of drag is one step, whatever a step is worth.
     const delta = Math.round((dx + dy) / 2) * step;
     const next = stepperDragStart.current.value + delta;
-    const newVal = Math.max(0, Math.min(max, stepped ? quantise(next) : next));
+    const newVal = clamp(stepped ? quantise(next) : next);
     onChange(newVal);
-  }, [max, onChange, step, stepped, quantise]));
+  }, [clamp, onChange, step, stepped, quantise]));
 
   /**
    * What a fractional field is showing mid-edit, or null when it is not being
@@ -271,7 +292,7 @@ function ColorSlider({ label, group, value, max, step = 1, decimals, gradient, s
     onChange(clamp(stepped ? quantise(next) : next));
   };
 
-  const pct = (value / max) * 100;
+  const pct = ((value - min) / range) * 100;
   const channel = `${group}-${label.toLowerCase()}`;
   const sliderId = `slider-${channel}`;
   const channelName = CHANNEL_NAMES[channel] ?? label;
@@ -305,7 +326,7 @@ function ColorSlider({ label, group, value, max, step = 1, decimals, gradient, s
           ref={trackRef}
           role="slider"
           aria-label={`${channelName} channel`}
-          aria-valuemin={0}
+          aria-valuemin={min}
           aria-valuemax={max}
           aria-valuenow={stepped ? Number(value.toFixed(places)) : value}
           // Only on a fractional track. A screen reader reading "0.123" off
@@ -338,7 +359,7 @@ function ColorSlider({ label, group, value, max, step = 1, decimals, gradient, s
             data-hold={`sl:${channel}`}
             className="absolute top-2 -translate-x-1/2 -translate-y-1/2 cursor-pointer touch-none rounded-full"
             style={{
-              left: `calc(${inset}px + ${value / max} * (100% - ${inset * 2}px))`,
+              left: `calc(${inset}px + ${(value - min) / range} * (100% - ${inset * 2}px))`,
               width: HANDLE_SIZE,
               height: HANDLE_SIZE,
               border: '3px solid #fff',
@@ -397,7 +418,7 @@ function ColorSlider({ label, group, value, max, step = 1, decimals, gradient, s
             for three digits in this face, not for five. The wider pair is
             reached only through `step`/`decimals`, so every existing caller
             keeps the width it had. */}
-        <div className={`flex items-center border border-input rounded-md overflow-hidden h-8 ${stepperMode === 'value' ? (stepped ? 'w-[68px]' : 'w-[52px]') : (stepped ? 'w-[108px]' : 'w-[92px]')}`}>
+        <div className={`flex items-center border border-input rounded-md overflow-hidden h-8 ${stepperMode === 'value' ? (stepped || wideStepper ? 'w-[68px]' : 'w-[52px]') : (stepped || wideStepper ? 'w-[108px]' : 'w-[92px]')}`}>
           {stepperMode === 'full' && (
             <Button
               variant="ghost"

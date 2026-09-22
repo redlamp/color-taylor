@@ -1,4 +1,4 @@
-import { useRef, useEffect, useEffectEvent, useCallback } from 'react';
+import { useRef, useEffect, useLayoutEffect, useCallback } from 'react';
 
 /**
  * Shared drag hook. Returns { dragging, startDrag } where:
@@ -14,11 +14,22 @@ export default function useDrag(onDrag: (e: PointerEvent) => void) {
     dragging.current = true;
   }, []);
 
-  // An effect event, so the listeners below subscribe once. Re-subscribing on
-  // every new `onDrag` could land inside a pointerup dispatch - a render
-  // flushed by an earlier listener - and a listener swapped mid-dispatch
-  // misses the event, leaving the drag latched. See HexBar.
-  const drag = useEffectEvent((e: PointerEvent) => onDrag(e));
+  // The latest `onDrag`, held in a ref the listeners below read through, so
+  // they subscribe once. Re-subscribing on every new `onDrag` could land
+  // inside a pointerup dispatch - a render flushed by an earlier listener -
+  // and a listener swapped mid-dispatch misses the event, leaving the drag
+  // latched. See HexBar.
+  //
+  // A ref written in a layout effect, not `useEffectEvent`. The effect event
+  // was observed serving a stale callback when React reused a ColorSlider
+  // instance for a different channel (the Oklch lab's C/S swap): moves went
+  // to the old channel's writer with the old channel's range. The ref is
+  // written on every commit, so whatever the instance is now, a move sees it.
+  const latest = useRef(onDrag);
+  useLayoutEffect(() => {
+    latest.current = onDrag;
+  });
+  const drag = useCallback((e: PointerEvent) => latest.current(e), []);
 
   useEffect(() => {
     const onPointerMove = (e: PointerEvent) => {
@@ -50,7 +61,7 @@ export default function useDrag(onDrag: (e: PointerEvent) => void) {
       window.removeEventListener('blur', abandon);
       document.documentElement.removeEventListener('pointerleave', abandon);
     };
-  }, []);
+  }, [drag]);
 
   return { dragging, startDrag };
 }

@@ -121,6 +121,17 @@ interface ColorHexagonProps {
   /** Extra controls rendered directly under the hexagon. */
   belowStage?: ReactNode;
   /**
+   * Extra SVG drawn inside the stage in field coordinates (the
+   * `0 0 FIELD_SIZE FIELD_SIZE` viewBox), above the field and the
+   * brightness-limit outline and under the chain and handles. Inert to the
+   * pointer. A lab page's way of annotating the field without the component
+   * learning what the annotation is.
+   */
+  overlay?: ReactNode;
+  /** Hairlines on the B/L bar and the saturation bar, at 0-100. See HexBar's `marks`. */
+  blBarMarks?: ReadonlyArray<{ at: number; ink: string }>;
+  satBarMarks?: ReadonlyArray<{ at: number; ink: string }>;
+  /**
    * A colour the user chose outright - a vertex letter, a bar marker, an HTML
    * colour on the field - which should join Recent at once rather than after
    * the settle delay. The host owns the swatch library (see SwatchLibrary) and
@@ -253,7 +264,7 @@ interface HtmlColorMarker extends HoveredMarker {
   opacity: number;
 }
 
-export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, onHoverHtmlColor, bare, headerLeft, belowStage, onRecordColor, impactChannels, hueBadgeLit = false, hueFillLit = false, blBarLit = false, satBarLit = false, wheelAdjusts = false, blBar = true, stemRange = null, satBar = true, blModeTabs = true, vertexLabels = true, blMarkers = true, hueIndicator = true, shapeMix = 1, chainReveal = 1 }: ColorHexagonProps) {
+export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, onHoverHtmlColor, bare, headerLeft, belowStage, overlay, blBarMarks, satBarMarks, onRecordColor, impactChannels, hueBadgeLit = false, hueFillLit = false, blBarLit = false, satBarLit = false, wheelAdjusts = false, blBar = true, stemRange = null, satBar = true, blModeTabs = true, vertexLabels = true, blMarkers = true, hueIndicator = true, shapeMix = 1, chainReveal = 1 }: ColorHexagonProps) {
   /*
    * The stage's own coordinate space - the card's, not the hexagon's.
    *
@@ -1390,6 +1401,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             className={blActive ? HIGHLIGHT_IN : HIGHLIGHT_OUT}
             pointerEvents="none"
           />
+          {overlay && <g pointerEvents="none">{overlay}</g>}
           {/* HTML named color markers. r=3, one step down from the 4 this drew
               at when only the ±15 window's worth were ever on screen at once -
               with all 141 (NAMED_COLORS.length) up, the old radius crowded
@@ -1793,6 +1805,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           swatch={pillSwatch}
           swatchText={pillText}
           unit={unit}
+          marks={blBarMarks}
           markers={blMarkers}
           lit={blBarLit}
           readout={stacked ? 'title' : 'pill'}
@@ -1835,6 +1848,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           swatch={pillSwatch}
           swatchText={pillText}
           unit={unit}
+          marks={satBarMarks}
           lit={satBarLit}
           readout={stacked ? 'title' : 'pill'}
           style={{
