@@ -1,0 +1,1 @@
+import{H as e}from"./baseui-DqRyUJrw.js";var t=e();function n({title:e,headerRight:n,children:r}){return(0,t.jsxs)(`section`,{className:`flex flex-col gap-2`,children:[(0,t.jsxs)(`div`,{className:`flex h-8 items-center justify-between gap-2`,children:[(0,t.jsx)(`h3`,{className:`text-sm font-medium tracking-normal text-foreground/80`,children:e}),n]}),r]})}export{n as t};

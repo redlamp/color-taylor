@@ -1,0 +1,1 @@
+import{H as e}from"./baseui-DqRyUJrw.js";import{t}from"./sonner-DlL_4wLb.js";var n=e(),r=e=>(0,n.jsx)(t,{className:`toaster group`,style:{"--normal-bg":`var(--background)`,"--normal-text":`var(--foreground)`,"--normal-border":`var(--border)`,"--border-radius":`var(--radius)`},...e});export{r as t};

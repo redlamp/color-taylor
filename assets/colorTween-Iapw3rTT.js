@@ -1,0 +1,1 @@
+var e=1e3,t=e=>e<.5?2*e*e:-1+(4-2*e)*e;function n(e,t){let n=t-e;return n>180&&(n-=360),n<-180&&(n+=360),n}function r(e,r,i){let a=t(i),o=n(e.h,r.h);return{h:Math.round(((e.h+o*a)%360+360)%360),s:Math.round(e.s+(r.s-e.s)*a),b:Math.round(e.b+(r.b-e.b)*a)}}export{t as n,r,e as t};
