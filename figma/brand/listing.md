@@ -8,12 +8,13 @@ Draft for the Figma publish modal. Assets alongside: `icon-128.png`, `cover-1920
 
 ## Tagline
 
-    Understand color by moving it.
+    Play with different color models, see how they move together!
 
-The full lockup (settled 2026-08-18, used on the thumbnail): the tagline as
-headline, then "Get hands-on with how RGB, HSB, and HSL colors relate." The
-previous tagline ("See how RGB, HSB and HSL describe the same color.") is
-retired but the description below still carries the same idea.
+The full lockup (changed 2026-09-17 to match the refreshed thumbnail): the tagline as
+headline, then "Get hands-on with how RGB, HSB, and HSL colors relate." It
+replaces "Understand color by moving it." (settled 2026-08-18), which replaced
+"See how RGB, HSB and HSL describe the same color."; the description below
+still carries that same-color idea.
 
 ## Description
 

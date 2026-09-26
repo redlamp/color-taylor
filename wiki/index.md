@@ -22,6 +22,7 @@ Top-level Map of Content. See `CLAUDE.md` in this folder for conventions.
 - [[decision-intro-renders-the-real-picker]] — the deck stems from the app; #81
 - [[plan-perceptual-color-in-color-taylor]] — should the picker learn OkHSL, and what it would cost; no issue yet
 - [[handoff-presentation-2026-09-16]] — `prez/cut-05` handed back to the app session; merge order into `dev` and `main`
+- [[handoff-presentation-editor]] — the presentation's authoring tools: what exists, where edits land, the sharp edges, and what a detailed editor would add
 
 ## Concepts
 

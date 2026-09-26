@@ -14,7 +14,7 @@ tags:
 
 The Community listing and a pasted link are the two ways someone meets this project without already knowing it. Drawing a second piece of art for the second one gives it two faces and a maintenance burden nobody would remember to discharge. The thumbnail is already the settled lockup ([[decision-logo-source]]), so the card is an export of it, not a redesign.
 
-Copy follows the same rule. `og:description`, `<meta name="description">` and `manifest.webmanifest`'s `description` all carry the one sentence from `figma/brand/listing.md`: *"Understand color by moving it. Get hands-on with how RGB, HSB, and HSL colors relate."* `tests/link-preview.spec.ts` asserts the first two equal the third, so drifting them apart fails CI rather than shipping.
+Copy follows the same rule. `og:description`, `<meta name="description">` and `manifest.webmanifest`'s `description` all carry the one sentence from `figma/brand/listing.md`: *"Play with different color models, see how they move together! Get hands-on with how RGB, HSB, and HSL colors relate."* (changed 2026-09-17 from "Understand color by moving it." to match the refreshed thumbnail) `tests/link-preview.spec.ts` asserts the first two equal the third, so drifting them apart fails CI rather than shipping.
 
 ## The tags cannot use `%BASE_URL%`
 
