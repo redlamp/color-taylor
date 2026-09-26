@@ -13,7 +13,7 @@ import { test, expect } from '@playwright/test';
  * guard alone holds this.
  */
 test('relative S drags after switching from absolute C', async ({ page }) => {
-  await page.goto('/lab/oklch.html');
+  await page.goto('/labs/oklch.html');
   await page.getByRole('tab', { name: /Relative/ }).click();
 
   const slider = page.locator('#slider-oklch-s');

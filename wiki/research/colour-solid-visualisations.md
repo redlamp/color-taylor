@@ -8,7 +8,7 @@ tags:
 
 # Colour Solid Visualisations
 
-**2026-09-02.** Three reference pictures Taylor brought in while we were building the cube bench (`lab/cube.html`), as the vocabulary for how the RGB cube is usually *shown* turning into the cylinder models. The images themselves are not in the vault yet; drop them into `wiki/assets/` and link them here. Sources below are enough to find them again.
+**2026-09-02.** Three reference pictures Taylor brought in while we were building the cube bench (`labs/cube.html`), as the vocabulary for how the RGB cube is usually *shown* turning into the cylinder models. The images themselves are not in the vault yet; drop them into `wiki/assets/` and link them here. Sources below are enough to find them again.
 
 ## 1. The HSL and HSV cylinders, cut open
 

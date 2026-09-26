@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Color Taylor Labs</title>
+<!--
+  The labs moved from /lab/ to /labs/ (issue #153), a few minutes after v1.1.0
+  first published them at /lab/, and links to the old path had already been
+  shared. GitHub Pages has no rewrite rules, so each old address is a real file
+  that sends the reader on: this index, and one page per lab beside it. They are
+  static on purpose; only the five labs that were ever at /lab/ need one, and a
+  new lab never will.
+
+  Relative like public/intro/index.html, so it resolves under every `base`.
+  The query and hash ride along, so /lab/cie.html?perf lands on
+  /labs/cie.html?perf.
+-->
+<meta http-equiv="refresh" content="0; url=../labs/">
+<link rel="canonical" href="../labs/">
+<script>location.replace('../labs/' + location.search + location.hash);</script>
+</head>
+<body>
+  <p>The labs have moved. <a href="../labs/">Continue to the labs</a></p>
+</body>
+</html>
