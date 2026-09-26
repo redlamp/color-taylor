@@ -95,6 +95,18 @@ jobs:
       - run: bun run build
         env:
           GITHUB_PAGES: '1'
+      # The labs are built from lab/*.html (see vite.config.js), and this is
+      # the only thing standing between a lab quietly dropping out of the
+      # build and it just not being on GitHub Pages - fail loudly instead.
+      - name: Verify lab pages are in the build
+        run: |
+          for f in lab/*.html; do
+            name=$(basename "$f")
+            if [ ! -f "dist/lab/$name" ]; then
+              echo "missing dist/lab/$name (from $f)" >&2
+              exit 1
+            fi
+          done
       # Validates the link-preview tags against the artifact about to be
       # published - absolute URLs, the image present, declared size honest.
       # The test job checks the same tags off the dev server; this one checks
