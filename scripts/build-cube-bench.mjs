@@ -6,12 +6,12 @@
  *   node scripts/build-cube-bench.mjs spectrum   → dist-lab/spectrum-bench.html
  *   node scripts/build-cube-bench.mjs oklch      → dist-lab/oklch-bench.html
  *
- * The argument names the page in lab/. Each page builds in its own folder
+ * The argument names the page in labs/. Each page builds in its own folder
  * under dist-lab, so building one leaves the other's file where it was.
  *
  * The labs are part of the production build now (`vite.config.js` lists every
- * lab/*.html as its own entry, so they deploy with the app at
- * `<base>lab/<name>.html`). This script still exists for the single-file
+ * labs/*.html as its own entry, so they deploy with the app at
+ * `<base>labs/<name>.html`). This script still exists for the single-file
  * baked version: it drives Vite's JS API with its own build options, separate
  * from that multi-page build: one chunk, no code splitting, every asset (the
  * @fontsource woff2 files included) inlined as a data URI. The result is then
@@ -45,14 +45,14 @@ await build({
     assetsInlineLimit: 100_000_000,
     cssCodeSplit: false,
     rolldownOptions: {
-      input: resolve(root, `lab/${name}.html`),
+      input: resolve(root, `labs/${name}.html`),
       output: { codeSplitting: false },
     },
   },
 });
 
-let html = readFileSync(resolve(buildDir, `lab/${name}.html`), 'utf8');
-const asset = (href) => readFileSync(resolve(buildDir, 'lab', href), 'utf8');
+let html = readFileSync(resolve(buildDir, `labs/${name}.html`), 'utf8');
+const asset = (href) => readFileSync(resolve(buildDir, 'labs', href), 'utf8');
 
 // The theme bootstrap, read before anything is inlined. react-dom's code has
 // a literal `<script><\/script>` in it, so a scan for plain scripts over the

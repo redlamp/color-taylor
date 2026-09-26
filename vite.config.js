@@ -602,17 +602,17 @@ export default defineConfig({
   },
   build: {
     rolldownOptions: {
-      // The labs are Vite HTML entries under lab/ (cie, cube, oklch, sequencer,
-      // spectrum, plus the static lab/index.html). The dev server always served
+      // The labs are Vite HTML entries under labs/ (cie, cube, oklch, sequencer,
+      // spectrum, plus the static labs/index.html). The dev server always served
       // them, but `bun run build` only ever saw index.html, so they never reached
-      // GitHub Pages. readdirSync means a new lab/*.html file joins the build on
+      // GitHub Pages. readdirSync means a new labs/*.html file joins the build on
       // its own, with no line to remember here.
       input: {
         main: path.resolve(__dirname, 'index.html'),
         ...Object.fromEntries(
-          fs.readdirSync(path.resolve(__dirname, 'lab'))
+          fs.readdirSync(path.resolve(__dirname, 'labs'))
             .filter((f) => f.endsWith('.html'))
-            .map((f) => [`lab/${f.replace(/\.html$/, '')}`, path.resolve(__dirname, 'lab', f)]),
+            .map((f) => [`labs/${f.replace(/\.html$/, '')}`, path.resolve(__dirname, 'labs', f)]),
         ),
       },
       output: {

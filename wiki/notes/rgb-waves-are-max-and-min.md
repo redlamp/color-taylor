@@ -31,7 +31,7 @@ on to there - see [[research/hsl-degenerate-states]].
 
 ## Where to see it
 
-`lab/spectrum.html` draws the waves over Channel Surfer's linear rainbow - hue across, white above
+`labs/spectrum.html` draws the waves over Channel Surfer's linear rainbow - hue across, white above
 the pure hue, black below; `src/lab/linear-rainbow.webp`, from that project's `public/demo/` - beside
 the picker's own Color Editor, composed the way the cube bench composes it. The graph is a picker
 too: drag sideways for hue, the top rail for brightness, the bottom rail for saturation, and every
