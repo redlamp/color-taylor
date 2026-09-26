@@ -97,7 +97,7 @@ jobs:
           GITHUB_PAGES: '1'
       # The labs are built from lab/*.html (see vite.config.js), and this is
       # the only thing standing between a lab quietly dropping out of the
-      # build and it just not being on GitHub Pages - fail loudly instead.
+      # build and it just not being on GitHub Pages, so fail loudly instead.
       - name: Verify lab pages are in the build
         run: |
           for f in lab/*.html; do

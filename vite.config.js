@@ -603,10 +603,10 @@ export default defineConfig({
   build: {
     rolldownOptions: {
       // The labs are Vite HTML entries under lab/ (cie, cube, oklch, sequencer,
-      // spectrum, plus the static lab/index.html), and used to be built only
-      // when run directly with `bun dev` - `bun run build` only ever saw
-      // index.html, so they never reached GitHub Pages. readdirSync means a new
-      // lab/*.html file joins the build on its own, with no line to remember here.
+      // spectrum, plus the static lab/index.html). The dev server always served
+      // them, but `bun run build` only ever saw index.html, so they never reached
+      // GitHub Pages. readdirSync means a new lab/*.html file joins the build on
+      // its own, with no line to remember here.
       input: {
         main: path.resolve(__dirname, 'index.html'),
         ...Object.fromEntries(
@@ -626,7 +626,7 @@ export default defineConfig({
             normalized.includes('node_modules/react-dom/') ||
             normalized.includes('node_modules/scheduler/')
           ) return 'react'
-          // The package is `@base-ui/react`, not `@base-ui-components` - the
+          // The package is `@base-ui/react`, not `@base-ui-components`; the
           // old check never matched, so every base-ui module fell through to
           // `/react/` above and rode along in the react chunk instead.
           if (normalized.includes('node_modules/@base-ui/')) return 'baseui'

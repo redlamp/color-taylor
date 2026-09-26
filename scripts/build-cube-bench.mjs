@@ -13,7 +13,7 @@
  * lab/*.html as its own entry, so they deploy with the app at
  * `<base>lab/<name>.html`). This script still exists for the single-file
  * baked version: it drives Vite's JS API with its own build options, separate
- * from that multi-page build - one chunk, no code splitting, every asset (the
+ * from that multi-page build: one chunk, no code splitting, every asset (the
  * @fontsource woff2 files included) inlined as a data URI. The result is then
  * flattened into the fragment an artifact wants - title, style, body, script -
  * with no html or head of its own.
