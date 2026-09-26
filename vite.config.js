@@ -618,11 +618,21 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (!id.includes('node_modules')) return undefined
-          if (id.includes('react-dom') || id.includes('/react/') || id.includes('scheduler')) return 'react'
-          if (id.includes('@base-ui-components')) return 'baseui'
-          if (id.includes('lucide-react')) return 'icons'
-          if (id.includes('sonner')) return 'sonner'
-          if (id.includes('@fontsource')) return 'fonts'
+          // Normalize first: a Windows path uses backslashes, and the rest of
+          // this function matches against the POSIX-style node_modules segments.
+          const normalized = id.replace(/\\/g, '/')
+          if (
+            normalized.includes('node_modules/react/') ||
+            normalized.includes('node_modules/react-dom/') ||
+            normalized.includes('node_modules/scheduler/')
+          ) return 'react'
+          // The package is `@base-ui/react`, not `@base-ui-components` - the
+          // old check never matched, so every base-ui module fell through to
+          // `/react/` above and rode along in the react chunk instead.
+          if (normalized.includes('node_modules/@base-ui/')) return 'baseui'
+          if (normalized.includes('lucide-react')) return 'icons'
+          if (normalized.includes('sonner')) return 'sonner'
+          if (normalized.includes('@fontsource')) return 'fonts'
           return 'vendor'
         },
       },
