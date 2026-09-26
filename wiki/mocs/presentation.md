@@ -44,7 +44,7 @@ Not this deck: the narrated walkthrough that runs inside the picker. `src/demo` 
 
 - [[presentation-system]] - what it is made of: entry points and URL parameters, the files under `src/demo`, the dev middlewares, the presentation side's decisions, and the media hosting plan. `docs/demo-script.md` is the vocabulary reference.
 - [[plan-walkthrough-entry]] - how it ships: entry from the About panel, `?present=` paused, the 800px gate, the play() gesture, and what was built.
-- [[plan-camera-action]] - deferred: a `camera` cue that zooms and slides inside the app, parked on `feature/camera-action`.
+- [[plan-camera-action]]: deferred, a `camera` cue that zooms and slides inside the app, parked as the tag `archive/camera-action`.
 - [[handoff-presentation-2026-09-16]] - `prez/cut-05` handed back to the app session: what the branch carries, what's still open, and the merge order into `dev` and `main`.
 
 ## Open

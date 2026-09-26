@@ -7,7 +7,7 @@ tags:
 
 # Plan: A Camera Cue That Pushes Into The App
 
-**2026-09-19.** An experiment from 2026-09-11 that never merged. It lives on the branch `feature/camera-action` (head `73e17fd`), kept on purpose so the work can be revived. Taylor chose to leave it unmerged when the other presentation branches were pruned. See [[presentation-system]] for the walkthrough it would plug into.
+**2026-09-19.** An experiment from 2026-09-11 that never merged. It lived on the branch `feature/camera-action` (head `73e17fd`). Taylor left it unmerged when the other presentation branches were pruned, and on 2026-09-26 removed the branch; the commits are kept as the tag `archive/camera-action`, so the work can still be revived with `git switch -c feature/camera-action archive/camera-action`. See [[presentation-system]] for the walkthrough it would plug into.
 
 ## What it does
 
