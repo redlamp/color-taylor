@@ -9,12 +9,14 @@
  * The argument names the page in lab/. Each page builds in its own folder
  * under dist-lab, so building one leaves the other's file where it was.
  *
- * The lab page is a second Vite entry that is deliberately not part of the
- * production build, so this drives Vite's JS API with its own build options:
- * one chunk, no code splitting, every asset (the @fontsource woff2 files
- * included) inlined as a data URI. The result is then flattened into the
- * fragment an artifact wants - title, style, body, script - with no html or
- * head of its own.
+ * The labs are part of the production build now (`vite.config.js` lists every
+ * lab/*.html as its own entry, so they deploy with the app at
+ * `<base>lab/<name>.html`). This script still exists for the single-file
+ * baked version: it drives Vite's JS API with its own build options, separate
+ * from that multi-page build: one chunk, no code splitting, every asset (the
+ * @fontsource woff2 files included) inlined as a data URI. The result is then
+ * flattened into the fragment an artifact wants - title, style, body, script -
+ * with no html or head of its own.
  */
 import { build } from 'vite';
 import react from '@vitejs/plugin-react';
