@@ -4,16 +4,19 @@
  *
  *   node scripts/build-cube-bench.mjs            → dist-lab/cube-bench.html
  *   node scripts/build-cube-bench.mjs spectrum   → dist-lab/spectrum-bench.html
+ *   node scripts/build-cube-bench.mjs oklch      → dist-lab/oklch-bench.html
  *
  * The argument names the page in lab/. Each page builds in its own folder
  * under dist-lab, so building one leaves the other's file where it was.
  *
- * The lab page is a second Vite entry that is deliberately not part of the
- * production build, so this drives Vite's JS API with its own build options:
- * one chunk, no code splitting, every asset (the @fontsource woff2 files
- * included) inlined as a data URI. The result is then flattened into the
- * fragment an artifact wants - title, style, body, script - with no html or
- * head of its own.
+ * The labs are part of the production build now (`vite.config.js` lists every
+ * lab/*.html as its own entry, so they deploy with the app at
+ * `<base>lab/<name>.html`). This script still exists for the single-file
+ * baked version: it drives Vite's JS API with its own build options, separate
+ * from that multi-page build: one chunk, no code splitting, every asset (the
+ * @fontsource woff2 files included) inlined as a data URI. The result is then
+ * flattened into the fragment an artifact wants - title, style, body, script -
+ * with no html or head of its own.
  */
 import { build } from 'vite';
 import react from '@vitejs/plugin-react';
@@ -69,6 +72,10 @@ const head = html.match(/<head>([\s\S]*)<\/head>/)[1];
 const body = html.match(/<body>([\s\S]*)<\/body>/)[1];
 const keep = (re) => (head.match(re) ?? []).join('\n');
 const fragment = [
+  // First, and within the first 1024 bytes, which is as far as a browser looks.
+  // Opened from disk there is no Content-Type header to say UTF-8, so without
+  // this the file is read as windows-1252 and every degree sign reads "Â°".
+  '<meta charset="UTF-8">',
   keep(/<title>[\s\S]*?<\/title>/g),
   bootstrap,
   keep(/<style>[\s\S]*?<\/style>/g),

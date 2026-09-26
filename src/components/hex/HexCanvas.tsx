@@ -100,7 +100,7 @@ function buildField(isLinear: boolean, brightness: number, lightness: number, mo
   return data;
 }
 
-export default function HexCanvas({ brightness, lightness = 50, blMode = 'brightness', colorSpace, shapeMix = 1 }: { brightness: number; lightness?: number; blMode?: BLMode; colorSpace: ColorSpace; shapeMix?: number }) {
+export default function HexCanvas({ brightness, lightness = 50, blMode = 'brightness', colorSpace, shapeMix = 1, id = 'hex-canvas' }: { brightness: number; lightness?: number; blMode?: BLMode; colorSpace: ColorSpace; shapeMix?: number; /** A second field on one page needs its own id. */ id?: string }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const glRef = useRef<HexGL | null | undefined>(undefined);
   const [box, setBox] = useState({ w: HEX_SIZE, h: HEX_SIZE });
@@ -185,7 +185,7 @@ export default function HexCanvas({ brightness, lightness = 50, blMode = 'bright
 
   return (
     <canvas
-      id="hex-canvas"
+      id={id}
       ref={canvasRef}
       // The field is HEX_SIZE units square and so is the box it is given now,
       // so it simply fills it. It used to take a percentage of a wrapper that

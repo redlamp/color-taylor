@@ -35,12 +35,28 @@ happens in between:
 Red dips a fraction below zero across the middle and returns to exactly zero at
 the corner.
 
+> **Added 2026-09-20.** Those runs are the gamut as the app’s `oklchToRgb`
+> reports it, with its `1e-6` tolerance on linear channels. At `eps = 0` there is
+> only **one** run, `[0 .. 0.2655870]`: at the *rounded* hue `264.052` the corner
+> is genuinely missed, and it is reached exactly only at its own
+> `h = 264.05202064`. The second run is therefore a thing the tolerance admits,
+> not a thing the gamut has — which is the right call at 8 bits, and is spelled
+> out in [[out-of-gamut-must-be-returned-not-inferred]].
+
 ## Invisible geometry, visible bug
 
 The gap is **0.0006 deep in linear terms** — far below 8-bit quantisation, so no
-human will ever see it. But a naive cusp finder returns `C = 0.288` instead of
-`0.313`, and the "pure blue" it then renders is `0,55,255`. That green 55 is
-plainly visible.
+human will ever see it. But a naive cusp finder stops at the first exit and
+returns `C = 0.2656` instead of `0.3132`, and the "pure blue" it then renders is
+`0,49,229`. That green 49 is plainly visible.
+
+> **Corrected 2026-09-20.** This paragraph said `C = 0.288` rendering
+> `0,55,255`. Neither figure reproduces: bisection on the in-gamut flag returns
+> `0.2656051` → `rgb(0,49,229)`, `C = 0.288` renders `rgb(0,35,241)` and is out
+> of gamut, and no chroma on this ray renders `0,55,255` at all — green reaches
+> 55 at `C ≈ 0.2497`, where red is 4, giving `rgb(4,55,221)`. The conclusion is
+> untouched; only the numbers were wrong, and they had been copied into
+> `src/utils/oklchGamut.ts` before anyone re-measured them.
 
 So: the defect is imperceptible, the consequence of mishandling it is not.
 

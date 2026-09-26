@@ -1,0 +1,220 @@
+import { test, expect, type Page } from '@playwright/test';
+
+/**
+ * The lab's hexagon behaves like the picker it copies: the handle follows the
+ * pointer, the release lands, and the control does not change identity
+ * underneath the gesture.
+ *
+ * WHY THIS EXISTS. Two faults lived here, and both were invisible in a
+ * screenshot.
+ *
+ * `ColorHexagon` has two layouts and a hard threshold between them: above
+ * `HEX_STACKED_BARS_MAX` the brightness bar stands beside the field and both
+ * bars carry draggable value *pills*; at or below it the bars lie down and the
+ * pills are replaced by title readouts. The flip is a React state change
+ * driven by a ResizeObserver, so crossing it **unmounts the element you are
+ * holding**. The CIE lab is the one host that sizes the hexagon from its
+ * container's *height*, which is a loop with that threshold in it, and the
+ * first version landed two pixels above the line.
+ *
+ * And the lab drives three other figures off the same colour, one of them a
+ * WebGL solid of up to 16.7 million points. Sharing a deadline with them cost
+ * a pointer move 2.2 seconds, which reads as a drag that will not let go.
+ *
+ * So the checks are: the card stays clear of the threshold across a run of
+ * gestures, the pill never unmounts, every release lands, and a move in the
+ * lab costs something like a move in the app.
+ */
+
+/** Must match HEX_STACKED_BARS_MAX in src/components/hex/hexConstants.ts. */
+const STACK_THRESHOLD = 468;
+/**
+ * How much clearance the lab's sizing is expected to leave. It pins the card
+ * at 500px whenever the cell can hold it and switches to a much narrower
+ * expression below that, so no width in between is ever chosen; 20px is a
+ * floor on that, not the margin itself.
+ */
+const MIN_CLEARANCE = 20;
+
+const cardWidth = (page: Page) => page.evaluate(() => {
+  const card = document.querySelector('[class*="container/hex"]');
+  return card ? card.getBoundingClientRect().width : 0;
+});
+
+/** The brightness readout, whichever layout is drawing it. */
+const brightness = (page: Page) => page.evaluate(() =>
+  (document.getElementById('bl-handle') ?? document.getElementById('bl-value'))?.textContent?.trim() ?? null);
+
+/**
+ * Drop the xyY solid to its coarsest setting before doing anything else.
+ *
+ * At its default it is 256 steps a side - 16.7 million point sprites - and on
+ * a machine with no GPU that saturates every core it can reach. This suite
+ * runs several workers at once, and a lab page at full detail starved the
+ * timing-sensitive specs running beside it: `brightness-markers` failed three
+ * ways in a full run and passed nine for nine on its own.
+ *
+ * Six steps a side is 216 points. Nothing here is about the solid's fill
+ * rate - the assertions are about a pill in another panel - so the cheap
+ * setting tests exactly the same things and lets its neighbours run.
+ */
+async function lightenTheSolid(page: Page) {
+  await page.getByRole('tab', { name: '6', exact: true }).click();
+  await page.waitForTimeout(400);
+}
+
+/** Records mounts and unmounts, so a flip that is undone still leaves a trace. */
+async function watchPill(page: Page) {
+  await page.evaluate(() => {
+    const w = window as unknown as { __pillFlips: number };
+    w.__pillFlips = 0;
+    let last = !!document.getElementById('bl-handle');
+    new MutationObserver(() => {
+      const now = !!document.getElementById('bl-handle');
+      if (now !== last) { last = now; w.__pillFlips += 1; }
+    }).observe(document.body, { childList: true, subtree: true });
+  });
+}
+const pillFlips = (page: Page) =>
+  page.evaluate(() => (window as unknown as { __pillFlips: number }).__pillFlips);
+
+/**
+ * One drag, and then the pointer parked somewhere with nothing under it.
+ *
+ * Parking matters: sweeping back over the control after the release reads as
+ * a drag that never ended even when it did, which is how an earlier version
+ * of this test accused three innocent layouts.
+ */
+async function dragAndRelease(page: Page, id: string, axis: 'x' | 'y', distance: number) {
+  const handle = page.locator(`#${id}`);
+  await expect(handle).toBeVisible();
+  const box = (await handle.boundingBox())!;
+  const x = box.x + box.width / 2, y = box.y + box.height / 2;
+
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  for (let i = 1; i <= 4; i++) {
+    await page.mouse.move(
+      axis === 'x' ? x + (distance / 4) * i : x,
+      axis === 'y' ? y + (distance / 4) * i : y,
+    );
+  }
+  // The element under the pointer is still there halfway through the gesture.
+  await expect(page.locator(`#${id}`)).toBeAttached();
+  await page.mouse.up();
+  await page.waitForTimeout(250);
+  const released = await brightness(page);
+
+  await page.mouse.move(1460, 800);
+  for (let i = 1; i <= 5; i++) await page.mouse.move(1460 - i * 12, 800 - i * 14);
+  await page.waitForTimeout(250);
+  return { released, after: await brightness(page) };
+}
+
+test.describe('CIE lab hexagon', () => {
+  // The size the 2x2 is built for, and the one the threshold bug appeared at.
+  test.use({ viewport: { width: 1536, height: 864 } });
+
+  /*
+   * One at a time, in one worker.
+   *
+   * The suite is `fullyParallel`, which splits the tests in a file across
+   * workers - so four tests here meant four lab pages at once, each mounting
+   * a WebGL solid that starts at 256 steps a side before anything can turn it
+   * down. On a machine with no GPU that starved the specs running beside it:
+   * `brightness-markers` polls for a tween to settle within 4s and three of
+   * its assertions timed out, differing run to run, while passing nine for
+   * nine on their own.
+   *
+   * Serial costs this file a few seconds and gives the rest of the suite its
+   * cores back. `lightenTheSolid` handles the steady state; this handles the
+   * load spike, which is the page arriving.
+   */
+  test.describe.configure({ mode: 'serial' });
+
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/lab/cie.html');
+    await page.locator('#bl-bar').waitFor();
+    // The layout settles through a ResizeObserver, so the first frame is not
+    // the answer.
+    await page.waitForTimeout(600);
+  });
+
+  test('the card clears the threshold, so both bars keep their pills', async ({ page }) => {
+    expect(await cardWidth(page)).toBeGreaterThan(STACK_THRESHOLD + MIN_CLEARANCE);
+    await expect(page.locator('#bl-bar')).toBeVisible();
+    await expect(page.locator('#sat-bar')).toBeVisible();
+    await expect(page.locator('#bl-handle')).toBeVisible();
+    await expect(page.locator('#sat-handle')).toBeVisible();
+  });
+
+  test('gesture after gesture, the pill stays and the release lands', async ({ page }) => {
+    // Four drags of a WebGL page, under however many workers the suite is
+    // running in parallel. The default budget is for a click, not for this.
+    test.slow();
+    await lightenTheSolid(page);
+    await watchPill(page);
+
+    const moves: Array<['bl-handle' | 'sat-handle', 'x' | 'y', number]> = [
+      ['bl-handle', 'y', 90], ['sat-handle', 'x', -110],
+      ['bl-handle', 'y', -70], ['sat-handle', 'x', 120],
+    ];
+    for (const [id, axis, distance] of moves) {
+      const { released, after } = await dragAndRelease(page, id, axis, distance);
+      // Nothing held, so nothing moves: that is the release landing.
+      expect(after).toBe(released);
+      // And the card has not crossed into the other layout on the way.
+      expect(await cardWidth(page)).toBeGreaterThan(STACK_THRESHOLD + MIN_CLEARANCE);
+    }
+    expect(await pillFlips(page)).toBe(0);
+  });
+
+  test('the solid is off the input path: it draws fewer times than the pointer moves', async ({ page }) => {
+    /*
+     * The structural form of "panel 1 must not wait for panel 4".
+     *
+     * A wall-clock budget was the obvious test and the wrong one: the same
+     * drag measured 41ms a move on one machine and 714ms on another, and an
+     * absolute threshold failed at 647ms purely because four Playwright
+     * workers were sharing one software rasteriser. What does not move with
+     * the hardware is whether the solid is *on* the input path at all.
+     *
+     * It is not, by two mechanisms: the morph and the solid read a deferred
+     * copy of the colour, and both coalesce their draw to one per animation
+     * frame. So a burst of pointer moves fired faster than the display
+     * refreshes must produce strictly fewer draws than moves. Put the solid
+     * back on the urgent path and it is one draw per move, and this fails.
+     *
+     * `?perf` is the page's own instrument - see src/lab/perf.ts - so this
+     * reads the same lines a developer would.
+     */
+    const frames: string[] = [];
+    page.on('console', (m) => { if (m.text().startsWith('[perf]')) frames.push(m.text()); });
+
+    await page.goto('/lab/cie.html?perf');
+    await page.locator('#bl-handle').waitFor();
+    await lightenTheSolid(page);
+    await page.waitForTimeout(400);
+
+    const box = (await page.locator('#bl-handle').boundingBox())!;
+    const x = box.x + box.width / 2, y = box.y + box.height / 2;
+
+    frames.length = 0;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    const MOVES = 20;
+    for (let i = 1; i <= MOVES; i++) await page.mouse.move(x, y + i * 4);
+    await page.mouse.up();
+    // Long enough for the deferred work to land and the last frame to flush.
+    await page.waitForTimeout(1200);
+
+    const draws = frames.filter((f) => f.includes('solid ')).length;
+    // It has to draw - the panel is not simply broken - and it has to draw
+    // less often than the pointer reported.
+    expect(draws).toBeGreaterThan(0);
+    expect(draws).toBeLessThan(MOVES);
+
+    // And the gesture still ended where it should have.
+    expect(await brightness(page)).not.toBeNull();
+  });
+});

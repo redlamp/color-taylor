@@ -2,7 +2,7 @@
  * Cube bench: the RGB cube as little cubes, beside the app's own Color Editor.
  *
  * The editor here is the picker's, assembled from the same primitives on the
- * same colour-state hook - PreviewSwatch, SBBox, HSlider, ColorSlider, HexInput -
+ * same color-state hook - PreviewSwatch, SBBox, HSlider, ColorSlider, HexInput -
  * so what drives the cube is exactly what drives the hexagon. Nothing in
  * src/components is changed to make that happen; this file only composes.
  *
@@ -133,7 +133,7 @@ export default function CubeBench() {
   useEffect(() => { rendererRef.current?.render(params); }, [params]);
 
   // Orbit: a slow sweep round the lightness axis, looking down 30 degrees at
-  // the centre of the shape. The tilt and the centre ease in from wherever
+  // the center of the shape. The tilt and the center ease in from wherever
   // the camera is, so starting from straight down there is no jump.
   useEffect(() => {
     if (!spin) return;
@@ -208,7 +208,7 @@ export default function CubeBench() {
   useEffect(() => () => cancelAnimationFrame(shapeRaf.current), []);
 
   // Tween to a view: top down (the hexagon, also on double-click) or the
-  // three-quarter view, 30 degrees down at the centre. Either ends an orbit.
+  // three-quarter view, 30 degrees down at the center. Either ends an orbit.
   const homeRaf = useRef(0);
   const goView = useCallback((phiTarget: number, thetaTarget?: number) => {
     setSpin(false);
@@ -248,7 +248,7 @@ export default function CubeBench() {
     return () => c.removeEventListener('wheel', onWheel);
   }, []);
 
-  // ── Colour editor handlers, as the picker wires them ──────────────
+  // ── Color editor handlers, as the picker wires them ──────────────
   const handleR = useCallback((v: number) => setRgbChannel('r', v), [setRgbChannel]);
   const handleG = useCallback((v: number) => setRgbChannel('g', v), [setRgbChannel]);
   const handleB = useCallback((v: number) => setRgbChannel('b', v), [setRgbChannel]);

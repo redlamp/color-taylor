@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <!--
+      A plain static page, not a Vite/React entry - it is only a list of
+      links, so it needs no module script. It still gets built (readdirSync in
+      vite.config.js picks up any lab/*.html), which is what puts
+      dist/lab/index.html on GitHub Pages next to the other five.
+    -->
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Labs</title>
+    <!-- Same theme bootstrap as the other lab pages, so the first paint is already the right theme. -->
+    <script>
+      (function () {
+        try {
+          var saved = localStorage.getItem('color-taylor-theme');
+          var dark = saved !== null ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+          if (dark) document.documentElement.classList.add('dark');
+        } catch (e) {}
+      })();
+    </script>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --background: #fff;
+        --foreground: #1a1a1a;
+        --muted: #666;
+        --border: #ddd;
+      }
+      html.dark {
+        --background: #1a1a1a;
+        --foreground: #f2f2f2;
+        --muted: #a0a0a0;
+        --border: #333;
+      }
+      body {
+        margin: 0;
+        padding: 2rem;
+        background: var(--background);
+        color: var(--foreground);
+        font-size: 16px;
+        font-family: system-ui, sans-serif;
+      }
+      h1 {
+        font-size: 1.5rem;
+        margin: 0 0 1rem;
+      }
+      ul {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        max-width: 24rem;
+      }
+      li + li {
+        border-top: 1px solid var(--border);
+      }
+      a {
+        display: block;
+        padding: 0.75rem 0;
+        color: var(--foreground);
+        text-decoration: none;
+      }
+      a:hover {
+        color: var(--muted);
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Labs</h1>
+    <ul>
+      <li><a href="./cie.html">CIE Lab</a></li>
+      <li><a href="./cube.html">3D Lab</a></li>
+      <li><a href="./oklch.html">Oklch Lab</a></li>
+      <li><a href="./sequencer.html">Sequencer Lab</a></li>
+      <li><a href="./spectrum.html">Spectrum Lab</a></li>
+    </ul>
+  </body>
+</html>

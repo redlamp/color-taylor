@@ -23,6 +23,8 @@ largest cluster in the wiki.
 
 - [[research/hsl-degenerate-states]] — HSB loses resolution only toward black,
   HSL loses it at *both* ends; what CSS Color 4 calls the condition
+- [[decision-oklch-safe-zone]] — chroma is made predictable by holding it
+  under the edge every hue shares at this L; hue is then free. Lab work.
 - [[decision-hsb-canonical-rgb-override]] — colour state is one HSB and the
   exact RGB rides in a ref, because 86.4% of 8-bit colours change on the round
   trip. Implemented once, in `src/hooks/useColorState.ts`
@@ -41,6 +43,12 @@ largest cluster in the wiki.
 - [[srgb-gamut-is-not-star-shaped-in-oklab]] — walking outward at fixed
   lightness, the gamut can go in, out, and back in. Invisible to a person, fatal
   to a naive search
+- [[out-of-gamut-must-be-returned-not-inferred]] — the clamped 8-bit colour is
+  the same on both sides of the boundary, so an Ok conversion has to hand back
+  whether the input was real rather than leave it to be inferred
+- [[antipodal-only-at-the-corners]] — in CIE xy the six landmarks are exactly
+  180° from their complements, which is what makes the hue gaps repeat every
+  120°; between them it fails, and in Oklab it fails everywhere
 - [[plan-perceptual-color-in-color-taylor]] — what to actually build, where the
   complexity cliff is, and the deck slide that does not exist yet
 

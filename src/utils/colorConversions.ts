@@ -16,6 +16,33 @@ export interface HSL {
   l: number;
 }
 
+/**
+ * Oklab: a perceptual space with a Cartesian chroma plane.
+ * l: 0-1 (perceptual lightness), a: green-red, b: blue-yellow,
+ * both roughly -0.4 to 0.4 over the sRGB gamut.
+ */
+export interface Oklab {
+  l: number;
+  a: number;
+  b: number;
+}
+
+/**
+ * Oklch: the same space in polar form, which is the one a picker wants.
+ * l: 0-1, c: 0 to about 0.37 within sRGB, h: degrees 0-360.
+ */
+export interface Oklch {
+  l: number;
+  c: number;
+  h: number;
+}
+
+/** A conversion out of Oklch, which can leave the sRGB gamut. See `oklchToRgb`. */
+export interface OklchToRgbResult {
+  rgb: RGB;
+  inGamut: boolean;
+}
+
 /** sRGB gamma: linearize (remove gamma) */
 export function srgbToLinear(c: number): number {
   const s = c / 255;
@@ -232,4 +259,114 @@ export function difference(r1: number, g1: number, b1: number, r2: number, g2: n
 /** Black or white text color for readable contrast against an RGB background */
 export function getContrastTextColor(r: number, g: number, b: number, threshold = 130): '#000' | '#fff' {
   return (r * 0.299 + g * 0.587 + b * 0.114) > threshold ? '#000' : '#fff';
+}
+
+/**
+ * Linear sRGB to Oklab. Takes linear 0-1 channels, not 8-bit and not
+ * gamma-encoded: run `srgbToLinear` first if you have the latter.
+ * Björn Ottosson's published matrices, used verbatim.
+ */
+export function linearToOklab(r: number, g: number, b: number): Oklab {
+  const l = 0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b;
+  const m = 0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b;
+  const s = 0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b;
+
+  const l_ = Math.cbrt(l);
+  const m_ = Math.cbrt(m);
+  const s_ = Math.cbrt(s);
+
+  return {
+    l: 0.2104542553 * l_ + 0.7936177850 * m_ - 0.0040720468 * s_,
+    a: 1.9779984951 * l_ - 2.4285922050 * m_ + 0.4505937099 * s_,
+    b: 0.0259040371 * l_ + 0.7827717662 * m_ - 0.8086757660 * s_,
+  };
+}
+
+/**
+ * Oklab to linear sRGB. Returns linear 0-1 channels - *unclamped*, so a colour
+ * outside the gamut comes back with a channel below 0 or above 1, which is the
+ * only way a caller can tell. Ottosson's inverse matrices, used verbatim.
+ */
+export function oklabToLinear(l: number, a: number, b: number): RGB {
+  const l_ = l + 0.3963377774 * a + 0.2158037573 * b;
+  const m_ = l - 0.1055613458 * a - 0.0638541728 * b;
+  const s_ = l - 0.0894841775 * a - 1.2914855480 * b;
+
+  const lc = l_ * l_ * l_;
+  const mc = m_ * m_ * m_;
+  const sc = s_ * s_ * s_;
+
+  return {
+    r: +4.0767416621 * lc - 3.3077115913 * mc + 0.2309699292 * sc,
+    g: -1.2684380046 * lc + 2.6097574011 * mc - 0.3413193965 * sc,
+    b: -0.0041960863 * lc - 0.7034186147 * mc + 1.7076147010 * sc,
+  };
+}
+
+/** Below this chroma the hue is treated as powerless. See `oklabToOklch`. */
+const OKLCH_ACHROMATIC = 1e-7;
+
+/**
+ * Oklab to Oklch: the a/b plane read as polar coordinates.
+ * h comes back in degrees, normalised to 0-360.
+ *
+ * On the neutral axis the hue is *powerless*, not zero: every hue names the
+ * same grey and the angle carries no information. This returns h = 0 there
+ * (chroma below 1e-7), which is a stand-in, not a measurement - do not carry it
+ * through an interpolation as though it meant red.
+ */
+export function oklabToOklch(l: number, a: number, b: number): Oklch {
+  const c = Math.sqrt(a * a + b * b);
+  if (c < OKLCH_ACHROMATIC) return { l, c: 0, h: 0 };
+  const h = (Math.atan2(b, a) * 180) / Math.PI;
+  return { l, c, h: h < 0 ? h + 360 : h };
+}
+
+/**
+ * Oklch to Oklab. h in degrees, any value: it is taken modulo 360, so -90 and
+ * 270 give the same point.
+ */
+export function oklchToOklab(l: number, c: number, h: number): Oklab {
+  const rad = (h * Math.PI) / 180;
+  return { l, a: c * Math.cos(rad), b: c * Math.sin(rad) };
+}
+
+/**
+ * RGB to Oklch. r, g, b: 0-255 gamma-encoded sRGB, through `srgbToLinear`.
+ * Always valid in this direction - every sRGB colour has an Oklch address.
+ */
+export function rgbToOklch(r: number, g: number, b: number): Oklch {
+  const lab = linearToOklab(srgbToLinear(r), srgbToLinear(g), srgbToLinear(b));
+  return oklabToOklch(lab.l, lab.a, lab.b);
+}
+
+/** How far outside [0, 1] a linear channel may stray and still count as in gamut. */
+const GAMUT_EPSILON = 1e-6;
+
+/**
+ * Oklch to RGB. l: 0-1, c: 0 upwards, h: degrees.
+ *
+ * Oklch is larger than sRGB, so this asks a question `rgbToOklch` never does:
+ * is the colour reachable at all? `rgb` is the clamped, rounded 8-bit value -
+ * the best available stand-in - and `inGamut` reports whether the unclamped
+ * linear channels all landed within [0, 1], allowing 1e-6 of float slack at
+ * each end so a corner that computes to -2e-17 still counts as in.
+ *
+ * Ignore the flag if you only want a colour; read it if you want the truth. It
+ * is separate because the clamp destroys the evidence: 0,55,255 and 0,0,255 are
+ * both "blue" afterwards. Callers must not assume the in-gamut chromas at one
+ * lightness and hue form a single interval - see
+ * wiki/notes/srgb-gamut-is-not-star-shaped-in-oklab.md.
+ */
+export function oklchToRgb(l: number, c: number, h: number): OklchToRgbResult {
+  const lab = oklchToOklab(l, c, h);
+  const lin = oklabToLinear(lab.l, lab.a, lab.b);
+  const inGamut =
+    lin.r >= -GAMUT_EPSILON && lin.r <= 1 + GAMUT_EPSILON &&
+    lin.g >= -GAMUT_EPSILON && lin.g <= 1 + GAMUT_EPSILON &&
+    lin.b >= -GAMUT_EPSILON && lin.b <= 1 + GAMUT_EPSILON;
+  return {
+    rgb: { r: linearToSrgb(lin.r), g: linearToSrgb(lin.g), b: linearToSrgb(lin.b) },
+    inGamut,
+  };
 }

@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback, useLayoutEffect, useState, useMemo, type ReactNode, type PointerEvent as ReactPointerEvent } from 'react';
+import { useRef, useEffect, useEffectEvent, useCallback, useLayoutEffect, useState, useMemo, type ReactNode, type PointerEvent as ReactPointerEvent } from 'react';
 import { hsbToRgb, rgbToHsb, rgbToHex, hexToRgb, rgbToHsl, hslToRgb, linearToSrgb, lighter, type RGB, type HSB, type HSL } from '../utils/colorConversions';
 import { type ColorSpace } from '../utils/sliderGradients';
 import { buildChain } from './hex/chain';
@@ -120,6 +120,17 @@ interface ColorHexagonProps {
   headerLeft?: ReactNode;
   /** Extra controls rendered directly under the hexagon. */
   belowStage?: ReactNode;
+  /**
+   * Extra SVG drawn inside the stage in field coordinates (the
+   * `0 0 FIELD_SIZE FIELD_SIZE` viewBox), above the field and the
+   * brightness-limit outline and under the chain and handles. Inert to the
+   * pointer. A lab page's way of annotating the field without the component
+   * learning what the annotation is.
+   */
+  overlay?: ReactNode;
+  /** Hairlines on the B/L bar and the saturation bar, at 0-100. See HexBar's `marks`. */
+  blBarMarks?: ReadonlyArray<{ at: number; ink: string }>;
+  satBarMarks?: ReadonlyArray<{ at: number; ink: string }>;
   /**
    * A colour the user chose outright - a vertex letter, a bar marker, an HTML
    * colour on the field - which should join Recent at once rather than after
@@ -253,7 +264,7 @@ interface HtmlColorMarker extends HoveredMarker {
   opacity: number;
 }
 
-export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, onHoverHtmlColor, bare, headerLeft, belowStage, onRecordColor, impactChannels, hueBadgeLit = false, hueFillLit = false, blBarLit = false, satBarLit = false, wheelAdjusts = false, blBar = true, stemRange = null, satBar = true, blModeTabs = true, vertexLabels = true, blMarkers = true, hueIndicator = true, shapeMix = 1, chainReveal = 1 }: ColorHexagonProps) {
+export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, onHueChange, onRgbChange, onHsbChange, onHslChange, onAnimateToHsb, blMode, onBlModeChange, colorSpace, hoverMatchRgb, showHtmlOnHex, onHoverHtmlColor, bare, headerLeft, belowStage, overlay, blBarMarks, satBarMarks, onRecordColor, impactChannels, hueBadgeLit = false, hueFillLit = false, blBarLit = false, satBarLit = false, wheelAdjusts = false, blBar = true, stemRange = null, satBar = true, blModeTabs = true, vertexLabels = true, blMarkers = true, hueIndicator = true, shapeMix = 1, chainReveal = 1 }: ColorHexagonProps) {
   /*
    * The stage's own coordinate space - the card's, not the hexagon's.
    *
@@ -824,92 +835,115 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
     return picked ?? null;
   }, [getSvgCoords, getHsbFromPosition, onHsbChange]);
 
-  // Global mouse listeners
-  useEffect(() => {
-    const clearAll = (at?: { clientX: number; clientY: number }) => {
-      draggingHue.current = false;
-      draggingDot.current = null;
-      draggingFree.current = false;
-      draggingBL.current = false;
-      draggingSat.current = false;
-      setIsBLDragging(false);
-      setIsSatDragging(false);
-      hexPointerDown.current = null;
-      dragOrigin.current = null;
-      // Hover is re-read from whatever is under the release point rather than
-      // cleared: pointerenter does not fire again for an element the pointer
-      // never left, so after a drag on a joint the tooltip would stay away
-      // until the pointer went out and came back. The tooltips are only
-      // suppressed for the drag itself.
-      const under = at ? document.elementFromPoint(at.clientX, at.clientY)?.closest<Element>('[data-stem],[data-joint]') : null;
-      const stem = under?.getAttribute('data-stem');
-      const joint = under?.getAttribute('data-joint');
-      setHoveredLeg(stem !== null && stem !== undefined ? Number(stem) : null);
-      setHoveredDot(joint !== null && joint !== undefined ? Number(joint) : null);
-      setDotDragging(false);
-      setIsHexDragging(false);
-      endTone();
-    };
-    const onPointerMove = (e: PointerEvent) => {
-      if (draggingHue.current) {
-        ensureToneStart();
-        const newH = hueFromMouse(e);
-        if (typeof newH === 'number') updateTone({ h: newH });
+  // Global mouse listeners. The three handlers are effect events so the effect
+  // below subscribes once: re-subscribing whenever a callback changed could
+  // land inside a pointerup dispatch, and a listener swapped mid-dispatch
+  // misses the event. See HexBar, where that latched a bar drag.
+  const clearAll = useEffectEvent((at?: { clientX: number; clientY: number }) => {
+    draggingHue.current = false;
+    draggingDot.current = null;
+    draggingFree.current = false;
+    draggingBL.current = false;
+    draggingSat.current = false;
+    setIsBLDragging(false);
+    setIsSatDragging(false);
+    hexPointerDown.current = null;
+    dragOrigin.current = null;
+    // Hover is re-read from whatever is under the release point rather than
+    // cleared: pointerenter does not fire again for an element the pointer
+    // never left, so after a drag on a joint the tooltip would stay away
+    // until the pointer went out and came back. The tooltips are only
+    // suppressed for the drag itself.
+    const under = at ? document.elementFromPoint(at.clientX, at.clientY)?.closest<Element>('[data-stem],[data-joint]') : null;
+    const stem = under?.getAttribute('data-stem');
+    const joint = under?.getAttribute('data-joint');
+    setHoveredLeg(stem !== null && stem !== undefined ? Number(stem) : null);
+    setHoveredDot(joint !== null && joint !== undefined ? Number(joint) : null);
+    setDotDragging(false);
+    setIsHexDragging(false);
+    endTone();
+  });
+  const handlePointerMove = useEffectEvent((e: PointerEvent) => {
+    if (draggingHue.current) {
+      ensureToneStart();
+      const newH = hueFromMouse(e);
+      if (typeof newH === 'number') updateTone({ h: newH });
+    }
+    if (draggingDot.current) {
+      ensureToneStart();
+      handleDotDrag(e);
+      updateTone({});
+    }
+    if (draggingFree.current) {
+      ensureToneStart();
+      const { x, y } = getSvgCoords(e);
+      const picked = getHsbFromPosition(x, y);
+      if (picked) { onHsbChange(picked); updateTone(picked); }
+    }
+    if (hexPointerDown.current) {
+      const pd = hexPointerDown.current;
+      if (!pd.isDragging) {
+        const dx = e.clientX - pd.clientX;
+        const dy = e.clientY - pd.clientY;
+        if (Math.sqrt(dx * dx + dy * dy) >= dragTriggerDistance) {
+          pd.isDragging = true;
+          setIsHexDragging(true);
+        }
       }
-      if (draggingDot.current) {
+      if (pd.isDragging) {
         ensureToneStart();
-        handleDotDrag(e);
-        updateTone({});
+        const picked = handleHexSurfaceDrag(e);
+        if (picked) updateTone(picked);
       }
-      if (draggingFree.current) {
-        ensureToneStart();
+    }
+  });
+  const handlePointerUp = useEffectEvent((e: PointerEvent) => {
+    if (hexPointerDown.current && !hexPointerDown.current.isDragging) {
+      const elapsed = Date.now() - hexPointerDown.current.time;
+      if (elapsed <= clickMaxDuration && onAnimateToHsb) {
         const { x, y } = getSvgCoords(e);
         const picked = getHsbFromPosition(x, y);
-        if (picked) { onHsbChange(picked); updateTone(picked); }
-      }
-      if (hexPointerDown.current) {
-        const pd = hexPointerDown.current;
-        if (!pd.isDragging) {
-          const dx = e.clientX - pd.clientX;
-          const dy = e.clientY - pd.clientY;
-          if (Math.sqrt(dx * dx + dy * dy) >= dragTriggerDistance) {
-            pd.isDragging = true;
-            setIsHexDragging(true);
-          }
-        }
-        if (pd.isDragging) {
-          ensureToneStart();
-          const picked = handleHexSurfaceDrag(e);
-          if (picked) updateTone(picked);
+        if (picked) {
+          const targetRgb = hsbToRgb(picked.h, picked.s, picked.b);
+          addToRecent(rgbToHex(targetRgb.r, targetRgb.g, targetRgb.b));
+          onAnimateToHsb(picked);
+          if (navigator.vibrate) navigator.vibrate(12);
         }
       }
-    };
-    const onPointerUp = (e: PointerEvent) => {
-      if (hexPointerDown.current && !hexPointerDown.current.isDragging) {
-        const elapsed = Date.now() - hexPointerDown.current.time;
-        if (elapsed <= clickMaxDuration && onAnimateToHsb) {
-          const { x, y } = getSvgCoords(e);
-          const picked = getHsbFromPosition(x, y);
-          if (picked) {
-            const targetRgb = hsbToRgb(picked.h, picked.s, picked.b);
-            addToRecent(rgbToHex(targetRgb.r, targetRgb.g, targetRgb.b));
-            onAnimateToHsb(picked);
-            if (navigator.vibrate) navigator.vibrate(12);
-          }
-        }
-      }
-      clearAll(e);
-    };
+    }
+    clearAll(e);
+  });
+  useEffect(() => {
+    const onPointerMove = (e: PointerEvent) => handlePointerMove(e);
+    const onPointerUp = (e: PointerEvent) => handlePointerUp(e);
     const onPointerLeave = () => clearAll();
     window.addEventListener('pointermove', onPointerMove);
     window.addEventListener('pointerup', onPointerUp);
     document.documentElement.addEventListener('pointerleave', onPointerLeave);
+    /*
+     * The other two ways a press ends without a pointerup, which HexBar and
+     * useDrag already listen for and this did not.
+     *
+     * `pointercancel` is the browser taking the pointer away - a touch that
+     * became a scroll, a stylus out of range, the OS claiming the gesture.
+     * `blur` is the drag still held when the window goes away, where the
+     * release lands in another application and never reaches us.
+     *
+     * Nothing here reads `draggingBL` on a move, so a latched bar drag did not
+     * keep changing the value - it left the bar *looking* held, with its
+     * highlight up and its tone still scheduled, until the next press. Which
+     * is a release that did not land, and reads as one.
+     */
+    window.addEventListener('pointercancel', onPointerLeave);
+    window.addEventListener('blur', onPointerLeave);
     return () => {
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerup', onPointerUp);
       document.documentElement.removeEventListener('pointerleave', onPointerLeave);
+      window.removeEventListener('pointercancel', onPointerLeave);
+      window.removeEventListener('blur', onPointerLeave);
     };
-  }, [hueFromMouse, handleDotDrag, handleHexSurfaceDrag, getSvgCoords, getHsbFromPosition, onAnimateToHsb, onHsbChange, addToRecent, ensureToneStart, updateTone, endTone]);
+  }, []);
 
   // Non-passive wheel listener to prevent page scroll. Not registered at all
   // when the host owns the wheel - a listener that conditionally declines to
@@ -1367,6 +1401,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
             className={blActive ? HIGHLIGHT_IN : HIGHLIGHT_OUT}
             pointerEvents="none"
           />
+          {overlay && <g pointerEvents="none">{overlay}</g>}
           {/* HTML named color markers. r=3, one step down from the 4 this drew
               at when only the ±15 window's worth were ever on screen at once -
               with all 141 (NAMED_COLORS.length) up, the old radius crowded
@@ -1770,6 +1805,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           swatch={pillSwatch}
           swatchText={pillText}
           unit={unit}
+          marks={blBarMarks}
           markers={blMarkers}
           lit={blBarLit}
           readout={stacked ? 'title' : 'pill'}
@@ -1812,6 +1848,7 @@ export default function ColorHexagon({ rgb, hue, brightness, saturation, hsl, on
           swatch={pillSwatch}
           swatchText={pillText}
           unit={unit}
+          marks={satBarMarks}
           lit={satBarLit}
           readout={stacked ? 'title' : 'pill'}
           style={{
