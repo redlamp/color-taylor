@@ -112,8 +112,14 @@ jobs:
       # The test job checks the same tags off the dev server; this one checks
       # what actually ships, which is where %SITE_URL% is resolved for real.
       - run: node scripts/preview-link-card.mjs
+      # GitHub names each Pages deployment after the gh-pages commit message,
+      # so the message says which release and commit went out, not just a hash.
+      - name: Deploy message
+        id: msg
+        run: echo "text=deploy v$(node -p "require('./package.json').version") ($(git rev-parse --short HEAD)) from main" >> "$GITHUB_OUTPUT"
       - uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./dist
           publish_branch: gh-pages
+          full_commit_message: ${{ steps.msg.outputs.text }}
