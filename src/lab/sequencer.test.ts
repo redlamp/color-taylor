@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import {
-  ALL_HOLD, BUILTIN_PALETTES, CHANNELS, COLTRANE_CHANGES, DEFAULT_RANGES, ODE_RGB, SILENCE_ALPHA, TIE_ALPHA,
+  ALL_HOLD, BUILTIN_PALETTES, CHANNELS, DEFAULT_RANGES, ODE_RGB, SILENCE_ALPHA, TIE_ALPHA,
   alphaToStepKind, copyHeld, heldChannels, maskOf, maskToAlpha, migrateLegacyRow, snapAlpha, RGB_SONGS, SCALES, SCALE_LABELS, SONGS, SPY_STRINGS,
   carrySteps, rgbSongHolds, soundingAfter, sustainedKeys, type Channel, type NoteStep, type RgbSong, type Song, type Sounding, type Step,
   channelBase, channelChoices, channelNoteToHex, channelNotes, channelToMidi, chordRootToHex,
@@ -10,6 +10,7 @@ import {
   swatchToStep, type MapConfig, type ScaleName,
   instrumentName, noteIndices, snapToIndices, stickyIndex, stickyIndices,
 } from './sequencer';
+import { GIANT_STEPS } from './sequencerGiantSteps';
 import { hexToRgb, hsbToRgb, rgbToHex, rgbToHsb } from '../utils/colorConversions';
 
 const MELODY: MapConfig = { mode: 'melody', scale: 'pentatonic', root: 0, octaveRange: 2, octaveOffset: 0 };
@@ -726,30 +727,19 @@ describe('songs with holds round-trip', () => {
   test('Spy Strings still round-trips', () => roundTrip(SPY_STRINGS));
 });
 
-describe('Coltrane Changes (original line)', () => {
-  const want = rgbSongMidis(COLTRANE_CHANGES);
-  test('16 bars of eighths in half time, chromatic from C, in the RGB song menu', () => {
-    expect(RGB_SONGS['coltrane-rgb']).toBe(COLTRANE_CHANGES);
-    expect(rgbSongSlots(COLTRANE_CHANGES)).toHaveLength(128);
-    const st = COLTRANE_CHANGES.settings;
-    expect([st.bpm, st.subdivision, st.scale, st.root]).toEqual([140, 16, 'chromatic', 0]);
-    roundTrip(COLTRANE_CHANGES);
+describe('Giant Steps (built-in slots)', () => {
+  test('in the RGB song menu, 128 steps at 145 BPM in 1/16, chromatic from C', () => {
+    expect(RGB_SONGS['giant-steps-rgb']).toBe(GIANT_STEPS);
+    expect(GIANT_STEPS.name).toBe('Giant Steps');
+    const slots = rgbSongSlots(GIANT_STEPS);
+    expect(slots).toHaveLength(128);
+    expect(slots[0]).toEqual({ hex: '#7e74c7', alpha: 100 });
+    const st = GIANT_STEPS.settings;
+    expect([st.bpm, st.subdivision, st.scale, st.root, st.gatePct, st.glideMs]).toEqual([145, 16, 'chromatic', 0, 90, 0]);
   });
-  test('the bass lands on each chord root as the chord arrives', () => {
-    // [step, pitch class]: a change every half tune bar (4 steps) or bar (8).
-    const roots: [number, number][] = [
-      [0, 11], [4, 2], [8, 7], [12, 10], [16, 3], [24, 9], [28, 2], [32, 7], [36, 10], [40, 3], [44, 6], [48, 11],
-      [56, 5], [60, 10], [64, 3], [72, 9], [76, 2], [80, 7], [88, 1], [92, 6], [96, 11], [104, 5], [108, 10], [112, 3],
-      [120, 1], [124, 6],
-    ];
-    for (const [i, pc] of roots) expect((want[i]?.r ?? -1) % 12).toBe(pc);
-  });
-  test('the harmony stays between the bass and the lead', () => {
-    for (const w of want) {
-      if (!w) continue;
-      const on = (ch: Channel) => w[ch];
-      if (on('g') !== null && on('b') !== null) expect(on('g')!).toBeLessThan(on('b')!);
-      if (on('r') !== null && on('g') !== null) expect(on('r')!).toBeLessThan(on('g')!);
-    }
+  test('its slots are copies, so editing a loaded row cannot change the song', () => {
+    const slots = rgbSongSlots(GIANT_STEPS);
+    slots[0]!.hex = '#000000';
+    expect(rgbSongSlots(GIANT_STEPS)[0]!.hex).toBe('#7e74c7');
   });
 });

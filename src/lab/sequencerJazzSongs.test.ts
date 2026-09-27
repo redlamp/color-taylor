@@ -35,7 +35,7 @@ for (const [key, song, want] of CASES) {
       expect(JAZZ_SONGS[key as keyof typeof JAZZ_SONGS]).toBe(song);
       const st = song.settings;
       expect([st.bpm, st.subdivision, st.scale, st.root]).toEqual([want.bpm, want.subdivision, 'chromatic', want.root]);
-      for (const ch of CHANNELS) expect(toks(song.parts[ch])).toHaveLength(want.steps);
+      for (const ch of CHANNELS) expect(toks(song.parts![ch])).toHaveLength(want.steps);
       expect(rgbSongSlots(song)).toHaveLength(want.steps);
     });
 
