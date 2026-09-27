@@ -13,7 +13,7 @@ largest cluster in the wiki.
 - [[research/colour-solid-visualisations]] — the three reference pictures for
   how the cube becomes a cylinder: the HSL/HSV cutaway cylinders, the
   cube→hexcone→cylinder derivation, and the 1987 Tektronix bicone. Where the
-  intro's cube sequence would come from. Try ideas in `lab/cube.html`
+  intro's cube sequence would come from. Try ideas in `labs/cube.html`
 - **Radius is chroma, not saturation.** At brightness `b` the reachable colours
   are the cube's cross-section, a hexagon of radius `b/100`, so the handle sits
   at `(s/100) × (b/100) × edge`. Not yet its own note; documented in the root
@@ -63,7 +63,7 @@ largest cluster in the wiki.
 - [[rgb-waves-are-max-and-min]] — the three channels across the hue circle are
   one wave, shaped by the colour's largest and smallest channel alone; HSB and
   HSL are two ways of naming those two rails. Playable, over Channel Surfer's
-  rainbow, in `lab/spectrum.html`
+  rainbow, in `labs/spectrum.html`
 - [[plan-teaching-rgb-to-hsb]] — the ladder and the deck's running order, which
   already ends on OkLab
 - [[presentation]] — the deck MOC

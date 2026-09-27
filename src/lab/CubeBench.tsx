@@ -393,7 +393,9 @@ export default function CubeBench() {
 
 /** The shared hook plus the hex the editor primitives want. */
 function useColorStateWithHex() {
-  const state = useColorState({ initial: { h: 300, s: 100, b: 100 } });
+  // Opens on White: the top of the cube, where the hexagon outline reads first.
+  // Hue 300 is kept, so raising saturation lands on the old Magenta start.
+  const state = useColorState({ initial: { h: 300, s: 0, b: 100 } });
   const hex = rgbToHex(state.rgb.r, state.rgb.g, state.rgb.b);
   return { ...state, hex };
 }

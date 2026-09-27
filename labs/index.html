@@ -4,8 +4,8 @@
     <!--
       A plain static page, not a Vite/React entry - it is only a list of
       links, so it needs no module script. It still gets built (readdirSync in
-      vite.config.js picks up any lab/*.html), which is what puts
-      dist/lab/index.html on GitHub Pages next to the other five.
+      vite.config.js picks up any labs/*.html), which is what puts
+      dist/labs/index.html on GitHub Pages next to the other five.
     -->
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -50,7 +50,7 @@
         list-style: none;
         margin: 0;
         padding: 0;
-        max-width: 24rem;
+        max-width: 36rem;
       }
       li + li {
         border-top: 1px solid var(--border);
@@ -61,19 +61,30 @@
         color: var(--foreground);
         text-decoration: none;
       }
-      a:hover {
+      a:hover .name {
+        text-decoration: underline;
+        text-underline-offset: 3px;
+      }
+      .name {
+        display: block;
+        font-weight: 600;
+      }
+      .desc {
+        display: block;
+        margin-top: 0.125rem;
         color: var(--muted);
       }
     </style>
   </head>
   <body>
     <h1>Labs</h1>
+    <!-- In the order the case study tells them. -->
     <ul>
-      <li><a href="./cie.html">CIE Lab</a></li>
-      <li><a href="./cube.html">3D Lab</a></li>
-      <li><a href="./oklch.html">Oklch Lab</a></li>
-      <li><a href="./sequencer.html">Sequencer Lab</a></li>
-      <li><a href="./spectrum.html">Spectrum Lab</a></li>
+      <li><a href="./spectrum.html"><span class="name">Spectrum Lab</span><span class="desc">Red, Green, and Blue as waves across the spectrum, and how Saturation and Brightness resize them.</span></a></li>
+      <li><a href="./cube.html"><span class="name">3D Cube Lab</span><span class="desc">The RGB cube in three dimensions, with HSB cone and HSL bicone views.</span></a></li>
+      <li><a href="./cie.html"><span class="name">CIE Lab</span><span class="desc">The Color Hexagon beside the CIE 1931 horseshoe of every color the eye can see.</span></a></li>
+      <li><a href="./oklch.html"><span class="name">OKLCH Lab</span><span class="desc">A perceptual color model, its gamut edges, and a safe zone that keeps chroma in range.</span></a></li>
+      <li><a href="./sequencer.html"><span class="name">Audio Synthesizer and Sequencer Lab</span><span class="desc">Saved swatches played as notes on a step sequencer.</span></a></li>
     </ul>
   </body>
 </html>

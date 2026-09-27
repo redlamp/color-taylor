@@ -30,6 +30,13 @@ test.describe('Settings sheet', () => {
     await expect(sheet(page)).toHaveAccessibleName(/menu/i);
   });
 
+  test('"View the Labs" links to the labs index in a new tab', async ({ page }) => {
+    await menuButton(page).click();
+    const labs = sheet(page).locator('#settings-labs');
+    await expect(labs).toHaveAttribute('href', /labs\/$/);
+    await expect(labs).toHaveAttribute('target', '_blank');
+  });
+
   test('Escape closes it', async ({ page }) => {
     await menuButton(page).click();
     await expect(sheet(page)).toBeVisible();
@@ -166,9 +173,10 @@ test.describe('Settings sheet', () => {
     await page.setViewportSize({ width: 1400, height: 1000 });
     await page.waitForTimeout(250);
     // Sized to its contents rather than to the window, and clear of the foot.
-    // Display holds a slider row as well as its switches now, so the sheet
-    // stands a little taller than the 60% it once fitted under.
-    expect(desktop.height).toBeLessThan(desktop.viewport * 0.7);
+    // Display holds a slider row as well as its switches now, and the Labs
+    // link sits under About, so the sheet stands taller than the 60% it once
+    // fitted under.
+    expect(desktop.height).toBeLessThan(desktop.viewport * 0.75);
     expect(desktop.bottom).toBeGreaterThan(16);
     expect(desktop.scrolls).toBe(false);
 
@@ -286,9 +294,9 @@ test.describe('Settings sheet', () => {
    *
    * Vertical only - a sidebar that can be put in the middle of the screen is a
    * floating window with extra steps, and that is what this panel was before
-   * decision-settings-sheet. What the sliding is for is height: the cap on the
-   * rail's height is measured from wherever it hangs, so moving it up is how a
-   * long list gets more room.
+   * decision-settings-sheet. It sets where the rail would like to hang; a long
+   * list pushes it up past that by itself, so a drag down stops where the foot
+   * meets the inset.
    *
    * The old drag's worst fault was that its position went stale on resize, so
    * that is asserted too.
@@ -322,9 +330,9 @@ test.describe('Settings sheet', () => {
     // that is still off the edge.
     await page.waitForTimeout(400);
     const opened = await at();
-    await slide(250);
+    await slide(60);
     const moved = await at();
-    expect(moved.top).toBe(opened.top + 250);
+    expect(moved.top).toBe(opened.top + 60);
     expect(moved.right).toBe(opened.right);
 
     // Where you put it is where it is next time.
@@ -333,8 +341,12 @@ test.describe('Settings sheet', () => {
     await page.waitForTimeout(300);
     expect((await at()).top).toBe(moved.top);
 
-    // Slid at the foot it shrinks rather than leaving; the reset stays reachable.
+    // Slid at the foot it stops with its foot on the 1rem inset rather than
+    // shrinking or leaving; the reset stays reachable.
     await slide(2000);
+    const footed = await page.evaluate(() =>
+      Math.round(window.innerHeight - document.querySelector('[role="dialog"]')!.getBoundingClientRect().bottom));
+    expect(footed).toBe(16);
     expect((await at()).resetOnScreen).toBe(true);
 
     // And a smaller window brings it back rather than leaving it out of reach.
