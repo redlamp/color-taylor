@@ -83,40 +83,55 @@ interface Settings {
   holdMarks: boolean;
   /** Saved arrangements - "Save as..." and the JSON import land here. */
   library: SavedArrangement[];
-  /** Which collapsible sections are open, by id. Absent is open. */
+  /** Which collapsible sections are open, by id. Absent takes the default: open, except CLOSED_BY_DEFAULT. */
   open: Record<string, boolean>;
+}
+
+/** A fresh visit opens on Giant Steps: its settings, its instruments and its one track. */
+const DEFAULT_SONG: RgbSongKey = 'giant-steps-rgb';
+
+/** A built-in RGB song's instruments, laid over `base`: its ranges, and its waves, levels and names where given. */
+function songInstruments(key: RgbSongKey, base: Record<Channel, InstrumentCfg>): Record<Channel, InstrumentCfg> {
+  const { ranges, waves, levels, names } = RGB_SONGS[key].settings;
+  const one = (ch: Channel): InstrumentCfg => ({
+    ...base[ch], ...ranges[ch],
+    wave: waves?.[ch] ?? base[ch].wave, level: levels?.[ch] ?? base[ch].level, name: names?.[ch] ?? base[ch].name,
+  });
+  return { r: one('r'), g: one('g'), b: one('b') };
 }
 
 const DEFAULTS: Settings = {
   version: 5,
-  bpm: 110,
-  subdivision: 8,
-  glideMs: 40,
-  gatePct: 70,
+  bpm: RGB_SONGS[DEFAULT_SONG].settings.bpm,
+  subdivision: RGB_SONGS[DEFAULT_SONG].settings.subdivision,
+  glideMs: RGB_SONGS[DEFAULT_SONG].settings.glideMs ?? 40,
+  gatePct: RGB_SONGS[DEFAULT_SONG].settings.gatePct ?? 70,
   loop: true,
   holdMarks: true,
-  mode: 'melody',
+  mode: 'rgb',
   melody: { scale: 'pentatonic', root: 0, baseOctave: 3, octaveRange: 2, wave: 'triangle' },
   chords: { root: 0, baseOctave: 3, wave: 'triangle' },
   rgb: {
-    scale: 'pentatonic',
-    root: 0,
+    scale: RGB_SONGS[DEFAULT_SONG].settings.scale,
+    root: RGB_SONGS[DEFAULT_SONG].settings.root,
     // Physics order: R bass, G middle, B lead.
-    instruments: {
+    instruments: songInstruments(DEFAULT_SONG, {
       r: { name: DEFAULT_NAMES.r, octave: 2, range: 1, wave: 'sine', level: 90, muted: false },
       g: { name: DEFAULT_NAMES.g, octave: 3, range: 2, wave: 'triangle', level: 70, muted: false },
       b: { name: DEFAULT_NAMES.b, octave: 4, range: 2, wave: 'sawtooth', level: 70, muted: false },
-    },
+    }),
   },
   tracks: [
-    { id: 'track-a', source: 'saved', enabled: true, octave: 0, muted: false, custom: [] },
-    { id: 'track-b', source: 'pulse', enabled: false, octave: -1, muted: false, custom: [] },
+    { id: 'track-a', source: DEFAULT_SONG, enabled: true, octave: 0, muted: false, custom: [] },
   ],
   dirty: false,
   snap: true,
   library: [],
   open: {},
 };
+
+/** Sections that start collapsed until the visitor opens them; every other section starts open. */
+const CLOSED_BY_DEFAULT = new Set(['lab-seq-mode']);
 
 /** The lab's own key. Nothing else here is ever written to storage. */
 const LAB_KEY = 'color-taylor-lab-sequencer';
@@ -585,12 +600,11 @@ export default function SequencerBench() {
     };
     if (key in RGB_SONGS) {
       const k = key as RgbSongKey;
-      const { bpm, subdivision, scale, root, ranges, gatePct, glideMs, waves } = RGB_SONGS[k].settings;
-      const inst = (s: Settings, ch: Channel): InstrumentCfg => ({ ...s.rgb.instruments[ch], ...ranges[ch], wave: waves?.[ch] ?? s.rgb.instruments[ch].wave });
+      const { bpm, subdivision, scale, root, gatePct, glideMs } = RGB_SONGS[k].settings;
       setSettings((s) => ({
         ...s, bpm, subdivision, mode: 'rgb',
         gatePct: gatePct ?? s.gatePct, glideMs: glideMs ?? s.glideMs,
-        rgb: { scale, root, instruments: { r: inst(s, 'r'), g: inst(s, 'g'), b: inst(s, 'b') } },
+        rgb: { scale, root, instruments: songInstruments(k, s.rgb.instruments) },
         tracks: fill(s.tracks, [{ source: k, octave: 0 }]),
       }));
       return;
@@ -701,7 +715,7 @@ export default function SequencerBench() {
   }, [playing, engine, steps]);
 
   const { mode } = settings;
-  const openOf = (id: string) => settings.open[id] !== false;
+  const openOf = (id: string) => settings.open[id] ?? !CLOSED_BY_DEFAULT.has(id);
   const setSectionOpen = useCallback((id: string, open: boolean) => {
     setSettings((s) => (s.open[id] === open ? s : { ...s, open: { ...s.open, [id]: open } }));
   }, []);

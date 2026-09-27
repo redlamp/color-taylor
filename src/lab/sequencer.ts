@@ -22,6 +22,7 @@ import { hexToRgb, hsbToRgb, rgbToHex, rgbToHsb } from '../utils/colorConversion
 import { midiToName } from '../utils/synthConfig';
 import type { Wave } from './sequencerEngine';
 import { JAZZ_SONGS } from './sequencerJazzSongs';
+import { GIANT_STEPS } from './sequencerGiantSteps';
 
 export type ScaleName = 'pentatonic' | 'major' | 'minor' | 'harmonicMinor' | 'phrygianDominant' | 'chromatic';
 /** 'chords' is Hue Chords (a circle-of-fifths triad); 'rgb' is RGB Instruments (a note per channel). */
@@ -611,6 +612,8 @@ export interface RgbSong {
     gatePct?: number;
     glideMs?: number;
     waves?: Partial<Record<Channel, Wave>>;
+    levels?: Partial<Record<Channel, number>>;
+    names?: Partial<Record<Channel, string>>;
   };
   /**
    * One token string per channel, aligned step for step: a note ("F#4"), "."
@@ -622,7 +625,9 @@ export interface RgbSong {
    * out always strikes, even the one the voice was already playing. A step
    * where every channel is "." is an empty slot.
    */
-  parts: Record<Channel, string>;
+  parts?: Record<Channel, string>;
+  /** The track as slots, for a song brought in from an export rather than written as tokens. Wins over `parts`. */
+  slots?: Slot[];
 }
 
 export function rgbSongConfig(song: RgbSong): MapConfig {
@@ -640,7 +645,9 @@ type ParsedRgbStep =
 
 /** The token columns, read step by step with each voice's sounding note tracked. Throws on a malformed step. */
 function parseRgbSong(song: RgbSong): ParsedRgbStep[] {
-  const cols = CHANNELS.map((ch) => tokens(song.parts[ch]));
+  const parts = song.parts;
+  if (!parts) throw new Error(`${song.name} has no token parts`);
+  const cols = CHANNELS.map((ch) => tokens(parts[ch]));
   if (cols.some((c) => c.length !== cols[0].length)) throw new Error('RGB song parts differ in length');
   let prev: Record<Channel, number | null> | null = null;
   return cols[0].map((_, i): ParsedRgbStep => {
@@ -679,6 +686,7 @@ function parseRgbSong(song: RgbSong): ParsedRgbStep[] {
  * the "~" channels, TIE_ALPHA for a tie, SILENCE_ALPHA for a silence.
  */
 export function rgbSongSlots(song: RgbSong): Slot[] {
+  if (song.slots) return song.slots.map((x) => (x ? { ...x } : null));
   const cfg = rgbSongConfig(song);
   const ranges = cfg.ranges ?? DEFAULT_RANGES;
   /** The colour before, which ties and held channels copy; null after an empty slot. */
@@ -827,121 +835,8 @@ export const SPY_STRINGS: RgbSong = {
   parts: { b: SPY_LEAD, g: SPY_HARMONY, r: SPY_BASS },
 };
 
-/**
- * One voice written as notes with lengths: "B2:2 D#3 .:3" is B2 for two steps
- * (the second a "~"), D#3 for one (the default), then three silent steps.
- */
-function voiceLine(line: string): string[] {
-  return tokens(line).flatMap((tok) => {
-    const [note, n = '1'] = tok.split(':');
-    const len = Number(n);
-    if (!Number.isInteger(len) || len < 1) throw new Error(`bad length in ${tok}`);
-    return [note, ...Array<string>(len - 1).fill(note === '.' ? '.' : '~')];
-  });
-}
-
-/**
- * Three voiceLines -> the song's token strings. A step where no voice strikes
- * or stops (every voice "~" or still silent) becomes an all-voice tie "-", so
- * the grid shows it as the tie it is rather than a hold that holds everything.
- */
-function mergeVoices(lines: Record<Channel, string>): Record<Channel, string> {
-  const cols = CHANNELS.map((ch) => voiceLine(lines[ch]));
-  if (cols.some((c) => c.length !== cols[0].length)) throw new Error('voices differ in length');
-  const still = (c: string[], i: number) => c[i] === '~' || (c[i] === '.' && i > 0 && c[i - 1] === '.');
-  cols[0].forEach((_, i) => {
-    if (cols.every((c) => still(c, i)) && cols.some((c) => c[i] === '~')) for (const c of cols) c[i] = '-';
-  });
-  return { r: cols[0].join(' '), g: cols[1].join(' '), b: cols[2].join(' ') };
-}
-
-/*
- * Coltrane Changes (original line) - the chord progression of John Coltrane's
- * "Giant Steps" (1960) with a melody written for this lab. The melody is
- * original; only the progression is borrowed (a chord sequence is not
- * protected, a tune is, and Coltrane's head is not transcribed or paraphrased
- * here). 16 bars cycling the key centres B, G and Eb a major third apart,
- * each reached through its own V7 or ii-V:
- *
- *    1 Bmaj7  D7      2 Gmaj7  Bb7     3 Ebmaj7         4 Am7   D7
- *    5 Gmaj7  Bb7     6 Ebmaj7 F#7     7 Bmaj7          8 Fm7   Bb7
- *    9 Ebmaj7         10 Am7   D7      11 Gmaj7         12 C#m7 F#7
- *   13 Bmaj7          14 Fm7   Bb7     15 Ebmaj7        16 C#m7 F#7
- *
- * Tempo: the tune is played around 280 to the quarter. In 1/8 steps that is
- * past the lab's 240 BPM, so it is written in half time instead - 1/16 steps
- * at 140, the same 0.107 s per eighth note - and one row of 16 is two bars of
- * the tune. No engine change; the step is no shorter than Spy Strings' 1/16s.
- *
- * Chromatic scale (the keys move by major thirds), root C, so a channel's
- * range is plain octaves: Bass C2..B3, Harmony C3..B4, Lead C4..B5.
- *
- *   Bass (R): walking quarters, the root on every chord change, then a chord
- *   tone or a chromatic step into the next root.
- *   Harmony (G): one guide tone per chord, the 3rd or the 7th, chosen so the
- *   line moves by half steps - and where two chords share a guide tone (Am7's
- *   G is Ebmaj7's 3rd, Fm7's Ab is Bb7's 7th) it is held across the change.
- *   Lead (B): the original line, eighth notes arpeggiating each chord up from
- *   a guide tone and stepping down through it, with chromatic approach notes
- *   into the next chord and a breath at the ends of bars 3 and 15.
- *
- * The notes, a tune bar per line (eighths; ":n" is n eighths):
- *
- *   bar  bass           harmony      lead
- *    1   B2 D#3 D3 A2   A#3 C4       F#4 A#4 D#5 C#5 C5 A4 F#4 A4
- *    2   G2 B2 A#2 D3   B3 G#3       B4 D5 G5 F#5 D5 F5 A#4 G#4
- *    3   D#3 A#2 G2 G#2 G3           A#4 G4 D5 D#5 G5 F5 D5 rest
- *    4   A2 C3 D3 A2    (G3) F#3     A4 C5 E5 G5 D5 C5 A4 C5
- *    5   G2 B2 A#2 D3   (F#3) G#3    B4 D5 A5 F#5 D5 F5 G#4 A#4
- *    6   D#3 A#2 F#2 C#3 G3 A#3      G4 A#4 D5 G5 E5 C#5 A#4 F#4
- *    7   B2 A#2 G#2 F#2 (A#3)        D#4 F#4 A#4 C#5 D#5:2 B4 A#4
- *    8   F2 G#2 A#2 D3  G#3          C5 G#4 C5 D#5 D5 F5 D5 C5
- *    9   D#3 D3 C3 A#2  G3           D5 A#4 G4 D5 D#5 G5 D5 F5
- *   10   A2 C3 D3 F#2   (G3) F#3     C5 A4 E4 G4 C5 A4 D5 C5
- *   11   G2 A2 B2 D3    B3           D5 B4 G4 A4 C5 D5 F#5 A5
- *   12   C#3 G#2 F#2 A#2 (B3) A#3    E5 C#5 B4 G#4 C#5 A#4 C#5 E5
- *   13   B2 D#3 C#3 F#2 (A#3)        D#5 C#5 B4 A#4 F#4 G#4 A#4 B4
- *   14   F2 G#2 A#2 D3  G#3          C5 D#5 G#5 F5 D5 A#4 G#4 F4
- *   15   D#3 A#2 G2 D3  G3           G4 A#4 D5 F5 G5:3 rest
- *   16   C#3 G#2 F#2 A#2 B3 A#3      B4 G#4 E4 C#4 E4 F#4 E4 G#4
- *
- * (A bracketed guide tone is held over from the chord before.)
- */
-const walk = (...b: string[]) => b.map((bar) => tokens(bar).map((n) => `${n}:2`).join(' ')).join('   ');
-const COLTRANE = mergeVoices({
-  r: walk(
-    'B2 D#3 D3 A2', 'G2 B2 A#2 D3', 'D#3 A#2 G2 G#2', 'A2 C3 D3 A2',
-    'G2 B2 A#2 D3', 'D#3 A#2 F#2 C#3', 'B2 A#2 G#2 F#2', 'F2 G#2 A#2 D3',
-    'D#3 D3 C3 A#2', 'A2 C3 D3 F#2', 'G2 A2 B2 D3', 'C#3 G#2 F#2 A#2',
-    'B2 D#3 C#3 F#2', 'F2 G#2 A#2 D3', 'D#3 A#2 G2 D3', 'C#3 G#2 F#2 A#2',
-  ),
-  // Lengths in eighths, a tune bar = 8.
-  g: 'A#3:4 C4:4 B3:4 G#3:4 G3:12 F#3:8 G#3:4 G3:4 A#3:12 G#3:8 G3:12 F#3:4 B3:12 A#3:12 G#3:8 G3:8 B3:4 A#3:4',
-  b: bars(
-    'F#4 A#4 D#5 C#5 C5 A4 F#4 A4', 'B4 D5 G5 F#5 D5 F5 A#4 G#4',
-    'A#4 G4 D5 D#5 G5 F5 D5 .', 'A4 C5 E5 G5 D5 C5 A4 C5',
-    'B4 D5 A5 F#5 D5 F5 G#4 A#4', 'G4 A#4 D5 G5 E5 C#5 A#4 F#4',
-    'D#4 F#4 A#4 C#5 D#5:2 B4 A#4', 'C5 G#4 C5 D#5 D5 F5 D5 C5',
-    'D5 A#4 G4 D5 D#5 G5 D5 F5', 'C5 A4 E4 G4 C5 A4 D5 C5',
-    'D5 B4 G4 A4 C5 D5 F#5 A5', 'E5 C#5 B4 G#4 C#5 A#4 C#5 E5',
-    'D#5 C#5 B4 A#4 F#4 G#4 A#4 B4', 'C5 D#5 G#5 F5 D5 A#4 G#4 F4',
-    'G4 A#4 D5 F5 G5:3 .', 'B4 G#4 E4 C#4 E4 F#4 E4 G#4',
-  ),
-});
-
-export const COLTRANE_CHANGES: RgbSong = {
-  name: 'Coltrane Changes (original line)',
-  settings: {
-    bpm: 140, subdivision: 16, scale: 'chromatic', root: 0, octaveRange: 2,
-    ranges: { r: { octave: 2, range: 2 }, g: { octave: 3, range: 2 }, b: { octave: 4, range: 2 } },
-    gatePct: 85, glideMs: 0,
-    waves: { r: 'triangle', g: 'sine', b: 'square' },
-  },
-  parts: COLTRANE,
-};
-
 /** The RGB Instruments songs, by the source key a track names them with. */
-export const RGB_SONGS = { 'ode-rgb': ODE_RGB, 'spy-rgb': SPY_STRINGS, 'coltrane-rgb': COLTRANE_CHANGES, ...JAZZ_SONGS } satisfies Record<string, RgbSong>;
+export const RGB_SONGS = { 'giant-steps-rgb': GIANT_STEPS, 'ode-rgb': ODE_RGB, 'spy-rgb': SPY_STRINGS, ...JAZZ_SONGS } satisfies Record<string, RgbSong>;
 
 // --- note pickers: notes -> colour, per mode --------------------------------
 

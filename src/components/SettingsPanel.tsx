@@ -32,7 +32,8 @@
  * that is the thing the survey below was about.
  */
 import { useCallback, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
-import { Info, RotateCcw, X } from 'lucide-react';
+import { flushSync } from 'react-dom';
+import { ExternalLink, FlaskConical, Info, RotateCcw, X } from 'lucide-react';
 import { Dialog as DialogPrimitive } from '@base-ui/react/dialog';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
@@ -80,6 +81,43 @@ export function SettingsPanel({
    */
   const [top, setTop] = useState<number | null>(null);
   /*
+   * How tall the rail would be with no cap, and what that does to `top`.
+   *
+   * `top` above is where the rail would *like* to hang. It grows down from
+   * there as sections open until its foot reaches the 1rem inset, then it
+   * grows up, and only once it spans inset to inset does the list scroll.
+   * The top inset is 1rem as well, not the clamp's 8px, so a full-height rail
+   * stands off both ends by the same amount.
+   *
+   * The height is measured from the list's content rather than the panel:
+   * the panel's own height is what this sets, so observing it would chase its
+   * own tail. The accordion animates, so the observer fires through the
+   * animation and the rail follows it frame by frame.
+   */
+  const [natural, setNatural] = useState(0);
+  // The window's height as state, set by the resize listener below, so a
+  // resize recomputes this even when the clamp leaves `top` where it was.
+  const [viewport, setViewport] = useState(() => window.innerHeight);
+  const listRef = useRef<HTMLDivElement>(null);
+  const [content, setContent] = useState<HTMLDivElement | null>(null);
+  useLayoutEffect(() => {
+    const list = listRef.current;
+    const panel = list?.parentElement;
+    if (!content || !list || !panel) return;
+    const measure = () => {
+      // Header, footer and borders, plus the whole list rather than the part
+      // of it that fits. `flushSync` so the rail moves in the frame the
+      // accordion did, not the one after.
+      const next = panel.offsetHeight - list.clientHeight + list.scrollHeight;
+      flushSync(() => setNatural(next));
+    };
+    const ro = new ResizeObserver(measure);
+    ro.observe(content);
+    return () => ro.disconnect();
+  }, [content]);
+  const INSET = 16;
+  const hang = top === null ? null : Math.max(INSET, Math.min(top, viewport - INSET - natural));
+  /*
    * Whether the user has put the rail somewhere. Once they have, the
    * measurement stops overruling them - but a resize still clamps, because a
    * position that was on screen at one size is not necessarily on screen at
@@ -89,9 +127,9 @@ export function SettingsPanel({
   const moved = useRef(false);
   /*
    * Never above the viewport, and never so far down that what is left is not a
-   * panel. The cap on its height is measured from wherever it hangs, so sliding
-   * it towards the foot shrinks it - 160px leaves the header, the reset and a
-   * scrap of list between them, which is the least that still reads as the
+   * panel. The drag already stops where the rail's foot meets the inset, so
+   * this is the backstop for a resize: 160px leaves the header, the reset and
+   * a scrap of list between them, which is the least that still reads as the
    * thing you were using.
    */
   const clamp = useCallback((next: number) =>
@@ -100,6 +138,7 @@ export function SettingsPanel({
   useLayoutEffect(() => {
     if (!open) return;
     const place = () => {
+      setViewport(window.innerHeight);
       const card = document.querySelector('#color-hexagon')?.getBoundingClientRect().top;
       setTop((prev) => clamp(moved.current && prev !== null
         ? prev
@@ -114,9 +153,8 @@ export function SettingsPanel({
    * The header is the handle, and it slides the rail up and down its own edge.
    *
    * Vertical only: it is a sidebar, and one that can be put in the middle of
-   * the screen is a floating window with extra steps. What the sliding is for
-   * is height - the cap is measured from wherever the rail hangs, so moving it
-   * up is how you give a long list more room.
+   * the screen is a floating window with extra steps. It sets where the rail
+   * would like to hang; a long list still pushes it up past that on its own.
    *
    * Only above `sm`: below it the rail is welded to all four edges and there is
    * nowhere to slide to. Pointer capture rather than window listeners, so the
@@ -140,7 +178,10 @@ export function SettingsPanel({
   const onHandleMove = (e: ReactPointerEvent<HTMLDivElement>) => {
     const from = grab.current;
     if (!from) return;
-    setTop(clamp(from.top + (e.clientY - from.y)));
+    // No further down than the foot reaching the inset: past that the rail
+    // does not move, and a preferred top below where it stopped would be dead
+    // travel on the way back up.
+    setTop(clamp(Math.min(from.top + (e.clientY - from.y), viewport - INSET - natural)));
   };
   const endDrag = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (!grab.current) return;
@@ -200,12 +241,17 @@ export function SettingsPanel({
            * It is measured from the top the rail is actually hanging from,
            * which is not a constant - see the layout effect above.
            *
+           * `transition-none` because `duration-200` alone left every property
+           * transitioning, `top` included, and a top that eases for 200ms lags
+           * the accordion it is meant to follow. Open and close are animations,
+           * not transitions, so they keep the duration.
+           *
            * Below `sm` it stays welded: there is no room to give away on a
            * phone, and an inset rail there is a rail with less rail in it.
            */
           className={
             'fixed top-0 right-0 bottom-0 z-50 flex w-(--menu-rail) flex-col ' +
-            'border-l border-border bg-background shadow-xl outline-none duration-200 ' +
+            'border-l border-border bg-background shadow-xl outline-none duration-200 transition-none ' +
             'sm:top-(--menu-top) sm:right-4 sm:bottom-auto ' +
             'sm:max-h-[calc(100dvh-var(--menu-top)-1rem)] ' +
             'sm:rounded-xl sm:border ' +
@@ -215,12 +261,7 @@ export function SettingsPanel({
           // 16px is the frame before the measurement, and the layout effect
           // beats the paint - so in practice it is the fallback for a host with
           // no hexagon on the page.
-          style={{
-            '--menu-top': `${top ?? 16}px`,
-            // Nothing should animate under the pointer while it is being
-            // dragged; the open/close transition is the only one wanted here.
-            ...(dragging ? { transitionDuration: '0ms' } : {}),
-          } as CSSProperties}
+          style={{ '--menu-top': `${hang ?? 16}px` } as CSSProperties}
         >
           {/* The header doubles as the handle. `touch-none` so a drag on a
               touchscreen moves the rail instead of scrolling the page behind
@@ -253,73 +294,92 @@ export function SettingsPanel({
               divider now sits directly under the last switch, and a reset button
               is not something to put within a thumb's width of the thing above
               it. */}
-          <div className="min-h-0 flex-1 sm:flex-initial overflow-y-auto px-3 pb-6">
-            {/* First in the sheet, not last. It is the way in to what the tool
-                is, so it belongs where someone opening the menu looks first -
-                the reset at the foot is the way out. */}
-            <Button
-              id="settings-about"
-              variant="secondary"
-              onClick={onAbout}
-              className="mt-2 mb-3 w-full text-base"
-            >
-              <Info className="size-4" />
-              About Color Taylor
-            </Button>
+          <div ref={listRef} className="min-h-0 flex-1 sm:flex-initial overflow-y-auto px-3 pb-6">
+            {/* The measured box: its size is the list's own, whatever the cap
+                on the panel is doing, which is what keeps the observer above
+                from measuring something it sets. */}
+            <div ref={setContent}>
+              {/* First in the sheet, not last. It is the way in to what the tool
+                  is, so it belongs where someone opening the menu looks first -
+                  the reset at the foot is the way out. */}
+              <Button
+                id="settings-about"
+                variant="secondary"
+                onClick={onAbout}
+                className="mt-2 mb-2 w-full text-base"
+              >
+                <Info className="size-4" />
+                About Color Taylor
+              </Button>
+              {/* An anchor rendered as the button, so it is a real link: new tab
+                  from the context menu, the URL in the status bar. BASE_URL
+                  resolves on every channel because the app is the site root. */}
+              <Button
+                id="settings-labs"
+                variant="secondary"
+                nativeButton={false}
+                render={<a href={`${import.meta.env.BASE_URL}labs/`} target="_blank" rel="noopener" />}
+                className="mb-3 w-full text-base"
+              >
+                <FlaskConical className="size-4" />
+                View the Labs
+                <ExternalLink className="size-3.5 text-muted-foreground" />
+              </Button>
 
-            {/* Audio starts closed. Display is four switches and always worth
-                seeing; Audio is a switch that, once on, unfolds into the synth
-                controls - which is most of the rail's height and none of what
-                somebody opening the menu is usually after. */}
-            <Accordion multiple defaultValue={['display']}>
-              <AccordionItem value="display">
-                <AccordionTrigger>Display</AccordionTrigger>
-                <AccordionContent keepMounted>
-                  <DisplaySettings
-                    colorFx={colorFx}
-                    highlights={highlights}
-                    onToggleHighlights={onToggleHighlights}
-                    onToggleColorFx={onToggleColorFx}
-                  />
-                </AccordionContent>
-              </AccordionItem>
-              {/* Audio is its own section, always present, and the switch that
-                  brings the feature into existence is the first row in it -
-                  which is where anyone looking for it would look. It used to
-                  live under Display, because the section itself only appeared
-                  once the feature was on and the switch needed somewhere to be;
-                  a heading that is missing until you find its switch somewhere
-                  else is a worse trade than an almost-empty section.
-
-                  The controls below it stay conditional: AudioSettings previews
-                  the synth as you adjust it, so mounting it while the feature is
-                  off would pull the engine in behind the user's back. */}
-              <AccordionItem value="audio">
-                <AccordionTrigger>Audio</AccordionTrigger>
-                <AccordionContent keepMounted>
-                  <div className="flex flex-col gap-3 px-1">
-                    <SwitchRow
-                      // Not "Audio": it sits under a heading that already says
-                      // that, and the row is the switch that turns the feature
-                      // on rather than a setting within it.
-                      label="Enable audio"
-                      checked={audioEnabled}
-                      onToggle={() => setAudioEnabled(!audioEnabled)}
-                      ariaLabel="Toggle audio features"
+              {/* Audio starts closed. Display is four switches and always worth
+                  seeing; Audio is a switch that, once on, unfolds into the synth
+                  controls - which is most of the rail's height and none of what
+                  somebody opening the menu is usually after. */}
+              <Accordion multiple defaultValue={['display']}>
+                <AccordionItem value="display">
+                  <AccordionTrigger>Display</AccordionTrigger>
+                  <AccordionContent keepMounted>
+                    <DisplaySettings
+                      colorFx={colorFx}
+                      highlights={highlights}
+                      onToggleHighlights={onToggleHighlights}
+                      onToggleColorFx={onToggleColorFx}
                     />
-                  </div>
-                  {audioEnabled && <AudioSettings muted={muted} onToggleMute={onToggleMute} />}
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
+                  </AccordionContent>
+                </AccordionItem>
+                {/* Audio is its own section, always present, and the switch that
+                    brings the feature into existence is the first row in it -
+                    which is where anyone looking for it would look. It used to
+                    live under Display, because the section itself only appeared
+                    once the feature was on and the switch needed somewhere to be;
+                    a heading that is missing until you find its switch somewhere
+                    else is a worse trade than an almost-empty section.
 
-            {/* Below the settings, not among them: it is news, not a control,
-                and it hides itself from `sm` up where the banner takes over. */}
-            <IntegrationNews />
+                    The controls below it stay conditional: AudioSettings previews
+                    the synth as you adjust it, so mounting it while the feature is
+                    off would pull the engine in behind the user's back. */}
+                <AccordionItem value="audio">
+                  <AccordionTrigger>Audio</AccordionTrigger>
+                  <AccordionContent keepMounted>
+                    <div className="flex flex-col gap-3 px-1">
+                      <SwitchRow
+                        // Not "Audio": it sits under a heading that already says
+                        // that, and the row is the switch that turns the feature
+                        // on rather than a setting within it.
+                        label="Enable audio"
+                        checked={audioEnabled}
+                        onToggle={() => setAudioEnabled(!audioEnabled)}
+                        ariaLabel="Toggle audio features"
+                      />
+                    </div>
+                    {audioEnabled && <AudioSettings muted={muted} onToggleMute={onToggleMute} />}
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+
+              {/* Below the settings, not among them: it is news, not a control,
+                  and it hides itself from `sm` up where the banner takes over. */}
+              <IntegrationNews />
+            </div>
           </div>
 
-          {/* `shrink-0` on both ends: the cap on the panel's height shrinks as
-              it is dragged down the screen, and the body is what should give. */}
+          {/* `shrink-0` on both ends: once the rail spans the window the cap on
+              its height is what holds it, and the body is what should give. */}
           <div className="shrink-0 border-t border-border px-3 py-2">
             <Button variant="secondary" size="sm" onClick={resetAll} className="w-full text-base">
               <RotateCcw className="size-4" />
