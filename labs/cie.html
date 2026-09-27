@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <!--
+      A Vite entry, not a standalone page - the module script below needs a dev
+      server or a bundled build, and a browser refuses to load an ES module over
+      file://. Opening this file straight from disk fails with a CORS error.
+
+      Run it: `bun dev`, then visit http://localhost:5173/labs/cie.html - Vite
+      serves any .html file under the project root, this one included.
+
+      Share it as one file: `node scripts/build-cube-bench.mjs cie` bundles this
+      page into a single self-contained dist-lab/cie-bench.html, safe to open
+      from disk or drop into an artifact.
+    -->
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CIE Lab</title>
+    <!-- Same theme bootstrap as index.html, so the first paint is already the right theme. -->
+    <script>
+      (function () {
+        try {
+          var saved = localStorage.getItem('color-taylor-theme');
+          var dark = saved !== null ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+          if (dark) document.documentElement.classList.add('dark');
+        } catch (e) {}
+      })();
+    </script>
+    <script type="module" crossorigin src="/color-taylor/assets/labs/cie-50-8S7fq.js"></script>
+    <link rel="modulepreload" crossorigin href="/color-taylor/assets/rolldown-runtime-a--1EFpP.js">
+    <link rel="modulepreload" crossorigin href="/color-taylor/assets/src-pTJS9n34.js">
+    <link rel="modulepreload" crossorigin href="/color-taylor/assets/baseui-DqRyUJrw.js">
+    <link rel="modulepreload" crossorigin href="/color-taylor/assets/icons-0KvjrAXA.js">
+    <link rel="modulepreload" crossorigin href="/color-taylor/assets/react-Pd0kLObF.js">
+    <link rel="modulepreload" crossorigin href="/color-taylor/assets/vendor-hW2PRbtd.js">
+    <link rel="modulepreload" crossorigin href="/color-taylor/assets/sonner-DlL_4wLb.js">
+    <link rel="modulepreload" crossorigin href="/color-taylor/assets/button-DmYtnEKm.js">
+    <link rel="modulepreload" crossorigin href="/color-taylor/assets/colorConversions-TltCQAHP.js">
+    <link rel="modulepreload" crossorigin href="/color-taylor/assets/PreviewSwatch-G7vOSvBr.js">
+    <link rel="modulepreload" crossorigin href="/color-taylor/assets/preload-helper-CzV_bu_h.js">
+    <link rel="modulepreload" crossorigin href="/color-taylor/assets/hexConstants-DceZEO_V.js">
+    <link rel="modulepreload" crossorigin href="/color-taylor/assets/frameState-CpQWLTyV.js">
+    <link rel="modulepreload" crossorigin href="/color-taylor/assets/colorTween-Iapw3rTT.js">
+    <link rel="modulepreload" crossorigin href="/color-taylor/assets/ColorHexagon-BH_MfKOT.js">
+    <link rel="modulepreload" crossorigin href="/color-taylor/assets/checkbox-CFDrblDD.js">
+    <link rel="modulepreload" crossorigin href="/color-taylor/assets/slider-D3HCKnXr.js">
+    <link rel="modulepreload" crossorigin href="/color-taylor/assets/sonner-CmAnlkWj.js">
+    <link rel="modulepreload" crossorigin href="/color-taylor/assets/useColorState-_V0mTaW1.js">
+    <link rel="modulepreload" crossorigin href="/color-taylor/assets/HelpTip-CPR05che.js">
+    <link rel="modulepreload" crossorigin href="/color-taylor/assets/cubeRenderer-BlA2Rhyf.js">
+    <link rel="stylesheet" crossorigin href="/color-taylor/assets/src-B0iDarmX.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
