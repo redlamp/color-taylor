@@ -7,7 +7,7 @@ import { useSettings } from '@/hooks/useSettings';
  *
  * The switch lives inside the settings object rather than in its own
  * localStorage key, so "Reset all settings" clears it without a new owner
- * (see the key table in CLAUDE.md). The query string is the no-state route:
+ * (see the key table in AGENTS.md). The query string is the no-state route:
  * it survives the hash router and works on the deployed site.
  *
  * It must not be the thing it measures. Frame timing is kept in a ring buffer

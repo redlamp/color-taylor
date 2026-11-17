@@ -16,7 +16,7 @@ export interface AppSettings {
   /**
    * The frame-rate meter, top-left. A field here rather than its own
    * localStorage key so "Reset all settings" clears it for free - see the
-   * table in CLAUDE.md for why every new key otherwise needs an owner. `?fps`
+   * table in AGENTS.md for why every new key otherwise needs an owner. `?fps`
    * in the URL turns it on too, without touching this.
    */
   fpsMeter: boolean;

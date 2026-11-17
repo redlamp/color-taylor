@@ -10,7 +10,7 @@
  *
  * So: add `?perf` to any lab URL and every frame that did work prints one
  * line naming the work. The same switch style as `?fps`, which turns on the
- * frame-rate meter - see the root CLAUDE.md - and off by default, so the page
+ * frame-rate meter - see the root AGENTS.md - and off by default, so the page
  * is quiet unless someone is asking.
  *
  *     [perf] 18.4ms frame · solid 12.1 (1) · morph mesh 4.6 (1) · morph draw 0.9 (1)

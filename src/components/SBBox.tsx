@@ -13,7 +13,7 @@ interface SBBoxProps {
 
 /**
  * Axis-title treatment, copied from HexBar.tsx's TITLE_CLASS rather than
- * imported: hex/* is off limits here (see CLAUDE.md), and HexBar does not
+ * imported: hex/* is off limits here (see AGENTS.md), and HexBar does not
  * export it. text-sm, not this project's default text-base, because it is
  * matching that existing furniture size exactly, per instruction - not a new
  * size choice.
