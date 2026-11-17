@@ -1,7 +1,7 @@
 # Presentation
 
 The intro deck: the argument it makes, how it is delivered, and where it is going.
-Code conventions for the section live in `src/presentation/CLAUDE.md`.
+Code conventions for the section live in `src/presentation/AGENTS.md`.
 
 ## Where it lives
 

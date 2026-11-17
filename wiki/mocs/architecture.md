@@ -1,6 +1,6 @@
 # Architecture
 
-How Color Taylor is put together. For build commands and code conventions see the root `CLAUDE.md`.
+How Color Taylor is put together. For build commands and code conventions see the root `AGENTS.md`.
 
 ## Three surfaces, one picker
 

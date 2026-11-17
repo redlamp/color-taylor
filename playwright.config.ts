@@ -4,7 +4,7 @@ import { defineConfig, devices } from '@playwright/test';
  * Where the suite points, and whether it starts a server of its own.
  *
  * By default: localhost:5173, reusing a `bun dev` that is already up. That
- * reuse is the documented trap in the root CLAUDE.md - the suite runs against
+ * reuse is the documented trap in the root AGENTS.md - the suite runs against
  * whatever is already listening - and it has a sharper edge than a stray .env:
  * a dev server that has lost track of the file watcher keeps serving a stale
  * bundle, and the suite then passes against an app that no longer exists. Set

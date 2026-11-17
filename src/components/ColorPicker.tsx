@@ -246,7 +246,7 @@ type PlayRun = { section: PlaySection; colors: RGB[]; start: number };
  * #4F95FF, the blue of the logo and the Community thumbnail, so a first visit
  * opens on the colour the branding leads with.
  *
- * Held as HSB because HSB is canonical here (see the root CLAUDE.md); it
+ * Held as HSB because HSB is canonical here (see the root AGENTS.md); it
  * converts back to exactly rgb(79, 149, 255), so nothing is lost round-tripping
  * it. Named rather than inlined because "Default Settings" returns here too,
  * and two copies of the starting colour would be one too many.

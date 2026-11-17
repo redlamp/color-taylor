@@ -133,7 +133,7 @@ describe('why rgbOverride exists', () => {
   /*
    * Stored HSB is whole numbers, so most 8-bit colours do not survive a trip
    * through it. This is the measured fact behind the "HSB is canonical, RGB has
-   * an override ref" pattern in CLAUDE.md and decision-hsb-canonical-rgb-override:
+   * an override ref" pattern in AGENTS.md and decision-hsb-canonical-rgb-override:
    * if this ever passes with a small fraction, the pattern has lost its reason.
    */
   test('a majority of 8-bit colours change on an HSB round trip', () => {

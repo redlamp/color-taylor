@@ -87,7 +87,7 @@ Two top-level views, routed by URL hash:
 
 The narrated walkthrough is not a route: it runs on top of the picker at `#/`.
 
-The deeper notes live in [`CLAUDE.md`](./CLAUDE.md): the color math conventions, the HSB-canonical state with its RGB override ref, the hand-rolled rAF tweens, and how undo/redo works. Decisions and their reasoning are in [`wiki/`](./wiki), an Obsidian vault, starting at [`wiki/index.md`](./wiki/index.md).
+The deeper notes live in [`AGENTS.md`](./AGENTS.md): the color math conventions, the HSB-canonical state with its RGB override ref, the hand-rolled rAF tweens, and how undo/redo works. Decisions and their reasoning are in [`wiki/`](./wiki), an Obsidian vault, starting at [`wiki/index.md`](./wiki/index.md).
 
 ## License
 

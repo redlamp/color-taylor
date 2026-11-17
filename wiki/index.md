@@ -1,6 +1,6 @@
 # Color Taylor Wiki
 
-Top-level Map of Content. See `CLAUDE.md` in this folder for conventions.
+Top-level Map of Content. See `AGENTS.md` in this folder for conventions.
 
 **Color Taylor** — a color picker built around a hexagon that shows the RGB/HSB/HSL relationship, with a presentation mode on the history of Mac color palettes, and a Figma plugin that runs the same picker inside Figma.
 
@@ -72,5 +72,5 @@ Top-level Map of Content. See `CLAUDE.md` in this folder for conventions.
 ## Elsewhere
 
 - Backlog: [GitHub Issues](https://github.com/redlamp/color-taylor/issues)
-- Build and code conventions: `CLAUDE.md` at the repo root
+- Build and code conventions: `AGENTS.md` at the repo root
 - Plugin build/load instructions: `figma/README.md`

@@ -226,7 +226,7 @@ test.describe('Settings sheet', () => {
    * accident, not the ways out.
    *
    * It is a field inside the settings object rather than its own key, so the
-   * existing reset owns it; see the table in CLAUDE.md.
+   * existing reset owns it; see the table in AGENTS.md.
    */
   test('"Keep Menu Open" drops the scrim and survives a click on the app', async ({ page }) => {
     const scrim = page.locator('[data-testid="app-scrim"], .fixed.inset-0.isolate');

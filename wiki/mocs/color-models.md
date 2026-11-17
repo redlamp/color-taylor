@@ -17,7 +17,7 @@ largest cluster in the wiki.
 - **Radius is chroma, not saturation.** At brightness `b` the reachable colours
   are the cube's cross-section, a hexagon of radius `b/100`, so the handle sits
   at `(s/100) × (b/100) × edge`. Not yet its own note; documented in the root
-  `CLAUDE.md` and in `hexConstants.ts`
+  `AGENTS.md` and in `hexConstants.ts`
 
 ## Where the models give out
 

@@ -58,7 +58,7 @@ Deliberately thin, so that app changes flow through untouched:
 
 - **Color state** in the shape `ColorHexagon` expects as a controlled
   component, mirroring ColorPicker's "HSB is canonical, RGB has an override ref"
-  pattern (see the root CLAUDE.md). Get this wrong and low-saturation values
+  pattern (see the root AGENTS.md). Get this wrong and low-saturation values
   drift as you drag.
 - **`onAnimateToHsb`**, a small rAF tween with a quadratic ease and
   shortest-path hue. Not optional decoration: `animateBLToValue` and
